@@ -8,6 +8,7 @@ import { AuthModule } from './modules/auth/auth.module';
 import { HealthModule } from './modules/health/health.module';
 import { SupabaseModule } from './modules/supabase/supabase.module';
 import { TenantModule } from './modules/tenant/tenant.module';
+import { UsersModule } from './modules/users/users.module';
 
 @Module({
     imports: [
@@ -46,6 +47,7 @@ import { TenantModule } from './modules/tenant/tenant.module';
         HealthModule,
         AuthModule,
         TenantModule,
+        UsersModule,
     ],
 })
 export class AppModule implements NestModule {

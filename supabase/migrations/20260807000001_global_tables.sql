@@ -267,3 +267,21 @@ $$;
 
 REVOKE ALL ON FUNCTION public.drop_tenant_schema(TEXT) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.drop_tenant_schema(TEXT) TO service_role;
+
+-- =============================================================================
+-- exec_sql(sql_string TEXT)  — Dynamic SQL execution for cross-tenant migrations
+-- =============================================================================
+-- Allows the Node.js migrations script to apply DDL across all tenants.
+
+CREATE OR REPLACE FUNCTION public.exec_sql(sql TEXT)
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+BEGIN
+    EXECUTE sql;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.exec_sql(TEXT) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.exec_sql(TEXT) TO service_role;

@@ -1,11 +1,11 @@
 import { Controller, Post, Body, HttpCode, HttpStatus, Version } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiOkResponse } from '@nestjs/swagger';
-import { IsEmail, IsString, MinLength } from 'class-validator';
+import { IsEmail, IsString, MinLength, IsNotEmpty } from 'class-validator';
 
 import { AuthService } from './auth.service';
 
 export class LoginDto {
-    /** School admin / staff email address */
+    /** School Admin / Staff email address */
     @IsEmail()
     email!: string;
 
@@ -13,6 +13,11 @@ export class LoginDto {
     @IsString()
     @MinLength(8)
     password!: string;
+
+    /** Target tenant to log into */
+    @IsString()
+    @IsNotEmpty()
+    tenantId!: string;
 }
 
 @ApiTags('auth')
@@ -30,6 +35,6 @@ export class AuthController {
     @ApiOperation({ summary: 'Login and receive JWT tokens' })
     @ApiOkResponse({ description: 'Access and refresh token pair' })
     login(@Body() dto: LoginDto) {
-        return this.authService.login(dto.email, dto.password);
+        return this.authService.login(dto.email, dto.password, dto.tenantId);
     }
 }

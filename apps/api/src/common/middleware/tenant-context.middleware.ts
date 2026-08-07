@@ -61,16 +61,16 @@ export class TenantContextMiddleware implements NestMiddleware {
             return next();
         }
 
-        const slug = (req.headers['x-tenant-slug'] as string | undefined)?.trim();
+        const tenantId = (req.headers['x-tenant-id'] as string | undefined)?.trim();
 
-        if (!slug) {
+        if (!tenantId) {
             throw new BadRequestException(
-                'Missing required header: x-tenant-slug',
+                'Missing required header: x-tenant-id',
             );
         }
 
         // Check in-memory LRU cache first
-        const cached = cache.get(slug);
+        const cached = cache.get(tenantId);
         if (cached && cached.expiresAt > Date.now()) {
             req.tenantContext = cached.ctx;
             return next();
@@ -80,21 +80,21 @@ export class TenantContextMiddleware implements NestMiddleware {
         const { data, error } = await this.supabase
             .from('tenants')
             .select('id, slug, plan, status')
-            .eq('slug', slug)
+            .eq('id', tenantId)
             .maybeSingle();
 
         if (error) {
-            this.logger.error(`Tenant lookup error for slug "${slug}": ${error.message}`);
+            this.logger.error(`Tenant lookup error for id "${tenantId}": ${error.message}`);
             throw new BadRequestException('Tenant resolution failed');
         }
 
         if (!data) {
-            throw new NotFoundException(`Tenant not found: ${slug}`);
+            throw new NotFoundException(`Tenant not found: ${tenantId}`);
         }
 
         if (data.status !== 'ACTIVE') {
             throw new BadRequestException(
-                `Tenant "${slug}" is not active (status: ${data.status})`,
+                `Tenant "${data.slug}" is not active (status: ${data.status})`,
             );
         }
 
@@ -106,7 +106,7 @@ export class TenantContextMiddleware implements NestMiddleware {
         };
 
         // Cache for TTL
-        cache.set(slug, { ctx, expiresAt: Date.now() + CACHE_TTL_MS });
+        cache.set(tenantId, { ctx, expiresAt: Date.now() + CACHE_TTL_MS });
 
         req.tenantContext = ctx;
         return next();

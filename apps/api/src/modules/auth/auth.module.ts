@@ -5,12 +5,14 @@ import { PassportModule } from '@nestjs/passport';
 
 import type { AppConfiguration } from '../../config/configuration';
 
+import { SupabaseModule } from '../supabase/supabase.module';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { JwtStrategy } from './strategies/jwt.strategy';
 
 @Module({
     imports: [
+        SupabaseModule,
         PassportModule.register({ defaultStrategy: 'jwt' }),
         JwtModule.registerAsync({
             imports: [ConfigModule],
