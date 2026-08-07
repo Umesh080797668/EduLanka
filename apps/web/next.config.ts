@@ -11,6 +11,9 @@ const nextConfig: NextConfig = {
         ignoreBuildErrors: false,
     },
 
+    // Output standalone bundle for optimized Docker deployments
+    output: 'standalone',
+
     // Allow images from Supabase Storage and Cloudinary CDN
     images: {
         remotePatterns: [

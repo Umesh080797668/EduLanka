@@ -46,13 +46,13 @@ cp infrastructure/envs/.env.dev.example infrastructure/envs/.env.dev
 
 ```bash
 cd infrastructure/docker
-docker compose up --build -d
+docker-compose up --build -d
 
 # Verify all services are healthy
-docker compose ps
+docker-compose ps
 
 # Check API health
-curl http://localhost/api/v1/health
+curl http://localhost:8081/api/v1/health
 ```
 
 Expected services after `docker compose up`:
