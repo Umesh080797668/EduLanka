@@ -1,26 +1,28 @@
 import { UserRole } from '@edu-lanka/shared-types';
 import { ApiProperty } from '@nestjs/swagger';
-import { IsEmail, IsNotEmpty, IsString, IsEnum, MinLength } from 'class-validator';
+import { IsEmail, IsString, MinLength, IsNotEmpty, IsEnum } from 'class-validator';
 
-/** Use UserRole from shared-types — the authoritative role definition */
-export { UserRole };
-
-export class CreateUserDto {
+export class SignupDto {
     @ApiProperty({ example: 'john.doe@school.edu.lk' })
     @IsEmail()
     email!: string;
+
+    @ApiProperty({ example: 'SecurePass123!', minLength: 8 })
+    @IsString()
+    @MinLength(8)
+    password!: string;
 
     @ApiProperty({ example: 'John Doe' })
     @IsString()
     @IsNotEmpty()
     fullName!: string;
 
+    @ApiProperty({ description: 'Tenant UUID the user is registering under' })
+    @IsString()
+    @IsNotEmpty()
+    tenantId!: string;
+
     @ApiProperty({ enum: UserRole, example: UserRole.TEACHER })
     @IsEnum(UserRole)
     role!: UserRole;
-
-    @ApiProperty({ minLength: 8 })
-    @IsString()
-    @MinLength(8)
-    password!: string;
 }

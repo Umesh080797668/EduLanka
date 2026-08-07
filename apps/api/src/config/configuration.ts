@@ -9,6 +9,7 @@ export const configuration = () => ({
         allowedOrigins: (process.env['ALLOWED_ORIGINS'] ?? 'http://localhost:3000')
             .split(',')
             .map((o) => o.trim()),
+        publicUrl: process.env['APP_PUBLIC_URL'] ?? 'http://localhost:3000',
     },
     supabase: {
         url: process.env['SUPABASE_URL'] as string,

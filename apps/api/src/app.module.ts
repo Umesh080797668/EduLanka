@@ -6,6 +6,7 @@ import { configuration } from './config/configuration';
 import { TenantContextMiddleware } from './common/middleware/tenant-context.middleware';
 import { AuthModule } from './modules/auth/auth.module';
 import { HealthModule } from './modules/health/health.module';
+import { RedisModule } from './modules/redis/redis.module';
 import { SupabaseModule } from './modules/supabase/supabase.module';
 import { TenantModule } from './modules/tenant/tenant.module';
 import { UsersModule } from './modules/users/users.module';
@@ -22,6 +23,7 @@ import { UsersModule } from './modules/users/users.module';
                     .default('development'),
                 PORT: Joi.number().default(3001),
                 ALLOWED_ORIGINS: Joi.string().default('http://localhost:3000'),
+                APP_PUBLIC_URL: Joi.string().uri().default('http://localhost:3000'),
 
                 // Supabase
                 SUPABASE_URL: Joi.string().uri().required(),
@@ -42,6 +44,7 @@ import { UsersModule } from './modules/users/users.module';
 
         // ── Infrastructure ────────────────────────────────────────────────────
         SupabaseModule,     // @Global — available across the entire app
+        RedisModule,        // @Global — ioredis client + RedisService
 
         // ── Feature modules ───────────────────────────────────────────────────
         HealthModule,
