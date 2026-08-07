@@ -2,8 +2,12 @@
     "extends": "../../packages/config/tsconfig.nestjs.json",
     "compilerOptions": {
         "baseUrl": "./",
-        "rootDir": "./src",
+        "rootDir": "./",
         "outDir": "./dist",
+        "types": [
+            "node",
+            "jest"
+        ],
         "paths": {
             "@app/*": [
                 "src/*"
@@ -20,12 +24,11 @@
         }
     },
     "include": [
-        "src/**/*"
+        "src/**/*",
+        "scripts/**/*"
     ],
     "exclude": [
         "node_modules",
-        "dist",
-        "test",
-        "**/*spec.ts"
+        "dist"
     ]
 }

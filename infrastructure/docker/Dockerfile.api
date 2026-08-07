@@ -2,7 +2,9 @@
 # Dockerfile — NestJS API (edu-api)
 # Multi-stage build: deps → build → production
 # ─────────────────────────────────────────────────────────────────────────────
-FROM node:20-alpine AS base
+FROM node:22-alpine AS base
+ENV PNPM_HOME="/pnpm"
+ENV PATH="$PNPM_HOME:$PATH"
 RUN corepack enable && corepack prepare pnpm@9.9.0 --activate
 WORKDIR /app
 
@@ -13,18 +15,18 @@ COPY packages/config/package.json ./packages/config/
 COPY packages/shared-types/package.json ./packages/shared-types/
 COPY packages/ui/package.json ./packages/ui/
 COPY apps/api/package.json ./apps/api/
-RUN pnpm install --frozen-lockfile
+RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm install --frozen-lockfile
 
 # ── Stage 2: Build shared packages + API ─────────────────────────────────────
 FROM deps AS builder
+ENV CACHE_BUSTER=2
 COPY packages/ ./packages/
 COPY apps/api/ ./apps/api/
 RUN pnpm --filter @edu-lanka/shared-types build
 RUN pnpm --filter @edu-lanka/api build
 
 # ── Stage 3: Production image ─────────────────────────────────────────────────
-FROM node:20-alpine AS production
-RUN corepack enable && corepack prepare pnpm@9.9.0 --activate
+FROM base AS production
 WORKDIR /app
 
 ENV NODE_ENV=production
@@ -36,7 +38,7 @@ COPY --from=builder /app/packages/shared-types/dist ./packages/shared-types/dist
 COPY --from=builder /app/packages/shared-types/package.json ./packages/shared-types/
 
 # Install production deps only
-RUN pnpm install --prod --frozen-lockfile --filter @edu-lanka/api...
+RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm install --prod --frozen-lockfile --filter @edu-lanka/api...
 
 EXPOSE 3001
 USER node

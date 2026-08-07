@@ -7,8 +7,10 @@ import {
     HttpStatus,
     Logger,
 } from '@nestjs/common';
-import type { FastifyReply, FastifyRequest } from 'fastify';
+import type { FastifyRequest } from 'fastify';
 
+
+import { HttpAdapterHost } from '@nestjs/core';
 
 /**
  * Global HTTP exception filter.
@@ -18,9 +20,10 @@ import type { FastifyReply, FastifyRequest } from 'fastify';
 export class HttpExceptionFilter implements ExceptionFilter {
     private readonly logger = new Logger(HttpExceptionFilter.name);
 
+    constructor(private readonly httpAdapterHost: HttpAdapterHost) { }
+
     catch(exception: HttpException, host: ArgumentsHost): void {
         const ctx = host.switchToHttp();
-        const reply = ctx.getResponse<FastifyReply>();
         const request = ctx.getRequest<FastifyRequest>();
         const status = exception.getStatus();
         const exceptionResponse = exception.getResponse();
@@ -48,6 +51,7 @@ export class HttpExceptionFilter implements ExceptionFilter {
             },
         };
 
-        void reply.status(status).send(body);
+        const { httpAdapter } = this.httpAdapterHost;
+        httpAdapter.reply(ctx.getResponse(), body, status);
     }
 }

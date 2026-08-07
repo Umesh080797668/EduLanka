@@ -1,7 +1,7 @@
 import helmet from '@fastify/helmet';
 import { VersioningType, ValidationPipe, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { NestFactory } from '@nestjs/core';
+import { NestFactory, HttpAdapterHost } from '@nestjs/core';
 import {
     FastifyAdapter,
     type NestFastifyApplication,
@@ -45,7 +45,8 @@ async function bootstrap(): Promise<void> {
     });
 
     // ── Global middleware ─────────────────────────────────────────────────────
-    app.useGlobalFilters(new HttpExceptionFilter());
+    const httpAdapterHost = app.get(HttpAdapterHost);
+    app.useGlobalFilters(new HttpExceptionFilter(httpAdapterHost));
     app.useGlobalInterceptors(new LoggingInterceptor());
     app.useGlobalPipes(
         new ValidationPipe({

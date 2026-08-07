@@ -93,17 +93,95 @@ pnpm run test        # Jest unit tests
 
 ## 6. Supabase Cloud Setup
 
+### 6.1 Create Project
+
 1. Create a project at [supabase.com](https://supabase.com)
 2. Go to **Settings → API** and copy:
    - **URL** → `SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_URL`
    - **anon/public** key → `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-   - **service_role** key → `SUPABASE_SERVICE_ROLE_KEY` (keep secret)
-3. Run migrations via the Supabase SQL editor or CLI when available
+   - **service_role** key → `SUPABASE_SERVICE_ROLE_KEY` (keep secret — never expose in client)
+
+### 6.2 Run Global Migrations (one-time bootstrap)
+
+Open your Supabase project → **SQL Editor → New query** and run the following files **in order**:
+
+#### Step 1 — Global tables + provisioning function
+
+Paste and run the entire contents of:
+
+```
+supabase/migrations/20260807000001_global_tables.sql
+```
+
+This creates:
+- `public.tenants` — tenant registry
+- `public.plans` — FREE / PRO tiers (pre-seeded)
+- `create_tenant_schema(p_slug TEXT)` — stored procedure that provisions a full per-tenant schema with RLS
+- `drop_tenant_schema(p_slug TEXT)` — deprovision helper
+
+> **Verify** — after running, check the **Table Editor**: you should see `tenants` and `plans` in the `public` schema. `plans` should already have 2 rows (FREE, PRO).
+
+#### Step 2 — Seed the dev tenant
+
+Paste and run:
+
+```
+supabase/seed.sql
+```
+
+This:
+1. Inserts a `dev-school` tenant into `public.tenants`
+2. Calls `create_tenant_schema('dev-school')` — creates a `tenant_dev-school` schema
+3. Seeds 4 users (SCHOOL_ADMIN, TEACHER, STUDENT, PARENT), 1 class (Grade 10-A), 1 student record, and a parent link
+
+> **Verify** — in the **Table Editor**, switch schema to `tenant_dev-school`. You should see the `users`, `classes`, `students`, and `parents` tables populated.
+
+### 6.3 Provisioning New Tenants (via API)
+
+Once the API is running, new tenants are provisioned through the REST endpoint:
 
 ```bash
-# Optional: use Supabase CLI to run migrations against cloud
-npx supabase db push --project-ref <your-ref>
+# Obtain a SUPER_ADMIN JWT first (via POST /api/v1/auth/login)
+TOKEN="<your-super-admin-jwt>"
+
+curl -X POST http://localhost:8081/api/v1/tenants \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Richmond College",
+    "slug": "richmond-college",
+    "schoolType": "TYPE_1AB",
+    "contactEmail": "admin@richmond.lk",
+    "plan": "PRO"
+  }'
 ```
+
+The API inserts the tenant row and calls the `create_tenant_schema` RPC automatically. The new schema `tenant_richmond-college` will appear in Supabase within seconds.
+
+### 6.4 Applying New Migrations Across All Tenants
+
+When you add a new SQL migration that should apply to every existing tenant schema, use the CLI tool:
+
+```bash
+# From the monorepo root:
+pnpm --filter api run migrate:tenants -- --file=supabase/migrations/<new_migration>.sql
+```
+
+Example output:
+```
+📄  Migration file: supabase/migrations/20260808000001_add_homework.sql
+🏫  Migrating 3 tenant(s)...
+
+  ✓ tenant_dev-school
+  ✓ tenant_richmond-college
+  ✓ tenant_nalanda-college
+
+──────────────────────────────────
+✅  3/3 succeeded
+Migration complete.
+```
+
+The script targets only `ACTIVE` tenants. `SUSPENDED` or `DEPROVISIONED` tenants are skipped.
 
 ## Troubleshooting
 

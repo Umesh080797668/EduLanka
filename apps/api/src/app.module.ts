@@ -1,10 +1,12 @@
-import { Module } from '@nestjs/common';
+import { Module, NestModule, MiddlewareConsumer, RequestMethod } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import * as Joi from 'joi';
 
 import { configuration } from './config/configuration';
+import { TenantContextMiddleware } from './common/middleware/tenant-context.middleware';
 import { AuthModule } from './modules/auth/auth.module';
 import { HealthModule } from './modules/health/health.module';
+import { SupabaseModule } from './modules/supabase/supabase.module';
 import { TenantModule } from './modules/tenant/tenant.module';
 
 @Module({
@@ -37,10 +39,27 @@ import { TenantModule } from './modules/tenant/tenant.module';
             validationOptions: { abortEarly: false },
         }),
 
+        // ── Infrastructure ────────────────────────────────────────────────────
+        SupabaseModule,     // @Global — available across the entire app
+
         // ── Feature modules ───────────────────────────────────────────────────
         HealthModule,
         AuthModule,
         TenantModule,
     ],
 })
-export class AppModule { }
+export class AppModule implements NestModule {
+    configure(consumer: MiddlewareConsumer): void {
+        consumer
+            .apply(TenantContextMiddleware)
+            // Exclude health checks and auth routes — everything else requires a tenant slug
+            .exclude(
+                { path: 'api/v1/health', method: RequestMethod.ALL },
+                { path: 'api/v1/health/(.*)', method: RequestMethod.ALL },
+                { path: 'api/v1/auth/(.*)', method: RequestMethod.ALL },
+                { path: 'api/docs', method: RequestMethod.ALL },
+                { path: 'api/docs/(.*)', method: RequestMethod.ALL },
+            )
+            .forRoutes('*');
+    }
+}
