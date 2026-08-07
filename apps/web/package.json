@@ -1,0 +1,36 @@
+{
+    "name": "@edu-lanka/web",
+    "version": "0.0.1",
+    "private": true,
+    "description": "EduLanka — Next.js web dashboards (Student, Parent, Teacher, School Admin)",
+    "scripts": {
+        "dev": "next dev --turbopack",
+        "build": "next build",
+        "start": "next start",
+        "lint": "eslint . --fix",
+        "lint:check": "eslint .",
+        "typecheck": "tsc --noEmit",
+        "clean": "rm -rf .next out *.tsbuildinfo"
+    },
+    "dependencies": {
+        "@edu-lanka/shared-types": "workspace:*",
+        "@edu-lanka/ui": "workspace:*",
+        "@supabase/ssr": "^0.5.1",
+        "@supabase/supabase-js": "^2.45.3",
+        "next": "^16.2.7",
+        "react": "^19.0.0",
+        "react-dom": "^19.0.0"
+    },
+    "devDependencies": {
+        "@edu-lanka/config": "workspace:*",
+        "@types/node": "^22.5.0",
+        "@types/react": "^19.0.0",
+        "@types/react-dom": "^19.0.0",
+        "eslint": "^9.17.0",
+        "eslint-config-next": "^16.2.7",
+        "prettier-plugin-tailwindcss": "^0.6.6",
+        "tailwindcss": "^4.0.0",
+        "typescript": "^5.5.4",
+        "typescript-eslint": "^8.46.0"
+    }
+}

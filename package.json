@@ -1,0 +1,29 @@
+{
+    "name": "edu-lanka-monorepo",
+    "version": "0.0.1",
+    "private": true,
+    "description": "EduLanka — National-scale multi-tenant educational SaaS platform for Sri Lanka",
+    "engines": {
+        "node": ">=20.0.0",
+        "pnpm": ">=9.0.0"
+    },
+    "scripts": {
+        "dev": "turbo run dev --parallel",
+        "build": "turbo run build",
+        "lint": "turbo run lint",
+        "lint:fix": "turbo run lint:fix",
+        "typecheck": "turbo run typecheck",
+        "test": "turbo run test",
+        "test:e2e": "turbo run test:e2e",
+        "clean": "turbo run clean && rm -rf node_modules",
+        "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md,css}\" --ignore-path .gitignore",
+        "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,md,css}\" --ignore-path .gitignore"
+    },
+    "devDependencies": {
+        "@edu-lanka/config": "workspace:*",
+        "prettier": "^3.3.3",
+        "turbo": "^2.1.3",
+        "typescript": "^5.5.4"
+    },
+    "packageManager": "pnpm@9.9.0"
+}
