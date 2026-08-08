@@ -58,7 +58,7 @@ export class ClassesService {
         return data;
     }
 
-    async findAll(caller: JwtPayload) {
+    async findAll(caller: JwtPayload, teacherId?: string) {
         const slug = await this.resolveSlug(caller);
         const db = this.supabase.getTenantClient(slug);
 
@@ -72,7 +72,13 @@ export class ClassesService {
             throw new InternalServerErrorException('Failed to fetch classes');
         }
 
-        const classes = data ?? [];
+        let classes = data ?? [];
+
+        if (teacherId) {
+            classes = classes.filter((c: any) =>
+                c.class_teachers?.some((ct: any) => ct.teachers?.user_id === teacherId)
+            );
+        }
         return classes.sort((a: any, b: any) => {
             const levelA = a.grades?.level ?? 0;
             const levelB = b.grades?.level ?? 0;

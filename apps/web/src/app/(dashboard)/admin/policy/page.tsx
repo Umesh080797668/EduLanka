@@ -17,7 +17,7 @@ export default function SchoolPolicyPage() {
     const [formData, setFormData] = useState<Partial<SchoolPolicy>>({});
 
     useEffect(() => {
-        const opts: RequestOpts = { token: 'DEMO', tenantId: 'DEMO' };
+        const opts: RequestOpts = { token: localStorage.getItem('token') || '', tenantId: localStorage.getItem('tenantId') || '' };
         fetchPolicy(opts)
             .then((data) => {
                 setPolicy(data);
@@ -33,7 +33,7 @@ export default function SchoolPolicyPage() {
         setError(null);
         setSuccess(null);
 
-        const opts: RequestOpts = { token: 'DEMO', tenantId: 'DEMO' };
+        const opts: RequestOpts = { token: localStorage.getItem('token') || '', tenantId: localStorage.getItem('tenantId') || '' };
         try {
             const updated = await updatePolicy(formData, opts);
             setPolicy(updated);

@@ -20,6 +20,12 @@ import { LinkStudentDto } from './dto/parent.dto';
 export class ParentsController {
     constructor(private readonly parentsService: ParentsService) { }
 
+    @Get('me')
+    @ApiOperation({ summary: 'Get current parent profile and linked children' })
+    getMe(@CurrentUser() user: JwtPayload) {
+        return this.parentsService.getMe(user);
+    }
+
     @Get()
     @ApiOperation({ summary: 'List all parent users in the current tenant' })
     findAll(@CurrentUser() user: JwtPayload) {

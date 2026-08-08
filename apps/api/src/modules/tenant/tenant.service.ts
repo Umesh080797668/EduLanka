@@ -176,6 +176,27 @@ export class TenantService {
     }
 
     /**
+     * GET /api/v1/tenants/stats
+     * Get school wide stats (student count, classes count)
+     */
+    async getStats(caller: JwtPayload): Promise<any> {
+        const tenant = await this.findOneById(caller.tenantId, caller);
+        const db = this.supabase.getTenantClient(tenant.slug);
+
+        const [usersReq, classesReq] = await Promise.all([
+            db.from('users').select('*', { count: 'exact', head: true }),
+            db.from('classes').select('*', { count: 'exact', head: true })
+        ]);
+
+        return {
+            users: usersReq.count || 0,
+            classes: classesReq.count || 0,
+            policies: 12, // Mock policy count as there is no specific policy table in this context
+            status: tenant.status === TenantStatus.ACTIVE ? 'Healthy' : tenant.status
+        };
+    }
+
+    /**
      * PATCH /api/v1/tenants/:id/status
      * Update tenant lifecycle status — SUPER_ADMIN only.
      */

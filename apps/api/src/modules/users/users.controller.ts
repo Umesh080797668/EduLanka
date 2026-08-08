@@ -15,6 +15,12 @@ import { UpdateUserDto } from './dto/update-user.dto';
 export class UsersController {
     constructor(private readonly usersService: UsersService) { }
 
+    @Get('me')
+    @ApiOperation({ summary: 'Get current user profile' })
+    getMe(@CurrentUser() user: JwtPayload) {
+        return this.usersService.getMe(user);
+    }
+
     @Post()
     @ApiOperation({ summary: 'Create a new user within the current tenant (admin only)' })
     create(@Body() dto: CreateUserDto, @CurrentUser() user: JwtPayload) {

@@ -16,7 +16,7 @@ export default function TeacherDetailPage() {
 
     useEffect(() => {
         if (!id) return;
-        const opts: RequestOpts = { token: 'DEMO', tenantId: 'DEMO' };
+        const opts: RequestOpts = { token: localStorage.getItem('token') || '', tenantId: localStorage.getItem('tenantId') || '' };
 
         fetchTeacher(id, opts)
             .then(setTeacher)

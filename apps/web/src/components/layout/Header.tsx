@@ -3,9 +3,44 @@
 import { Bell, Search, User } from 'lucide-react';
 import { usePathname } from 'next/navigation';
 import { motion } from 'framer-motion';
+import { useEffect, useState } from 'react';
 
 export default function Header() {
     const pathname = usePathname();
+    const [userName, setUserName] = useState('Loading...');
+    const [userRole, setUserRole] = useState('...');
+
+    useEffect(() => {
+        const fetchUser = async () => {
+            const token = localStorage.getItem('token');
+            const tenantId = localStorage.getItem('tenantId') || 'DEMO';
+            const role = localStorage.getItem('role') || 'USER';
+            setUserRole(role.replace('_', ' '));
+
+            try {
+                // Fetch the dynamic user based on API (for simplicity, using generic me endpoint we added)
+                // Both /users/me and /parents/me work, but only if they have the right headers
+                const uri = role === 'PARENT' ? '/api/v1/parents/me' : '/api/v1/users/me';
+                const res = await fetch(uri, {
+                    headers: { 'Authorization': `Bearer ${token}`, 'x-tenant-id': tenantId }
+                });
+                if (res.ok) {
+                    const json = await res.json();
+
+                    if (role === 'PARENT') {
+                        setUserName(json.data?.users?.full_name || 'Parent User');
+                    } else {
+                        setUserName(json.data?.full_name || 'User');
+                    }
+                } else {
+                    setUserName('Session Active');
+                }
+            } catch (e) {
+                setUserName('Session Active');
+            }
+        };
+        fetchUser();
+    }, []);
 
     // Determine title based on path
     const getPageTitle = () => {
@@ -50,8 +85,8 @@ export default function Header() {
                         <User className="w-4 h-4" />
                     </div>
                     <div className="hidden sm:block text-sm">
-                        <p className="font-medium text-slate-700 leading-none mb-1">Demo User</p>
-                        <p className="text-xs text-slate-500 leading-none">Active Session</p>
+                        <p className="font-medium text-slate-700 leading-none mb-1 capitalize">{userName}</p>
+                        <p className="text-xs text-slate-500 leading-none capitalize">{userRole.toLowerCase()}</p>
                     </div>
                 </div>
             </div>

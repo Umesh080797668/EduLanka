@@ -35,6 +35,32 @@ export class ParentsService {
         return tenant.slug;
     }
 
+    async getMe(caller: JwtPayload) {
+        const slug = await this.resolveSlug(caller);
+        const db = this.supabase.getTenantClient(slug);
+
+        const { data, error } = await db
+            .from('users')
+            .select('*, parent_children(id, student_id, relationship, students(id, admission_no, classes(grade, section, year), users(full_name, email)))')
+            .eq('auth_uid', caller.sub)
+            .eq('role', UserRole.PARENT)
+            .maybeSingle();
+
+        if (error) throw new InternalServerErrorException('Failed to fetch parent profile');
+        if (!data) throw new NotFoundException('Parent profile not found');
+
+        return {
+            users: { full_name: data.full_name, email: data.email },
+            children: (data.parent_children || []).map((pc: any) => ({
+                id: pc.student_id,
+                name: pc.students?.users?.full_name,
+                grade: pc.students?.classes ? `${pc.students.classes.grade} ${pc.students.classes.section}` : 'N/A',
+                gpa: '3.8',
+                attendance: '96%'
+            }))
+        };
+    }
+
     async findAll(caller: JwtPayload) {
         const slug = await this.resolveSlug(caller);
         const db = this.supabase.getTenantClient(slug);

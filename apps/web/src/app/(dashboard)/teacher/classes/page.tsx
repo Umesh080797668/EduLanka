@@ -1,16 +1,50 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import { Users, FileEdit, ChevronRight, BookOpen } from 'lucide-react';
+import { Users, FileEdit, ChevronRight, BookOpen, Loader2 } from 'lucide-react';
 import Link from 'next/link';
+import { useEffect, useState } from 'react';
 
 export default function TeacherClassesPage() {
-    // Mock classes data for the UI
-    const classes = [
-        { id: '1', name: 'Grade 10-A', subject: 'Mathematics', studentCount: 35 },
-        { id: '2', name: 'Grade 10-B', subject: 'Mathematics', studentCount: 32 },
-        { id: '3', name: 'Grade 11-A', subject: 'Science', studentCount: 40 },
-    ];
+    const [classes, setClasses] = useState<any[]>([]);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        const fetchTeacherClasses = async () => {
+            try {
+                // First get the teacher's profile ID from the generic endpoint or use the user's ID
+                // Since this system maps the classes by the user_id of the teacher under class_teachers
+                const userRes = await fetch('/api/v1/users/me', {
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`,
+                        'x-tenant-id': localStorage.getItem('tenantId') || ''
+                    }
+                });
+
+                if (userRes.ok) {
+                    const user = await userRes.json();
+
+                    const res = await fetch(`/api/v1/classes?teacherId=${user.data?.id}`, {
+                        headers: {
+                            'Authorization': `Bearer ${localStorage.getItem('token')}`,
+                            'x-tenant-id': localStorage.getItem('tenantId') || ''
+                        }
+                    });
+
+                    if (res.ok) {
+                        const json = await res.json();
+                        setClasses(json.data || []);
+                    }
+                }
+            } catch (e) {
+                console.error(e);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchTeacherClasses();
+    }, []);
 
     const containerVariants = {
         hidden: { opacity: 0 },
@@ -34,38 +68,52 @@ export default function TeacherClassesPage() {
                 </div>
             </div>
 
-            <motion.div
-                variants={containerVariants}
-                initial="hidden"
-                animate="show"
-                className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
-            >
-                {classes.map((cls) => (
-                    <motion.div key={cls.id} variants={itemVariants} className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden hover:shadow-md hover:border-indigo-200 transition-all group">
-                        <div className="p-6">
-                            <div className="w-12 h-12 bg-indigo-50 text-indigo-600 rounded-xl flex items-center justify-center mb-4">
-                                <BookOpen className="w-6 h-6" />
-                            </div>
-                            <h3 className="text-xl font-bold text-slate-800 mb-1 group-hover:text-indigo-600 transition-colors">{cls.name}</h3>
-                            <p className="text-slate-500 font-medium text-sm mb-4">{cls.subject}</p>
+            {loading ? (
+                <div className="flex justify-center py-20">
+                    <Loader2 className="w-8 h-8 animate-spin text-indigo-500" />
+                </div>
+            ) : classes.length === 0 ? (
+                <div className="bg-slate-50 rounded-2xl p-12 text-center border border-slate-200">
+                    <BookOpen className="w-12 h-12 text-slate-300 mx-auto mb-4" />
+                    <h3 className="text-lg font-bold text-slate-700">No Classes Assigned</h3>
+                    <p className="text-slate-500 mt-2">You have not been assigned to any classes yet.</p>
+                </div>
+            ) : (
+                <motion.div
+                    variants={containerVariants}
+                    initial="hidden"
+                    animate="show"
+                    className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
+                >
+                    {classes.map((cls) => (
+                        <motion.div key={cls.id} variants={itemVariants} className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden hover:shadow-md hover:border-indigo-200 transition-all group">
+                            <div className="p-6">
+                                <div className="w-12 h-12 bg-indigo-50 text-indigo-600 rounded-xl flex items-center justify-center mb-4">
+                                    <BookOpen className="w-6 h-6" />
+                                </div>
+                                <h3 className="text-xl font-bold text-slate-800 mb-1 group-hover:text-indigo-600 transition-colors">
+                                    {cls.grades?.level} {cls.section}
+                                </h3>
+                                <p className="text-slate-500 font-medium text-sm mb-4">Class Year: {cls.year}</p>
 
-                            <div className="flex items-center gap-2 text-sm text-slate-600 bg-slate-50 py-2 px-3 rounded-lg border border-slate-100">
-                                <Users className="w-4 h-4 text-slate-400" />
-                                <span>{cls.studentCount} Students Enrolled</span>
+                                <div className="flex items-center gap-2 text-sm text-slate-600 bg-slate-50 py-2 px-3 rounded-lg border border-slate-100">
+                                    <Users className="w-4 h-4 text-slate-400" />
+                                    <span>Roster View Available</span>
+                                </div>
                             </div>
-                        </div>
-                        <div className="px-6 py-4 bg-slate-50 border-t border-slate-100">
-                            <Link href={`/teacher/classes/${cls.id}/grades`}>
-                                <button className="w-full bg-white border border-indigo-200 text-indigo-600 font-semibold py-2.5 rounded-xl flex items-center justify-center gap-2 hover:bg-indigo-50 transition-colors">
-                                    <FileEdit className="w-4 h-4" />
-                                    Enter Grades
-                                    <ChevronRight className="w-4 h-4 ml-1" />
-                                </button>
-                            </Link>
-                        </div>
-                    </motion.div>
-                ))}
-            </motion.div>
+                            <div className="px-6 py-4 bg-slate-50 border-t border-slate-100">
+                                <Link href={`/teacher/classes/${cls.id}/grades`}>
+                                    <button className="w-full bg-white border border-indigo-200 text-indigo-600 font-semibold py-2.5 rounded-xl flex items-center justify-center gap-2 hover:bg-indigo-50 transition-colors">
+                                        <FileEdit className="w-4 h-4" />
+                                        Enter Grades
+                                        <ChevronRight className="w-4 h-4 ml-1" />
+                                    </button>
+                                </Link>
+                            </div>
+                        </motion.div>
+                    ))}
+                </motion.div>
+            )}
         </div>
     );
 }

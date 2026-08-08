@@ -18,7 +18,7 @@ export default function NewClassPage() {
     const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
-        const opts: RequestOpts = { token: 'DEMO', tenantId: 'DEMO' };
+        const opts: RequestOpts = { token: localStorage.getItem('token') || '', tenantId: localStorage.getItem('tenantId') || '' };
         fetchGrades(opts).then(res => {
             const activeGrades = res.filter(g => g.is_active);
             setGrades(activeGrades);
@@ -31,7 +31,7 @@ export default function NewClassPage() {
         setSaving(true);
         setError(null);
 
-        const opts: RequestOpts = { token: 'DEMO', tenantId: 'DEMO' };
+        const opts: RequestOpts = { token: localStorage.getItem('token') || '', tenantId: localStorage.getItem('tenantId') || '' };
         try {
             await createClass({
                 gradeId,

@@ -11,7 +11,7 @@ export default function ClassesPage() {
     const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
-        const opts: RequestOpts = { token: 'DEMO', tenantId: 'DEMO' };
+        const opts: RequestOpts = { token: localStorage.getItem('token') || '', tenantId: localStorage.getItem('tenantId') || '' };
         fetchClasses(opts)
             .then(setClasses)
             .catch((err) => setError(err.message))

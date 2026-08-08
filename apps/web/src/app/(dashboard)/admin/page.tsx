@@ -1,10 +1,36 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import { ShieldCheck, Users, Settings, Activity, Building, ChevronRight } from 'lucide-react';
+import { ShieldCheck, Users, Settings, Activity, Building, ChevronRight, Loader2 } from 'lucide-react';
 import Link from 'next/link';
+import { useEffect, useState } from 'react';
 
 export default function AdminDashboard() {
+    const [stats, setStats] = useState<any>(null);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        const fetchStats = async () => {
+            try {
+                const res = await fetch('/api/v1/tenants/stats', {
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`,
+                        'x-tenant-id': localStorage.getItem('tenantId') || 'DEMO'
+                    }
+                });
+                if (res.ok) {
+                    const json = await res.json();
+                    setStats(json.data);
+                }
+            } catch (e) {
+                console.error(e);
+            } finally {
+                setLoading(false);
+            }
+        };
+        fetchStats();
+    }, []);
+
     const containerVariants = {
         hidden: { opacity: 0 },
         show: { opacity: 1, transition: { staggerChildren: 0.1 } }
@@ -63,7 +89,9 @@ export default function AdminDashboard() {
                         <Users className="w-6 h-6" />
                     </div>
                     <p className="text-slate-500 text-sm font-medium mb-1">Total Active Users</p>
-                    <h4 className="text-3xl font-bold text-slate-800">1,248</h4>
+                    <h4 className="text-3xl font-bold text-slate-800">
+                        {loading ? <Loader2 className="w-6 h-6 animate-spin text-slate-400" /> : stats?.users || 0}
+                    </h4>
                 </motion.div>
 
                 <motion.div variants={itemVariants} className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex flex-col justify-between hover:shadow-md transition-shadow group">
@@ -71,7 +99,9 @@ export default function AdminDashboard() {
                         <Building className="w-6 h-6" />
                     </div>
                     <p className="text-slate-500 text-sm font-medium mb-1">Classes Enrolled</p>
-                    <h4 className="text-3xl font-bold text-slate-800">42</h4>
+                    <h4 className="text-3xl font-bold text-slate-800">
+                        {loading ? <Loader2 className="w-6 h-6 animate-spin text-slate-400" /> : stats?.classes || 0}
+                    </h4>
                 </motion.div>
 
                 <motion.div variants={itemVariants} className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex flex-col justify-between hover:shadow-md transition-shadow group">
@@ -79,7 +109,9 @@ export default function AdminDashboard() {
                         <Settings className="w-6 h-6" />
                     </div>
                     <p className="text-slate-500 text-sm font-medium mb-1">Active Policies</p>
-                    <h4 className="text-3xl font-bold text-slate-800">12</h4>
+                    <h4 className="text-3xl font-bold text-slate-800">
+                        {loading ? <Loader2 className="w-6 h-6 animate-spin text-slate-400" /> : stats?.policies || 0}
+                    </h4>
                 </motion.div>
 
                 <motion.div variants={itemVariants} className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex flex-col justify-between hover:shadow-md transition-shadow group">
@@ -88,8 +120,14 @@ export default function AdminDashboard() {
                     </div>
                     <p className="text-slate-500 text-sm font-medium mb-1">System Status</p>
                     <div className="flex items-center gap-2">
-                        <div className="w-2.5 h-2.5 bg-emerald-500 rounded-full animate-pulse"></div>
-                        <h4 className="text-lg font-bold text-emerald-600">Healthy</h4>
+                        {loading ? (
+                            <Loader2 className="w-5 h-5 animate-spin text-emerald-500" />
+                        ) : (
+                            <>
+                                <div className={`w-2.5 h-2.5 rounded-full animate-pulse ${stats?.status === 'Healthy' ? 'bg-emerald-500' : 'bg-amber-500'}`}></div>
+                                <h4 className={`text-lg font-bold ${stats?.status === 'Healthy' ? 'text-emerald-600' : 'text-amber-600'}`}>{stats?.status || 'Active'}</h4>
+                            </>
+                        )}
                     </div>
                 </motion.div>
             </motion.div>

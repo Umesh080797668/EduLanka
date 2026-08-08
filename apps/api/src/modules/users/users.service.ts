@@ -36,6 +36,21 @@ export class UsersService {
         return tenant.slug;
     }
 
+    async getMe(caller: JwtPayload) {
+        const slug = await this.resolveSlug(caller);
+        const db = this.supabase.getTenantClient(slug);
+
+        const { data, error } = await db
+            .from('users')
+            .select('*')
+            .eq('auth_uid', caller.sub)
+            .maybeSingle();
+
+        if (error) throw new InternalServerErrorException('Failed to fetch user');
+        if (!data) throw new NotFoundException('User profile not found');
+        return data;
+    }
+
     async create(dto: CreateUserDto, caller: JwtPayload) {
         this.guardAdmin(caller);
         const slug = await this.resolveSlug(caller);

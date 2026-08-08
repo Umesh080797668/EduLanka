@@ -22,7 +22,7 @@ export default function ParentDetailPage({ params }: { params: { id: string } })
     const loadData = async () => {
         setLoading(true);
         try {
-            const opts: RequestOpts = { token: 'DEMO', tenantId: 'DEMO' };
+            const opts: RequestOpts = { token: localStorage.getItem('token') || '', tenantId: localStorage.getItem('tenantId') || '' };
             const [parentData, studentsData] = await Promise.all([
                 fetchParent(params.id, opts),
                 fetchStudents(opts)
@@ -45,7 +45,7 @@ export default function ParentDetailPage({ params }: { params: { id: string } })
         e.preventDefault();
         setMapping(true);
         try {
-            const opts: RequestOpts = { token: 'DEMO', tenantId: 'DEMO' };
+            const opts: RequestOpts = { token: localStorage.getItem('token') || '', tenantId: localStorage.getItem('tenantId') || '' };
             await linkStudentToParent(params.id, { studentId: selectedStudentId, relationship }, opts);
             setSelectedStudentId('');
             await loadData();
@@ -59,7 +59,7 @@ export default function ParentDetailPage({ params }: { params: { id: string } })
     const handleUnlink = async (studentId: string) => {
         if (!confirm('Are you sure you want to decouple this student from this parent?')) return;
         try {
-            const opts: RequestOpts = { token: 'DEMO', tenantId: 'DEMO' };
+            const opts: RequestOpts = { token: localStorage.getItem('token') || '', tenantId: localStorage.getItem('tenantId') || '' };
             await unlinkStudentFromParent(params.id, studentId, opts);
             await loadData();
         } catch (err: any) {

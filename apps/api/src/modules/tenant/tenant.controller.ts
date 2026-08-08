@@ -83,6 +83,18 @@ export class TenantController {
     }
 
     /**
+     * GET /api/v1/tenants/stats
+     * Get aggregate statistics for the current tenant.
+     */
+    @Get('stats')
+    @Version('1')
+    @ApiOperation({ summary: 'Get statistics for the current school' })
+    @ApiOkResponse({ description: 'Stats object' })
+    getStats(@CurrentUser() user: JwtPayload) {
+        return this.tenantService.getStats(user);
+    }
+
+    /**
      * GET /api/v1/tenants
      * List all tenants — SUPER_ADMIN only.
      */

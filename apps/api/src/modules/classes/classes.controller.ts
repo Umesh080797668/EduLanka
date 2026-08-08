@@ -2,10 +2,10 @@
 // Classes Controller
 // =============================================================================
 import {
-    Controller, Get, Post, Patch, Delete,
+    Controller, Get, Post, Patch, Delete, Query,
     Body, Param, ParseUUIDPipe, UseGuards, HttpCode, HttpStatus,
 } from '@nestjs/common';
-import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
+import { ApiTags, ApiBearerAuth, ApiOperation, ApiQuery } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { TenantGuard } from '../../common/guards/tenant.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
@@ -29,8 +29,9 @@ export class ClassesController {
 
     @Get()
     @ApiOperation({ summary: 'List all classes for the current tenant' })
-    findAll(@CurrentUser() user: JwtPayload) {
-        return this.classesService.findAll(user);
+    @ApiQuery({ name: 'teacherId', required: false, description: 'Filter by assigned teacher user ID' })
+    findAll(@Query('teacherId') teacherId: string | undefined, @CurrentUser() user: JwtPayload) {
+        return this.classesService.findAll(user, teacherId);
     }
 
     @Get(':id')

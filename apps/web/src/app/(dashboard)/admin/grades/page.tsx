@@ -12,7 +12,7 @@ export default function GradesPage() {
     const loadData = async () => {
         setLoading(true);
         try {
-            const opts: RequestOpts = { token: 'DEMO', tenantId: 'DEMO' };
+            const opts: RequestOpts = { token: localStorage.getItem('token') || '', tenantId: localStorage.getItem('tenantId') || '' };
             const data = await fetchGrades(opts);
             setGrades(data);
         } catch (err: any) {
@@ -28,7 +28,7 @@ export default function GradesPage() {
 
     const toggleStatus = async (id: string, current: boolean) => {
         try {
-            const opts: RequestOpts = { token: 'DEMO', tenantId: 'DEMO' };
+            const opts: RequestOpts = { token: localStorage.getItem('token') || '', tenantId: localStorage.getItem('tenantId') || '' };
             await updateGrade(id, { isActive: !current }, opts);
             await loadData();
         } catch (err: any) {

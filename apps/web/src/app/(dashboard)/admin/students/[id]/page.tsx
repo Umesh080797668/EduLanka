@@ -21,7 +21,7 @@ export default function StudentDetailPage() {
 
     useEffect(() => {
         if (!id) return;
-        const opts: RequestOpts = { token: 'DEMO', tenantId: 'DEMO' };
+        const opts: RequestOpts = { token: localStorage.getItem('token') || '', tenantId: localStorage.getItem('tenantId') || '' };
 
         Promise.all([
             fetchStudent(id, opts),
@@ -43,7 +43,7 @@ export default function StudentDetailPage() {
         if (!selectedClassId) return;
 
         setAssigningClass(true);
-        const opts: RequestOpts = { token: 'DEMO', tenantId: 'DEMO' };
+        const opts: RequestOpts = { token: localStorage.getItem('token') || '', tenantId: localStorage.getItem('tenantId') || '' };
         try {
             const updated = await assignClassToStudent(id, selectedClassId, opts);
             setStudent(updated);

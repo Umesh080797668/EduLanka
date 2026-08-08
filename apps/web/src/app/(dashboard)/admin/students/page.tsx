@@ -12,7 +12,7 @@ export default function StudentsPage() {
 
     useEffect(() => {
         // TODO (Phase 1): Retrieve auth token & tenantId from context/session
-        const opts: RequestOpts = { token: 'DEMO', tenantId: 'DEMO' };
+        const opts: RequestOpts = { token: localStorage.getItem('token') || '', tenantId: localStorage.getItem('tenantId') || '' };
         fetchStudents(opts)
             .then(setStudents)
             .catch((err) => setError(err.message))

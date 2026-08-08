@@ -28,7 +28,7 @@ export default function NewStudentPage() {
         setSaving(true);
         setError(null);
 
-        const opts: RequestOpts = { token: 'DEMO', tenantId: 'DEMO' };
+        const opts: RequestOpts = { token: localStorage.getItem('token') || '', tenantId: localStorage.getItem('tenantId') || '' };
         try {
             await enrollStudent({
                 ...formData,
