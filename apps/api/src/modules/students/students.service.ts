@@ -108,6 +108,9 @@ export class StudentsService {
             if (studentErr) {
                 await this.supabase.adminClient.auth.admin.deleteUser(authUid);
                 if (studentErr.code === '23505') throw new ConflictException('Admission number already exists');
+                if (studentErr.message?.toLowerCase().includes('cap exceeded')) {
+                    throw new ForbiddenException(studentErr.message);
+                }
                 throw new InternalServerErrorException('Failed to enroll student');
             }
 
@@ -120,6 +123,19 @@ export class StudentsService {
             }
             throw err;
         }
+    }
+
+    async findMe(caller: JwtPayload) {
+        const slug = await this.resolveSlug(caller);
+        const db = this.supabase.getTenantClient(slug);
+
+        const { data: user } = await db.from('users').select('id').eq('user_id', caller.sub).maybeSingle();
+        if (!user) throw new NotFoundException('User profile not found');
+
+        const { data: student } = await db.from('students').select('*').eq('user_id', user.id).maybeSingle();
+        if (!student) throw new NotFoundException('Student profile not found');
+
+        return student;
     }
 
     async findAll(caller: JwtPayload) {

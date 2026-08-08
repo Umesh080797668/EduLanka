@@ -32,9 +32,6 @@ export class StudentMarksService {
         const slug = await this.resolveSlug(caller);
         const db = this.supabase.getTenantClient(slug);
 
-        // Optional: Ensure teacher belongs to the class or is Admin. RLS logic already protects the database query,
-        // but we can enforce it. Because of RLS, if the teacher isn't assigned, the query will fail with standard rights.
-
         let teacherId = null;
         if (caller.role === UserRole.TEACHER) {
             const { data: user } = await db.from('users').select('id').eq('user_id', caller.sub).maybeSingle();
@@ -46,8 +43,6 @@ export class StudentMarksService {
             }
         }
 
-        // Upsert by primary key requires ID, but unique constraint is (student_id, subject, term, academic_year). 
-        // Supabase upsert requires specifying the constraint.
         const { data, error } = await db
             .from('student_marks')
             .upsert({
@@ -70,6 +65,10 @@ export class StudentMarksService {
     }
 
     async getMarksByClass(classId: string, term: number, year: number, caller: JwtPayload) {
+        if (caller.role === UserRole.STUDENT || caller.role === UserRole.PARENT) {
+            throw new ForbiddenException('Not allowed to view full class marks');
+        }
+
         const slug = await this.resolveSlug(caller);
         const db = this.supabase.getTenantClient(slug);
 
@@ -90,6 +89,22 @@ export class StudentMarksService {
     async getMarksByStudent(studentId: string, caller: JwtPayload) {
         const slug = await this.resolveSlug(caller);
         const db = this.supabase.getTenantClient(slug);
+
+        if (caller.role === UserRole.STUDENT) {
+            const { data: stu } = await db.from('students').select('users!inner(user_id)').eq('id', studentId).maybeSingle();
+            const userRef = (stu as any)?.users;
+            const actualSub = Array.isArray(userRef) ? userRef[0]?.user_id : userRef?.user_id;
+
+            if (actualSub !== caller.sub) {
+                throw new ForbiddenException('Not allowed');
+            }
+        } else if (caller.role === UserRole.PARENT) {
+            const { data: pa } = await db.from('users').select('id').eq('user_id', caller.sub).maybeSingle();
+            const { data: pc } = await db.from('parent_children').select('id').eq('parent_user_id', pa?.id).eq('student_id', studentId).maybeSingle();
+            if (!pc) {
+                throw new ForbiddenException('Not allowed');
+            }
+        }
 
         const { data, error } = await db
             .from('student_marks')

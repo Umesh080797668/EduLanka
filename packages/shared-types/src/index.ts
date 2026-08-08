@@ -6,3 +6,4 @@ export * from './teacher.types.js';
 export * from './parent.types.js';
 export * from './class.types.js';
 export * from './school-policy.types.js';
+export * from './marks.types.js';

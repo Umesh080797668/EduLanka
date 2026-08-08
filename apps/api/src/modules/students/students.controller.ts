@@ -33,6 +33,12 @@ export class StudentsController {
         return this.studentsService.findAll(user);
     }
 
+    @Get('me')
+    @ApiOperation({ summary: 'Get current student profile' })
+    findMe(@CurrentUser() user: JwtPayload) {
+        return this.studentsService.findMe(user);
+    }
+
     @Get(':id')
     @ApiOperation({ summary: 'Get a student by ID (includes class and parent info)' })
     findOne(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: JwtPayload) {

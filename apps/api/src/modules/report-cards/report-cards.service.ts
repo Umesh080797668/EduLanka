@@ -1,7 +1,9 @@
-import { Injectable, Logger, InternalServerErrorException, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, InternalServerErrorException, NotFoundException, ForbiddenException } from '@nestjs/common';
 import type { JwtPayload } from '@edu-lanka/shared-types';
+import { UserRole } from '@edu-lanka/shared-types';
 import { SupabaseService } from '../supabase/supabase.service';
 import { TenantService } from '../tenant/tenant.service';
+import * as PDFDocument from 'pdfkit';
 
 @Injectable()
 export class ReportCardsService {
@@ -16,7 +18,23 @@ export class ReportCardsService {
         const tenant = await this.tenantService.findOneById(caller.tenantId, caller);
         const db = this.supabase.getTenantClient(tenant.slug);
 
-        // Fetch student's marks
+        // Security check
+        if (caller.role === UserRole.STUDENT) {
+            const { data: stu } = await db.from('students').select('users!inner(user_id)').eq('id', studentId).maybeSingle();
+            const userRef = (stu as any)?.users;
+            const actualSub = Array.isArray(userRef) ? userRef[0]?.user_id : userRef?.user_id;
+
+            if (actualSub !== caller.sub) {
+                throw new ForbiddenException('Not allowed to access others report cards');
+            }
+        } else if (caller.role === UserRole.PARENT) {
+            const { data: pa } = await db.from('users').select('id').eq('user_id', caller.sub).maybeSingle();
+            const { data: pc } = await db.from('parent_children').select('id').eq('parent_user_id', pa?.id).eq('student_id', studentId).maybeSingle();
+            if (!pc) {
+                throw new ForbiddenException('Not allowed to access others report cards');
+            }
+        }
+
         const { data: marks, error: marksError } = await db
             .from('student_marks')
             .select('*')
@@ -24,10 +42,7 @@ export class ReportCardsService {
             .eq('term', term)
             .eq('academic_year', year);
 
-        if (marksError) {
-            this.logger.error(`Error fetching marks for report card: ${marksError.message}`);
-            throw new InternalServerErrorException('Error gathering marks for report card');
-        }
+        if (marksError) throw new InternalServerErrorException('Error gathering marks');
 
         const { data: student, error: studentError } = await db
             .from('students')
@@ -35,26 +50,45 @@ export class ReportCardsService {
             .eq('id', studentId)
             .maybeSingle();
 
-        if (studentError || !student) {
-            throw new NotFoundException('Student not found');
-        }
+        if (studentError || !student) throw new NotFoundException('Student not found');
 
-        // Simulate PDF generation by creating a beautifully structured readable buffer for the frontend.
-        // In a real production scenario, we would use pdfkit to build a PDF buffer here.
-        // Returning a generic string format representing the report card bytes.
-        let reportText = `EduLanka Report Card - ${tenant.name}\n`;
-        reportText += `==============================================\n`;
-        reportText += `Student: ${student.users?.full_name ?? 'Unknown'} (Admission: ${student.admission_no})\n`;
-        reportText += `Academic Year: ${year} | Term: ${term}\n\n`;
-        reportText += `Subject |\t\tMarks\n`;
-        reportText += `----------------------------------------------\n`;
+        return new Promise((resolve, reject) => {
+            try {
+                const doc = new (PDFDocument as any)({ margin: 50 });
+                const buffers: Buffer[] = [];
 
-        marks?.forEach(mark => {
-            reportText += `${mark.subject.padEnd(20, ' ')} |\t\t${mark.marks}\n`;
+                doc.on('data', (buf: Buffer) => buffers.push(buf));
+                doc.on('end', () => resolve(Buffer.concat(buffers)));
+
+                doc.fontSize(20).text(`EduLanka Report Card - ${tenant.name}`, { align: 'center' });
+                doc.moveDown();
+
+                doc.fontSize(12).text(`Student Name: ${(student.users as any)?.full_name ?? 'Unknown'}`);
+                doc.text(`Admission Number: ${student.admission_no}`);
+                doc.text(`Academic Year: ${year}   |   Term: ${term}`);
+                doc.moveDown();
+
+                doc.text('-----------------------------------------------------------');
+                doc.moveDown();
+
+                if (marks && marks.length > 0) {
+                    for (const mark of marks) {
+                        doc.text(`${mark.subject.padEnd(40, ' ')} ${mark.marks}`);
+                    }
+                } else {
+                    doc.text('No marks recorded for this term.');
+                }
+
+                doc.moveDown();
+                doc.text('-----------------------------------------------------------');
+                doc.moveDown();
+                doc.fontSize(10).text('** End of Official Report **', { align: 'center' });
+
+                doc.end();
+            } catch (error) {
+                this.logger.error('Error generating PDF', error);
+                reject(new InternalServerErrorException('Failed to generate PDF document'));
+            }
         });
-
-        reportText += `\n** End of Report **\n`;
-
-        return Buffer.from(reportText, 'utf-8');
     }
 }

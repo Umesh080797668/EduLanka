@@ -1,5 +1,8 @@
+
 import { Test, TestingModule } from '@nestjs/testing';
 import { GradesService } from '../grades.service';
+import { SupabaseService } from '../../supabase/supabase.service';
+import { TenantService } from '../../tenant/tenant.service';
 
 describe('GradesService', () => {
   let service: GradesService;
@@ -9,11 +12,11 @@ describe('GradesService', () => {
       providers: [
         GradesService,
         {
-          provide: 'SupabaseService',
+          provide: SupabaseService,
           useValue: { getTenantClient: jest.fn(), adminClient: { auth: { admin: { deleteUser: jest.fn() } } } }
         },
         {
-          provide: 'TenantService',
+          provide: TenantService,
           useValue: { findOneById: jest.fn().mockResolvedValue({ slug: 'test' }) }
         }
 

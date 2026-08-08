@@ -15,12 +15,27 @@ export default function TeacherGradesPage() {
     const [statusText, setStatusText] = useState('');
 
     useEffect(() => {
-        // Mock data fetch for students in this class.
-        // In reality, this would hit GET /api/v1/classes/${classId}/students
-        setStudents([
-            { id: 'bbbbbbbb-1111-2222-3333-aaaaaaaaaaaa', admissionNo: 'STU-001', name: 'John Doe' },
-            { id: 'cccccccc-1111-2222-3333-aaaaaaaaaaaa', admissionNo: 'STU-002', name: 'Jane Smith' },
-        ]);
+        const loadClassDetails = async () => {
+            try {
+                const res = await fetch(`/api/v1/classes/${classId}`, {
+                    headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}`, 'x-tenant-id': localStorage.getItem('tenantId') || 'DEMO' }
+                });
+                if (res.ok) {
+                    const json = await res.json();
+                    if (json.data && json.data.students) {
+                        setStudents(json.data.students.map((st: any) => ({
+                            id: st.id,
+                            admissionNo: st.admission_no,
+                            name: st.users?.full_name || 'Unknown'
+                        })));
+                    }
+                }
+            } catch (e) {
+                console.error("Failed to fetch class roster", e);
+            }
+        };
+
+        loadClassDetails();
 
         // Load existing marks...
         fetchMarks();
