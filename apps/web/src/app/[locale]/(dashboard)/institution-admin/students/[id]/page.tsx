@@ -5,8 +5,10 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { fetchStudent, fetchClasses, assignClassToStudent, RequestOpts } from '@/lib/api/school';
 import type { StudentProfile, ClassProfile } from '@edu-lanka/shared-types';
+import { useTranslations } from 'next-intl';
 
 export default function StudentDetailPage() {
+    const t = useTranslations('InstitutionAdminStudents');
     const params = useParams();
     const id = params?.id as string;
 
@@ -47,7 +49,7 @@ export default function StudentDetailPage() {
         try {
             const updated = await assignClassToStudent(id, selectedClassId, opts);
             setStudent(updated);
-            alert('Class assigned successfully');
+            alert(t('classAssignedSuccess'));
         } catch (err: any) {
             alert(err.message);
         } finally {
@@ -55,15 +57,15 @@ export default function StudentDetailPage() {
         }
     };
 
-    if (loading) return <div style={{ padding: '2rem', textAlign: 'center' }}>Loading student...</div>;
+    if (loading) return <div style={{ padding: '2rem', textAlign: 'center' }}>{t('loadingStudent')}</div>;
     if (error) return <div style={{ padding: '2rem', color: '#b91c1c' }}>{error}</div>;
-    if (!student) return <div style={{ padding: '2rem' }}>Student not found.</div>;
+    if (!student) return <div style={{ padding: '2rem' }}>{t('studentNotFound')}</div>;
 
     return (
         <div style={{ maxWidth: '800px' }}>
             <div style={{ marginBottom: '1.5rem' }}>
                 <Link href="/institution-admin/students" style={{ color: '#6b7280', textDecoration: 'none', fontSize: '0.875rem' }}>
-                    &larr; Back to Students
+                    &larr; {t('backStudents')}
                 </Link>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.5rem' }}>
                     <h1 style={{ fontSize: '1.5rem', fontWeight: 600 }}>{student.users?.full_name}</h1>
@@ -75,7 +77,7 @@ export default function StudentDetailPage() {
                         background: student.users?.is_active ? '#dcfce7' : '#fee2e2',
                         color: student.users?.is_active ? '#166534' : '#991b1b'
                     }}>
-                        {student.users?.is_active ? 'Active' : 'Inactive'}
+                        {student.users?.is_active ? t('active') : t('inactive')}
                     </span>
                 </div>
             </div>
@@ -84,28 +86,28 @@ export default function StudentDetailPage() {
                 {/* Profile Card */}
                 <div style={{ background: 'white', padding: '1.5rem', borderRadius: '8px', border: '1px solid #e5e7eb' }}>
                     <h2 style={{ fontSize: '1.1rem', fontWeight: 600, borderBottom: '1px solid #e5e7eb', paddingBottom: '0.5rem', marginBottom: '1rem' }}>
-                        Profile Information
+                        {t('profileInfo')}
                     </h2>
                     <div style={{ display: 'grid', gap: '0.75rem', fontSize: '0.875rem' }}>
                         <div>
-                            <span style={{ color: '#6b7280', display: 'block', marginBottom: '0.25rem' }}>Admission Number</span>
+                            <span style={{ color: '#6b7280', display: 'block', marginBottom: '0.25rem' }}>{t('admissionNumber')}</span>
                             <span style={{ fontWeight: 500 }}>{student.admission_no}</span>
                         </div>
                         <div>
-                            <span style={{ color: '#6b7280', display: 'block', marginBottom: '0.25rem' }}>Email</span>
+                            <span style={{ color: '#6b7280', display: 'block', marginBottom: '0.25rem' }}>{t('email')}</span>
                             <span style={{ fontWeight: 500 }}>{student.users?.email}</span>
                         </div>
                         <div>
-                            <span style={{ color: '#6b7280', display: 'block', marginBottom: '0.25rem' }}>Phone</span>
-                            <span style={{ fontWeight: 500 }}>{student.users?.phone_number || 'None'}</span>
+                            <span style={{ color: '#6b7280', display: 'block', marginBottom: '0.25rem' }}>{t('phone')}</span>
+                            <span style={{ fontWeight: 500 }}>{student.users?.phone_number || t('none')}</span>
                         </div>
                         <div>
-                            <span style={{ color: '#6b7280', display: 'block', marginBottom: '0.25rem' }}>Date of Birth</span>
-                            <span style={{ fontWeight: 500 }}>{student.date_of_birth || 'Not specified'}</span>
+                            <span style={{ color: '#6b7280', display: 'block', marginBottom: '0.25rem' }}>{t('dob')}</span>
+                            <span style={{ fontWeight: 500 }}>{student.date_of_birth || t('notSpecified')}</span>
                         </div>
                         <div>
-                            <span style={{ color: '#6b7280', display: 'block', marginBottom: '0.25rem' }}>Gender</span>
-                            <span style={{ fontWeight: 500, textTransform: 'capitalize' }}>{student.gender || 'Not specified'}</span>
+                            <span style={{ color: '#6b7280', display: 'block', marginBottom: '0.25rem' }}>{t('gender')}</span>
+                            <span style={{ fontWeight: 500, textTransform: 'capitalize' }}>{student.gender || t('notSpecified')}</span>
                         </div>
                     </div>
                 </div>
@@ -113,27 +115,27 @@ export default function StudentDetailPage() {
                 {/* Class Assignment Card */}
                 <div style={{ background: 'white', padding: '1.5rem', borderRadius: '8px', border: '1px solid #e5e7eb' }}>
                     <h2 style={{ fontSize: '1.1rem', fontWeight: 600, borderBottom: '1px solid #e5e7eb', paddingBottom: '0.5rem', marginBottom: '1rem' }}>
-                        Class Assignment
+                        {t('classAssignment')}
                     </h2>
 
                     {student.classes && (
                         <div style={{ marginBottom: '1.5rem', padding: '1rem', background: '#f9fafb', borderRadius: '6px' }}>
-                            <div style={{ fontSize: '0.875rem', color: '#6b7280' }}>Currently assigned to:</div>
+                            <div style={{ fontSize: '0.875rem', color: '#6b7280' }}>{t('currentlyAssignedTo')}</div>
                             <div style={{ fontSize: '1.1rem', fontWeight: 600 }}>{(student.classes.grade as any)?.name ?? `Grade ${student.classes.grade}`}-{student.classes.section}</div>
-                            <div style={{ fontSize: '0.875rem', color: '#6b7280' }}>Year {student.classes.year}</div>
+                            <div style={{ fontSize: '0.875rem', color: '#6b7280' }}>{t('year')} {student.classes.year}</div>
                         </div>
                     )}
 
                     <form onSubmit={handleAssignClass}>
                         <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500, fontSize: '0.875rem' }}>
-                            Change Class
+                            {t('changeClass')}
                         </label>
                         <select
                             value={selectedClassId}
                             onChange={(e) => setSelectedClassId(e.target.value)}
                             style={{ width: '100%', padding: '0.5rem', borderRadius: '4px', border: '1px solid #d1d5db', marginBottom: '1rem' }}
                         >
-                            <option value="">-- No Class Selected --</option>
+                            <option value="">{t('noClassSelected')}</option>
                             {classes.map(cls => (
                                 <option key={cls.id} value={cls.id}>
                                     {(cls.grade as any)?.name ?? `Grade ${cls.grade}`}-{cls.section} ({cls.year})
@@ -155,7 +157,7 @@ export default function StudentDetailPage() {
                                 opacity: assigningClass || !selectedClassId || selectedClassId === student.class_id ? 0.7 : 1
                             }}
                         >
-                            {assigningClass ? 'Saving...' : 'Update Assignment'}
+                            {assigningClass ? t('saving') : t('updateAssignment')}
                         </button>
                     </form>
                 </div>

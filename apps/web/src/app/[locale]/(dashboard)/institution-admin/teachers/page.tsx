@@ -4,8 +4,10 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { fetchTeachers, RequestOpts } from '@/lib/api/school';
 import type { TeacherProfile } from '@edu-lanka/shared-types';
+import { useTranslations } from 'next-intl';
 
 export default function TeachersPage() {
+    const t = useTranslations('InstitutionAdminTeachers');
     const [teachers, setTeachers] = useState<TeacherProfile[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -21,7 +23,7 @@ export default function TeachersPage() {
     return (
         <div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-                <h1 style={{ fontSize: '1.5rem', fontWeight: 600 }}>Teachers</h1>
+                <h1 style={{ fontSize: '1.5rem', fontWeight: 600 }}>{t('title')}</h1>
                 <Link
                     href="/institution-admin/teachers/new" // NOTE: Form page placeholder
                     style={{
@@ -33,29 +35,29 @@ export default function TeachersPage() {
                         fontWeight: 500,
                     }}
                 >
-                    + Add Teacher
+                    {t('addTeacher')}
                 </Link>
             </div>
 
             {loading ? (
-                <div style={{ padding: '2rem', textAlign: 'center', color: '#666' }}>Loading teachers...</div>
+                <div style={{ padding: '2rem', textAlign: 'center', color: '#666' }}>{t('loading')}</div>
             ) : error ? (
                 <div style={{ padding: '1rem', background: '#fee2e2', color: '#b91c1c', borderRadius: '6px' }}>
                     {error}
                 </div>
             ) : teachers.length === 0 ? (
                 <div style={{ padding: '3rem', textAlign: 'center', background: 'white', borderRadius: '8px', border: '1px solid #e5e7eb' }}>
-                    <p style={{ color: '#6b7280', marginBottom: '1rem' }}>No teachers found.</p>
+                    <p style={{ color: '#6b7280', marginBottom: '1rem' }}>{t('noTeachers')}</p>
                 </div>
             ) : (
                 <div style={{ background: 'white', borderRadius: '8px', border: '1px solid #e5e7eb', overflow: 'hidden' }}>
                     <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
                         <thead style={{ background: '#f9fafb', borderBottom: '1px solid #e5e7eb' }}>
                             <tr>
-                                <th style={{ padding: '0.75rem 1rem', fontWeight: 500, color: '#374151' }}>EMP No</th>
-                                <th style={{ padding: '0.75rem 1rem', fontWeight: 500, color: '#374151' }}>Name</th>
-                                <th style={{ padding: '0.75rem 1rem', fontWeight: 500, color: '#374151' }}>Subjects</th>
-                                <th style={{ padding: '0.75rem 1rem', fontWeight: 500, color: '#374151', textAlign: 'right' }}>Actions</th>
+                                <th style={{ padding: '0.75rem 1rem', fontWeight: 500, color: '#374151' }}>{t('empNo')}</th>
+                                <th style={{ padding: '0.75rem 1rem', fontWeight: 500, color: '#374151' }}>{t('name')}</th>
+                                <th style={{ padding: '0.75rem 1rem', fontWeight: 500, color: '#374151' }}>{t('subjects')}</th>
+                                <th style={{ padding: '0.75rem 1rem', fontWeight: 500, color: '#374151', textAlign: 'right' }}>{t('actions')}</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -85,7 +87,7 @@ export default function TeachersPage() {
                                             href={`/institution-admin/teachers/${teacher.id}`}
                                             style={{ color: 'var(--color-brand-600)', textDecoration: 'none', fontWeight: 500 }}
                                         >
-                                            View &rarr;
+                                            {t('view')} &rarr;
                                         </Link>
                                     </td>
                                 </tr>

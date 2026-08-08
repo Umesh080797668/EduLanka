@@ -44,7 +44,9 @@ export default function LoginPage() {
                 localStorage.setItem('role', role);
 
                 // Initial route resolution based on role
-                const route = `/${role.toLowerCase()}`;
+                let route = `/${role.toLowerCase()}`;
+                if (role === 'SCHOOL_ADMIN') route = '/institution-admin';
+                if (role === 'SUPER_ADMIN') route = '/system-admin';
 
                 // Redirect user
                 router.push(route);

@@ -106,7 +106,7 @@ export class TenantService {
 
         // 2. Provision the per-tenant schema via stored procedure
         const { error: rpcErr } = await this.supabase.adminClient.rpc(
-            'create_tenant_schema_sprint4_override',
+            'create_tenant_schema_sprint6_override',
             { p_slug: dto.slug },
         );
 

@@ -5,8 +5,10 @@ import { useRouter } from 'next/navigation';
 import { fetchParent, fetchStudents, linkStudentToParent, unlinkStudentFromParent, RequestOpts } from '@/lib/api/school';
 import type { ParentProfile, StudentProfile } from '@edu-lanka/shared-types';
 import { ParentRelationship } from '@edu-lanka/shared-types';
+import { useTranslations } from 'next-intl';
 
 export default function ParentDetailPage({ params }: { params: { id: string } }) {
+    const t = useTranslations('InstitutionAdminParents');
     const router = useRouter();
     const [parent, setParent] = useState<ParentProfile | null>(null);
     const [allStudents, setAllStudents] = useState<StudentProfile[]>([]);
@@ -57,7 +59,7 @@ export default function ParentDetailPage({ params }: { params: { id: string } })
     };
 
     const handleUnlink = async (studentId: string) => {
-        if (!confirm('Are you sure you want to decouple this student from this parent?')) return;
+        if (!confirm(t('unlinkConfirm'))) return;
         try {
             const opts: RequestOpts = { token: localStorage.getItem('token') || '', tenantId: localStorage.getItem('tenantId') || '' };
             await unlinkStudentFromParent(params.id, studentId, opts);
@@ -67,9 +69,9 @@ export default function ParentDetailPage({ params }: { params: { id: string } })
         }
     };
 
-    if (loading) return <div style={{ padding: '2rem', textAlign: 'center' }}>Loading Parent Profile...</div>;
+    if (loading) return <div style={{ padding: '2rem', textAlign: 'center' }}>{t('loadingParent')}</div>;
     if (error && !parent) return <div style={{ padding: '2rem', color: 'red' }}>Error: {error}</div>;
-    if (!parent) return <div style={{ padding: '2rem' }}>Parent not found.</div>;
+    if (!parent) return <div style={{ padding: '2rem' }}>{t('parentNotFound')}</div>;
 
     const linkedStudentIds = parent.parent_children?.map(pc => pc.student_id) || [];
     const availableStudents = allStudents.filter(s => !linkedStudentIds.includes(s.id));
@@ -81,13 +83,13 @@ export default function ParentDetailPage({ params }: { params: { id: string } })
                     onClick={() => router.back()}
                     style={{ background: 'none', border: 'none', color: '#6b7280', cursor: 'pointer', marginBottom: '1rem', font: 'inherit' }}
                 >
-                    &larr; Back to Parents
+                    &larr; {t('backParents')}
                 </button>
                 <h1 style={{ fontSize: '1.8rem', fontWeight: 600, color: '#111827' }}>
                     {parent.full_name}
                 </h1>
                 <p style={{ color: '#4b5563', marginTop: '0.25rem' }}>
-                    Contact: {parent.phone_number || parent.email || 'Unregistered'}
+                    {t('contact')}: {parent.phone_number || parent.email || t('unregistered')}
                 </p>
                 {error && <div style={{ marginTop: '1rem', padding: '1rem', background: '#fee2e2', color: '#b91c1c', borderRadius: '6px' }}>{error}</div>}
             </div>
@@ -95,10 +97,10 @@ export default function ParentDetailPage({ params }: { params: { id: string } })
             <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '2rem' }}>
                 {/* Linked Children List */}
                 <div style={{ background: 'white', borderRadius: '8px', border: '1px solid #e5e7eb', padding: '1.5rem' }}>
-                    <h2 style={{ fontSize: '1.2rem', fontWeight: 600, marginBottom: '1.5rem' }}>Mapped Children</h2>
+                    <h2 style={{ fontSize: '1.2rem', fontWeight: 600, marginBottom: '1.5rem' }}>{t('mappedChildren')}</h2>
 
                     {!parent.parent_children || parent.parent_children.length === 0 ? (
-                        <p style={{ color: '#6b7280', padding: '2rem 0', textAlign: 'center' }}>No students mapped to this parent yet.</p>
+                        <p style={{ color: '#6b7280', padding: '2rem 0', textAlign: 'center' }}>{t('noStudentsMapped')}</p>
                     ) : (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                             {parent.parent_children.map((pc: any) => (
@@ -106,14 +108,14 @@ export default function ParentDetailPage({ params }: { params: { id: string } })
                                     <div>
                                         <div style={{ fontWeight: 500, color: '#111827' }}>{pc.students?.users?.full_name}</div>
                                         <div style={{ fontSize: '0.85rem', color: '#6b7280', marginTop: '0.25rem' }}>
-                                            Admission No: {pc.students?.admission_no} &bull; Relationship: {pc.relationship}
+                                            {t('admissionNo')}: {pc.students?.admission_no} &bull; {t('relationship')}: {pc.relationship}
                                         </div>
                                     </div>
                                     <button
                                         onClick={() => handleUnlink(pc.student_id)}
                                         style={{ background: 'white', color: '#ef4444', border: '1px solid #fee2e2', padding: '0.5rem 1rem', borderRadius: '4px', cursor: 'pointer', fontWeight: 500 }}
                                     >
-                                        Unlink
+                                        {t('unlink')}
                                     </button>
                                 </div>
                             ))}
@@ -123,24 +125,24 @@ export default function ParentDetailPage({ params }: { params: { id: string } })
 
                 {/* Link child form */}
                 <div style={{ background: '#f9fafb', borderRadius: '8px', border: '1px solid #e5e7eb', padding: '1.5rem', height: 'fit-content' }}>
-                    <h3 style={{ fontSize: '1.1rem', fontWeight: 600, marginBottom: '1rem' }}>Link a Student</h3>
+                    <h3 style={{ fontSize: '1.1rem', fontWeight: 600, marginBottom: '1rem' }}>{t('linkStudent')}</h3>
                     <form onSubmit={handleLink} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                         <div>
-                            <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 500, color: '#374151', marginBottom: '0.5rem' }}>Select Student</label>
+                            <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 500, color: '#374151', marginBottom: '0.5rem' }}>{t('selectStudent')}</label>
                             <select
                                 required
                                 value={selectedStudentId}
                                 onChange={(e) => setSelectedStudentId(e.target.value)}
                                 style={{ width: '100%', padding: '0.5rem', borderRadius: '4px', border: '1px solid #d1d5db' }}
                             >
-                                <option value="" disabled>-- Choose Student --</option>
+                                <option value="" disabled>{t('chooseStudent')}</option>
                                 {availableStudents.map(s => (
                                     <option key={s.id} value={s.id}>{s.users?.full_name} ({s.admission_no})</option>
                                 ))}
                             </select>
                         </div>
                         <div>
-                            <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 500, color: '#374151', marginBottom: '0.5rem' }}>Relationship Context</label>
+                            <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 500, color: '#374151', marginBottom: '0.5rem' }}>{t('relationshipContext')}</label>
                             <select
                                 value={relationship}
                                 onChange={(e) => setRelationship(e.target.value as ParentRelationship)}
@@ -165,7 +167,7 @@ export default function ParentDetailPage({ params }: { params: { id: string } })
                                 cursor: !selectedStudentId || mapping ? 'not-allowed' : 'pointer'
                             }}
                         >
-                            {mapping ? 'Linking...' : '+ Map Student Record'}
+                            {mapping ? t('linking') : t('mapStudent')}
                         </button>
                     </form>
                 </div>

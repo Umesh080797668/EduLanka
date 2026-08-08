@@ -4,8 +4,10 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { fetchStudents, RequestOpts } from '@/lib/api/school';
 import type { StudentProfile } from '@edu-lanka/shared-types';
+import { useTranslations } from 'next-intl';
 
 export default function StudentsPage() {
+    const t = useTranslations('InstitutionAdminStudents');
     const [students, setStudents] = useState<StudentProfile[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -22,7 +24,7 @@ export default function StudentsPage() {
     return (
         <div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-                <h1 style={{ fontSize: '1.5rem', fontWeight: 600 }}>Students</h1>
+                <h1 style={{ fontSize: '1.5rem', fontWeight: 600 }}>{t('title')}</h1>
                 <Link
                     href="/institution-admin/students/new"
                     style={{
@@ -34,30 +36,30 @@ export default function StudentsPage() {
                         fontWeight: 500,
                     }}
                 >
-                    + Enroll Student
+                    {t('enrollStudent')}
                 </Link>
             </div>
 
             {loading ? (
-                <div style={{ padding: '2rem', textAlign: 'center', color: '#666' }}>Loading students...</div>
+                <div style={{ padding: '2rem', textAlign: 'center', color: '#666' }}>{t('loading')}</div>
             ) : error ? (
                 <div style={{ padding: '1rem', background: '#fee2e2', color: '#b91c1c', borderRadius: '6px' }}>
                     {error}
                 </div>
             ) : students.length === 0 ? (
                 <div style={{ padding: '3rem', textAlign: 'center', background: 'white', borderRadius: '8px', border: '1px solid #e5e7eb' }}>
-                    <p style={{ color: '#6b7280', marginBottom: '1rem' }}>No students found.</p>
+                    <p style={{ color: '#6b7280', marginBottom: '1rem' }}>{t('noStudents')}</p>
                 </div>
             ) : (
                 <div style={{ background: 'white', borderRadius: '8px', border: '1px solid #e5e7eb', overflow: 'hidden' }}>
                     <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
                         <thead style={{ background: '#f9fafb', borderBottom: '1px solid #e5e7eb' }}>
                             <tr>
-                                <th style={{ padding: '0.75rem 1rem', fontWeight: 500, color: '#374151' }}>Admission No</th>
-                                <th style={{ padding: '0.75rem 1rem', fontWeight: 500, color: '#374151' }}>Name</th>
-                                <th style={{ padding: '0.75rem 1rem', fontWeight: 500, color: '#374151' }}>Class</th>
-                                <th style={{ padding: '0.75rem 1rem', fontWeight: 500, color: '#374151' }}>Status</th>
-                                <th style={{ padding: '0.75rem 1rem', fontWeight: 500, color: '#374151', textAlign: 'right' }}>Actions</th>
+                                <th style={{ padding: '0.75rem 1rem', fontWeight: 500, color: '#374151' }}>{t('admissionNo')}</th>
+                                <th style={{ padding: '0.75rem 1rem', fontWeight: 500, color: '#374151' }}>{t('name')}</th>
+                                <th style={{ padding: '0.75rem 1rem', fontWeight: 500, color: '#374151' }}>{t('class')}</th>
+                                <th style={{ padding: '0.75rem 1rem', fontWeight: 500, color: '#374151' }}>{t('status')}</th>
+                                <th style={{ padding: '0.75rem 1rem', fontWeight: 500, color: '#374151', textAlign: 'right' }}>{t('actions')}</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -69,7 +71,7 @@ export default function StudentsPage() {
                                         <div style={{ fontSize: '0.85rem', color: '#6b7280' }}>{student.users?.email}</div>
                                     </td>
                                     <td style={{ padding: '0.75rem 1rem' }}>
-                                        {student.classes ? `Grade ${student.classes.grade}-${student.classes.section}` : <span style={{ color: '#9ca3af', fontStyle: 'italic' }}>Unassigned</span>}
+                                        {student.classes ? `Grade ${student.classes.grade}-${student.classes.section}` : <span style={{ color: '#9ca3af', fontStyle: 'italic' }}>{t('unassigned')}</span>}
                                     </td>
                                     <td style={{ padding: '0.75rem 1rem' }}>
                                         <span style={{
@@ -80,7 +82,7 @@ export default function StudentsPage() {
                                             background: student.users?.is_active ? '#dcfce7' : '#fee2e2',
                                             color: student.users?.is_active ? '#166534' : '#991b1b'
                                         }}>
-                                            {student.users?.is_active ? 'Active' : 'Inactive'}
+                                            {student.users?.is_active ? t('active') : t('inactive')}
                                         </span>
                                     </td>
                                     <td style={{ padding: '0.75rem 1rem', textAlign: 'right' }}>
@@ -88,7 +90,7 @@ export default function StudentsPage() {
                                             href={`/institution-admin/students/${student.id}`}
                                             style={{ color: 'var(--color-brand-600)', textDecoration: 'none', fontWeight: 500 }}
                                         >
-                                            View &rarr;
+                                            {t('view')} &rarr;
                                         </Link>
                                     </td>
                                 </tr>

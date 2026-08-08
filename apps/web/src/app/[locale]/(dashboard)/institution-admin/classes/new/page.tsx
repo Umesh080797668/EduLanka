@@ -5,8 +5,10 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { createClass, fetchGrades, RequestOpts } from '@/lib/api/school';
 import type { GradeProfile } from '@edu-lanka/shared-types';
+import { useTranslations } from 'next-intl';
 
 export default function NewClassPage() {
+    const t = useTranslations('InstitutionAdminClasses');
     const router = useRouter();
     const [grades, setGrades] = useState<GradeProfile[]>([]);
     const [gradeId, setGradeId] = useState('');
@@ -50,9 +52,9 @@ export default function NewClassPage() {
         <div style={{ maxWidth: '600px' }}>
             <div style={{ marginBottom: '1.5rem' }}>
                 <Link href="/institution-admin/classes" style={{ color: '#6b7280', textDecoration: 'none', fontSize: '0.875rem' }}>
-                    &larr; Back to Classes
+                    &larr; {t('backClasses')}
                 </Link>
-                <h1 style={{ fontSize: '1.5rem', fontWeight: 600, marginTop: '0.5rem' }}>Create New Class</h1>
+                <h1 style={{ fontSize: '1.5rem', fontWeight: 600, marginTop: '0.5rem' }}>{t('createNew')}</h1>
             </div>
 
             {error && (
@@ -63,7 +65,7 @@ export default function NewClassPage() {
 
             <form onSubmit={handleSubmit} style={{ background: 'white', padding: '2rem', borderRadius: '8px', border: '1px solid #e5e7eb' }}>
                 <div style={{ marginBottom: '1.5rem' }}>
-                    <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500, fontSize: '0.875rem' }}>Curriculum Grade *</label>
+                    <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500, fontSize: '0.875rem' }}>{t('curriculumGrade')}</label>
                     <select
                         required
                         disabled={loadingGrades}
@@ -71,7 +73,7 @@ export default function NewClassPage() {
                         onChange={e => setGradeId(e.target.value)}
                         style={{ width: '100%', padding: '0.5rem', borderRadius: '4px', border: '1px solid #d1d5db' }}
                     >
-                        {loadingGrades ? <option>Loading grades...</option> : null}
+                        {loadingGrades ? <option>{t('loadingGrades')}</option> : null}
                         {grades.map(g => (
                             <option key={g.id} value={g.id}>{g.name} — {g.curriculum_type.replace('_', ' ')}</option>
                         ))}
@@ -79,33 +81,33 @@ export default function NewClassPage() {
                 </div>
 
                 <div style={{ marginBottom: '1.5rem' }}>
-                    <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500, fontSize: '0.875rem' }}>Section *</label>
+                    <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500, fontSize: '0.875rem' }}>{t('section')}</label>
                     <input
                         type="text"
                         required
                         value={section}
                         onChange={(e) => setSection(e.target.value)}
-                        placeholder="e.g. A, B, Science 1"
+                        placeholder={t('sectionHint')}
                         style={{ width: '100%', padding: '0.5rem', borderRadius: '4px', border: '1px solid #d1d5db' }}
                     />
                 </div>
 
                 <div style={{ marginBottom: '1.5rem' }}>
-                    <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500, fontSize: '0.875rem' }}>Instruction Medium</label>
+                    <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500, fontSize: '0.875rem' }}>{t('instructionMedium')}</label>
                     <select
                         value={medium}
                         onChange={(e) => setMedium(e.target.value)}
                         style={{ width: '100%', padding: '0.5rem', borderRadius: '4px', border: '1px solid #d1d5db' }}
                     >
-                        <option value="">Not Applicable / Combined</option>
-                        <option value="ENGLISH">English Medium</option>
-                        <option value="SINHALA">Sinhala Medium</option>
-                        <option value="TAMIL">Tamil Medium</option>
+                        <option value="">{t('notApplicable')}</option>
+                        <option value="ENGLISH">{t('englishMed')}</option>
+                        <option value="SINHALA">{t('sinhalaMed')}</option>
+                        <option value="TAMIL">{t('tamilMed')}</option>
                     </select>
                 </div>
 
                 <div style={{ marginBottom: '2rem' }}>
-                    <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500, fontSize: '0.875rem' }}>Academic Year</label>
+                    <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500, fontSize: '0.875rem' }}>{t('academicYear')}</label>
                     <input
                         type="number"
                         required
@@ -120,7 +122,7 @@ export default function NewClassPage() {
                         href="/institution-admin/classes"
                         style={{ padding: '0.75rem 1.5rem', borderRadius: '6px', color: '#374151', textDecoration: 'none', background: '#f3f4f6', fontWeight: 500 }}
                     >
-                        Cancel
+                        {t('cancel')}
                     </Link>
                     <button
                         type="submit"
@@ -136,7 +138,7 @@ export default function NewClassPage() {
                             opacity: saving ? 0.7 : 1,
                         }}
                     >
-                        {saving ? 'Creating...' : 'Create Class'}
+                        {saving ? t('creating') : t('createForm')}
                     </button>
                 </div>
             </form>

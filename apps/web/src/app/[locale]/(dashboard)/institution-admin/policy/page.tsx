@@ -5,8 +5,12 @@ import { fetchPolicy, updatePolicy, RequestOpts } from '@/lib/api/school';
 import type { SchoolPolicy } from '@edu-lanka/shared-types';
 import { motion } from 'framer-motion';
 import { Settings, Save, CheckCircle2, AlertCircle, Loader2, Clock, MapPin, Building2, Languages } from 'lucide-react';
+import { TutorialProvider } from '@/components/TutorialProvider';
+import { HelpButton } from '@/components/HelpButton';
+import { useTranslations } from 'next-intl';
 
 export default function SchoolPolicyPage() {
+    const t = useTranslations('InstitutionAdminPolicy');
     const [, setPolicy] = useState<SchoolPolicy | null>(null);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
@@ -37,7 +41,7 @@ export default function SchoolPolicyPage() {
         try {
             const updated = await updatePolicy(formData, opts);
             setPolicy(updated);
-            setSuccess('School policy configurations saved successfully.');
+            setSuccess(t('successMsg'));
             setTimeout(() => setSuccess(null), 4000);
         } catch (err: any) {
             setError(err.message);
@@ -50,206 +54,209 @@ export default function SchoolPolicyPage() {
         return (
             <div className="flex flex-col items-center justify-center min-h-[400px]">
                 <Loader2 className="w-8 h-8 animate-spin text-indigo-500 mb-4" />
-                <p className="text-slate-500 font-medium">Loading school policies...</p>
+                <p className="text-slate-500 font-medium">{t('loading')}</p>
             </div>
         );
     }
 
     return (
-        <div className="max-w-4xl mx-auto space-y-6">
-            <motion.div
-                initial={{ opacity: 0, y: -20 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="bg-white rounded-2xl p-6 md:p-8 shadow-sm border border-slate-200"
-            >
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 pb-6 border-b border-slate-100 mb-8">
-                    <div>
-                        <h2 className="text-2xl font-bold tracking-tight text-slate-900 flex items-center gap-3">
-                            <Settings className="w-6 h-6 text-indigo-600" />
-                            School Policy Settings
-                        </h2>
-                        <p className="text-slate-500 mt-1">Configure global operational and academic settings for this tenant.</p>
+        <TutorialProvider role="SCHOOL_ADMIN" screenId="policy">
+            <div className="max-w-4xl mx-auto space-y-6">
+                <motion.div
+                    initial={{ opacity: 0, y: -20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="bg-white rounded-2xl p-6 md:p-8 shadow-sm border border-slate-200"
+                >
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 pb-6 border-b border-slate-100 mb-8">
+                        <div>
+                            <h2 className="text-2xl font-bold tracking-tight text-slate-900 flex items-center gap-3">
+                                <Settings className="w-6 h-6 text-indigo-600" />
+                                {t('title')}
+                            </h2>
+                            <p className="text-slate-500 mt-1">{t('description')}</p>
+                        </div>
                     </div>
-                </div>
 
-                {error && (
-                    <motion.div initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} className="p-4 bg-rose-50 text-rose-700 rounded-xl mb-6 border border-rose-100 flex items-start gap-3">
-                        <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5" />
-                        <p className="font-medium text-sm">{error}</p>
-                    </motion.div>
-                )}
+                    {error && (
+                        <motion.div initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} className="p-4 bg-rose-50 text-rose-700 rounded-xl mb-6 border border-rose-100 flex items-start gap-3">
+                            <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5" />
+                            <p className="font-medium text-sm">{error}</p>
+                        </motion.div>
+                    )}
 
-                {success && (
-                    <motion.div initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} className="p-4 bg-emerald-50 text-emerald-700 rounded-xl mb-6 border border-emerald-100 flex items-center gap-3 shadow-sm">
-                        <CheckCircle2 className="w-5 h-5 flex-shrink-0" />
-                        <p className="font-medium text-sm">{success}</p>
-                    </motion.div>
-                )}
+                    {success && (
+                        <motion.div initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} className="p-4 bg-emerald-50 text-emerald-700 rounded-xl mb-6 border border-emerald-100 flex items-center gap-3 shadow-sm">
+                            <CheckCircle2 className="w-5 h-5 flex-shrink-0" />
+                            <p className="font-medium text-sm">{success}</p>
+                        </motion.div>
+                    )}
 
-                <form onSubmit={handleSubmit} className="space-y-8">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                        {/* Box 1: Academic Settings */}
-                        <div className="p-6 rounded-xl bg-slate-50 border border-slate-100 space-y-5">
-                            <h3 className="font-bold text-slate-800 flex items-center gap-2 mb-4">
-                                <Building2 className="w-4 h-4 text-indigo-500" />
-                                Academic Preferences
-                            </h3>
+                    <form onSubmit={handleSubmit} className="space-y-8">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                            {/* Box 1: Academic Settings */}
+                            <div className="p-6 rounded-xl bg-slate-50 border border-slate-100 space-y-5">
+                                <h3 className="font-bold text-slate-800 flex items-center gap-2 mb-4">
+                                    <Building2 className="w-4 h-4 text-indigo-500" />
+                                    {t('academicPreferences')}
+                                </h3>
 
-                            <div>
-                                <label className="block text-sm font-semibold text-slate-700 mb-2">Current Academic Year</label>
-                                <input
-                                    type="number"
-                                    value={formData.academic_year || ''}
-                                    onChange={e => setFormData({ ...formData, academic_year: parseInt(e.target.value, 10) })}
-                                    className="w-full bg-white border border-slate-300 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-shadow"
-                                    placeholder="e.g. 2026"
-                                />
-                            </div>
-
-                            <div>
-                                <label className="block text-sm font-semibold text-slate-700 mb-2">Max Students per Class</label>
-                                <input
-                                    type="number"
-                                    value={formData.max_students_per_class || ''}
-                                    onChange={e => setFormData({ ...formData, max_students_per_class: parseInt(e.target.value, 10) })}
-                                    className="w-full bg-white border border-slate-300 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-shadow"
-                                />
-                            </div>
-                        </div>
-
-                        {/* Box 2: Operations Settings */}
-                        <div className="p-6 rounded-xl bg-slate-50 border border-slate-100 space-y-5">
-                            <h3 className="font-bold text-slate-800 flex items-center gap-2 mb-4">
-                                <Clock className="w-4 h-4 text-emerald-500" />
-                                Operational Details
-                            </h3>
-
-                            <div className="grid grid-cols-2 gap-4">
                                 <div>
-                                    <label className="block text-sm font-semibold text-slate-700 mb-2">Start Time</label>
+                                    <label className="block text-sm font-semibold text-slate-700 mb-2">{t('currentAcademicYear')}</label>
                                     <input
-                                        type="time" step="1"
-                                        value={formData.school_hours_start || ''}
-                                        onChange={e => setFormData({ ...formData, school_hours_start: e.target.value })}
-                                        className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-shadow"
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-semibold text-slate-700 mb-2">End Time</label>
-                                    <input
-                                        type="time" step="1"
-                                        value={formData.school_hours_end || ''}
-                                        onChange={e => setFormData({ ...formData, school_hours_end: e.target.value })}
-                                        className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-shadow"
-                                    />
-                                </div>
-                            </div>
-
-                            <div>
-                                <label className="block text-sm font-semibold text-slate-700 mb-2 flex items-center gap-2">
-                                    <MapPin className="w-3.5 h-3.5 text-slate-400" />
-                                    Timezone
-                                </label>
-                                <input
-                                    type="text"
-                                    value={formData.timezone || ''}
-                                    onChange={e => setFormData({ ...formData, timezone: e.target.value })}
-                                    className="w-full bg-white border border-slate-300 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-shadow"
-                                    placeholder="e.g. Asia/Colombo"
-                                />
-                            </div>
-                        </div>
-
-                        {/* Box 3: Localization */}
-                        <div className="p-6 rounded-xl bg-slate-50 border border-slate-100 space-y-5 md:col-span-2">
-                            <h3 className="font-bold text-slate-800 flex items-center gap-2 mb-4">
-                                <Languages className="w-4 h-4 text-purple-500" />
-                                Language & Mediums
-                            </h3>
-
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                                <div>
-                                    <label className="block text-sm font-semibold text-slate-700 mb-2">Default Application Language</label>
-                                    <select
-                                        value={formData.default_language || 'en'}
-                                        onChange={e => setFormData({ ...formData, default_language: e.target.value as 'en' | 'si' | 'ta' })}
+                                        type="number"
+                                        value={formData.academic_year || ''}
+                                        onChange={e => setFormData({ ...formData, academic_year: parseInt(e.target.value, 10) })}
                                         className="w-full bg-white border border-slate-300 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-shadow"
-                                    >
-                                        <option value="en">English (en)</option>
-                                        <option value="si">Sinhala (si)</option>
-                                        <option value="ta">Tamil (ta)</option>
-                                    </select>
+                                        placeholder="e.g. 2026"
+                                    />
                                 </div>
 
                                 <div>
-                                    <label className="block text-sm font-semibold text-slate-700 mb-2">Supported Academic Mediums</label>
-                                    <select
-                                        multiple
-                                        value={formData.supported_mediums || []}
-                                        onChange={e => {
-                                            const options = Array.from(e.target.selectedOptions);
-                                            setFormData({ ...formData, supported_mediums: options.map(o => o.value as any) });
-                                        }}
-                                        className="w-full bg-white border border-slate-300 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-shadow min-h-[90px]"
-                                    >
-                                        <option value="ENGLISH">English</option>
-                                        <option value="SINHALA">Sinhala</option>
-                                        <option value="TAMIL">Tamil</option>
-                                    </select>
-                                    <p className="text-xs text-slate-500 mt-1.5">Hold Ctrl/Cmd to select multiple mediums.</p>
+                                    <label className="block text-sm font-semibold text-slate-700 mb-2">{t('maxStudents')}</label>
+                                    <input
+                                        type="number"
+                                        value={formData.max_students_per_class || ''}
+                                        onChange={e => setFormData({ ...formData, max_students_per_class: parseInt(e.target.value, 10) })}
+                                        className="w-full bg-white border border-slate-300 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-shadow"
+                                    />
+                                </div>
+                            </div>
+
+                            {/* Box 2: Operations Settings */}
+                            <div className="p-6 rounded-xl bg-slate-50 border border-slate-100 space-y-5">
+                                <h3 className="font-bold text-slate-800 flex items-center gap-2 mb-4">
+                                    <Clock className="w-4 h-4 text-emerald-500" />
+                                    {t('operationalDetails')}
+                                </h3>
+
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="block text-sm font-semibold text-slate-700 mb-2">{t('startTime')}</label>
+                                        <input
+                                            type="time" step="1"
+                                            value={formData.school_hours_start || ''}
+                                            onChange={e => setFormData({ ...formData, school_hours_start: e.target.value })}
+                                            className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-shadow"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-semibold text-slate-700 mb-2">{t('endTime')}</label>
+                                        <input
+                                            type="time" step="1"
+                                            value={formData.school_hours_end || ''}
+                                            onChange={e => setFormData({ ...formData, school_hours_end: e.target.value })}
+                                            className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-shadow"
+                                        />
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-semibold text-slate-700 mb-2 flex items-center gap-2">
+                                        <MapPin className="w-3.5 h-3.5 text-slate-400" />
+                                        {t('timezone')}
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={formData.timezone || ''}
+                                        onChange={e => setFormData({ ...formData, timezone: e.target.value })}
+                                        className="w-full bg-white border border-slate-300 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-shadow"
+                                        placeholder="e.g. Asia/Colombo"
+                                    />
+                                </div>
+                            </div>
+
+                            {/* Box 3: Localization */}
+                            <div className="p-6 rounded-xl bg-slate-50 border border-slate-100 space-y-5 md:col-span-2">
+                                <h3 className="font-bold text-slate-800 flex items-center gap-2 mb-4">
+                                    <Languages className="w-4 h-4 text-purple-500" />
+                                    {t('languageMediums')}
+                                </h3>
+
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                    <div>
+                                        <label className="block text-sm font-semibold text-slate-700 mb-2">{t('defaultLanguage')}</label>
+                                        <select
+                                            value={formData.default_language || 'en'}
+                                            onChange={e => setFormData({ ...formData, default_language: e.target.value as 'en' | 'si' | 'ta' })}
+                                            className="w-full bg-white border border-slate-300 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-shadow"
+                                        >
+                                            <option value="en">{t('langEn')}</option>
+                                            <option value="si">{t('langSi')}</option>
+                                            <option value="ta">{t('langTa')}</option>
+                                        </select>
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-sm font-semibold text-slate-700 mb-2">{t('supportedMediums')}</label>
+                                        <select
+                                            multiple
+                                            value={formData.supported_mediums || []}
+                                            onChange={e => {
+                                                const options = Array.from(e.target.selectedOptions);
+                                                setFormData({ ...formData, supported_mediums: options.map(o => o.value as any) });
+                                            }}
+                                            className="w-full bg-white border border-slate-300 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-shadow min-h-[90px]"
+                                        >
+                                            <option value="ENGLISH">{t('medEn')}</option>
+                                            <option value="SINHALA">{t('medSi')}</option>
+                                            <option value="TAMIL">{t('medTa')}</option>
+                                        </select>
+                                        <p className="text-xs text-slate-500 mt-1.5">{t('holdCtrl')}</p>
+                                    </div>
                                 </div>
                             </div>
                         </div>
-                    </div>
 
-                    <div className="pt-6 border-t border-slate-100 grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <label className="flex items-center gap-4 p-4 rounded-xl border border-slate-200 hover:border-indigo-300 hover:bg-slate-50 transition-colors cursor-pointer group">
-                            <input
-                                type="checkbox"
-                                checked={formData.allow_self_enrollment || false}
-                                onChange={e => setFormData({ ...formData, allow_self_enrollment: e.target.checked })}
-                                className="w-5 h-5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
-                            />
-                            <div>
-                                <span className="block font-semibold text-slate-800 group-hover:text-indigo-900 transition-colors">Self-enrollment</span>
-                                <span className="text-sm text-slate-500">Allow parents/students to register accounts via portal.</span>
-                            </div>
-                        </label>
+                        <div className="pt-6 border-t border-slate-100 grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <label className="flex items-center gap-4 p-4 rounded-xl border border-slate-200 hover:border-indigo-300 hover:bg-slate-50 transition-colors cursor-pointer group">
+                                <input
+                                    type="checkbox"
+                                    checked={formData.allow_self_enrollment || false}
+                                    onChange={e => setFormData({ ...formData, allow_self_enrollment: e.target.checked })}
+                                    className="w-5 h-5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                                />
+                                <div>
+                                    <span className="block font-semibold text-slate-800 group-hover:text-indigo-900 transition-colors">{t('selfEnrollment')}</span>
+                                    <span className="text-sm text-slate-500">{t('selfEnrollmentDesc')}</span>
+                                </div>
+                            </label>
 
-                        <label className="flex items-center gap-4 p-4 rounded-xl border border-slate-200 hover:border-indigo-300 hover:bg-slate-50 transition-colors cursor-pointer group">
-                            <input
-                                type="checkbox"
-                                checked={formData.sms_enabled || false}
-                                onChange={e => setFormData({ ...formData, sms_enabled: e.target.checked })}
-                                className="w-5 h-5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
-                            />
-                            <div>
-                                <span className="block font-semibold text-slate-800 group-hover:text-indigo-900 transition-colors">SMS Notifications</span>
-                                <span className="text-sm text-slate-500">Enable automated SMS for attendance and emergency alerts.</span>
-                            </div>
-                        </label>
-                    </div>
+                            <label className="flex items-center gap-4 p-4 rounded-xl border border-slate-200 hover:border-indigo-300 hover:bg-slate-50 transition-colors cursor-pointer group">
+                                <input
+                                    type="checkbox"
+                                    checked={formData.sms_enabled || false}
+                                    onChange={e => setFormData({ ...formData, sms_enabled: e.target.checked })}
+                                    className="w-5 h-5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                                />
+                                <div>
+                                    <span className="block font-semibold text-slate-800 group-hover:text-indigo-900 transition-colors">{t('smsNotifications')}</span>
+                                    <span className="text-sm text-slate-500">{t('smsNotificationsDesc')}</span>
+                                </div>
+                            </label>
+                        </div>
 
-                    <div className="flex justify-end pt-4">
-                        <button
-                            type="submit"
-                            disabled={saving}
-                            className={`
+                        <div className="flex justify-end pt-4">
+                            <button
+                                type="submit"
+                                disabled={saving}
+                                className={`
                                 flex items-center justify-center gap-2 px-8 py-3.5 rounded-xl font-bold shadow-sm transition-all
                                 ${saving
-                                    ? 'bg-indigo-400 text-white cursor-not-allowed'
-                                    : 'bg-indigo-600 text-white hover:bg-indigo-700 hover:shadow-lg hover:shadow-indigo-600/30'}
+                                        ? 'bg-indigo-400 text-white cursor-not-allowed'
+                                        : 'bg-indigo-600 text-white hover:bg-indigo-700 hover:shadow-lg hover:shadow-indigo-600/30'}
                             `}
-                        >
-                            {saving ? (
-                                <><Loader2 className="w-5 h-5 animate-spin" /> Saving Policy...</>
-                            ) : (
-                                <><Save className="w-5 h-5" /> Save Global Configuration</>
-                            )}
-                        </button>
-                    </div>
-                </form>
-            </motion.div>
-        </div>
+                            >
+                                {saving ? (
+                                    <><Loader2 className="w-5 h-5 animate-spin" /> {t('saving')}</>
+                                ) : (
+                                    <><Save className="w-5 h-5" /> {t('saveConfig')}</>
+                                )}
+                            </button>
+                        </div>
+                    </form>
+                </motion.div>
+                <HelpButton />
+            </div>
+        </TutorialProvider>
     );
 }

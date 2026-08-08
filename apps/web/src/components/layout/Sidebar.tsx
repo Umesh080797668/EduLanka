@@ -27,7 +27,7 @@ const NAV_ITEMS = {
         { nameKey: 'dashboard', href: '/teacher', icon: LayoutDashboard },
         { nameKey: 'classesGrades', href: '/teacher/classes', icon: BookOpen },
     ],
-    ADMIN: [
+    SCHOOL_ADMIN: [
         { nameKey: 'dashboard', href: '/institution-admin', icon: LayoutDashboard },
         { nameKey: 'users', href: '/institution-admin/users', icon: Users },
         { nameKey: 'policy', href: '/institution-admin/policy', icon: Settings },
@@ -40,7 +40,7 @@ const NAV_ITEMS = {
 export default function Sidebar() {
     const pathname = usePathname();
     const t = useTranslations('Sidebar');
-    const [role, setRole] = useState<'STUDENT' | 'PARENT' | 'TEACHER' | 'ADMIN' | 'SUPER_ADMIN' | null>(null);
+    const [role, setRole] = useState<'STUDENT' | 'PARENT' | 'TEACHER' | 'SCHOOL_ADMIN' | 'SUPER_ADMIN' | null>(null);
 
     useEffect(() => {
         let mounted = true;

@@ -116,25 +116,64 @@ export class TutorialsService {
     async getTenantStats(user: JwtPayload) {
         const client = this.supabase.getTenantClient(user.tenantId);
 
-        // Basic aggregation query for COMPLETIONS by tutorial_id for the tenant
-        // Notice: Supabase JS doesn't do complex grouping easily. We fallback to RPC or custom query.
-        // For now, we pull raw rows and group in memory (since school scale is small).
-        const { data, error } = await client
+        // 1. Fetch all active global tutorials
+        const { data: allTutorials, error: tutErr } = await this.supabase.adminClient
+            .from('tutorials')
+            .select('id, role, screen_id')
+            .eq('is_active', true);
+
+        if (tutErr) {
+            throw new InternalServerErrorException('Failed to fetch tutorials definition');
+        }
+
+        // 2. Fetch tenant user completions
+        const { data: completions, error: compErr } = await client
             .from('user_tutorials')
             .select('tutorial_id, status');
 
-        if (error) {
-            throw new InternalServerErrorException('Failed to calculate stats');
+        if (compErr) {
+            throw new InternalServerErrorException('Failed to fetch completions');
         }
 
-        const stats = (data || []).reduce((acc: any, row: any) => {
-            acc[row.tutorial_id] = acc[row.tutorial_id] || { completed: 0, skipped: 0 };
-            if (row.status === 'COMPLETED') acc[row.tutorial_id].completed++;
-            if (row.status === 'SKIPPED') acc[row.tutorial_id].skipped++;
+        // 3. Fetch total active users by role
+        const { data: usersData, error: userErr } = await client
+            .from('users')
+            .select('role')
+            .eq('is_active', true);
+
+        if (userErr) {
+            throw new InternalServerErrorException('Failed to fetch user roles');
+        }
+
+        const roleCounts = usersData.reduce((acc: any, row: any) => {
+            acc[row.role] = (acc[row.role] || 0) + 1;
             return acc;
         }, {});
 
-        return { success: true, data: stats };
+        // 4. Combine into rich stats
+        const compiledStats = (allTutorials || []).map(tut => {
+            const relevantCompletions = (completions || []).filter(c => c.tutorial_id === tut.id);
+            const completedCount = relevantCompletions.filter(c => c.status === 'COMPLETED').length;
+            const skippedCount = relevantCompletions.filter(c => c.status === 'SKIPPED').length;
+            const eligibleUsers = roleCounts[tut.role] || 0;
+
+            let completionPercentage = 0;
+            if (eligibleUsers > 0) {
+                completionPercentage = Math.round((completedCount / eligibleUsers) * 100);
+            }
+
+            return {
+                tutorialId: tut.id,
+                role: tut.role,
+                screenId: tut.screen_id,
+                completed: completedCount,
+                skipped: skippedCount,
+                eligible: eligibleUsers,
+                completionPercentage
+            };
+        });
+
+        return { success: true, data: compiledStats };
     }
 
     // =========================================================================

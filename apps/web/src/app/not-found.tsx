@@ -1,10 +1,12 @@
 import type { Metadata } from 'next';
+import { useTranslations } from 'next-intl';
 
 export const metadata: Metadata = {
     title: 'Page Not Found',
 };
 
 export default function NotFoundPage() {
+    const t = useTranslations('NotFound');
     return (
         <div
             style={{
@@ -19,7 +21,7 @@ export default function NotFoundPage() {
                     404
                 </h1>
                 <p style={{ color: 'oklch(0.45 0 0)', marginBottom: '1.5rem' }}>
-                    Sorry, we couldn&apos;t find that page.
+                    {t('description')}
                 </p>
                 <a
                     href="/"
@@ -30,7 +32,7 @@ export default function NotFoundPage() {
                         fontSize: '0.9rem',
                     }}
                 >
-                    Return home
+                    {t('returnHome')}
                 </a>
             </div>
         </div>

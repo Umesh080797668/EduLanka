@@ -23,7 +23,7 @@ export default function RouteGuard({ children }: { children: React.ReactNode }) 
 
             // Basic RBAC enforcing client side routes
             if (pathname && pathname !== '/dashboard') {
-                if (pathname.startsWith('/institution-admin') && role !== 'ADMIN') {
+                if (pathname.startsWith('/institution-admin') && role !== 'SCHOOL_ADMIN') {
                     router.replace('/dashboard');
                     return;
                 }

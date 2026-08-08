@@ -3,8 +3,10 @@
 import { useState, useEffect } from 'react';
 import { fetchGrades, updateGrade, RequestOpts } from '@/lib/api/school';
 import type { GradeProfile } from '@edu-lanka/shared-types';
+import { useTranslations } from 'next-intl';
 
 export default function GradesPage() {
+    const t = useTranslations('InstitutionAdminGrades');
     const [grades, setGrades] = useState<GradeProfile[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -39,27 +41,27 @@ export default function GradesPage() {
     return (
         <div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-                <h1 style={{ fontSize: '1.5rem', fontWeight: 600 }}>Curriculum Grades Matrix</h1>
+                <h1 style={{ fontSize: '1.5rem', fontWeight: 600 }}>{t('title')}</h1>
             </div>
 
             {loading ? (
-                <div style={{ padding: '2rem', textAlign: 'center', color: '#666' }}>Loading grades...</div>
+                <div style={{ padding: '2rem', textAlign: 'center', color: '#666' }}>{t('loading')}</div>
             ) : error ? (
                 <div style={{ padding: '1rem', background: '#fee2e2', color: '#b91c1c', borderRadius: '6px' }}>
                     {error}
                 </div>
             ) : grades.length === 0 ? (
                 <div style={{ padding: '3rem', textAlign: 'center', background: 'white', borderRadius: '8px', border: '1px solid #e5e7eb' }}>
-                    <p style={{ color: '#6b7280', marginBottom: '1rem' }}>No grades initialized.</p>
+                    <p style={{ color: '#6b7280', marginBottom: '1rem' }}>{t('noGrades')}</p>
                 </div>
             ) : (
                 <div style={{ background: 'white', borderRadius: '8px', border: '1px solid #e5e7eb', overflow: 'hidden' }}>
                     <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
                         <thead style={{ background: '#f9fafb', borderBottom: '1px solid #e5e7eb' }}>
                             <tr>
-                                <th style={{ padding: '0.75rem 1rem', fontWeight: 500, color: '#374151' }}>Level Context</th>
-                                <th style={{ padding: '0.75rem 1rem', fontWeight: 500, color: '#374151' }}>Curriculum Phase</th>
-                                <th style={{ padding: '0.75rem 1rem', fontWeight: 500, color: '#374151', textAlign: 'right' }}>Status Toggle</th>
+                                <th style={{ padding: '0.75rem 1rem', fontWeight: 500, color: '#374151' }}>{t('levelContext')}</th>
+                                <th style={{ padding: '0.75rem 1rem', fontWeight: 500, color: '#374151' }}>{t('curriculumPhase')}</th>
+                                <th style={{ padding: '0.75rem 1rem', fontWeight: 500, color: '#374151', textAlign: 'right' }}>{t('statusToggle')}</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -67,7 +69,7 @@ export default function GradesPage() {
                                 <tr key={grade.id} style={{ borderBottom: '1px solid #e5e7eb', opacity: grade.is_active ? 1 : 0.6 }}>
                                     <td style={{ padding: '0.75rem 1rem' }}>
                                         <div style={{ fontWeight: 500 }}>{grade.name}</div>
-                                        <div style={{ fontSize: '0.85rem', color: '#6b7280' }}>Level {grade.level}</div>
+                                        <div style={{ fontSize: '0.85rem', color: '#6b7280' }}>{t('level')} {grade.level}</div>
                                     </td>
                                     <td style={{ padding: '0.75rem 1rem' }}>
                                         <span style={{ background: '#f3f4f6', padding: '0.2rem 0.6rem', borderRadius: '4px', fontSize: '0.85rem', fontWeight: 500 }}>
@@ -88,7 +90,7 @@ export default function GradesPage() {
                                                 fontSize: '0.85rem'
                                             }}
                                         >
-                                            {grade.is_active ? 'Deactivate' : 'Reactivate'}
+                                            {grade.is_active ? t('deactivate') : t('reactivate')}
                                         </button>
                                     </td>
                                 </tr>

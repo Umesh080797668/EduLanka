@@ -5,8 +5,10 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { fetchTeacher, RequestOpts } from '@/lib/api/school';
 import type { TeacherProfile } from '@edu-lanka/shared-types';
+import { useTranslations } from 'next-intl';
 
 export default function TeacherDetailPage() {
+    const t = useTranslations('InstitutionAdminTeachers');
     const params = useParams();
     const id = params?.id as string;
 
@@ -24,15 +26,15 @@ export default function TeacherDetailPage() {
             .finally(() => setLoading(false));
     }, [id]);
 
-    if (loading) return <div style={{ padding: '2rem', textAlign: 'center' }}>Loading teacher...</div>;
+    if (loading) return <div style={{ padding: '2rem', textAlign: 'center' }}>{t('loadingTeacher')}</div>;
     if (error) return <div style={{ padding: '2rem', color: '#b91c1c' }}>{error}</div>;
-    if (!teacher) return <div style={{ padding: '2rem' }}>Teacher not found.</div>;
+    if (!teacher) return <div style={{ padding: '2rem' }}>{t('teacherNotFound')}</div>;
 
     return (
         <div style={{ maxWidth: '800px' }}>
             <div style={{ marginBottom: '1.5rem' }}>
                 <Link href="/institution-admin/teachers" style={{ color: '#6b7280', textDecoration: 'none', fontSize: '0.875rem' }}>
-                    &larr; Back to Teachers
+                    &larr; {t('backTeachers')}
                 </Link>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.5rem' }}>
                     <h1 style={{ fontSize: '1.5rem', fontWeight: 600 }}>{teacher.users?.full_name}</h1>
@@ -44,7 +46,7 @@ export default function TeacherDetailPage() {
                         background: teacher.users?.is_active ? '#dcfce7' : '#fee2e2',
                         color: teacher.users?.is_active ? '#166534' : '#991b1b'
                     }}>
-                        {teacher.users?.is_active ? 'Active' : 'Inactive'}
+                        {teacher.users?.is_active ? t('active') : t('inactive')}
                     </span>
                 </div>
             </div>
@@ -53,24 +55,24 @@ export default function TeacherDetailPage() {
                 {/* Profile Card */}
                 <div style={{ background: 'white', padding: '1.5rem', borderRadius: '8px', border: '1px solid #e5e7eb' }}>
                     <h2 style={{ fontSize: '1.1rem', fontWeight: 600, borderBottom: '1px solid #e5e7eb', paddingBottom: '0.5rem', marginBottom: '1rem' }}>
-                        Profile Information
+                        {t('profileInfo')}
                     </h2>
                     <div style={{ display: 'grid', gap: '0.75rem', fontSize: '0.875rem' }}>
                         <div>
-                            <span style={{ color: '#6b7280', display: 'block', marginBottom: '0.25rem' }}>Employee Number</span>
+                            <span style={{ color: '#6b7280', display: 'block', marginBottom: '0.25rem' }}>{t('employeeNumber')}</span>
                             <span style={{ fontWeight: 500 }}>{teacher.employee_no}</span>
                         </div>
                         <div>
-                            <span style={{ color: '#6b7280', display: 'block', marginBottom: '0.25rem' }}>Email</span>
+                            <span style={{ color: '#6b7280', display: 'block', marginBottom: '0.25rem' }}>{t('email')}</span>
                             <span style={{ fontWeight: 500 }}>{teacher.users?.email}</span>
                         </div>
                         <div>
-                            <span style={{ color: '#6b7280', display: 'block', marginBottom: '0.25rem' }}>Phone</span>
-                            <span style={{ fontWeight: 500 }}>{teacher.users?.phone_number || 'None'}</span>
+                            <span style={{ color: '#6b7280', display: 'block', marginBottom: '0.25rem' }}>{t('phone')}</span>
+                            <span style={{ fontWeight: 500 }}>{teacher.users?.phone_number || t('none')}</span>
                         </div>
                         <div>
-                            <span style={{ color: '#6b7280', display: 'block', marginBottom: '0.25rem' }}>Hire Date</span>
-                            <span style={{ fontWeight: 500 }}>{teacher.hire_date || 'Not specified'}</span>
+                            <span style={{ color: '#6b7280', display: 'block', marginBottom: '0.25rem' }}>{t('hireDate')}</span>
+                            <span style={{ fontWeight: 500 }}>{teacher.hire_date || t('notSpecified')}</span>
                         </div>
                     </div>
                 </div>
@@ -78,7 +80,7 @@ export default function TeacherDetailPage() {
                 {/* Subjects & Status */}
                 <div style={{ background: 'white', padding: '1.5rem', borderRadius: '8px', border: '1px solid #e5e7eb' }}>
                     <h2 style={{ fontSize: '1.1rem', fontWeight: 600, borderBottom: '1px solid #e5e7eb', paddingBottom: '0.5rem', marginBottom: '1rem' }}>
-                        Subject Areas
+                        {t('subjectAreas')}
                     </h2>
                     <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
                         {teacher.subject_areas && teacher.subject_areas.length > 0 ? (
@@ -88,15 +90,15 @@ export default function TeacherDetailPage() {
                                 </span>
                             ))
                         ) : (
-                            <span style={{ color: '#6b7280', fontSize: '0.875rem' }}>No subject areas defined.</span>
+                            <span style={{ color: '#6b7280', fontSize: '0.875rem' }}>{t('noSubjects')}</span>
                         )}
                     </div>
 
                     <h2 style={{ fontSize: '1.1rem', fontWeight: 600, borderBottom: '1px solid #e5e7eb', paddingBottom: '0.5rem', marginTop: '2rem', marginBottom: '1rem' }}>
-                        Assigned Classes
+                        {t('assignedClasses')}
                     </h2>
                     <p style={{ color: '#6b7280', fontSize: '0.875rem' }}>
-                        (Phase 2: Manage class assignments here. Go to Classes to manage.)
+                        {t('phase2Manage')}
                     </p>
                 </div>
             </div>
