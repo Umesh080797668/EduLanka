@@ -109,7 +109,7 @@ export default function TeacherGradesPage() {
     };
 
     const handleMarkChange = (studentId: string, value: string) => {
-        let parsed: number | '' = value === '' ? '' : Number(value);
+        const parsed: number | '' = value === '' ? '' : Number(value);
         if (typeof parsed === 'number' && (parsed < 0 || parsed > 100)) return; // Validate 0-100
         setMarks(prev => ({
             ...prev,

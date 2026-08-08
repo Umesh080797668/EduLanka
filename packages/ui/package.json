@@ -15,7 +15,7 @@
     "scripts": {
         "build": "tsc --project tsconfig.json",
         "typecheck": "tsc --noEmit",
-        "lint": "eslint src --ext .ts,.tsx",
+        "lint": "ESLINT_USE_FLAT_CONFIG=false eslint src --ext .ts,.tsx",
         "clean": "rm -rf dist *.tsbuildinfo"
     },
     "peerDependencies": {
