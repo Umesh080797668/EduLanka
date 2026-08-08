@@ -26,7 +26,7 @@ export default function LoginPage() {
                     'Content-Type': 'application/json',
                     'x-tenant-id': tenantId
                 },
-                body: JSON.stringify({ email, password })
+                body: JSON.stringify({ email, password, tenantId })
             });
 
             if (res.ok) {

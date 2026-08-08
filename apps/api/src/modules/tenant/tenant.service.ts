@@ -191,7 +191,7 @@ export class TenantService {
         return {
             users: usersReq.count || 0,
             classes: classesReq.count || 0,
-            policies: 12, // Mock policy count as there is no specific policy table in this context
+            policies: 0, // No specific policy table exists right now
             status: tenant.status === TenantStatus.ACTIVE ? 'Healthy' : tenant.status
         };
     }

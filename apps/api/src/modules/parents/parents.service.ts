@@ -55,8 +55,8 @@ export class ParentsService {
                 id: pc.student_id,
                 name: pc.students?.users?.full_name,
                 grade: pc.students?.classes ? `${pc.students.classes.grade} ${pc.students.classes.section}` : 'N/A',
-                gpa: '3.8',
-                attendance: '96%'
+                gpa: null,
+                attendance: null
             }))
         };
     }
