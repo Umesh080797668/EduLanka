@@ -16,6 +16,8 @@ import { TeachersModule } from './modules/teachers/teachers.module';
 import { ParentsModule } from './modules/parents/parents.module';
 import { SchoolPolicyModule } from './modules/school-policy/school-policy.module';
 import { GradesModule } from './modules/grades/grades.module';
+import { StudentMarksModule } from './modules/student-marks/student-marks.module';
+import { ReportCardsModule } from './modules/report-cards/report-cards.module';
 
 @Module({
     imports: [
@@ -63,6 +65,8 @@ import { GradesModule } from './modules/grades/grades.module';
         ParentsModule,
         SchoolPolicyModule,
         GradesModule,
+        StudentMarksModule,
+        ReportCardsModule,
     ],
 })
 export class AppModule implements NestModule {

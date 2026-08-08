@@ -119,7 +119,7 @@ export default function StudentDetailPage() {
                     {student.classes && (
                         <div style={{ marginBottom: '1.5rem', padding: '1rem', background: '#f9fafb', borderRadius: '6px' }}>
                             <div style={{ fontSize: '0.875rem', color: '#6b7280' }}>Currently assigned to:</div>
-                            <div style={{ fontSize: '1.1rem', fontWeight: 600 }}>Grade {student.classes.grade}-{student.classes.section}</div>
+                            <div style={{ fontSize: '1.1rem', fontWeight: 600 }}>{(student.classes.grade as any)?.name ?? `Grade ${student.classes.grade}`}-{student.classes.section}</div>
                             <div style={{ fontSize: '0.875rem', color: '#6b7280' }}>Year {student.classes.year}</div>
                         </div>
                     )}
@@ -136,7 +136,7 @@ export default function StudentDetailPage() {
                             <option value="">-- No Class Selected --</option>
                             {classes.map(cls => (
                                 <option key={cls.id} value={cls.id}>
-                                    Grade {cls.grade}-{cls.section} ({cls.year})
+                                    {(cls.grade as any)?.name ?? `Grade ${cls.grade}`}-{cls.section} ({cls.year})
                                 </option>
                             ))}
                         </select>
