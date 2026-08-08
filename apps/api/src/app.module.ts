@@ -15,6 +15,7 @@ import { StudentsModule } from './modules/students/students.module';
 import { TeachersModule } from './modules/teachers/teachers.module';
 import { ParentsModule } from './modules/parents/parents.module';
 import { SchoolPolicyModule } from './modules/school-policy/school-policy.module';
+import { GradesModule } from './modules/grades/grades.module';
 
 @Module({
     imports: [
@@ -61,6 +62,7 @@ import { SchoolPolicyModule } from './modules/school-policy/school-policy.module
         TeachersModule,
         ParentsModule,
         SchoolPolicyModule,
+        GradesModule,
     ],
 })
 export class AppModule implements NestModule {

@@ -42,14 +42,14 @@ export class ClassesService {
 
         const { data, error } = await db
             .from('classes')
-            .insert({ grade: dto.grade, section: dto.section, year: dto.year, medium: dto.medium ?? null })
+            .insert({ grade_id: dto.gradeId, section: dto.section, year: dto.year, medium: dto.medium ?? null })
             .select()
             .single();
 
         if (error) {
             if (error.code === '23505') {
                 throw new ConflictException(
-                    `Class Grade ${dto.grade}-${dto.section} for year ${dto.year} already exists`,
+                    `Class Grade ${dto.gradeId} - ${dto.section} for year ${dto.year} already exists`,
                 );
             }
             this.logger.error(`Failed to create class: ${error.message}`);
@@ -64,15 +64,20 @@ export class ClassesService {
 
         const { data, error } = await db
             .from('classes')
-            .select('*, class_teachers(*, teachers(*, users(*)))')
-            .order('grade', { ascending: true })
+            .select('*, grades(*), class_teachers(*, teachers(*, users(*)))')
             .order('section', { ascending: true });
 
         if (error) {
             this.logger.error(`Failed to list classes: ${error.message}`);
             throw new InternalServerErrorException('Failed to fetch classes');
         }
-        return data ?? [];
+
+        const classes = data ?? [];
+        return classes.sort((a: any, b: any) => {
+            const levelA = a.grades?.level ?? 0;
+            const levelB = b.grades?.level ?? 0;
+            return levelA - levelB;
+        });
     }
 
     async findOne(id: string, caller: JwtPayload) {
@@ -81,7 +86,7 @@ export class ClassesService {
 
         const { data, error } = await db
             .from('classes')
-            .select('*, class_teachers(*, teachers(*, users(*))), students(id, admission_no, users(full_name))')
+            .select('*, grades(*), class_teachers(*, teachers(*, users(*))), students(id, admission_no, users(full_name))')
             .eq('id', id)
             .maybeSingle();
 

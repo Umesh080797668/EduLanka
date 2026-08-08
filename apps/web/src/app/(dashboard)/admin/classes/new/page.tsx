@@ -1,18 +1,30 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { createClass, RequestOpts } from '@/lib/api/school';
+import { createClass, fetchGrades, RequestOpts } from '@/lib/api/school';
+import type { GradeProfile } from '@edu-lanka/shared-types';
 
 export default function NewClassPage() {
     const router = useRouter();
-    const [grade, setGrade] = useState('1');
+    const [grades, setGrades] = useState<GradeProfile[]>([]);
+    const [gradeId, setGradeId] = useState('');
     const [section, setSection] = useState('');
     const [year, setYear] = useState(new Date().getFullYear().toString());
     const [medium, setMedium] = useState('');
     const [saving, setSaving] = useState(false);
+    const [loadingGrades, setLoadingGrades] = useState(true);
     const [error, setError] = useState<string | null>(null);
+
+    useEffect(() => {
+        const opts: RequestOpts = { token: 'DEMO', tenantId: 'DEMO' };
+        fetchGrades(opts).then(res => {
+            const activeGrades = res.filter(g => g.is_active);
+            setGrades(activeGrades);
+            if (activeGrades.length > 0) setGradeId(activeGrades[0].id);
+        }).finally(() => setLoadingGrades(false));
+    }, []);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -22,7 +34,7 @@ export default function NewClassPage() {
         const opts: RequestOpts = { token: 'DEMO', tenantId: 'DEMO' };
         try {
             await createClass({
-                grade: parseInt(grade, 10),
+                gradeId,
                 section,
                 year: parseInt(year, 10),
                 medium: medium === '' ? undefined : (medium as any)
@@ -51,15 +63,19 @@ export default function NewClassPage() {
 
             <form onSubmit={handleSubmit} style={{ background: 'white', padding: '2rem', borderRadius: '8px', border: '1px solid #e5e7eb' }}>
                 <div style={{ marginBottom: '1.5rem' }}>
-                    <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500, fontSize: '0.875rem' }}>Grade (1-13) *</label>
-                    <input
-                        type="number"
-                        min="1" max="13"
+                    <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500, fontSize: '0.875rem' }}>Curriculum Grade *</label>
+                    <select
                         required
-                        value={grade}
-                        onChange={e => setGrade(e.target.value)}
+                        disabled={loadingGrades}
+                        value={gradeId}
+                        onChange={e => setGradeId(e.target.value)}
                         style={{ width: '100%', padding: '0.5rem', borderRadius: '4px', border: '1px solid #d1d5db' }}
-                    />
+                    >
+                        {loadingGrades ? <option>Loading grades...</option> : null}
+                        {grades.map(g => (
+                            <option key={g.id} value={g.id}>{g.name} — {g.curriculum_type.replace('_', ' ')}</option>
+                        ))}
+                    </select>
                 </div>
 
                 <div style={{ marginBottom: '1.5rem' }}>

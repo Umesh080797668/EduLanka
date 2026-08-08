@@ -2,7 +2,7 @@
 // EduLanka — Shared Parent Types
 // =============================================================================
 
-import type { TenantRef } from './tenant.types.js';
+// Removed unused TenantRef import
 
 export enum ParentRelationship {
     FATHER = 'FATHER',
@@ -13,17 +13,15 @@ export enum ParentRelationship {
 }
 
 export interface ParentProfile {
-    id: string;
-    userId: string;
-    tenant: TenantRef;
-    fullName: string;
+    id: string; // user.id
     email: string;
-    phoneNumber?: string;
-    isActive: boolean;
-    /** IDs of linked students (one parent → many children). */
-    childIds: string[];
-    createdAt: string;
-    updatedAt: string;
+    full_name: string;
+    phone_number?: string;
+    role: string;
+    is_active: boolean;
+    parent_children?: any[]; // nested mappings
+    created_at: string;
+    updated_at: string;
 }
 
 export interface ParentChildLink {

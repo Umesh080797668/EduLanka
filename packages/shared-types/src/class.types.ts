@@ -5,9 +5,18 @@
 import type { ClassTeacherAssignment } from './teacher.types.js';
 import type { InstructionMedium } from './student.types.js';
 
+export interface GradeProfile {
+    id: string;
+    level: number;
+    name: string;
+    curriculum_type: string;
+    is_active: boolean;
+}
+
 export interface ClassProfile {
     id: string;
-    grade: number; // 1-13
+    grade_id: string; // Foreign key to grades
+    grade?: GradeProfile; // Expanded relation
     section: string; // 'A', 'B', 'Science', etc.
     medium?: InstructionMedium;
     year: number; // e.g. 2026
@@ -19,7 +28,7 @@ export interface ClassProfile {
 /** Lightweight reference used in nested objects. */
 export interface ClassRef {
     id: string;
-    grade: number;
+    grade_id: string;
     section: string;
     year: number;
 }

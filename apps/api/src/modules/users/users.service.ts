@@ -166,4 +166,27 @@ export class UsersService {
         if (!data) throw new NotFoundException(`User ${id} not found`);
         return data;
     }
+
+    async remove(id: string, caller: JwtPayload) {
+        if (caller.role !== UserRole.SUPER_ADMIN) {
+            throw new ForbiddenException('Only super admins can hard-delete users');
+        }
+        const slug = await this.resolveSlug(caller);
+        const db = this.supabase.getTenantClient(slug);
+
+        const { error, count } = await db
+            .from('users')
+            .delete({ count: 'exact' })
+            .eq('id', id);
+
+        if (error) {
+            this.logger.error(`Failed to hard-delete user: ${error.message}`);
+            throw new InternalServerErrorException('Failed to hard-delete user');
+        }
+        if (count === 0) {
+            throw new NotFoundException(`User ${id} not found`);
+        }
+
+        return { success: true };
+    }
 }

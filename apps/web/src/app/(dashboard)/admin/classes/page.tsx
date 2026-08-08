@@ -53,7 +53,7 @@ export default function ClassesPage() {
                         <div key={cls.id} style={{ background: 'white', padding: '1.5rem', borderRadius: '8px', border: '1px solid #e5e7eb' }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1rem' }}>
                                 <div>
-                                    <h2 style={{ fontSize: '1.25rem', margin: 0 }}>Grade {cls.grade}-{cls.section}</h2>
+                                    <h2 style={{ fontSize: '1.25rem', margin: 0 }}>{(cls as any).grades?.name || cls.grade?.name || 'Unknown'} - {cls.section}</h2>
                                     <p style={{ color: '#6b7280', fontSize: '0.875rem', margin: '0.25rem 0 0 0' }}>Year {cls.year}</p>
                                 </div>
                             </div>

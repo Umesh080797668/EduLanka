@@ -16,11 +16,10 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { SubjectArea, InstructionMedium } from '@edu-lanka/shared-types';
 
 export class CreateClassDto {
-    @ApiProperty({ description: 'Grade level (1-13)', minimum: 1, maximum: 13, example: 9 })
-    @IsInt()
-    @Min(1)
-    @Max(13)
-    grade!: number;
+    @ApiProperty({ description: 'Grade UUID referencing grades table' })
+    @IsString()
+    @IsNotEmpty()
+    gradeId!: string;
 
     @ApiProperty({ description: 'Section label', example: 'A' })
     @IsString()

@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Patch, Body, Param, Query, ParseUUIDPipe, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Body, Param, Query, ParseUUIDPipe, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation, ApiQuery } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { TenantGuard } from '../../common/guards/tenant.guard';
@@ -54,5 +54,11 @@ export class UsersController {
     @ApiOperation({ summary: 'Reactivate a user account (admin only)' })
     reactivate(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: JwtPayload) {
         return this.usersService.setActivationStatus(id, true, user);
+    }
+
+    @Delete(':id')
+    @ApiOperation({ summary: 'Hard-delete a user permanently (super admin only)' })
+    remove(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: JwtPayload) {
+        return this.usersService.remove(id, user);
     }
 }

@@ -10,6 +10,7 @@ import type {
     Gender,
     ParentRelationship,
     InstructionMedium,
+    GradeProfile,
 } from '@edu-lanka/shared-types';
 
 export interface RequestOpts {
@@ -26,7 +27,7 @@ export const fetchClasses = (opts: RequestOpts) =>
 export const fetchClass = (id: string, opts: RequestOpts) =>
     apiClient.get<ClassProfile>(`/classes/${id}`, opts);
 
-export const createClass = (data: { grade: number; section: string; year: number; medium?: InstructionMedium }, opts: RequestOpts) =>
+export const createClass = (data: { gradeId: string; section: string; year: number; medium?: InstructionMedium }, opts: RequestOpts) =>
     apiClient.post<ClassProfile>('/classes', data, opts);
 
 export const updateClass = (id: string, data: { section?: string; year?: number }, opts: RequestOpts) =>
@@ -126,3 +127,18 @@ export const fetchPolicy = (opts: RequestOpts) =>
 
 export const updatePolicy = (data: any, opts: RequestOpts) =>
     apiClient.patch<SchoolPolicy>('/school-policy', data, opts);
+
+// -----------------------------------------------------------------------------
+// Grades
+// -----------------------------------------------------------------------------
+export const fetchGrades = (opts: RequestOpts) =>
+    apiClient.get<GradeProfile[]>('/grades', opts);
+
+export const createGrade = (data: any, opts: RequestOpts) =>
+    apiClient.post<GradeProfile>('/grades', data, opts);
+
+export const updateGrade = (id: string, data: any, opts: RequestOpts) =>
+    apiClient.patch<GradeProfile>(`/grades/${id}`, data, opts);
+
+export const deleteGrade = (id: string, opts: RequestOpts) =>
+    apiClient.delete(`/grades/${id}`, opts);
