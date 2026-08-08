@@ -4,7 +4,8 @@
         "next": "Next",
         "previous": "Previous",
         "done": "Done",
-        "errorMsg": "Failed to load tutorial content."
+        "errorMsg": "Failed to load tutorial content.",
+        "help": "Help"
     },
     "Sidebar": {
         "menu": "Menu",

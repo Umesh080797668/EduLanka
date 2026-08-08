@@ -38,11 +38,12 @@ export default function Header() {
                     setUserName(t('sessionActive'));
                 }
             } catch (e) {
+                console.error(e);
                 setUserName(t('sessionActive'));
             }
         };
         fetchUser();
-    }, []);
+    }, [t]);
 
     // Determine title based on path
     const getPageTitle = () => {

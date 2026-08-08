@@ -28,6 +28,8 @@ export default function StudentDashboard() {
                     setStudentName('Student');
                 }
             } catch (e) {
+                console.error(e);
+            } finally {
                 setStudentName('Student');
             }
         };

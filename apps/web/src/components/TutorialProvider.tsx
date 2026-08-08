@@ -22,8 +22,6 @@ interface TutorialProviderProps {
     children: React.ReactNode;
     role: string;
     screenId: string;
-    token?: string;
-    tenantId?: string;
 }
 
 export const TutorialProvider: React.FC<TutorialProviderProps> = ({
@@ -34,10 +32,18 @@ export const TutorialProvider: React.FC<TutorialProviderProps> = ({
     const driverObj = useRef<any>(null);
 
     const [steps, setSteps] = useState<DriveStep[]>([]);
-    const [tutorialId, setTutorialId] = useState<string | null>(null);
 
     const getToken = () => typeof window !== 'undefined' ? localStorage.getItem('token') : null;
-    const getTenantId = () => typeof window !== 'undefined' ? (localStorage.getItem('tenantId') || 'a1b2c3d4-0000-0000-0000-000000000001') : null;
+    const getTenantId = () => typeof window !== 'undefined' ? localStorage.getItem('tenantId') : null;
+    const isSkippedFlag = useRef(false);
+
+    const markCompleteOrSkip = useCallback(async (status: 'COMPLETED' | 'SKIPPED', tutId: string, tenantIdStr: string, tokenStr: string) => {
+        try {
+            await apiClient.post(`/me/tutorials/${tutId}/status`, { status }, { token: tokenStr, tenantId: tenantIdStr });
+        } catch (err) {
+            console.error('Failed to mark tutorial status', err);
+        }
+    }, []);
 
     useEffect(() => {
         const loadTutorial = async () => {
@@ -48,8 +54,6 @@ export const TutorialProvider: React.FC<TutorialProviderProps> = ({
                 // 1. Fetch tutorial data
                 const tutData: any = await apiClient.get(`/tutorials/${role}/${screenId}`, { token });
                 if (!tutData || !tutData.id || tutData.steps.length === 0) return;
-
-                setTutorialId(tutData.id);
 
                 // Format steps for driver.js with localization
                 const formattedSteps: DriveStep[] = tutData.steps.map((s: any) => ({
@@ -76,15 +80,24 @@ export const TutorialProvider: React.FC<TutorialProviderProps> = ({
                         skipBtn.innerText = t('skip');
                         skipBtn.className = "driver-skip-btn !ml-2 text-sm text-gray-500 hover:text-gray-700";
                         skipBtn.onclick = () => {
+                            isSkippedFlag.current = true;
+                            if (tenantId) markCompleteOrSkip('SKIPPED', tutData.id, tenantId, token);
                             driverObj.current?.destroy();
-                            markCompleteOrSkip('SKIPPED');
                         };
-                        popover.footerButtons.appendChild(skipBtn);
+                        if (popover.footerButtons) {
+                            popover.footerButtons.appendChild(skipBtn);
+                        }
                     },
                     onDestroyStarted: () => {
-                        // Normally we could show a confirm dialogue, but letting users exit gracefully is best practice.
-                        driverObj.current?.destroy();
-                        markCompleteOrSkip('COMPLETED');
+                        const activeIndex = driverObj.current?.getActiveIndex() ?? 0;
+                        if (!isSkippedFlag.current && activeIndex === formattedSteps.length - 1) {
+                            if (tenantId) markCompleteOrSkip('COMPLETED', tutData.id, tenantId, token);
+                        }
+                        if (driverObj.current?.hasNextStep() || isSkippedFlag.current) {
+                            driverObj.current?.destroy();
+                        } else {
+                            driverObj.current?.destroy();
+                        }
                     }
                 });
 
@@ -106,18 +119,7 @@ export const TutorialProvider: React.FC<TutorialProviderProps> = ({
             }
         };
         loadTutorial();
-    }, [role, screenId, locale, t]); // token and tenantId removed from deps as we get them on mount
-
-    const markCompleteOrSkip = async (status: 'COMPLETED' | 'SKIPPED') => {
-        const token = getToken();
-        const tenantId = getTenantId();
-        if (!tutorialId || !tenantId || !token) return;
-        try {
-            await apiClient.post(`/me/tutorials/${tutorialId}/status`, { status }, { token, tenantId });
-        } catch (err) {
-            console.error('Failed to mark tutorial status', err);
-        }
-    };
+    }, [role, screenId, locale, t, markCompleteOrSkip]);
 
     const startTutorial = useCallback(() => {
         if (driverObj.current && steps.length > 0) {

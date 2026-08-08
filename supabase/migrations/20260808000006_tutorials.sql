@@ -138,12 +138,18 @@ BEGIN
 END;
 $$;
 
--- Seed Basic Tutorials (Admin / Student / Teacher)
+-- Seed Basic Tutorials (Admin / Student / Teacher / Parent)
 INSERT INTO public.tutorials (id, role, screen_id)
 VALUES 
     ('a0000000-0000-0000-0000-000000000001', 'STUDENT', 'dashboard'),
     ('a0000000-0000-0000-0000-000000000002', 'TEACHER', 'dashboard'),
-    ('a0000000-0000-0000-0000-000000000003', 'SCHOOL_ADMIN', 'dashboard')
+    ('a0000000-0000-0000-0000-000000000003', 'SCHOOL_ADMIN', 'dashboard'),
+    ('a0000000-0000-0000-0000-000000000004', 'PARENT', 'dashboard'),
+    ('a0000000-0000-0000-0000-000000000005', 'STUDENT', 'grades'),
+    ('a0000000-0000-0000-0000-000000000006', 'TEACHER', 'grades'),
+    ('a0000000-0000-0000-0000-000000000007', 'PARENT', 'grades'),
+    ('a0000000-0000-0000-0000-000000000008', 'SCHOOL_ADMIN', 'users'),
+    ('a0000000-0000-0000-0000-000000000009', 'SCHOOL_ADMIN', 'policy')
 ON CONFLICT DO NOTHING;
 
 INSERT INTO public.tutorial_steps (tutorial_id, step_order, target_element, title_en, content_en)
@@ -155,5 +161,12 @@ VALUES
     ('a0000000-0000-0000-0000-000000000002', 2, '#nav-gradebook', 'Enter Marks', 'Use the Gradebook to quickly record student marks per term.'),
 
     ('a0000000-0000-0000-0000-000000000003', 1, '#nav-users', 'Manage Accounts', 'From here, you can enroll students, unenroll via transfer, and manage teacher accounts.'),
-    ('a0000000-0000-0000-0000-000000000003', 2, '#nav-policies', 'Policies', 'Configure school-wide policies and feature limits.')
+    ('a0000000-0000-0000-0000-000000000003', 2, '#nav-policies', 'Policies', 'Configure school-wide policies and feature limits.'),
+
+    ('a0000000-0000-0000-0000-000000000004', 1, '#nav-dashboard', 'Welcome Parent', 'Track your child''s progress from this main dashboard.'),
+    ('a0000000-0000-0000-0000-000000000005', 1, NULL, 'Report Card View', 'Review your official marks across terms, and download a PDF copy.'),
+    ('a0000000-0000-0000-0000-000000000006', 1, NULL, 'Grade Entry System', 'Use this table to enter marks per student for the selected class.'),
+    ('a0000000-0000-0000-0000-000000000007', 1, NULL, 'Student Report Card', 'View detailed academic performance and term grades for your child.'),
+    ('a0000000-0000-0000-0000-000000000008', 1, NULL, 'Account Management', 'Enroll or disable users within your institution.'),
+    ('a0000000-0000-0000-0000-000000000009', 1, NULL, 'Policy Settings', 'Adjust global settings, grading intervals, and school calendars.')
 ON CONFLICT DO NOTHING;

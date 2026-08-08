@@ -23,7 +23,7 @@ export default function GradesPage() {
     };
 
     useEffect(() => {
-        loadData();
+        Promise.resolve().then(() => loadData());
     }, []);
 
     const toggleStatus = async (id: string, current: boolean) => {

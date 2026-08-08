@@ -29,6 +29,8 @@ export default function TeacherDashboard() {
                     setTeacherName('Teacher');
                 }
             } catch (e) {
+                console.error(e);
+            } finally {
                 setTeacherName('Teacher');
             }
         };

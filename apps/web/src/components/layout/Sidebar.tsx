@@ -43,13 +43,17 @@ export default function Sidebar() {
     const [role, setRole] = useState<'STUDENT' | 'PARENT' | 'TEACHER' | 'ADMIN' | 'SUPER_ADMIN' | null>(null);
 
     useEffect(() => {
-        // True resolution of role based on authenticated session state
-        const authRole = localStorage.getItem('role')?.toUpperCase() as any;
-        if (authRole && NAV_ITEMS[authRole as keyof typeof NAV_ITEMS]) {
-            setRole(authRole);
-        } else {
-            setRole('STUDENT'); // Fallback
-        }
+        let mounted = true;
+        Promise.resolve().then(() => {
+            if (!mounted) return;
+            const authRole = localStorage.getItem('role')?.toUpperCase() as any;
+            if (authRole && NAV_ITEMS[authRole as keyof typeof NAV_ITEMS]) {
+                setRole(authRole);
+            } else {
+                setRole('STUDENT'); // Fallback
+            }
+        });
+        return () => { mounted = false; };
     }, []);
 
     const items = role ? NAV_ITEMS[role] : [];

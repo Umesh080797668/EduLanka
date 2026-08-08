@@ -38,7 +38,7 @@ export default function ParentDetailPage({ params }: { params: { id: string } })
     };
 
     useEffect(() => {
-        loadData();
+        Promise.resolve().then(() => loadData());
     }, [params.id]);
 
     const handleLink = async (e: React.FormEvent) => {

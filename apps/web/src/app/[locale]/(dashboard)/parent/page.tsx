@@ -42,6 +42,8 @@ export default function ParentDashboard() {
                     setChildrenData(FALLBACK_CHILDREN);
                 }
             } catch (e) {
+                console.error(e);
+            } finally {
                 setParentName('Parent');
                 setChildrenData(FALLBACK_CHILDREN);
             }

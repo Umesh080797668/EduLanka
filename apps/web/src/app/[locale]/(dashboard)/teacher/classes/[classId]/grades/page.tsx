@@ -66,7 +66,7 @@ export default function TeacherGradesPage() {
         };
 
         loadAll();
-    }, [classId, subject, term, year]);
+    }, [classId, subject, term, year, t]);
 
     const handleSave = async (studentId: string) => {
         const currentMark = marks[studentId]?.value;
@@ -105,6 +105,7 @@ export default function TeacherGradesPage() {
                 alert(t('failedToSave'));
             }
         } catch (e) {
+            console.error(e);
             setMarks(prev => ({ ...prev, [studentId]: { ...prev[studentId], saving: false, saved: false } }));
             alert(t('errorSaving'));
         }
