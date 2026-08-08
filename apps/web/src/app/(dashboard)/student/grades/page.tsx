@@ -1,11 +1,14 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Download, FileText, AlertCircle, Loader2 } from 'lucide-react';
 
 export default function StudentGradesPage() {
     const [studentId, setStudentId] = useState<string | null>(null);
     const [marks, setMarks] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
+    const [fetchingMarks, setFetchingMarks] = useState(false);
     const [term, setTerm] = useState(1);
     const [year, setYear] = useState(new Date().getFullYear());
     const [downloading, setDownloading] = useState(false);
@@ -38,6 +41,7 @@ export default function StudentGradesPage() {
     useEffect(() => {
         const fetchMarks = async () => {
             if (!studentId) return;
+            setFetchingMarks(true);
             try {
                 const res = await fetch(`/api/v1/student-marks/student/${studentId}`, {
                     headers: {
@@ -51,6 +55,8 @@ export default function StudentGradesPage() {
                 }
             } catch (e) {
                 console.error("Failed to load marks", e);
+            } finally {
+                setFetchingMarks(false);
             }
         };
         fetchMarks();
@@ -88,76 +94,146 @@ export default function StudentGradesPage() {
         }
     };
 
-    if (loading) return <div>Loading...</div>;
-    if (!studentId) return <div>Unable to retrieve student profile.</div>;
+    if (loading) {
+        return (
+            <div className="flex items-center justify-center h-[60vh] text-slate-500">
+                <Loader2 className="w-8 h-8 animate-spin text-indigo-500" />
+            </div>
+        );
+    }
+
+    if (!studentId) {
+        return (
+            <div className="bg-rose-50 border border-rose-200 rounded-xl p-6 flex flex-col items-center justify-center text-center max-w-md mx-auto mt-10">
+                <AlertCircle className="w-12 h-12 text-rose-500 mb-4" />
+                <h3 className="text-lg font-bold text-slate-800">Profile Not Found</h3>
+                <p className="text-slate-600 mt-2">Unable to retrieve your student profile. Please ensure you are logged in as a student.</p>
+            </div>
+        );
+    }
 
     return (
-        <div style={{ maxWidth: '800px', margin: '0 auto', background: 'white', padding: '2rem', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
-            <h2 style={{ marginBottom: '1.5rem', color: 'var(--color-brand-900)' }}>My Report Cards</h2>
-
-            <div style={{ display: 'flex', gap: '1rem', marginBottom: '2rem' }}>
-                <label style={{ display: 'flex', flexDirection: 'column', fontWeight: 'bold', flex: 1 }}>
-                    Term:
-                    <select value={term} onChange={e => setTerm(Number(e.target.value))} style={{ padding: '8px', marginTop: '4px', border: '1px solid #ccc', borderRadius: '4px' }}>
-                        <option value={1}>Term 1</option>
-                        <option value={2}>Term 2</option>
-                        <option value={3}>Term 3</option>
-                    </select>
-                </label>
-                <label style={{ display: 'flex', flexDirection: 'column', fontWeight: 'bold', flex: 1 }}>
-                    Academic Year:
-                    <input type="number" value={year} onChange={e => setYear(Number(e.target.value))} style={{ padding: '8px', marginTop: '4px', border: '1px solid #ccc', borderRadius: '4px' }} />
-                </label>
-            </div>
-
-            <h3 style={{ marginBottom: '1rem', borderBottom: '1px solid #eee', paddingBottom: '0.5rem' }}>View Marks</h3>
-
-            <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '2rem' }}>
-                <thead>
-                    <tr style={{ background: '#f9fafb', textAlign: 'left' }}>
-                        <th style={{ padding: '12px', borderBottom: '1px solid #e5e7eb' }}>Subject</th>
-                        <th style={{ padding: '12px', borderBottom: '1px solid #e5e7eb' }}>Score</th>
-                        <th style={{ padding: '12px', borderBottom: '1px solid #e5e7eb' }}>Grade</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {marks.length === 0 ? (
-                        <tr>
-                            <td colSpan={3} style={{ padding: '1rem', textAlign: 'center', color: '#6b7280' }}>
-                                No marks recorded for this term.
-                            </td>
-                        </tr>
-                    ) : (
-                        marks.map((m: any) => (
-                            <tr key={m.id}>
-                                <td style={{ padding: '12px', borderBottom: '1px solid #e5e7eb', fontWeight: 500 }}>{m.subject}</td>
-                                <td style={{ padding: '12px', borderBottom: '1px solid #e5e7eb' }}>{m.marks}</td>
-                                <td style={{ padding: '12px', borderBottom: '1px solid #e5e7eb' }}>
-                                    {m.marks >= 75 ? 'A' : m.marks >= 65 ? 'B' : m.marks >= 50 ? 'C' : m.marks >= 35 ? 'S' : 'W'}
-                                </td>
-                            </tr>
-                        ))
-                    )}
-                </tbody>
-            </table>
-
-            <button
-                onClick={handleDownload}
-                disabled={downloading || marks.length === 0}
-                style={{
-                    padding: '12px 24px',
-                    background: marks.length === 0 ? '#ccc' : 'var(--color-brand-600)',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '4px',
-                    cursor: marks.length === 0 ? 'not-allowed' : 'pointer',
-                    width: '100%',
-                    fontSize: '1rem',
-                    fontWeight: 600
-                }}
+        <div className="max-w-5xl mx-auto space-y-6">
+            <motion.div
+                initial={{ opacity: 0, y: -20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="bg-white rounded-2xl p-6 md:p-8 shadow-sm border border-slate-200"
             >
-                {downloading ? 'Generating PDF...' : 'Download Official Report Card (PDF)'}
-            </button>
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8">
+                    <div>
+                        <h2 className="text-2xl font-bold tracking-tight text-slate-900 flex items-center gap-3">
+                            <FileText className="w-6 h-6 text-indigo-600" />
+                            My Report Cards
+                        </h2>
+                        <p className="text-slate-500 mt-1">View your marks and download official PDF report cards</p>
+                    </div>
+                </div>
+
+                <div className="bg-slate-50 rounded-xl p-4 md:p-6 border border-slate-200 mb-8 flex flex-col sm:flex-row gap-6">
+                    <div className="flex-1">
+                        <label className="block text-sm font-semibold text-slate-700 mb-2">Academic Term</label>
+                        <select
+                            value={term}
+                            onChange={e => setTerm(Number(e.target.value))}
+                            className="w-full bg-white border border-slate-300 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-shadow"
+                        >
+                            <option value={1}>Term 1</option>
+                            <option value={2}>Term 2</option>
+                            <option value={3}>Term 3</option>
+                        </select>
+                    </div>
+                    <div className="flex-1">
+                        <label className="block text-sm font-semibold text-slate-700 mb-2">Academic Year</label>
+                        <input
+                            type="number"
+                            value={year}
+                            onChange={e => setYear(Number(e.target.value))}
+                            className="w-full bg-white border border-slate-300 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-shadow"
+                        />
+                    </div>
+                </div>
+
+                <div className="mb-6">
+                    <h3 className="text-lg font-bold text-slate-800 mb-4 px-1">Term Results</h3>
+
+                    <div className="overflow-hidden border border-slate-200 rounded-t-xl rounded-b-lg">
+                        <table className="w-full text-left border-collapse">
+                            <thead>
+                                <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 text-xs uppercase tracking-wider font-semibold">
+                                    <th className="px-6 py-4">Subject</th>
+                                    <th className="px-6 py-4">Score</th>
+                                    <th className="px-6 py-4">Grade</th>
+                                </tr>
+                            </thead>
+                            <tbody className="bg-white divide-y divide-slate-100">
+                                <AnimatePresence mode="wait">
+                                    {fetchingMarks ? (
+                                        <motion.tr key="loading" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                                            <td colSpan={3} className="px-6 py-12 text-center text-slate-400">
+                                                <Loader2 className="w-6 h-6 animate-spin mx-auto text-indigo-400" />
+                                            </td>
+                                        </motion.tr>
+                                    ) : marks.length === 0 ? (
+                                        <motion.tr key="empty" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                                            <td colSpan={3} className="px-6 py-12 text-center text-slate-500">
+                                                <div className="flex flex-col items-center">
+                                                    <AlertCircle className="w-8 h-8 text-slate-300 mb-3" />
+                                                    <p>No marks recorded for this term yet.</p>
+                                                </div>
+                                            </td>
+                                        </motion.tr>
+                                    ) : (
+                                        marks.map((m: any, idx) => (
+                                            <motion.tr
+                                                key={m.id}
+                                                initial={{ opacity: 0, y: 10 }}
+                                                animate={{ opacity: 1, y: 0, transition: { delay: idx * 0.05 } }}
+                                                className="hover:bg-slate-50 transition-colors group"
+                                            >
+                                                <td className="px-6 py-4 font-medium text-slate-800">{m.subject}</td>
+                                                <td className="px-6 py-4 text-slate-600 font-medium">{m.marks}</td>
+                                                <td className="px-6 py-4">
+                                                    <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold
+                                                        ${m.marks >= 75 ? 'bg-emerald-100 text-emerald-700' :
+                                                            m.marks >= 65 ? 'bg-blue-100 text-blue-700' :
+                                                                m.marks >= 50 ? 'bg-indigo-100 text-indigo-700' :
+                                                                    m.marks >= 35 ? 'bg-amber-100 text-amber-700' :
+                                                                        'bg-rose-100 text-rose-700'}`
+                                                    }>
+                                                        {m.marks >= 75 ? 'A (Excellent)' :
+                                                            m.marks >= 65 ? 'B (Good)' :
+                                                                m.marks >= 50 ? 'C (Credit)' :
+                                                                    m.marks >= 35 ? 'S (Pass)' : 'W (Weak)'}
+                                                    </span>
+                                                </td>
+                                            </motion.tr>
+                                        ))
+                                    )}
+                                </AnimatePresence>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div className="pt-6 mt-6 border-t border-slate-100">
+                    <button
+                        onClick={handleDownload}
+                        disabled={downloading || marks.length === 0}
+                        className={`w-full md:w-auto px-8 py-3.5 rounded-xl font-semibold flex items-center justify-center gap-3 transition-all
+                            ${marks.length === 0
+                                ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
+                                : 'bg-indigo-600 text-white hover:bg-indigo-700 hover:shadow-lg hover:shadow-indigo-600/30'
+                            }
+                        `}
+                    >
+                        {downloading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Download className="w-5 h-5" />}
+                        {downloading ? 'Generating PDF...' : 'Download Official Report Card'}
+                    </button>
+                    {marks.length === 0 && (
+                        <p className="text-xs text-center md:text-left text-slate-400 mt-3">Marks must be available to generate a report card.</p>
+                    )}
+                </div>
+            </motion.div>
         </div>
     );
 }

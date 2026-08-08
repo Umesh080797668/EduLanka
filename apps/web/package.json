@@ -17,6 +17,8 @@
         "@edu-lanka/ui": "workspace:*",
         "@supabase/ssr": "^0.5.1",
         "@supabase/supabase-js": "^2.45.3",
+        "framer-motion": "^13.0.0",
+        "lucide-react": "^1.30.0",
         "next": "^16.2.7",
         "react": "^19.0.0",
         "react-dom": "^19.0.0"
