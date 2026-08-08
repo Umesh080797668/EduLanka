@@ -10,6 +10,11 @@ import { RedisModule } from './modules/redis/redis.module';
 import { SupabaseModule } from './modules/supabase/supabase.module';
 import { TenantModule } from './modules/tenant/tenant.module';
 import { UsersModule } from './modules/users/users.module';
+import { ClassesModule } from './modules/classes/classes.module';
+import { StudentsModule } from './modules/students/students.module';
+import { TeachersModule } from './modules/teachers/teachers.module';
+import { ParentsModule } from './modules/parents/parents.module';
+import { SchoolPolicyModule } from './modules/school-policy/school-policy.module';
 
 @Module({
     imports: [
@@ -51,6 +56,11 @@ import { UsersModule } from './modules/users/users.module';
         AuthModule,
         TenantModule,
         UsersModule,
+        ClassesModule,
+        StudentsModule,
+        TeachersModule,
+        ParentsModule,
+        SchoolPolicyModule,
     ],
 })
 export class AppModule implements NestModule {

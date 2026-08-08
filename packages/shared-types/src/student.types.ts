@@ -2,12 +2,16 @@
 // EduLanka — Shared Student Types
 // =============================================================================
 
-import type { TenantRef } from './tenant.types.js';
-
 export enum Gender {
     MALE = 'MALE',
     FEMALE = 'FEMALE',
     OTHER = 'OTHER',
+}
+
+export enum InstructionMedium {
+    ENGLISH = 'ENGLISH',
+    SINHALA = 'SINHALA',
+    TAMIL = 'TAMIL',
 }
 
 export enum Grade {
@@ -39,19 +43,37 @@ export enum ALStream {
 
 export interface StudentProfile {
     id: string;
-    userId: string;
-    tenant: TenantRef;
-    admissionNumber: string;
-    fullName: string;
-    preferredName?: string;
-    dateOfBirth: string; // ISO-8601 date
-    gender: Gender;
-    grade: Grade;
-    classSection: string; // e.g. "9-A", "11-B"
-    alStream?: ALStream;
-    parentIds: string[];
-    isActive: boolean;
-    enrolledAt: string;
-    createdAt: string;
-    updatedAt: string;
+    user_id: string; // The joined user_id
+    class_id?: string | null;
+    admission_no: string;
+    medium?: InstructionMedium | null;
+    date_of_birth?: string | null; // ISO-8601 date
+    gender?: Gender | null;
+    al_stream?: ALStream | null;
+    created_at: string;
+
+    // NestJS mapped versions (using snake_case since Supabase returns it like this directly without transformation)
+    users?: {
+        full_name: string;
+        email: string;
+        phone_number: string | null;
+        avatar_url: string | null;
+        role?: string;
+        is_active?: boolean;
+    };
+
+    classes?: {
+        grade: number;
+        section: string;
+        year: number;
+    } | null;
+
+    parent_children?: Array<{
+        parent_user_id: string;
+        relationship: string;
+        users: {
+            full_name: string;
+            email: string;
+        }
+    }>;
 }
