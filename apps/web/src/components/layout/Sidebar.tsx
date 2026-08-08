@@ -37,13 +37,14 @@ export default function Sidebar() {
     const [role, setRole] = useState<'STUDENT' | 'PARENT' | 'TEACHER' | 'ADMIN' | null>(null);
 
     useEffect(() => {
-        // Basic resolution of role based on route for UI demo purposes
-        if (pathname?.startsWith('/admin')) setRole('ADMIN');
-        else if (pathname?.startsWith('/teacher')) setRole('TEACHER');
-        else if (pathname?.startsWith('/parent')) setRole('PARENT');
-        else if (pathname?.startsWith('/student')) setRole('STUDENT');
-        else setRole('STUDENT'); // Fallback
-    }, [pathname]);
+        // True resolution of role based on authenticated session state
+        const authRole = localStorage.getItem('role')?.toUpperCase() as any;
+        if (authRole && NAV_ITEMS[authRole as keyof typeof NAV_ITEMS]) {
+            setRole(authRole);
+        } else {
+            setRole('STUDENT'); // Fallback
+        }
+    }, []);
 
     const items = role ? NAV_ITEMS[role] : [];
 

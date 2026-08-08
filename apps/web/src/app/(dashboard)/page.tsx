@@ -1,22 +1,31 @@
-import type { Metadata } from 'next';
+'use client';
 
-export const metadata: Metadata = {
-    title: 'Dashboard Home',
-};
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { Loader2 } from 'lucide-react';
 
-/**
- * Dashboard home page.
- * TODO (Phase 1): Display role-appropriate summary cards (attendance, notices, grades).
- */
 export default function DashboardPage() {
+    const router = useRouter();
+
+    useEffect(() => {
+        const role = localStorage.getItem('role');
+        if (!role) {
+            // Missing role but active token edge-case
+            localStorage.clear();
+            router.replace('/login');
+            return;
+        }
+
+        // Route directly to their portal 
+        router.replace(`/${role.toLowerCase()}`);
+    }, [router]);
+
     return (
-        <div>
-            <h1 style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: '1rem' }}>
-                Welcome to EduLanka
-            </h1>
-            <p style={{ color: 'oklch(0.45 0 0)', fontSize: '0.9rem' }}>
-                Your dashboard is being set up. Core modules ship in Phase 1.
-            </p>
+        <div className="flex h-[80vh] items-center justify-center">
+            <div className="flex flex-col items-center gap-4 text-slate-500">
+                <Loader2 className="w-8 h-8 animate-spin text-indigo-500" />
+                <p className="font-medium animate-pulse">Resolving dashboard access...</p>
+            </div>
         </div>
     );
 }
