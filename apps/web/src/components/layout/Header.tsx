@@ -4,10 +4,12 @@ import { Bell, Search, User } from 'lucide-react';
 import { usePathname } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { useEffect, useState } from 'react';
+import { useTranslations } from 'next-intl';
 
 export default function Header() {
     const pathname = usePathname();
-    const [userName, setUserName] = useState('Loading...');
+    const t = useTranslations('Header');
+    const [userName, setUserName] = useState('...');
     const [userRole, setUserRole] = useState('...');
 
     useEffect(() => {
@@ -28,15 +30,15 @@ export default function Header() {
                     const json = await res.json();
 
                     if (role === 'PARENT') {
-                        setUserName(json.data?.users?.full_name || 'Parent User');
+                        setUserName(json.data?.users?.full_name || t('parentUser'));
                     } else {
-                        setUserName(json.data?.full_name || 'User');
+                        setUserName(json.data?.full_name || t('user'));
                     }
                 } else {
-                    setUserName('Session Active');
+                    setUserName(t('sessionActive'));
                 }
             } catch (e) {
-                setUserName('Session Active');
+                setUserName(t('sessionActive'));
             }
         };
         fetchUser();
@@ -44,11 +46,11 @@ export default function Header() {
 
     // Determine title based on path
     const getPageTitle = () => {
-        if (pathname?.includes('/grades')) return 'Grades & Report Cards';
-        if (pathname?.includes('/classes')) return 'Class Management';
-        if (pathname?.includes('/users')) return 'User Directory';
-        if (pathname?.includes('/policy')) return 'School Policies';
-        return 'Overview Dashboard';
+        if (pathname?.includes('/grades')) return t('gradesReports');
+        if (pathname?.includes('/classes')) return t('classMgmt');
+        if (pathname?.includes('/users')) return t('userDirectory');
+        if (pathname?.includes('/policy')) return t('schoolPolicies');
+        return t('overviewDashboard');
     };
 
     return (
@@ -68,7 +70,7 @@ export default function Header() {
                     <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                     <input
                         type="text"
-                        placeholder="Search..."
+                        placeholder={t('searchPlaceholder')}
                         className="pl-9 pr-4 py-1.5 bg-slate-100 border-none rounded-full text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none transition-all w-64"
                     />
                 </div>

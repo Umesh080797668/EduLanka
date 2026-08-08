@@ -30,14 +30,14 @@ Every frontend surface — Next.js web dashboards (Student, Parent, Teacher, Sch
   1. **First-run guided tour** — an interactive, step-by-step overlay shown the first time a user reaches a screen (spotlight/coach-mark style: highlight the element, explain it, "Next").
   2. **On-demand help** — a persistent "?" / help icon on every screen that replays that screen's tour or opens a short contextual explainer (text + optional screenshot/short video) at any time, not just first run.
 - **Offline-aware (mobile).** Tutorial content in the Flutter app is bundled locally (not fetched live), so it works identically in Disaster Mode / offline-sync conditions.
-- **Localization-ready.** Tutorial copy is stored as translatable content (Sinhala, Tamil, English) from the start, given the national audience — not hardcoded English strings.
+- **Localization-ready.** The entire platform leverages `next-intl` for full-system support of Sinhala, Tamil, and English. Tutorial copy is stored as translatable content to match the active locale from the start.
 - **Low-friction, skippable.** Every guided tour is dismissible and never blocks the user from using the feature; "Skip" and "Don't show again" are always available.
 - **Admin visibility.** School Admins can see (aggregate, non-invasive) completion stats for onboarding tours — e.g., "60% of new teachers haven't completed the gradebook tutorial" — to know where extra training/support is needed.
 
 **Implementation approach:**
 - **Web (Next.js):** a lightweight coach-mark/tour library (e.g., driver.js, Shepherd.js, or react-joyride) driving spotlighted walkthroughs, plus a help-content panel sourced from a central tutorial-content store.
 - **Mobile (Flutter):** an equivalent in-app walkthrough package (e.g., tutorial_coach_mark or a custom overlay) with tutorial assets bundled at build time and updated via app releases (or a lightweight content-sync job when online).
-- **Shared content model:** tutorials are defined as structured data (screen ID → ordered steps → element target → copy → optional media) stored centrally and rendered by both frontends, so tutorial content is authored once and consumed by web and mobile alike, and stays in sync with which features are actually live for a given tenant's plan (Free vs. Pro) and phase rollout.
+- **Shared content model:** tutorials are defined as structured data (screen ID → ordered steps → element target → copy → optional media) stored centrally (editable exclusively by `SUPER_ADMIN` users) and rendered by both frontends, so tutorial content is authored once and consumed by web and mobile alike, and stays in sync with which features are actually live for a given tenant's plan (Free vs. Pro) and phase rollout.
 
 ## 3. Why Phase This Project
 

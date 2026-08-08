@@ -8,33 +8,39 @@ import {
     BookOpen,
     Users,
     Settings,
-    LogOut
+    LogOut,
+    Server
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
+import { useTranslations } from 'next-intl';
 
 const NAV_ITEMS = {
     STUDENT: [
-        { name: 'Dashboard', href: '/student', icon: LayoutDashboard },
-        { name: 'Grades & Reports', href: '/student/grades', icon: GraduationCap },
+        { nameKey: 'dashboard', href: '/student', icon: LayoutDashboard },
+        { nameKey: 'gradesReports', href: '/student/grades', icon: GraduationCap },
     ],
     PARENT: [
-        { name: 'Dashboard', href: '/parent', icon: LayoutDashboard },
+        { nameKey: 'dashboard', href: '/parent', icon: LayoutDashboard },
     ],
     TEACHER: [
-        { name: 'Dashboard', href: '/teacher', icon: LayoutDashboard },
-        { name: 'Classes & Grades', href: '/teacher/classes', icon: BookOpen },
+        { nameKey: 'dashboard', href: '/teacher', icon: LayoutDashboard },
+        { nameKey: 'classesGrades', href: '/teacher/classes', icon: BookOpen },
     ],
     ADMIN: [
-        { name: 'Dashboard', href: '/admin', icon: LayoutDashboard },
-        { name: 'Users', href: '/admin/users', icon: Users },
-        { name: 'Policy', href: '/admin/policy', icon: Settings },
+        { nameKey: 'dashboard', href: '/institution-admin', icon: LayoutDashboard },
+        { nameKey: 'users', href: '/institution-admin/users', icon: Users },
+        { nameKey: 'policy', href: '/institution-admin/policy', icon: Settings },
+    ],
+    SUPER_ADMIN: [
+        { nameKey: 'dashboard', href: '/system-admin', icon: Server },
     ]
 };
 
 export default function Sidebar() {
     const pathname = usePathname();
-    const [role, setRole] = useState<'STUDENT' | 'PARENT' | 'TEACHER' | 'ADMIN' | null>(null);
+    const t = useTranslations('Sidebar');
+    const [role, setRole] = useState<'STUDENT' | 'PARENT' | 'TEACHER' | 'ADMIN' | 'SUPER_ADMIN' | null>(null);
 
     useEffect(() => {
         // True resolution of role based on authenticated session state
@@ -65,13 +71,13 @@ export default function Sidebar() {
 
             <nav className="flex-1 py-6 px-4 space-y-1 overflow-y-auto">
                 <p className="px-2 text-xs font-semibold text-slate-500 uppercase tracking-wider mb-4">
-                    Menu
+                    {t('menu')}
                 </p>
                 {items.map((item) => {
                     const isActive = pathname === item.href || pathname?.startsWith(item.href + '/');
                     const Icon = item.icon;
                     return (
-                        <Link key={item.name} href={item.href}>
+                        <Link key={item.nameKey} href={item.href}>
                             <span
                                 className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 group relative ${isActive
                                     ? 'bg-indigo-600 text-white'
@@ -79,7 +85,7 @@ export default function Sidebar() {
                                     }`}
                             >
                                 <Icon className={`w-5 h-5 ${isActive ? 'text-indigo-200' : 'text-slate-400 group-hover:text-white'}`} />
-                                <span className="font-medium text-sm">{item.name}</span>
+                                <span className="font-medium text-sm">{t(item.nameKey as any)}</span>
                                 {isActive && (
                                     <motion.div
                                         layoutId="active-nav-indicator"
@@ -103,7 +109,7 @@ export default function Sidebar() {
                     className="flex w-full items-center gap-3 px-3 py-2.5 rounded-lg text-slate-400 hover:text-red-400 hover:bg-slate-800/50 transition-colors"
                 >
                     <LogOut className="w-5 h-5" />
-                    <span className="font-medium text-sm">Sign Out</span>
+                    <span className="font-medium text-sm">{t('signOut')}</span>
                 </button>
             </div>
         </aside>

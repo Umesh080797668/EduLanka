@@ -26,7 +26,7 @@
 | Container | Technology | Role |
 |---|---|---|
 | `edu-nginx` | Nginx 1.27 | API gateway, rate limiting, SSL termination |
-| `edu-web` | Next.js 15+ (App Router) | Web dashboards for all roles |
+| `edu-web` | Next.js 15+ (App Router, `next-intl`) | Web dashboards for all roles (Localized: EN, SI, TA) |
 | `edu-api` | NestJS 10 + Fastify | REST API, JWT auth, business logic |
 | `edu-postgres` | PostgreSQL 15 (Supabase) | Multi-tenant schema-per-tenant data store |
 | `edu-redis` | Redis 7 | Session storage, rate-limiting state |
