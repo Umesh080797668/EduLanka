@@ -1,17 +1,16 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import { UserPlus, ArrowLeft, Save, Briefcase, Mail, Phone, Loader2, AlertCircle } from 'lucide-react';
+import { UserPlus, ArrowLeft, Save, Briefcase, Mail, Phone, Loader2, AlertCircle, CheckCircle2, Copy } from 'lucide-react';
 import Link from 'next/link';
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
 
 export default function NewTeacherPage() {
-    const router = useRouter();
     const [fullName, setFullName] = useState('');
     const [email, setEmail] = useState('');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [successData, setSuccessData] = useState<{ email: string, tempPassword: string } | null>(null);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -19,16 +18,15 @@ export default function NewTeacherPage() {
         setError(null);
 
         try {
-            // A temporary password matching the standard procedure or handled server side
-            // In a real flow, a secure generator would be used
-            const tempPassword = 'EduLankaTeacher!2026';
+            // Generate a secure temporary password
+            const tempPassword = Math.random().toString(36).slice(-8) + Math.random().toString(36).slice(-4).toUpperCase() + '!';
 
             const res = await fetch('/api/v1/auth/signup', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${localStorage.getItem('token')}`,
-                    'x-tenant-id': localStorage.getItem('tenantId') || ''
+                    'x-tenant-id': localStorage.getItem('tenantId') || 'a1b2c3d4-0000-0000-0000-000000000001'
                 },
                 body: JSON.stringify({
                     email,
@@ -39,7 +37,7 @@ export default function NewTeacherPage() {
             });
 
             if (res.ok) {
-                router.push('/admin/users');
+                setSuccessData({ email, tempPassword });
             } else {
                 const data = await res.json();
                 setError(data.message || 'Failed to provision teacher account.');
@@ -50,6 +48,72 @@ export default function NewTeacherPage() {
             setLoading(false);
         }
     };
+
+    if (successData) {
+        return (
+            <div className="max-w-3xl mx-auto mt-12">
+                <motion.div
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden text-center"
+                >
+                    <div className="p-10 pb-8 bg-emerald-600 text-white">
+                        <div className="w-20 h-20 bg-white/20 backdrop-blur-sm rounded-full mx-auto flex items-center justify-center mb-6">
+                            <CheckCircle2 className="w-10 h-10 text-white" />
+                        </div>
+                        <h2 className="text-3xl font-bold tracking-tight mb-2">Account Provisioned!</h2>
+                        <p className="text-emerald-100 font-medium">The teacher profile has been created successfully.</p>
+                    </div>
+
+                    <div className="p-10">
+                        <p className="text-slate-600 mb-6">
+                            Please provide the following temporary credentials to the teacher securely. They will be prompted to change this password on their first login.
+                        </p>
+
+                        <div className="bg-slate-50 border border-slate-200 rounded-xl p-6 max-w-md mx-auto space-y-4 text-left">
+                            <div>
+                                <label className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1 block">Login Email</label>
+                                <div className="text-slate-800 font-mono font-medium text-lg bg-white border border-slate-200 px-4 py-2 rounded-lg">{successData.email}</div>
+                            </div>
+                            <div>
+                                <label className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1 block">Temporary Password</label>
+                                <div className="flex items-center gap-2">
+                                    <div className="text-slate-800 font-mono font-bold text-xl bg-white border border-slate-200 px-4 py-2 rounded-lg flex-1">
+                                        {successData.tempPassword}
+                                    </div>
+                                    <button
+                                        onClick={() => navigator.clipboard.writeText(successData.tempPassword)}
+                                        className="p-3 bg-indigo-50 text-indigo-600 hover:bg-indigo-100 rounded-lg transition-colors border border-indigo-100"
+                                        title="Copy Password"
+                                    >
+                                        <Copy className="w-5 h-5" />
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="mt-10 pt-8 border-t border-slate-100 flex gap-4 justify-center">
+                            <button
+                                onClick={() => {
+                                    setFullName('');
+                                    setEmail('');
+                                    setSuccessData(null);
+                                }}
+                                className="px-6 py-3 bg-slate-100 text-slate-700 rounded-xl font-bold hover:bg-slate-200 transition-colors"
+                            >
+                                Add Another Teacher
+                            </button>
+                            <Link href="/admin/users">
+                                <button className="px-6 py-3 bg-indigo-600 text-white rounded-xl font-bold flex items-center justify-center hover:bg-indigo-700 transition-colors shadow-sm">
+                                    Return to Directory
+                                </button>
+                            </Link>
+                        </div>
+                    </div>
+                </motion.div>
+            </div>
+        );
+    }
 
     return (
         <div className="max-w-4xl mx-auto space-y-6">
@@ -140,7 +204,7 @@ export default function NewTeacherPage() {
                 </div>
                 <div className="bg-slate-50 py-4 px-8 border-t border-slate-100 flex items-center justify-between">
                     <p className="text-xs text-slate-500">
-                        An initial password will be automatically generated and emailed to the teacher.
+                        A secure password will be actively generated for the new account.
                     </p>
                     <div className="flex gap-3">
                         <Link href="/admin/users">

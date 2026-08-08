@@ -13,7 +13,7 @@ export default function Header() {
     useEffect(() => {
         const fetchUser = async () => {
             const token = localStorage.getItem('token');
-            const tenantId = localStorage.getItem('tenantId') || 'DEMO';
+            const tenantId = localStorage.getItem('tenantId') || 'a1b2c3d4-0000-0000-0000-000000000001';
             const role = localStorage.getItem('role') || 'USER';
             setUserRole(role.replace('_', ' '));
 

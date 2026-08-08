@@ -1,7 +1,7 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import { Users, GraduationCap, ChevronRight, Activity, Calendar } from 'lucide-react';
+import { Users, GraduationCap, ChevronRight } from 'lucide-react';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 
@@ -103,22 +103,7 @@ export default function ParentDashboard() {
                             </div>
                         </div>
 
-                        <div className="grid grid-cols-2 gap-4 mb-6">
-                            <div className="bg-slate-50 rounded-xl p-4">
-                                <div className="flex items-center gap-2 mb-1 text-slate-500">
-                                    <Activity className="w-4 h-4" />
-                                    <span className="text-xs font-semibold uppercase tracking-wider">Current GPA</span>
-                                </div>
-                                <p className="text-lg font-bold text-slate-700">{child.gpa || 'N/A'}</p>
-                            </div>
-                            <div className="bg-slate-50 rounded-xl p-4">
-                                <div className="flex items-center gap-2 mb-1 text-slate-500">
-                                    <Calendar className="w-4 h-4" />
-                                    <span className="text-xs font-semibold uppercase tracking-wider">Attendance</span>
-                                </div>
-                                <p className="text-lg font-bold text-slate-700">{child.attendance || 'N/A'}</p>
-                            </div>
-                        </div>
+
 
                         <Link href={`/parent/students/${child.id}/grades`}>
                             <button className="w-full bg-slate-50 hover:bg-indigo-50 text-indigo-600 font-semibold py-3 rounded-xl flex items-center justify-center gap-2 transition-colors border border-slate-100 hover:border-indigo-100">

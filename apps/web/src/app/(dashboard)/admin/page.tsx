@@ -15,7 +15,7 @@ export default function AdminDashboard() {
                 const res = await fetch('/api/v1/tenants/stats', {
                     headers: {
                         'Authorization': `Bearer ${localStorage.getItem('token')}`,
-                        'x-tenant-id': localStorage.getItem('tenantId') || 'DEMO'
+                        'x-tenant-id': localStorage.getItem('tenantId') || 'a1b2c3d4-0000-0000-0000-000000000001'
                     }
                 });
                 if (res.ok) {
@@ -82,7 +82,7 @@ export default function AdminDashboard() {
                 variants={containerVariants}
                 initial="hidden"
                 animate="show"
-                className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4"
+                className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"
             >
                 <motion.div variants={itemVariants} className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex flex-col justify-between hover:shadow-md transition-shadow group">
                     <div className="w-12 h-12 bg-blue-50 rounded-xl mb-4 flex items-center justify-center text-blue-600 group-hover:scale-110 transition-transform">
@@ -104,15 +104,6 @@ export default function AdminDashboard() {
                     </h4>
                 </motion.div>
 
-                <motion.div variants={itemVariants} className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex flex-col justify-between hover:shadow-md transition-shadow group">
-                    <div className="w-12 h-12 bg-amber-50 rounded-xl mb-4 flex items-center justify-center text-amber-600 group-hover:scale-110 transition-transform">
-                        <Settings className="w-6 h-6" />
-                    </div>
-                    <p className="text-slate-500 text-sm font-medium mb-1">Active Policies</p>
-                    <h4 className="text-3xl font-bold text-slate-800">
-                        {loading ? <Loader2 className="w-6 h-6 animate-spin text-slate-400" /> : stats?.policies || 0}
-                    </h4>
-                </motion.div>
 
                 <motion.div variants={itemVariants} className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex flex-col justify-between hover:shadow-md transition-shadow group">
                     <div className="w-12 h-12 bg-purple-50 rounded-xl mb-4 flex items-center justify-center text-purple-600 group-hover:scale-110 transition-transform">

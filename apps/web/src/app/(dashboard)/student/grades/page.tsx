@@ -20,7 +20,7 @@ export default function StudentGradesPage() {
                 const res = await fetch('/api/v1/students/me', {
                     headers: {
                         'Authorization': `Bearer ${localStorage.getItem('token')}`,
-                        'x-tenant-id': localStorage.getItem('tenantId') || 'DEMO'
+                        'x-tenant-id': localStorage.getItem('tenantId') || 'a1b2c3d4-0000-0000-0000-000000000001'
                     }
                 });
                 if (res.ok) {
@@ -46,7 +46,7 @@ export default function StudentGradesPage() {
                 const res = await fetch(`/api/v1/student-marks/student/${studentId}`, {
                     headers: {
                         'Authorization': `Bearer ${localStorage.getItem('token')}`,
-                        'x-tenant-id': localStorage.getItem('tenantId') || 'DEMO'
+                        'x-tenant-id': localStorage.getItem('tenantId') || 'a1b2c3d4-0000-0000-0000-000000000001'
                     }
                 });
                 if (res.ok) {
@@ -69,7 +69,7 @@ export default function StudentGradesPage() {
             const res = await fetch(`/api/v1/report-cards/student/${studentId}/term/${term}/year/${year}/download`, {
                 headers: {
                     'Authorization': `Bearer ${localStorage.getItem('token')}`,
-                    'x-tenant-id': localStorage.getItem('tenantId') || 'DEMO'
+                    'x-tenant-id': localStorage.getItem('tenantId') || 'a1b2c3d4-0000-0000-0000-000000000001'
                 }
             });
 

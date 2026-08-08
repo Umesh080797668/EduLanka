@@ -21,7 +21,7 @@ export default function TeacherGradesPage() {
         const loadClassDetails = async () => {
             try {
                 const res = await fetch(`/api/v1/classes/${classId}`, {
-                    headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}`, 'x-tenant-id': localStorage.getItem('tenantId') || 'DEMO' }
+                    headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}`, 'x-tenant-id': localStorage.getItem('tenantId') || 'a1b2c3d4-0000-0000-0000-000000000001' }
                 });
                 if (res.ok) {
                     const json = await res.json();
@@ -78,7 +78,7 @@ export default function TeacherGradesPage() {
                 headers: {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${localStorage.getItem('token')}`,
-                    'x-tenant-id': localStorage.getItem('tenantId') || 'DEMO'
+                    'x-tenant-id': localStorage.getItem('tenantId') || 'a1b2c3d4-0000-0000-0000-000000000001'
                 },
                 body: JSON.stringify({
                     studentId,

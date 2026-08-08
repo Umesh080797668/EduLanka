@@ -7,7 +7,7 @@ import Link from 'next/link';
 
 export default function ResetPasswordPage() {
     const [email, setEmail] = useState('');
-    const [tenantId, setTenantId] = useState('DEMO');
+    const [tenantId, setTenantId] = useState('a1b2c3d4-0000-0000-0000-000000000001');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [success, setSuccess] = useState(false);
@@ -95,7 +95,7 @@ export default function ResetPasswordPage() {
                                     value={tenantId}
                                     onChange={(e) => setTenantId(e.target.value)}
                                     className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm focus:bg-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all"
-                                    placeholder="e.g. DEMO"
+                                    placeholder="e.g. a1b2c3d4-0000-0000-0000-000000000001"
                                 />
                             </div>
 
