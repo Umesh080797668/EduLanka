@@ -26,11 +26,14 @@
         },
         "typecheck": {
             "dependsOn": [
-                "^typecheck"
+                "^build"
             ],
             "outputs": []
         },
         "lint": {
+            "dependsOn": [
+                "^build"
+            ],
             "outputs": []
         },
         "lint:fix": {
