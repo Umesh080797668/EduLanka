@@ -4,7 +4,7 @@
     "private": true,
     "description": "EduLanka — Next.js web dashboards (Student, Parent, Teacher, School Admin)",
     "scripts": {
-        "dev": "next dev --turbopack",
+        "dev": "next dev",
         "build": "next build",
         "start": "next start",
         "lint": "eslint . --fix",

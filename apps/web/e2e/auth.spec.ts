@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 
 test.describe('Authentication and RBAC flows', () => {
     test('User can visit login page', async ({ page }) => {
-        await page.goto('/login');
+        await page.goto('/en/login');
         await expect(page).toHaveTitle(/EduLanka/);
         await expect(page.locator('form')).toBeVisible();
     });
@@ -12,7 +12,7 @@ test.describe('Authentication and RBAC flows', () => {
     // In a real staging environment, we will have seeders.
 
     test('Prevents unauthorized access to dashboard', async ({ page }) => {
-        await page.goto('/dashboard');
+        await page.goto('/en/student');
         // Should be redirected to login
         await expect(page).toHaveURL(/.*\/login/);
     });
