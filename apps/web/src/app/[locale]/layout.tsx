@@ -19,15 +19,22 @@ export const metadata: Metadata = {
     robots: { index: false, follow: false }, // set to true when public
 };
 
-export default function RootLayout({
+import { NextIntlClientProvider } from 'next-intl';
+import { getMessages } from 'next-intl/server';
+
+export default async function RootLayout({
     children,
 }: {
     children: React.ReactNode;
 }) {
+    // Provide messages to the client
+    const messages = await getMessages();
     return (
         <html lang="en" suppressHydrationWarning>
             <body className={`${inter.variable} ${geistMono.variable} antialiased`}>
-                {children}
+                <NextIntlClientProvider messages={messages}>
+                    {children}
+                </NextIntlClientProvider>
             </body>
         </html>
     );

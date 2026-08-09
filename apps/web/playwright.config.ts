@@ -21,9 +21,17 @@ export default defineConfig({
             use: { ...devices['Desktop Chrome'], channel: 'chrome' },
         }
     ],
-    webServer: {
-        command: 'npm run start',
-        url: 'http://localhost:3000',
-        reuseExistingServer: !process.env.CI,
-    },
+    webServer: [
+        {
+            command: 'npm run start',
+            url: 'http://localhost:3000',
+            reuseExistingServer: !process.env.CI,
+        },
+        {
+            command: 'pnpm --filter @edu-lanka/api run start',
+            env: { PORT: '8081' },
+            url: 'http://localhost:8081/api/v1/health',
+            reuseExistingServer: !process.env.CI,
+        }
+    ],
 });

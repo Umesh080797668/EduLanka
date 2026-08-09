@@ -15,6 +15,7 @@ export default function () {
     const params = {
         headers: {
             'Content-Type': 'application/json',
+            'Authorization': `Bearer ${__ENV.SUPER_ADMIN_TOKEN || 'placeholder'}`,
         },
     };
 
@@ -22,7 +23,7 @@ export default function () {
     const res = http.post('http://localhost:8081/api/v1/tenants', payload, params);
 
     check(res, {
-        'is status 201 or 4xx': (r) => r.status === 201 || r.status >= 400,
+        'is status 201': (r) => r.status === 201,
     });
 
     sleep(1);

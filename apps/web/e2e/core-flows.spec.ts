@@ -9,6 +9,7 @@ test.describe('Comprehensive Role Workflows', () => {
         await page.fill('input[type="email"]', 'admin@pilot.edulanka.lk');
         await page.fill('input[type="password"]', 'PilotUser123!');
         await page.click('button[type="submit"]');
+        await page.waitForURL(/.*\/institution-admin.*/);
 
         // 2. Navigate to Policy and update grading calendar
         await page.goto('/en/institution-admin/policy');
@@ -33,6 +34,7 @@ test.describe('Comprehensive Role Workflows', () => {
         await page.fill('input[type="email"]', 'teacher@pilot.edulanka.lk');
         await page.fill('input[type="password"]', 'PilotUser123!');
         await page.click('button[type="submit"]');
+        await page.waitForURL(/.*\/teacher.*/);
 
         await page.goto('/en/teacher/classes');
         await expect(page.locator('h1')).toContainText('Classes');
@@ -53,6 +55,7 @@ test.describe('Comprehensive Role Workflows', () => {
         await page.fill('input[type="email"]', 'parent@pilot.edulanka.lk');
         await page.fill('input[type="password"]', 'PilotUser123!');
         await page.click('button[type="submit"]');
+        await page.waitForURL(/.*\/parent.*/);
 
         await page.goto('/en/parent');
         await expect(page.locator('h1')).toContainText('Dashboard');
@@ -70,6 +73,7 @@ test.describe('Comprehensive Role Workflows', () => {
         await page.fill('input[type="email"]', 'student@pilot.edulanka.lk');
         await page.fill('input[type="password"]', 'PilotUser123!');
         await page.click('button[type="submit"]');
+        await page.waitForURL(/.*\/student.*/);
 
         await page.goto('/en/student/grades');
         await expect(page.locator('h1')).toContainText('Grades');

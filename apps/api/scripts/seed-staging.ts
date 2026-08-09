@@ -10,8 +10,8 @@ async function bootstrap() {
     console.log('Bootstrapping Pilot School for Staging...');
 
     try {
-        let pilotTenantId = 'e1a2c3b4-0000-0000-0000-000000000000';
-        let tenantSlug = 'pilot_school_v1';
+        let pilotTenantId = 'a1b2c3d4-0000-0000-0000-000000000001';
+        let tenantSlug = 'dev-school';
 
         const { data: existingTenant } = await supabase.adminClient
             .from('tenants')
@@ -29,7 +29,7 @@ async function bootstrap() {
                     slug: tenantSlug,
                     plan: TenantPlan.PRO,
                     status: TenantStatus.ACTIVE,
-                    school_type: 'NATIONAL' as any,
+                    school_type: 'TYPE_2' as any,
                     contact_email: 'pilot@edulanka.lk',
                 })
                 .select()
@@ -75,6 +75,11 @@ async function bootstrap() {
                 const matched = usersData.users.find(usr => usr.email === u.email);
                 if (!matched) throw new Error(`User auth identity not found for ${u.email}`);
                 authUid = matched.id;
+
+                // Force update user metadata to ensure tenant_id matches
+                await supabase.adminClient.auth.admin.updateUserById(authUid, {
+                    user_metadata: { full_name: u.name, tenant_id: pilotTenantId }
+                });
             }
 
             const { data: existingUser } = await tenantClient.from('users').select('id').eq('auth_uid', authUid).maybeSingle();

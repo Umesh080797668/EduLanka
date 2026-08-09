@@ -13,13 +13,14 @@ export default function () {
     const params = {
         headers: {
             'x-tenant-id': 'tenant_seed_1',
+            'Authorization': `Bearer ${__ENV.SUPER_ADMIN_TOKEN || 'placeholder'}`,
         }
     };
 
-    const res = http.get('http://localhost:8081/api/v1/reports/student/1/report-card', params);
+    const res = http.get('http://localhost:8081/api/v1/report-cards/student/123e4567-e89b-12d3-a456-426614174000/term/1/year/2023/download', params);
 
     check(res, {
-        'status is 200 or 4xx': (r) => r.status === 200 || r.status >= 400,
+        'status is 200': (r) => r.status === 200,
     });
 
     sleep(1);

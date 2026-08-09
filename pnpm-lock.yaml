@@ -7,6 +7,10 @@ settings:
 importers:
 
   .:
+    dependencies:
+      jsonwebtoken:
+        specifier: ^9.0.3
+        version: 9.0.3
     devDependencies:
       '@edu-lanka/config':
         specifier: workspace:*
