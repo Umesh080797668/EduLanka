@@ -33,7 +33,7 @@ export class TenantGuard implements CanActivate {
             throw new ForbiddenException('Invalid x-tenant-id header');
         }
 
-        if (requestedTenantId !== user.tenantId) {
+        if (requestedTenantId !== user.tenantId && user.role !== 'SUPER_ADMIN') {
             throw new ForbiddenException(
                 'You are not permitted to access resources of this tenant',
             );

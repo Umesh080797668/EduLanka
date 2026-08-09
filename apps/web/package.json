@@ -10,6 +10,7 @@
         "lint": "eslint . --fix",
         "lint:check": "eslint .",
         "typecheck": "tsc --noEmit",
+        "test:e2e": "playwright test",
         "clean": "rm -rf .next out *.tsbuildinfo"
     },
     "dependencies": {
@@ -27,6 +28,7 @@
     },
     "devDependencies": {
         "@edu-lanka/config": "workspace:*",
+        "@playwright/test": "^1.62.1",
         "@tailwindcss/postcss": "^4.3.3",
         "@types/node": "^22.5.0",
         "@types/react": "^19.0.0",

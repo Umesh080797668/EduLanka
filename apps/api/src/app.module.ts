@@ -4,6 +4,7 @@ import * as Joi from 'joi';
 
 import { configuration } from './config/configuration';
 import { TenantContextMiddleware } from './common/middleware/tenant-context.middleware';
+import { HttpLoggerMiddleware } from './common/middleware/http-logger.middleware';
 import { AuthModule } from './modules/auth/auth.module';
 import { HealthModule } from './modules/health/health.module';
 import { RedisModule } from './modules/redis/redis.module';
@@ -73,6 +74,8 @@ import { TutorialsModule } from './modules/tutorials/tutorials.module';
 })
 export class AppModule implements NestModule {
     configure(consumer: MiddlewareConsumer): void {
+        consumer.apply(HttpLoggerMiddleware).forRoutes('*');
+
         consumer
             .apply(TenantContextMiddleware)
             // Exclude health checks and auth routes — everything else requires a tenant slug
