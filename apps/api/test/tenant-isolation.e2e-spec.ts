@@ -90,8 +90,8 @@ if (!shouldRun) {
     it('should insert a user into schema A', async () => {
         const { error } = await admin.rpc('exec_sql', {
             sql: `
-            INSERT INTO "tenant_${SLUG_A}".users (email, full_name, role)
-            VALUES ('student-a@e2e.lk', 'Student A', 'STUDENT');
+            INSERT INTO "tenant_${SLUG_A}".users (user_id, tenant_id, email, full_name, role)
+            VALUES ('11111111-1111-1111-1111-111111111111', '${SLUG_A}', 'student-a@e2e.lk', 'Student A', 'STUDENT');
         `});
         expect(error).toBeNull();
     });
@@ -118,8 +118,8 @@ if (!shouldRun) {
         // Insert something into B first
         const { error: insErr } = await admin.rpc('exec_sql', {
             sql: `
-            INSERT INTO "tenant_${SLUG_B}".users (email, full_name, role)
-            VALUES ('student-b@e2e.lk', 'Student B', 'STUDENT');
+            INSERT INTO "tenant_${SLUG_B}".users (user_id, tenant_id, email, full_name, role)
+            VALUES ('22222222-2222-2222-2222-222222222222', '${SLUG_B}', 'student-b@e2e.lk', 'Student B', 'STUDENT');
         `});
         expect(insErr).toBeNull();
 
@@ -165,7 +165,8 @@ if (!shouldRun) {
         `});
         await new Promise(r => setTimeout(r, 2000));
 
-        const { data } = await admin.rpc('get_tenant_b_users');
+        const { data, error } = await admin.rpc('get_tenant_b_users');
+        if (error) console.error("get_tenant_b_users ERROR:", error);
         const emails = (data ?? []).map((r: { email: string }) => r.email);
 
         expect(emails).toContain('student-b@e2e.lk');

@@ -123,18 +123,19 @@ This creates:
 
 #### Step 2 — Seed the dev tenant
 
-Paste and run:
+Run the initial data seed script. This correctly links the seeded database users to actual Supabase Auth identities so you can log in locally:
 
-```
-supabase/seed.sql
+```bash
+cd apps/api
+pnpm run seed:staging
 ```
 
 This:
 1. Inserts a `dev-school` tenant into `public.tenants`
-2. Calls `create_tenant_schema('dev-school')` — creates a `tenant_dev-school` schema
-3. Seeds 4 users (SCHOOL_ADMIN, TEACHER, STUDENT, PARENT), 1 class (Grade 10-A), 1 student record, and a parent link
+2. Calls the schema generator and seeds 4 users with real Supabase Auth accounts (SCHOOL_ADMIN, TEACHER, STUDENT, PARENT)
+3. Output will show the `test` email accounts and password (`PilotUser123!`) to use for UI testing.
 
-> **Verify** — in the **Table Editor**, switch schema to `tenant_dev-school`. You should see the `users`, `classes`, `students`, and `parents` tables populated.
+> **Verify** — in the **Table Editor**, switch schema to `tenant_dev-school`. You should see the `users` table populated and mapped to `auth_uid`s.
 
 ### 6.3 Provisioning New Tenants (via API)
 

@@ -57,7 +57,7 @@ export class TutorialsService {
         const { data, error } = await client
             .from('user_tutorials')
             .select('tutorial_id, status, completed_at')
-            .eq('user_id', user.sub); // Assuming JWT sub holds the tenant-level user.id, BUT wait, user.sub usually holds auth_uid globally in Supabase auth depending on how edulanka implements it.
+            .eq('user_id', user.sub); // Assuming JWT sub holds the tenant-level user.id, BUT wait, user.sub usually holds user_id globally in Supabase auth depending on how edulanka implements it.
 
         if (error) {
             // Need to handle error properly, but returning empty array on failure
@@ -74,12 +74,12 @@ export class TutorialsService {
         const client = this.supabase.getTenantClient(user.tenantId);
 
         // Ensure user actually maps to the user_id if needed, but if user_id in user_tutorials is 
-        // the global auth_uid, then user.sub is fine! However, the schema references `tenant_x.users(id)`. 
+        // the global user_id, then user.sub is fine! However, the schema references `tenant_x.users(id)`. 
         // Usually, EduLanka API resolves the tenant user first. Let's do that to be safe.
         const { data: tenantUser, error: userErr } = await client
             .from('users')
             .select('id')
-            .eq('auth_uid', user.sub)
+            .eq('user_id', user.sub)
             .single();
 
         if (userErr || !tenantUser) {

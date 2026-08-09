@@ -90,7 +90,7 @@ BEGIN
             subject TEXT,
             UNIQUE(class_id, teacher_id, is_homeroom)
         );
-    ', schema_name, schema_name);
+    ', schema_name, schema_name, schema_name);
 
     -- 6. Create students table
     EXECUTE format('

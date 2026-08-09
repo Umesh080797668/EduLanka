@@ -92,9 +92,10 @@ export class AuthService {
         const { data: userData, error: userError } = await tenantClient
             .from('users')
             .select('id, role, is_active')
-            .eq('auth_uid', authUid)
+            .eq('user_id', authUid)
             .maybeSingle();
 
+        if (userError) console.error("resolveTenantUser DB Error:", userError);
         if (userError || !userData) throw new UnauthorizedException('User does not belong to this tenant');
         if (!userData.is_active) throw new UnauthorizedException('User account is deactivated');
 
@@ -170,7 +171,7 @@ export class AuthService {
         const { data: newUser, error: insertError } = await tenantClient
             .from('users')
             .insert({
-                auth_uid: authUid,
+                user_id: authUid,
                 email: dto.email,
                 full_name: dto.fullName,
                 role: dto.role,

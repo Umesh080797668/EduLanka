@@ -76,7 +76,7 @@ export class StudentsService {
             const { data: userRow, error: userErr } = await db
                 .from('users')
                 .insert({
-                    auth_uid: authUid,
+                    user_id: authUid,
                     email: dto.email ?? null,
                     full_name: dto.fullName,
                     role: UserRole.STUDENT,

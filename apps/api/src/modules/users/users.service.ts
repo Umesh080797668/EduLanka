@@ -43,7 +43,7 @@ export class UsersService {
         const { data, error } = await db
             .from('users')
             .select('*')
-            .eq('auth_uid', caller.sub)
+            .eq('user_id', caller.sub)
             .maybeSingle();
 
         if (error) throw new InternalServerErrorException('Failed to fetch user');
@@ -94,7 +94,7 @@ export class UsersService {
             const { data, error } = await db
                 .from('users')
                 .insert({
-                    auth_uid: authUid,
+                    user_id: authUid,
                     tenant_id: slug,
                     email: dto.email ?? null,
                     phone_number: dto.phoneNumber ?? null,

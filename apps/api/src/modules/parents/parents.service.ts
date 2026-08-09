@@ -42,7 +42,7 @@ export class ParentsService {
         const { data, error } = await db
             .from('users')
             .select('*, parent_children(id, student_id, relationship, students(id, admission_no, classes(grade, section, year), users(full_name, email)))')
-            .eq('auth_uid', caller.sub)
+            .eq('user_id', caller.sub)
             .eq('role', UserRole.PARENT)
             .maybeSingle();
 

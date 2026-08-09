@@ -16,7 +16,7 @@ import type { FastifyRequest } from 'fastify';
 export class TenantGuard implements CanActivate {
     canActivate(context: ExecutionContext): boolean {
         const request = context.switchToHttp().getRequest<FastifyRequest>();
-        const user = request.user;
+        const user = (request as any).user;
 
         if (!user) {
             throw new ForbiddenException('No authenticated user found');

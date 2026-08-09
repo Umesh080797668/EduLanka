@@ -38,7 +38,7 @@ async function bootstrap() {
             if (tErr) throw new Error(`Tenant Insert Failed: ${tErr.message}`);
 
             console.log('Running Schema Provisioning for Pilot School...');
-            const { error: rpcErr } = await supabase.adminClient.rpc('create_tenant_schema_sprint6_override', {
+            const { error: rpcErr } = await supabase.adminClient.rpc('create_tenant_schema', {
                 p_slug: tenantSlug
             });
             if (rpcErr) throw new Error(`Schema Provisioning Failed: ${rpcErr.message}`);
@@ -61,7 +61,7 @@ async function bootstrap() {
 
         for (const u of roles) {
             let authUid: string;
-            const { data: existingAuth } = await supabase.adminClient.auth.admin.createUser({
+            const { data: existingAuth, error: createError } = await supabase.adminClient.auth.admin.createUser({
                 email: u.email,
                 password,
                 email_confirm: true,
@@ -71,6 +71,7 @@ async function bootstrap() {
             if (existingAuth?.user?.id) {
                 authUid = existingAuth.user.id;
             } else {
+                if (createError) console.error(`Create Error for ${u.email}:`, createError);
                 const { data: usersData } = await supabase.adminClient.auth.admin.listUsers();
                 const matched = usersData.users.find(usr => usr.email === u.email);
                 if (!matched) throw new Error(`User auth identity not found for ${u.email}`);
@@ -82,10 +83,10 @@ async function bootstrap() {
                 });
             }
 
-            const { data: existingUser } = await tenantClient.from('users').select('id').eq('auth_uid', authUid).maybeSingle();
+            const { data: existingUser } = await tenantClient.from('users').select('id').eq('user_id', authUid).maybeSingle();
             if (!existingUser) {
                 await tenantClient.from('users').insert({
-                    auth_uid: authUid,
+                    user_id: authUid,
                     email: u.email,
                     full_name: u.name,
                     role: u.role,

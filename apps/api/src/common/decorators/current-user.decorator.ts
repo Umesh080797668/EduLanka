@@ -14,6 +14,6 @@ import type { FastifyRequest } from 'fastify';
 export const CurrentUser = createParamDecorator(
     (_data: unknown, ctx: ExecutionContext): JwtPayload => {
         const request = ctx.switchToHttp().getRequest<FastifyRequest>();
-        return request.user as JwtPayload; // Guaranteed present: JwtAuthGuard runs first
+        return (request as any).user as JwtPayload; // Guaranteed present: JwtAuthGuard runs first
     },
 );

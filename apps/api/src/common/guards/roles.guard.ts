@@ -40,7 +40,7 @@ export class RolesGuard implements CanActivate {
         }
 
         const request = context.switchToHttp().getRequest<FastifyRequest>();
-        const user = request.user as JwtPayload | undefined;
+        const user = (request as any).user as JwtPayload | undefined;
 
         if (!user) {
             throw new ForbiddenException('No authenticated user found');
