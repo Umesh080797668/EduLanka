@@ -13,6 +13,7 @@ test.describe('Comprehensive Role Workflows', () => {
 
         // 2. Navigate to Policy and update grading calendar
         await page.goto('/en/institution-admin/policy');
+        await expect(page.locator('h1', { hasText: 'School Policy Settings' })).toBeVisible();
         const gradingSelect = page.locator('#grading-interval-setting');
         if (await gradingSelect.isVisible()) {
             await gradingSelect.selectOption({ label: '3 Terms' });
@@ -20,7 +21,7 @@ test.describe('Comprehensive Role Workflows', () => {
 
         // 3. Navigate to Users and try to trigger enrollment modal
         await page.goto('/en/institution-admin/users');
-        await expect(page.locator('h1')).toContainText('Users');
+        await expect(page.locator('h1', { hasText: 'Users Management' })).toBeVisible();
         const enrollBtn = page.locator('#add-user-btn');
         if (await enrollBtn.isVisible()) {
             await enrollBtn.click();
@@ -37,7 +38,7 @@ test.describe('Comprehensive Role Workflows', () => {
         await page.waitForURL(/.*\/teacher.*/);
 
         await page.goto('/en/teacher/classes');
-        await expect(page.locator('h1')).toContainText('Classes');
+        await expect(page.locator('h1', { hasText: 'My Assigned Classes' })).toBeVisible();
 
         // Simulate clicking the first class grades button
         const firstClassGrades = page.locator('a[href*="/grades"]').first();
@@ -58,7 +59,7 @@ test.describe('Comprehensive Role Workflows', () => {
         await page.waitForURL(/.*\/parent.*/);
 
         await page.goto('/en/parent');
-        await expect(page.locator('h1')).toContainText('Dashboard');
+        await expect(page.locator('h1', { hasText: 'Parent Dashboard' })).toBeVisible();
 
         // Simulate clicking on the child's profile mapped grades
         const childGrades = page.locator('a[href*="/grades"]').first();

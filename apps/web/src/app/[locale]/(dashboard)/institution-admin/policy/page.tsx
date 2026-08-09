@@ -69,10 +69,10 @@ export default function SchoolPolicyPage() {
                 >
                     <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 pb-6 border-b border-slate-100 mb-8">
                         <div>
-                            <h2 className="text-2xl font-bold tracking-tight text-slate-900 flex items-center gap-3">
+                            <h1 className="text-2xl font-bold tracking-tight text-slate-900 flex items-center gap-3">
                                 <Settings className="w-6 h-6 text-indigo-600" />
                                 {t('title')}
-                            </h2>
+                            </h1>
                             <p className="text-slate-500 mt-1">{t('description')}</p>
                         </div>
                     </div>

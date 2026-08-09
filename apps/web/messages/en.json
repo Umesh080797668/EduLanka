@@ -94,7 +94,7 @@
         "failedToDownload": "Failed to download report card.",
         "profileNotFound": "Profile Not Found",
         "profileNotFoundMsg": "Unable to retrieve your student profile. Please ensure you are logged in as a student.",
-        "myReportCards": "My Report Cards",
+        "myReportCards": "My Grades & Report Cards",
         "myReportCardsMsg": "View your marks and download official PDF report cards",
         "academicTerm": "Academic Term",
         "academicYear": "Academic Year",
@@ -165,7 +165,7 @@
         "saved": "Saved"
     },
     "ParentDashboard": {
-        "greeting": "Welcome,",
+        "greeting": "Parent Dashboard —",
         "dashboardSubtitle": "Monitor your children's academic progress, attendance, and upcoming school events all in one place.",
         "linkedChildren": "Linked Children",
         "gradeNotAssigned": "Grade Not Assigned",
@@ -220,7 +220,7 @@
         "eligible": "Eligible"
     },
     "InstitutionAdminUsers": {
-        "userManagement": "User Management",
+        "userManagement": "Users Management",
         "userManagementDesc": "Manage all tenant users, their roles, and authentication status.",
         "searchPlaceholder": "Search users...",
         "nameEmail": "Name & Email",

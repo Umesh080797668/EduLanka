@@ -73,7 +73,7 @@ export default function ParentDashboard() {
 
                     <div className="relative z-10 flex items-center justify-between">
                         <div>
-                            <h2 className="text-3xl font-bold tracking-tight mb-2">{t('greeting')} {parentName}</h2>
+                            <h1 className="text-3xl font-bold tracking-tight mb-2">{t('greeting')} {parentName}</h1>
                             <p className="text-indigo-200 max-w-lg">
                                 {t('dashboardSubtitle')}
                             </p>

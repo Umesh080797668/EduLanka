@@ -11,7 +11,7 @@ async function bootstrap() {
 
     try {
         let pilotTenantId = 'a1b2c3d4-0000-0000-0000-000000000001';
-        let tenantSlug = 'dev-school';
+        const tenantSlug = 'dev-school';
 
         const { data: existingTenant } = await supabase.adminClient
             .from('tenants')
@@ -39,9 +39,13 @@ async function bootstrap() {
 
             console.log('Running Schema Provisioning for Pilot School...');
             const { error: rpcErr } = await supabase.adminClient.rpc('create_tenant_schema', {
-                p_slug: tenantSlug
+                p_slug: tenantSlug,
             });
             if (rpcErr) throw new Error(`Schema Provisioning Failed: ${rpcErr.message}`);
+
+            console.log('Reloading PostgREST cache...');
+            await supabase.adminClient.rpc('exec_sql', { sql: "NOTIFY pgrst, 'reload schema'" });
+            await new Promise((r) => setTimeout(r, 6000));
 
             pilotTenantId = newTenant.id;
         } else {
@@ -71,33 +75,39 @@ async function bootstrap() {
             if (existingAuth?.user?.id) {
                 authUid = existingAuth.user.id;
             } else {
-                if (createError) console.error(`Create Error for ${u.email}:`, createError);
+                if (createError) console.error(`Create Error for ${u.email}:`, createError.message);
                 const { data: usersData } = await supabase.adminClient.auth.admin.listUsers();
-                const matched = usersData.users.find(usr => usr.email === u.email);
+                const matched = usersData.users.find((usr) => usr.email === u.email);
                 if (!matched) throw new Error(`User auth identity not found for ${u.email}`);
                 authUid = matched.id;
 
                 // Force update user metadata to ensure tenant_id matches
                 await supabase.adminClient.auth.admin.updateUserById(authUid, {
-                    user_metadata: { full_name: u.name, tenant_id: pilotTenantId }
+                    user_metadata: { full_name: u.name, tenant_id: pilotTenantId },
                 });
             }
 
-            const { data: existingUser } = await tenantClient.from('users').select('id').eq('user_id', authUid).maybeSingle();
+            const { data: existingUser } = await tenantClient
+                .from('users')
+                .select('id')
+                .eq('user_id', authUid)
+                .maybeSingle();
+
             if (!existingUser) {
-                await tenantClient.from('users').insert({
+                const { error: insErr } = await tenantClient.from('users').insert({
                     user_id: authUid,
+                    tenant_id: pilotTenantId,
                     email: u.email,
                     full_name: u.name,
                     role: u.role,
-                    is_active: true
+                    is_active: true,
                 });
+                if (insErr) console.error("Insert Error:", insErr);
                 console.log(`Provisioned ${u.role}: ${u.email}`);
             }
         }
 
         console.log(`✅ PILOT STAGING BOOTSTRAP SUCCESSFUL (Password for all: ${password})`);
-
     } catch (e: any) {
         console.error('❌ Bootstrap Failed:', e.message);
     } finally {

@@ -62,10 +62,10 @@ export default function TeacherClassesPage() {
         <div className="max-w-5xl mx-auto space-y-6">
             <div className="flex flex-col md:flex-row justify-between mb-8">
                 <div>
-                    <h2 className="text-2xl font-bold tracking-tight text-slate-900 flex items-center gap-3">
+                    <h1 className="text-2xl font-bold tracking-tight text-slate-900 flex items-center gap-3">
                         <Users className="w-6 h-6 text-indigo-600" />
                         {t('myAssignedClasses')}
-                    </h2>
+                    </h1>
                     <p className="text-slate-500 mt-1">{t('selectToViewRoster')}</p>
                 </div>
             </div>

@@ -126,10 +126,10 @@ export default function StudentGradesPage() {
                 >
                     <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8">
                         <div>
-                            <h2 className="text-2xl font-bold tracking-tight text-slate-900 flex items-center gap-3">
+                            <h1 className="text-2xl font-bold tracking-tight text-slate-900 flex items-center gap-3">
                                 <FileText className="w-6 h-6 text-indigo-600" />
                                 {t('myReportCards')}
-                            </h2>
+                            </h1>
                             <p className="text-slate-500 mt-1">{t('myReportCardsMsg')}</p>
                         </div>
                     </div>

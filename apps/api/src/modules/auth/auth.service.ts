@@ -89,12 +89,14 @@ export class AuthService {
         if (tenantData.status !== 'ACTIVE') throw new UnauthorizedException('Tenant is not active');
 
         const tenantClient = this.supabaseService.getTenantClient(tenantData.slug);
+        console.log(`resolveTenantUser QUERYING Schema: tenant_${tenantData.slug}, user_id: ${authUid}`);
         const { data: userData, error: userError } = await tenantClient
             .from('users')
             .select('id, role, is_active')
             .eq('user_id', authUid)
             .maybeSingle();
 
+        console.log(`resolveTenantUser RESULT:`, userData, userError);
         if (userError) console.error("resolveTenantUser DB Error:", userError);
         if (userError || !userData) throw new UnauthorizedException('User does not belong to this tenant');
         if (!userData.is_active) throw new UnauthorizedException('User account is deactivated');
@@ -108,23 +110,35 @@ export class AuthService {
      * POST /auth/login
      * Validate credentials via Supabase, confirm tenant membership, issue JWT pair.
      */
-    async login(email: string, password: string, tenantId: string): Promise<TokenPair> {
+    async login(email: string, password: string, tenantId: string): Promise<any> {
         if (!email || !password || !tenantId) {
             throw new BadRequestException('Email, password, and tenantId are required');
         }
 
-        const { data: authData, error: authError } = await this.supabaseService.adminClient.auth.signInWithPassword({
+        const { data, error } = await this.supabaseService.adminClient.auth.signInWithPassword({
             email,
             password,
         });
 
-        if (authError || !authData.user) {
+        if (error) {
+            console.error("signInWithPassword Error:", error.message, error.name, error.status);
             throw new UnauthorizedException('Invalid credentials');
         }
+        if (!data.user) throw new UnauthorizedException('Invalid credentials');
 
-        const { userId, role } = await this.resolveTenantUser(tenantId, authData.user.id);
+        const { userId, role: userRole } = await this.resolveTenantUser(tenantId, data.user.id);
 
-        return this.issueTokenPair({ sub: userId, tenantId, role, email });
+        const tokens = await this.issueTokenPair({ sub: userId, tenantId, role: userRole, email });
+        return {
+            data: {
+                access_token: tokens.accessToken,
+                refresh_token: tokens.refreshToken,
+                user: {
+                    id: userId,
+                    role: userRole
+                }
+            }
+        };
     }
 
     /**

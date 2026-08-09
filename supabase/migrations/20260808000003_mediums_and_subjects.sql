@@ -121,6 +121,11 @@ BEGIN
         );
     ', schema_name, schema_name);
 
+    -- Apply required access grants for PostgREST
+    EXECUTE format('GRANT USAGE ON SCHEMA %I TO authenticated, service_role;', schema_name);
+    EXECUTE format('GRANT ALL ON ALL TABLES IN SCHEMA %I TO authenticated, service_role;', schema_name);
+    EXECUTE format('GRANT ALL ON ALL ROUTINES IN SCHEMA %I TO authenticated, service_role;', schema_name);
+    EXECUTE format('GRANT ALL ON ALL SEQUENCES IN SCHEMA %I TO authenticated, service_role;', schema_name);
 END;
 $$;
 
