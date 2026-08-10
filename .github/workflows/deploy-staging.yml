@@ -46,3 +46,7 @@ jobs:
           DATABASE_URL: ${{ secrets.DATABASE_URL_STAGING }}
         run: |
           pnpm tsx apps/api/scripts/seed-staging.ts
+
+      - name: Execute Resiliency Load Tests (K6 Metrics Validation)
+        run: |
+          docker run --rm -i --network host -e API_BASE_URL=http://localhost:8081/api/v1 grafana/k6 run - < infrastructure/tests/load-test-full-system.js

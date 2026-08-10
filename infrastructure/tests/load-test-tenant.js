@@ -21,8 +21,8 @@ export default function () {
         },
     };
 
-    // Targeting the Nginx gateway or API directly on 8081
-    const res = http.post('http://localhost:8081/api/v1/tenants', payload, params);
+    // Targeting the Nginx gateway internally via Docker Network
+    const res = http.post('http://edu-nginx/api/v1/tenants', payload, params);
 
     check(res, {
         'is status 201': (r) => r.status === 201,

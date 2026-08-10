@@ -17,7 +17,7 @@ export default function () {
         }
     };
 
-    const res = http.get('http://localhost:8081/api/v1/report-cards/student/123e4567-e89b-12d3-a456-426614174000/term/1/year/2023/download', params);
+    const res = http.get('http://edu-nginx/api/v1/report-cards/student/123e4567-e89b-12d3-a456-426614174000/term/1/year/2023/download', params);
 
     check(res, {
         'status is 200': (r) => r.status === 200,
