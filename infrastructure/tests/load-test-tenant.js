@@ -10,12 +10,14 @@ export default function () {
     const payload = JSON.stringify({
         name: 'Load Test School ' + __VU + '-' + __ITER,
         slug: 'load-test-' + __VU + '-' + __ITER,
+        schoolType: 'TYPE_1AB',
+        contactEmail: 'admin@loadtest' + __VU + '.edu.lk',
     });
 
     const params = {
         headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${__ENV.SUPER_ADMIN_TOKEN || 'placeholder'}`,
+            'Authorization': `Bearer ${__ENV.SUPER_ADMIN_TOKEN || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJzdXBlci1hZG1pbi1pZCIsInJvbGUiOiJTVVBFUl9BRE1JTiIsInRlbmFudElkIjoiYTFiMmMzZDQtMDAwMC0wMDAwLTAwMDAtMDAwMDAwMDAwMDAxIiwiaWF0IjoxNzg2MzMzODM3LCJleHAiOjE3ODYzMzc0Mzd9.AxfjpANbx9T1OkEag8gYbWSyPXQOQsJ8KYi9m3yGj5k'}`,
         },
     };
 

@@ -42,7 +42,10 @@ export class ReportCardsService {
             .eq('term', term)
             .eq('academic_year', year);
 
-        if (marksError) throw new InternalServerErrorException('Error gathering marks');
+        if (marksError) {
+            this.logger.error(`Error gathering marks: ${marksError.message}`, marksError);
+            throw new InternalServerErrorException('Error gathering marks');
+        }
 
         const { data: student, error: studentError } = await db
             .from('students')

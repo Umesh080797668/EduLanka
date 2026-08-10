@@ -61,6 +61,15 @@ export class TenantContextMiddleware implements NestMiddleware {
             return next();
         }
 
+        const isSuperAdminTenantRoute =
+            (req.method === 'POST' && path === '/api/v1/tenants') ||
+            (req.method === 'GET' && path === '/api/v1/tenants') ||
+            (req.method === 'PATCH' && path.match(/^.*\/api\/v1\/tenants\/[^\/]+\/status$/));
+
+        if (isSuperAdminTenantRoute) {
+            return next();
+        }
+
         const tenantId = (req.headers['x-tenant-id'] as string | undefined)?.trim();
 
         if (!tenantId) {

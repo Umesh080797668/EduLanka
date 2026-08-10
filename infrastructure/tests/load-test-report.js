@@ -12,8 +12,8 @@ export const options = {
 export default function () {
     const params = {
         headers: {
-            'x-tenant-id': 'tenant_seed_1',
-            'Authorization': `Bearer ${__ENV.SUPER_ADMIN_TOKEN || 'placeholder'}`,
+            'x-tenant-id': 'a1b2c3d4-0000-0000-0000-000000000001',
+            'Authorization': `Bearer ${__ENV.SUPER_ADMIN_TOKEN || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJzdXBlci1hZG1pbi1pZCIsInJvbGUiOiJTVVBFUl9BRE1JTiIsInRlbmFudElkIjoiYTFiMmMzZDQtMDAwMC0wMDAwLTAwMDAtMDAwMDAwMDAwMDAxIiwiaWF0IjoxNzg2MzMzODM3LCJleHAiOjE3ODYzMzc0Mzd9.AxfjpANbx9T1OkEag8gYbWSyPXQOQsJ8KYi9m3yGj5k'}`,
         }
     };
 

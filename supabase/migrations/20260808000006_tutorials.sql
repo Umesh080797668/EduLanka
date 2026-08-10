@@ -86,7 +86,7 @@ BEGIN
         EXECUTE format('
             CREATE POLICY "user_read_own_tutorials" ON %I.user_tutorials
             FOR SELECT USING (
-                user_id IN (SELECT id FROM %I.users WHERE auth_uid = auth.uid())
+                user_id IN (SELECT id FROM %I.users WHERE user_id = auth.uid())
             )', v_schema, v_schema);
             
         -- School Admins can read aggregate completions
@@ -95,7 +95,7 @@ BEGIN
             FOR SELECT USING (
                 EXISTS (
                     SELECT 1 FROM %I.users u
-                    WHERE u.auth_uid = auth.uid() AND u.role = ''SCHOOL_ADMIN''
+                    WHERE u.user_id = auth.uid() AND u.role = ''SCHOOL_ADMIN''
                 )
             )', v_schema, v_schema);
 
