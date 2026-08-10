@@ -71,6 +71,7 @@ services:
     environment:
       NODE_ENV: development
       NEXT_PUBLIC_API_URL: http://localhost:8081/api/v1
+      API_URL: http://edu-api:3001/api
     ports:
       - "3000:3000" # Exposed directly for local dev
     depends_on:
