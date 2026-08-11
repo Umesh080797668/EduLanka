@@ -3,9 +3,14 @@ import { SupabaseService } from '../supabase/supabase.service';
 import { CreateTutorialDto } from './dto/tutorial.dto';
 import type { JwtPayload } from '@edu-lanka/shared-types';
 
+import { TenantService } from '../tenant/tenant.service';
+
 @Injectable()
 export class TutorialsService {
-    constructor(private readonly supabase: SupabaseService) { }
+    constructor(
+        private readonly supabase: SupabaseService,
+        private readonly tenantService: TenantService
+    ) { }
 
     // =========================================================================
     // 1. Fetching Tutorials (Client)
@@ -114,7 +119,8 @@ export class TutorialsService {
     // =========================================================================
 
     async getTenantStats(user: JwtPayload) {
-        const client = this.supabase.getTenantClient(user.tenantId);
+        const tenant = await this.tenantService.findOneById(user.tenantId, user);
+        const client = this.supabase.getTenantClient(tenant.slug);
 
         // 1. Fetch all active global tutorials
         const { data: allTutorials, error: tutErr } = await this.supabase.adminClient

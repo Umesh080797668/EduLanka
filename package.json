@@ -15,7 +15,7 @@
         "typecheck": "turbo run typecheck",
         "test": "turbo run test",
         "test:e2e": "turbo run test:e2e",
-        "test:load": "docker run --rm -i --network edu-network grafana/k6 run - < infrastructure/tests/load-test-full-system.js",
+        "test:load": "docker run --rm -i -v $(pwd)/infrastructure/tests:/tests --network docker_edu-network -e BASE_URL=http://edu-nginx/api/v1 -e SUPER_ADMIN_PASSWORD=SuperAdmin@edu! grafana/k6 run /tests/full-system.js",
         "clean": "turbo run clean && rm -rf node_modules",
         "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md,css}\" --ignore-path .gitignore",
         "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,md,css}\" --ignore-path .gitignore"

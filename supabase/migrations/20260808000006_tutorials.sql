@@ -38,17 +38,22 @@ ALTER TABLE public.tutorials ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.tutorial_steps ENABLE ROW LEVEL SECURITY;
 
 -- Allow authenticated users (of any role) to READ active tutorials
+DROP POLICY IF EXISTS "auth_read_tutorials" ON public.tutorials;
 CREATE POLICY "auth_read_tutorials" ON public.tutorials
     FOR SELECT USING (auth.role() = 'authenticated' AND is_active = TRUE);
 
+DROP POLICY IF EXISTS "auth_read_tutorial_steps" ON public.tutorial_steps;
 CREATE POLICY "auth_read_tutorial_steps" ON public.tutorial_steps
     FOR SELECT USING (auth.role() = 'authenticated');
 
 -- Service role bypass
+DROP POLICY IF EXISTS "service_all_tutorials" ON public.tutorials;
 CREATE POLICY "service_all_tutorials" ON public.tutorials USING (true) WITH CHECK (true);
+DROP POLICY IF EXISTS "service_all_steps" ON public.tutorial_steps;
 CREATE POLICY "service_all_steps" ON public.tutorial_steps USING (true) WITH CHECK (true);
 
 -- Updated At triggers
+DROP TRIGGER IF EXISTS tutorials_updated_at ON public.tutorials;
 CREATE TRIGGER tutorials_updated_at BEFORE UPDATE ON public.tutorials FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
 -- =============================================================================

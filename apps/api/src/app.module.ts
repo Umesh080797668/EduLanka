@@ -66,12 +66,12 @@ import { TutorialsModule } from './modules/tutorials/tutorials.module';
                     {
                         name: 'short',
                         ttl: 60000,
-                        limit: 50,
+                        limit: 5000,
                     },
                     {
                         name: 'long',
                         ttl: 900000, // 15 mins
-                        limit: 1000,
+                        limit: 50000,
                     },
                 ],
                 storage: new ThrottlerStorageRedisService(`redis://${config.get('redis.password') ? `:${config.get('redis.password')}@` : ''}${config.get('redis.host')}:${config.get('redis.port')}`),

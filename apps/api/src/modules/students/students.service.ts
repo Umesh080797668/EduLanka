@@ -79,7 +79,7 @@ export class StudentsService {
                     user_id: authUid,
                     email: dto.email ?? null,
                     full_name: dto.fullName,
-                    role: UserRole.STUDENT,
+                    role: UserRole.STUDENT, tenant_id: slug,
                     phone_number: dto.phoneNumber ?? null,
                 })
                 .select()
@@ -87,7 +87,7 @@ export class StudentsService {
 
             if (userErr || !userRow) {
                 await this.supabase.adminClient.auth.admin.deleteUser(authUid);
-                throw new InternalServerErrorException('Failed to create user profile');
+                this.logger.error('Users Insert Failed: ' + userErr?.message); throw new InternalServerErrorException('Failed to create user profile');
             }
 
             // Step 4: Insert into students table
@@ -100,9 +100,9 @@ export class StudentsService {
                     date_of_birth: dto.dateOfBirth ?? null,
                     gender: dto.gender ?? null,
                     al_stream: dto.alStream ?? null,
-                    medium: dto.medium ?? null,
+                    medium: dto.medium ?? null, tenant_id: slug,
                 })
-                .select('*, users(full_name, email, phone_number)')
+                .select('*')
                 .single();
 
             if (studentErr) {
@@ -111,10 +111,12 @@ export class StudentsService {
                 if (studentErr.message?.toLowerCase().includes('cap exceeded')) {
                     throw new ForbiddenException(studentErr.message);
                 }
+                this.logger.error(`Failed to enroll student: ${studentErr.message}`);
                 throw new InternalServerErrorException('Failed to enroll student');
             }
 
             this.logger.log(`Enrolled student ${admissionNo} for tenant ${slug}`);
+            studentRow.users = { full_name: userRow.full_name, email: userRow.email, phone_number: userRow.phone_number };
             return studentRow;
         } catch (err) {
             // Rollback auth user on unexpected errors
@@ -129,10 +131,7 @@ export class StudentsService {
         const slug = await this.resolveSlug(caller);
         const db = this.supabase.getTenantClient(slug);
 
-        const { data: user } = await db.from('users').select('id').eq('user_id', caller.sub).maybeSingle();
-        if (!user) throw new NotFoundException('User profile not found');
-
-        const { data: student } = await db.from('students').select('*').eq('user_id', user.id).maybeSingle();
+        const { data: student } = await db.from('students').select('*').eq('user_id', caller.sub).maybeSingle();
         if (!student) throw new NotFoundException('Student profile not found');
 
         return student;
@@ -144,11 +143,26 @@ export class StudentsService {
 
         const { data, error } = await db
             .from('students')
-            .select('*, users(full_name, email, phone_number, avatar_url), classes(grade, section, year)')
+            .select('*')
             .order('created_at', { ascending: false });
 
         if (error) throw new InternalServerErrorException('Failed to fetch students');
-        return data ?? [];
+
+        const { data: classData } = await db.from('classes').select('*');
+        const classMap = new Map();
+        if (classData) classData.forEach((c: any) => classMap.set(c.id, c));
+
+        const { data: usersData } = await db.from('users').select('*');
+        const userMap = new Map();
+        if (usersData) usersData.forEach((u: any) => userMap.set(u.id, u));
+
+        let students = data ?? [];
+        students.forEach((s: any) => {
+            s.classes = classMap.get(s.class_id);
+            s.users = userMap.get(s.user_id);
+        });
+
+        return students;
     }
 
     async findOne(id: string, caller: JwtPayload) {
@@ -157,12 +171,20 @@ export class StudentsService {
 
         const { data, error } = await db
             .from('students')
-            .select('*, users(full_name, email, phone_number, avatar_url, role, is_active), classes(grade, section, year), parent_children(parent_user_id, relationship, users(full_name, email))')
+            .select('*')
             .eq('id', id)
             .maybeSingle();
 
         if (error) throw new InternalServerErrorException('Failed to fetch student');
         if (!data) throw new NotFoundException(`Student ${id} not found`);
+
+        const { data: userData } = await db.from('users').select('full_name, email, phone_number, avatar_url, role, is_active').eq('id', data.user_id).maybeSingle();
+        data.users = userData;
+
+        const { data: classData } = await db.from('classes').select('*').eq('id', data.class_id).maybeSingle();
+        data.classes = classData;
+        const { data: parentData } = await db.from('parent_children').select('*').eq('student_id', id);
+        data.parent_children = parentData || [];
         return data;
     }
 
@@ -198,7 +220,7 @@ export class StudentsService {
                 ...(dto.alStream && { al_stream: dto.alStream }),
             })
             .eq('id', id)
-            .select('*, users(full_name, email)')
+            .select('*')
             .maybeSingle();
 
         if (error) throw new InternalServerErrorException('Failed to update student');
@@ -215,7 +237,7 @@ export class StudentsService {
             .from('students')
             .update({ class_id: dto.classId })
             .eq('id', id)
-            .select('*, classes(grade, section, year), users(full_name)')
+            .select('*')
             .maybeSingle();
 
         if (error) {

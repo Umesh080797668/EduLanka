@@ -90,7 +90,7 @@ BEGIN
             USING (
                 EXISTS (
                     SELECT 1 FROM %I.users u
-                    WHERE u.auth_uid = auth.uid() AND u.role IN (''SCHOOL_ADMIN'')
+                    WHERE u.user_id = auth.uid() AND u.role IN (''SCHOOL_ADMIN'')
                 )
             )', v_schema, v_schema);
             
@@ -102,7 +102,7 @@ BEGIN
                     SELECT 1 FROM %I.users u
                     JOIN %I.teachers t ON t.user_id = u.id
                     JOIN %I.class_teachers ct ON ct.teacher_id = t.id
-                    WHERE u.auth_uid = auth.uid() AND ct.class_id = %I.student_marks.class_id
+                    WHERE u.user_id = auth.uid() AND ct.class_id = %I.student_marks.class_id
                 )
             )', v_schema, v_schema, v_schema, v_schema, v_schema);
 
@@ -113,7 +113,7 @@ BEGIN
                 student_id IN (
                     SELECT s.id FROM %I.students s
                     JOIN %I.users u ON s.user_id = u.id
-                    WHERE u.auth_uid = auth.uid()
+                    WHERE u.user_id = auth.uid()
                 )
             )', v_schema, v_schema, v_schema);
             
@@ -123,7 +123,7 @@ BEGIN
                 student_id IN (
                     SELECT pc.student_id FROM %I.parent_children pc
                     JOIN %I.users u ON pc.parent_user_id = u.id
-                    WHERE u.auth_uid = auth.uid()
+                    WHERE u.user_id = auth.uid()
                 )
             )', v_schema, v_schema, v_schema);
 

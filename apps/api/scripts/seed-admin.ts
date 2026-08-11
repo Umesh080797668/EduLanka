@@ -30,7 +30,7 @@ async function bootstrap() {
                     slug: tenantSlug,
                     plan: TenantPlan.FREE,
                     status: TenantStatus.ACTIVE,
-                    school_type: 'PUBLIC' as any,
+                    school_type: 'TYPE_1AB' as any,
                     contact_email: 'admin@edulanka.lk',
                 })
                 .select()
@@ -43,6 +43,10 @@ async function bootstrap() {
                 p_slug: tenantSlug
             });
             if (rpcErr) throw new Error(`Schema Provisioning Failed: ${rpcErr.message}`);
+
+            console.log('Reloading PostgREST cache...');
+            await supabase.adminClient.rpc('exec_sql', { sql: "NOTIFY pgrst, 'reload schema'" });
+            await new Promise((r) => setTimeout(r, 6000));
 
             rootTenantId = newTenant.id;
         } else {
@@ -75,24 +79,20 @@ async function bootstrap() {
             console.log('Utilizing existing auth identity.');
         }
 
-        // 3. Bind Role inside the Tenant schema
-        const tenantClient = supabase.getTenantClient(tenantSlug);
-
-        const { data: existingUser } = await tenantClient.from('users').select('id').eq('auth_uid', authUid).maybeSingle();
-
-        if (!existingUser) {
-            const { error: insertErr } = await tenantClient.from('users').insert({
-                auth_uid: authUid,
-                email,
-                full_name: 'Global System Administrator',
-                role: UserRole.SUPER_ADMIN,
-                is_active: true
-            });
-            if (insertErr) throw new Error(`Failed binding user in schema: ${insertErr.message}`);
-            console.log('User identity successfully bound as SUPER_ADMIN.');
-        } else {
-            console.log('User identity already bound to schema.');
-        }
+        // 3. Bind Role inside the Tenant schema using exec_sql to bypass PostgREST unexposed schema issues
+        const insertSql = `
+            DO $$
+            BEGIN
+                IF NOT EXISTS (SELECT 1 FROM "tenant_${tenantSlug}".users WHERE user_id = '${authUid}') THEN
+                    INSERT INTO "tenant_${tenantSlug}".users (user_id, email, full_name, role, is_active)
+                    VALUES ('${authUid}', '${email}', 'Global System Administrator', '${UserRole.SUPER_ADMIN}', true);
+                END IF;
+            END
+            $$;
+        `;
+        const { error: insertErr } = await supabase.adminClient.rpc('exec_sql', { sql: insertSql });
+        if (insertErr) throw new Error(`Failed binding user in schema via SQL: ${insertErr.message}`);
+        console.log('User identity successfully bound as SUPER_ADMIN.');
 
         console.log(`
 ✅ SYSTEM BOOTSTRAP SUCCESSFUL

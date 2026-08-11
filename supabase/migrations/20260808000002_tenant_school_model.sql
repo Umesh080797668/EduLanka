@@ -91,14 +91,14 @@ BEGIN
     BEGIN EXECUTE format('
         CREATE POLICY "teacher_own" ON %I.teachers
         FOR SELECT USING (
-            user_id IN (SELECT id FROM %I.users WHERE auth_uid = auth.uid())
+            user_id IN (SELECT id FROM %I.users WHERE user_id = auth.uid())
         )', v_schema, v_schema); EXCEPTION WHEN duplicate_object THEN NULL; END;
     BEGIN EXECUTE format('
         CREATE POLICY "admin_all_teachers" ON %I.teachers
         USING (
             EXISTS (
                 SELECT 1 FROM %I.users u
-                WHERE u.auth_uid = auth.uid() AND u.role IN (''SCHOOL_ADMIN'')
+                WHERE u.user_id = auth.uid() AND u.role IN (''SCHOOL_ADMIN'')
             )
         )', v_schema, v_schema); EXCEPTION WHEN duplicate_object THEN NULL; END;
 
@@ -141,7 +141,7 @@ BEGIN
     BEGIN EXECUTE format('
         CREATE POLICY "parent_own_children" ON %I.parent_children
         FOR SELECT USING (
-            parent_user_id IN (SELECT id FROM %I.users WHERE auth_uid = auth.uid())
+            parent_user_id IN (SELECT id FROM %I.users WHERE user_id = auth.uid())
         )', v_schema, v_schema); EXCEPTION WHEN duplicate_object THEN NULL; END;
     BEGIN EXECUTE format('
         CREATE POLICY "student_own_parents" ON %I.parent_children
@@ -149,7 +149,7 @@ BEGIN
             student_id IN (
                 SELECT s.id FROM %I.students s
                 JOIN %I.users u ON s.user_id = u.id
-                WHERE u.auth_uid = auth.uid()
+                WHERE u.user_id = auth.uid()
             )
         )', v_schema, v_schema, v_schema); EXCEPTION WHEN duplicate_object THEN NULL; END;
 
@@ -241,7 +241,7 @@ BEGIN
     EXECUTE format('
         CREATE TABLE IF NOT EXISTS %I.users (
             id              UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
-            auth_uid        UUID        UNIQUE,
+            user_id        UUID        UNIQUE,
             email           TEXT        NOT NULL UNIQUE,
             full_name       TEXT        NOT NULL,
             role            TEXT        NOT NULL,
@@ -258,10 +258,10 @@ BEGIN
         USING (true) WITH CHECK (true)', v_schema);
     EXECUTE format('
         CREATE POLICY "user_read_own" ON %I.users
-        FOR SELECT USING (auth_uid = auth.uid())', v_schema);
+        FOR SELECT USING (user_id = auth.uid())', v_schema);
     EXECUTE format('
         CREATE POLICY "user_update_own" ON %I.users
-        FOR UPDATE USING (auth_uid = auth.uid())', v_schema);
+        FOR UPDATE USING (user_id = auth.uid())', v_schema);
     EXECUTE format('
         CREATE TRIGGER users_updated_at BEFORE UPDATE ON %I.users
         FOR EACH ROW EXECUTE FUNCTION %I.set_updated_at()', v_schema, v_schema);
@@ -311,7 +311,7 @@ BEGIN
     EXECUTE format('
         CREATE POLICY "student_own" ON %I.students
         FOR SELECT USING (
-            user_id IN (SELECT id FROM %I.users WHERE auth_uid = auth.uid())
+            user_id IN (SELECT id FROM %I.users WHERE user_id = auth.uid())
         )', v_schema, v_schema);
     EXECUTE format('
         CREATE TRIGGER students_updated_at BEFORE UPDATE ON %I.students
@@ -337,7 +337,7 @@ BEGIN
     EXECUTE format('
         CREATE POLICY "teacher_own" ON %I.teachers
         FOR SELECT USING (
-            user_id IN (SELECT id FROM %I.users WHERE auth_uid = auth.uid())
+            user_id IN (SELECT id FROM %I.users WHERE user_id = auth.uid())
         )', v_schema, v_schema);
     EXECUTE format('
         CREATE TRIGGER teachers_updated_at BEFORE UPDATE ON %I.teachers
@@ -381,7 +381,7 @@ BEGIN
     EXECUTE format('
         CREATE POLICY "parent_own_children" ON %I.parent_children
         FOR SELECT USING (
-            parent_user_id IN (SELECT id FROM %I.users WHERE auth_uid = auth.uid())
+            parent_user_id IN (SELECT id FROM %I.users WHERE user_id = auth.uid())
         )', v_schema, v_schema);
     EXECUTE format('
         CREATE POLICY "student_own_parents" ON %I.parent_children
@@ -389,7 +389,7 @@ BEGIN
             student_id IN (
                 SELECT s.id FROM %I.students s
                 JOIN %I.users u ON s.user_id = u.id
-                WHERE u.auth_uid = auth.uid()
+                WHERE u.user_id = auth.uid()
             )
         )', v_schema, v_schema, v_schema);
 

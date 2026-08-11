@@ -16,7 +16,9 @@
         "test:e2e": "jest --testRegex='.*\\.e2e-spec\\.ts$' --testEnvironment=node --passWithNoTests",
         "migrate:tenants": "ts-node -r tsconfig-paths/register scripts/migrate-all-tenants.ts",
         "seed:staging": "ts-node -r tsconfig-paths/register scripts/seed-staging.ts",
-        "clean": "rm -rf dist *.tsbuildinfo"
+        "seed:admin": "ts-node -r tsconfig-paths/register scripts/seed-admin.ts",
+        "clean": "rm -rf dist *.tsbuildinfo",
+        "cleanup:test-data": "npx supabase db reset --linked"
     },
     "dependencies": {
         "@edu-lanka/shared-types": "workspace:*",

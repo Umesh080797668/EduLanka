@@ -39,19 +39,32 @@ export class ParentsService {
         const slug = await this.resolveSlug(caller);
         const db = this.supabase.getTenantClient(slug);
 
-        const { data, error } = await db
+        const { data: userData, error: userError } = await db
             .from('users')
-            .select('*, parent_children(id, student_id, relationship, students(id, admission_no, classes(grade, section, year), users(full_name, email)))')
-            .eq('user_id', caller.sub)
+            .select('*')
+            .eq('id', caller.sub)
             .eq('role', UserRole.PARENT)
             .maybeSingle();
 
-        if (error) throw new InternalServerErrorException('Failed to fetch parent profile');
-        if (!data) throw new NotFoundException('Parent profile not found');
+        if (userError) {
+            console.error("PARENTS_ERROR:", userError);
+            throw new InternalServerErrorException('Failed to fetch parent profile: ' + userError.message);
+        }
+        if (!userData) throw new NotFoundException('Parent profile not found');
+
+        const { data: childrenData, error: childrenError } = await db
+            .from('parent_children')
+            .select('student_id, students(id, admission_no, classes(grade, section, year), users(full_name, email))')
+            .eq('parent_user_id', caller.sub);
+
+        if (childrenError) {
+            console.error("PARENTS_CHILDREN_ERROR:", childrenError);
+            // Non-fatal, just log it and fallback to empty array
+        }
 
         return {
-            users: { full_name: data.full_name, email: data.email },
-            children: (data.parent_children || []).map((pc: any) => ({
+            users: { full_name: userData.full_name, email: userData.email },
+            children: (childrenData || []).map((pc: any) => ({
                 id: pc.student_id,
                 name: pc.students?.users?.full_name,
                 grade: pc.students?.classes ? `${pc.students.classes.grade} ${pc.students.classes.section}` : 'N/A',
@@ -67,7 +80,7 @@ export class ParentsService {
 
         const { data, error } = await db
             .from('users')
-            .select('*, parent_children(student_id, relationship, students(id, admission_no, users(full_name)))')
+            .select('*')
             .eq('role', UserRole.PARENT)
             .order('created_at', { ascending: false });
 

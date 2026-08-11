@@ -66,7 +66,7 @@ export class TeachersService {
                     user_id: authUid,
                     email: dto.email,
                     full_name: dto.fullName,
-                    role: UserRole.TEACHER,
+                    role: UserRole.TEACHER, tenant_id: slug,
                     phone_number: dto.phoneNumber ?? null,
                 })
                 .select()
@@ -74,7 +74,7 @@ export class TeachersService {
 
             if (userErr || !userRow) {
                 await this.supabase.adminClient.auth.admin.deleteUser(authUid);
-                throw new InternalServerErrorException('Failed to create user profile');
+                this.logger.error('Users Insert Failed: ' + userErr?.message); throw new InternalServerErrorException('Failed to create user profile');
             }
 
             // Step 3: Generate employee number if not provided
@@ -90,18 +90,20 @@ export class TeachersService {
                     user_id: userRow.id,
                     employee_no: employeeNo,
                     subject_areas: dto.subjectAreas ?? [],
-                    hire_date: dto.hireDate ?? null,
+                    hire_date: dto.hireDate ?? null, tenant_id: slug,
                 })
-                .select('*, users(full_name, email, phone_number)')
+                .select('*')
                 .single();
 
             if (teacherErr) {
                 await this.supabase.adminClient.auth.admin.deleteUser(authUid);
                 if (teacherErr.code === '23505') throw new ConflictException('Employee number already exists');
+                this.logger.error(`Failed to create teacher profile: ${teacherErr.message}`);
                 throw new InternalServerErrorException('Failed to create teacher profile');
             }
 
             this.logger.log(`Created teacher ${employeeNo} for tenant ${slug}`);
+            teacherRow.users = { full_name: userRow.full_name, email: userRow.email, phone_number: userRow.phone_number };
             return teacherRow;
         } catch (err) {
             if (err instanceof InternalServerErrorException || err instanceof ConflictException) {
@@ -117,11 +119,17 @@ export class TeachersService {
 
         const { data, error } = await db
             .from('teachers')
-            .select('*, users(full_name, email, phone_number, avatar_url)')
+            .select('*')
             .order('created_at', { ascending: false });
 
         if (error) throw new InternalServerErrorException('Failed to fetch teachers');
-        return data ?? [];
+        const { data: usersData } = await db.from('users').select('*');
+        const userMap = new Map();
+        if (usersData) usersData.forEach((u: any) => userMap.set(u.id, u));
+
+        const teachers = data ?? [];
+        teachers.forEach((t: any) => t.users = userMap.get(t.user_id));
+        return teachers;
     }
 
     async findOne(id: string, caller: JwtPayload) {
@@ -130,12 +138,18 @@ export class TeachersService {
 
         const { data, error } = await db
             .from('teachers')
-            .select('*, users(full_name, email, phone_number, avatar_url, is_active), class_teachers(*, classes(grade, section, year))')
+            .select('*')
             .eq('id', id)
             .maybeSingle();
 
         if (error) throw new InternalServerErrorException('Failed to fetch teacher');
         if (!data) throw new NotFoundException(`Teacher ${id} not found`);
+
+        const { data: userData } = await db.from('users').select('*').eq('id', data.user_id).maybeSingle();
+        data.users = userData;
+
+        const { data: ctData } = await db.from('class_teachers').select('*, classes(grade, section, year)').eq('teacher_id', id);
+        data.class_teachers = ctData || [];
         return data;
     }
 
@@ -167,7 +181,7 @@ export class TeachersService {
                 ...(dto.hireDate && { hire_date: dto.hireDate }),
             })
             .eq('id', id)
-            .select('*, users(full_name, email)')
+            .select('*')
             .maybeSingle();
 
         if (error) throw new InternalServerErrorException('Failed to update teacher');
@@ -181,10 +195,23 @@ export class TeachersService {
 
         const { data, error } = await db
             .from('class_teachers')
-            .select('*, classes(id, grade, section, year)')
+            .select('*')
             .eq('teacher_id', id);
 
         if (error) throw new InternalServerErrorException('Failed to fetch teacher classes');
-        return data ?? [];
+
+        let classList = data ?? [];
+        if (classList.length > 0) {
+            const classIds = classList.map((ct: any) => ct.class_id);
+            const { data: classData } = await db.from('classes').select('*').in('id', classIds);
+            const classMap = new Map();
+            if (classData) classData.forEach((c: any) => classMap.set(c.id, c));
+
+            classList.forEach((ct: any) => {
+                ct.classes = classMap.get(ct.class_id);
+            });
+        }
+
+        return classList;
     }
 }

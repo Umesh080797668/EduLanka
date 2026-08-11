@@ -124,7 +124,7 @@ BEGIN
     EXECUTE format('
         CREATE TABLE IF NOT EXISTS %I.users (
             id              UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
-            auth_uid        UUID        UNIQUE,          -- Supabase auth.users.id
+            user_id        UUID        UNIQUE,          -- Supabase auth.users.id
             email           TEXT        NOT NULL UNIQUE,
             full_name       TEXT        NOT NULL,
             role            TEXT        NOT NULL,        -- UserRole enum value
@@ -145,11 +145,11 @@ BEGIN
     -- Users can read/update their own row
     EXECUTE format('
         CREATE POLICY "user_read_own" ON %I.users
-        FOR SELECT USING (auth_uid = auth.uid())', v_schema);
+        FOR SELECT USING (user_id = auth.uid())', v_schema);
 
     EXECUTE format('
         CREATE POLICY "user_update_own" ON %I.users
-        FOR UPDATE USING (auth_uid = auth.uid())', v_schema);
+        FOR UPDATE USING (user_id = auth.uid())', v_schema);
 
     -- ── 3. classes table ──────────────────────────────────────────────────────
     EXECUTE format('
@@ -193,7 +193,7 @@ BEGIN
     EXECUTE format('
         CREATE POLICY "student_own" ON %I.students
         FOR SELECT USING (
-            user_id IN (SELECT id FROM %I.users WHERE auth_uid = auth.uid())
+            user_id IN (SELECT id FROM %I.users WHERE user_id = auth.uid())
         )', v_schema, v_schema);
 
     -- ── 5. parents table ──────────────────────────────────────────────────────
@@ -213,7 +213,7 @@ BEGIN
     EXECUTE format('
         CREATE POLICY "parent_own" ON %I.parents
         FOR SELECT USING (
-            user_id IN (SELECT id FROM %I.users WHERE auth_uid = auth.uid())
+            user_id IN (SELECT id FROM %I.users WHERE user_id = auth.uid())
         )', v_schema, v_schema);
 
     -- ── 6. updated_at triggers ────────────────────────────────────────────────

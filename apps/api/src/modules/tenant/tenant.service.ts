@@ -40,6 +40,8 @@ interface TenantRow {
 @Injectable()
 export class TenantService {
     private readonly logger = new Logger(TenantService.name);
+    private tenantCache = new Map<string, { tenant: Tenant, expiresAt: number }>();
+    private CACHE_TTL_MS = 5 * 60 * 1000;
 
     constructor(private readonly supabase: SupabaseService) { }
 
@@ -135,6 +137,11 @@ export class TenantService {
             throw new ForbiddenException('Access to this tenant is not permitted');
         }
 
+        const cached = this.tenantCache.get(id);
+        if (cached && cached.expiresAt > Date.now()) {
+            return cached.tenant;
+        }
+
         const { data, error } = await this.supabase.adminClient
             .from('tenants')
             .select('*')
@@ -150,7 +157,9 @@ export class TenantService {
             throw new NotFoundException(`Tenant ${id} not found`);
         }
 
-        return this.rowToTenant(data as TenantRow);
+        const tenant = this.rowToTenant(data as TenantRow);
+        this.tenantCache.set(id, { tenant, expiresAt: Date.now() + this.CACHE_TTL_MS });
+        return tenant;
     }
 
     /**

@@ -43,7 +43,7 @@ export class UsersService {
         const { data, error } = await db
             .from('users')
             .select('*')
-            .eq('user_id', caller.sub)
+            .eq('id', caller.sub)
             .maybeSingle();
 
         if (error) throw new InternalServerErrorException('Failed to fetch user');

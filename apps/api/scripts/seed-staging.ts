@@ -107,6 +107,12 @@ async function bootstrap() {
             }
         }
 
+        const { data: existingPolicy } = await tenantClient.from('school_policy').select('id').maybeSingle();
+        if (!existingPolicy) {
+            await tenantClient.from('school_policy').insert({ tenant_id: pilotTenantId, max_students_per_class: 30 });
+            console.log('Provisioned school_policy');
+        }
+
         console.log(`✅ PILOT STAGING BOOTSTRAP SUCCESSFUL (Password for all: ${password})`);
     } catch (e: any) {
         console.error('❌ Bootstrap Failed:', e.message);

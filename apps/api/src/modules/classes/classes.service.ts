@@ -62,17 +62,34 @@ export class ClassesService {
         const slug = await this.resolveSlug(caller);
         const db = this.supabase.getTenantClient(slug);
 
-        const { data, error } = await db
+        const { data: classesData, error: classesError } = await db
             .from('classes')
-            .select('*, grades(*), class_teachers(*, teachers(*, users(*)))')
+            .select('*')
             .order('section', { ascending: true });
 
-        if (error) {
-            this.logger.error(`Failed to list classes: ${error.message}`);
+        if (classesError) {
+            this.logger.error(`Failed to list classes: ${classesError.message}`);
             throw new InternalServerErrorException('Failed to fetch classes');
         }
 
-        let classes = data ?? [];
+        const { data: gradesData } = await db.from('grades').select('*');
+        const gradesMap = new Map();
+        if (gradesData) gradesData.forEach((g: any) => gradesMap.set(g.id, g));
+
+        const { data: ctData } = await db.from('class_teachers').select('*, teachers(*, users(*))');
+        const ctMap = new Map();
+        if (ctData) {
+            ctData.forEach((ct: any) => {
+                if (!ctMap.has(ct.class_id)) ctMap.set(ct.class_id, []);
+                ctMap.get(ct.class_id).push(ct);
+            });
+        }
+
+        let classes = (classesData || []).map((c: any) => ({
+            ...c,
+            grades: gradesMap.get(c.grade_id),
+            class_teachers: ctMap.get(c.id) || []
+        }));
 
         if (teacherId) {
             classes = classes.filter((c: any) =>
@@ -92,12 +109,20 @@ export class ClassesService {
 
         const { data, error } = await db
             .from('classes')
-            .select('*, grades(*), class_teachers(*, teachers(*, users(*))), students(id, admission_no, users(full_name))')
+            .select('*')
             .eq('id', id)
             .maybeSingle();
 
         if (error) throw new InternalServerErrorException('Failed to fetch class');
         if (!data) throw new NotFoundException(`Class ${id} not found`);
+
+        const { data: gradesData } = await db.from('grades').select('*');
+        const gradesMap = new Map();
+        if (gradesData) gradesData.forEach((g: any) => gradesMap.set(g.id, g));
+        data.grades = gradesMap.get(data.grade_id);
+        data.class_teachers = [];
+        data.students = [];
+
         return data;
     }
 

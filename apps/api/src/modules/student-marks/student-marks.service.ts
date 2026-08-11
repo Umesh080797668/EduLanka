@@ -3,6 +3,7 @@ import {
     InternalServerErrorException,
     Logger,
     ForbiddenException,
+    NotFoundException
 } from '@nestjs/common';
 import type { JwtPayload } from '@edu-lanka/shared-types';
 import { UserRole } from '@edu-lanka/shared-types';
@@ -34,13 +35,9 @@ export class StudentMarksService {
 
         let teacherId = null;
         if (caller.role === UserRole.TEACHER) {
-            const { data: user } = await db.from('users').select('id').eq('user_id', caller.sub).maybeSingle();
-            if (user) {
-                const { data: teacher } = await db.from('teachers').select('id').eq('user_id', user.id).maybeSingle();
-                if (teacher) {
-                    teacherId = teacher.id;
-                }
-            }
+            const { data: teacher } = await db.from('teachers').select('id').eq('user_id', caller.sub).maybeSingle();
+            if (!teacher) throw new NotFoundException('Teacher profile not found');
+            teacherId = teacher.id;
         }
 
         const { data, error } = await db
@@ -91,18 +88,14 @@ export class StudentMarksService {
         const db = this.supabase.getTenantClient(slug);
 
         if (caller.role === UserRole.STUDENT) {
-            const { data: stu } = await db.from('students').select('users!inner(user_id)').eq('id', studentId).maybeSingle();
-            const userRef = (stu as any)?.users;
-            const actualSub = Array.isArray(userRef) ? userRef[0]?.user_id : userRef?.user_id;
-
-            if (actualSub !== caller.sub) {
+            const { data: stu } = await db.from('students').select('user_id').eq('id', studentId).maybeSingle();
+            if (stu?.user_id !== caller.sub) {
                 throw new ForbiddenException('Not allowed');
             }
         } else if (caller.role === UserRole.PARENT) {
-            const { data: pa } = await db.from('users').select('id').eq('user_id', caller.sub).maybeSingle();
-            const { data: pc } = await db.from('parent_children').select('id').eq('parent_user_id', pa?.id).eq('student_id', studentId).maybeSingle();
+            const { data: pc } = await db.from('parent_children').select('id').eq('parent_user_id', caller.sub).eq('student_id', studentId).maybeSingle();
             if (!pc) {
-                throw new ForbiddenException('Not allowed');
+                throw new ForbiddenException('Parent is not linked to this student');
             }
         }
 
