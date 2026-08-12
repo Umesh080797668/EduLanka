@@ -8,6 +8,7 @@ import { Settings, Save, CheckCircle2, AlertCircle, Loader2, Clock, MapPin, Buil
 import { TutorialProvider } from '@/components/TutorialProvider';
 import { HelpButton } from '@/components/HelpButton';
 import { useTranslations } from 'next-intl';
+import { PageSkeleton } from '@/components/ui/Skeleton';
 
 export default function SchoolPolicyPage() {
     const t = useTranslations('InstitutionAdminPolicy');

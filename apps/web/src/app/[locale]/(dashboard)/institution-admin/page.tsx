@@ -1,17 +1,18 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import { ShieldCheck, Users, Settings, Activity, Building, ChevronRight, Loader2 } from 'lucide-react';
+import { ShieldCheck, Users, Settings, Activity, Building, ChevronRight } from 'lucide-react';
 import { Link } from '@/i18n/routing';
 import { useEffect, useState } from 'react';
 import { TutorialProvider } from '@/components/TutorialProvider';
 import { HelpButton } from '@/components/HelpButton';
+import { DashboardCardsSkeleton } from '@/components/ui/Skeleton';
 import { useTranslations } from 'next-intl';
 
 export default function InstitutionAdminDashboard() {
     const t = useTranslations('InstitutionAdminDashboard');
     const [stats, setStats] = useState<any>(null);
-    const [tutorialStats, setTutorialStats] = useState<any[]>([]);
+
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
@@ -22,20 +23,14 @@ export default function InstitutionAdminDashboard() {
                     'x-tenant-id': localStorage.getItem('tenantId') || 'a1b2c3d4-0000-0000-0000-000000000001'
                 };
 
-                const [res, tutRes] = await Promise.all([
-                    fetch('/api/v1/tenants/stats', { headers }),
-                    fetch('/api/v1/institution-admin/tutorials/stats', { headers })
-                ]);
+                const res = await fetch('/api/v1/tenants/stats', { headers });
 
                 if (res.ok) {
                     const json = await res.json();
                     setStats(json.data);
                 }
 
-                if (tutRes.ok) {
-                    const tutJson = await tutRes.json();
-                    setTutorialStats(tutJson.data || []);
-                }
+
             } catch (e) {
                 console.error(e);
             } finally {
@@ -54,6 +49,14 @@ export default function InstitutionAdminDashboard() {
         hidden: { opacity: 0, y: 15 },
         show: { opacity: 1, y: 0, transition: { duration: 0.3 } }
     };
+
+    if (loading) {
+        return (
+            <div className="max-w-6xl mx-auto space-y-6">
+                <DashboardCardsSkeleton />
+            </div>
+        );
+    }
 
     return (
         <TutorialProvider role="SCHOOL_ADMIN" screenId="dashboard">
@@ -106,7 +109,7 @@ export default function InstitutionAdminDashboard() {
                         </div>
                         <p className="text-slate-500 text-sm font-medium mb-1">{t('totalActiveUsers')}</p>
                         <h4 className="text-3xl font-bold text-slate-800">
-                            {loading ? <Loader2 className="w-6 h-6 animate-spin text-slate-400" /> : stats?.users || 0}
+                            {stats?.users || 0}
                         </h4>
                     </motion.div>
 
@@ -116,7 +119,7 @@ export default function InstitutionAdminDashboard() {
                         </div>
                         <p className="text-slate-500 text-sm font-medium mb-1">{t('classesEnrolled')}</p>
                         <h4 className="text-3xl font-bold text-slate-800">
-                            {loading ? <Loader2 className="w-6 h-6 animate-spin text-slate-400" /> : stats?.classes || 0}
+                            {stats?.classes || 0}
                         </h4>
                     </motion.div>
                 </motion.div>
@@ -158,49 +161,6 @@ export default function InstitutionAdminDashboard() {
                             </div>
                             <ChevronRight className="w-5 h-5 text-slate-400 group-hover:text-indigo-600 transition-colors" />
                         </Link>
-                    </div>
-                </motion.div>
-
-                <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.5 }}
-                    className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden mb-6"
-                >
-                    <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between">
-                        <h3 className="font-bold text-lg text-slate-800 flex items-center gap-2">
-                            <Activity className="w-5 h-5 text-indigo-500" />
-                            {t('tutorialAnalytics')}
-                        </h3>
-                    </div>
-                    <div className="p-6">
-                        {tutorialStats.length === 0 ? (
-                            <div className="text-center text-slate-500 py-4">{t('noTutorials')}</div>
-                        ) : (
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                {tutorialStats.map((tut: any, idx: number) => (
-                                    <div key={idx} className="bg-slate-50 rounded-xl p-4 border border-slate-200 shadow-sm hover:shadow-md transition-shadow">
-                                        <div className="flex justify-between items-start mb-3">
-                                            <div>
-                                                <h4 className="font-bold text-slate-800 capitalize leading-tight">{tut.role.toLowerCase().replace('_', ' ')}</h4>
-                                                <p className="text-xs text-slate-500 font-medium">/{tut.screenId}</p>
-                                            </div>
-                                            <span className="text-sm font-black text-indigo-700 bg-indigo-100 px-2 py-1 rounded-md">{tut.completionPercentage}%</span>
-                                        </div>
-
-                                        <div className="w-full bg-slate-200 rounded-full h-2.5 mb-3">
-                                            <div className="bg-indigo-500 h-2.5 rounded-full" style={{ width: `${tut.completionPercentage}%` }}></div>
-                                        </div>
-
-                                        <div className="flex justify-between text-xs font-semibold">
-                                            <span className="text-indigo-600">{tut.completed} {t('completed')}</span>
-                                            <span className="text-slate-500 text-[10px]">{tut.eligible} {t('eligible')}</span>
-                                            <span className="text-slate-400">{tut.skipped} {t('skipped')}</span>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
                     </div>
                 </motion.div>
 

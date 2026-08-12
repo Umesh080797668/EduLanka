@@ -5,6 +5,7 @@ import { Link } from '@/i18n/routing';
 import { fetchClasses, RequestOpts } from '@/lib/api/school';
 import type { ClassProfile } from '@edu-lanka/shared-types';
 import { useTranslations } from 'next-intl';
+import { PageSkeleton } from '@/components/ui/Skeleton';
 
 export default function ClassesPage() {
     const t = useTranslations('InstitutionAdminClasses');
@@ -40,7 +41,7 @@ export default function ClassesPage() {
             </div>
 
             {loading ? (
-                <div style={{ padding: '2rem', textAlign: 'center', color: '#666' }}>{t('loading')}</div>
+                <PageSkeleton />
             ) : error ? (
                 <div style={{ padding: '1rem', background: '#fee2e2', color: '#b91c1c', borderRadius: '6px' }}>
                     {error}

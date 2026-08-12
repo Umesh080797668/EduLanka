@@ -5,6 +5,7 @@ import { Link } from '@/i18n/routing';
 import { fetchTeachers, RequestOpts } from '@/lib/api/school';
 import type { TeacherProfile } from '@edu-lanka/shared-types';
 import { useTranslations } from 'next-intl';
+import { PageSkeleton } from '@/components/ui/Skeleton';
 
 export default function TeachersPage() {
     const t = useTranslations('InstitutionAdminTeachers');
@@ -40,7 +41,7 @@ export default function TeachersPage() {
             </div>
 
             {loading ? (
-                <div style={{ padding: '2rem', textAlign: 'center', color: '#666' }}>{t('loading')}</div>
+                <PageSkeleton />
             ) : error ? (
                 <div style={{ padding: '1rem', background: '#fee2e2', color: '#b91c1c', borderRadius: '6px' }}>
                     {error}

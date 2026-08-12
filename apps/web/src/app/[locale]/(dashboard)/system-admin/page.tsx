@@ -1,9 +1,9 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import { Server, Activity, Loader2, BookOpenCheck } from 'lucide-react';
+import { Server, Activity, BookOpenCheck } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { HelpButton } from '@/components/HelpButton';
+import { DashboardCardsSkeleton } from '@/components/ui/Skeleton';
 
 export default function SystemAdminDashboard() {
     const [stats, setStats] = useState<any>(null);
@@ -50,6 +50,14 @@ export default function SystemAdminDashboard() {
         show: { opacity: 1, y: 0, transition: { duration: 0.3 } }
     };
 
+    if (loading) {
+        return (
+            <div className="max-w-6xl mx-auto space-y-6">
+                <DashboardCardsSkeleton />
+            </div>
+        );
+    }
+
     return (
         <div className="max-w-6xl mx-auto space-y-6">
             <motion.div
@@ -85,14 +93,8 @@ export default function SystemAdminDashboard() {
                     </div>
                     <p className="text-slate-500 text-sm font-medium mb-1">System Status</p>
                     <div className="flex items-center gap-2">
-                        {loading ? (
-                            <Loader2 className="w-5 h-5 animate-spin text-emerald-500" />
-                        ) : (
-                            <>
-                                <div className={`w-2.5 h-2.5 rounded-full animate-pulse ${stats?.status === 'Healthy' ? 'bg-emerald-500' : 'bg-amber-500'}`}></div>
-                                <h4 className={`text-lg font-bold ${stats?.status === 'Healthy' ? 'text-emerald-600' : 'text-amber-600'}`}>{stats?.status === 'Healthy' ? 'Healthy' : 'Active'}</h4>
-                            </>
-                        )}
+                        <div className={`w-2.5 h-2.5 rounded-full animate-pulse ${stats?.status === 'Healthy' ? 'bg-emerald-500' : 'bg-amber-500'}`}></div>
+                        <h4 className={`text-lg font-bold ${stats?.status === 'Healthy' ? 'text-emerald-600' : 'text-amber-600'}`}>{stats?.status === 'Healthy' ? 'Healthy' : 'Active'}</h4>
                     </div>
                 </motion.div>
 
@@ -138,7 +140,54 @@ export default function SystemAdminDashboard() {
                     <p className="text-slate-500">Review overall platform health and metrics.</p>
                 </div>
             </motion.div>
-            <HelpButton />
+
+            <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.5 }}
+                className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden mb-6"
+            >
+                <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between">
+                    <h3 className="font-bold text-lg text-slate-800 flex items-center gap-2">
+                        <BookOpenCheck className="w-5 h-5 text-orange-500" />
+                        Platform Adoption & Training Analytics
+                    </h3>
+                </div>
+                <div className="p-6">
+                    {!tutorialStats || Object.keys(tutorialStats).length === 0 ? (
+                        <div className="text-center text-slate-500 py-4">No tutorial data available.</div>
+                    ) : (
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                            <div className="text-sm text-slate-500 italic max-w-sm mb-4">
+                                Platform adoption and training analytics moved from School Admins.
+                            </div>
+                            {Object.values(tutorialStats).map((tut: any, idx: number) => {
+                                const completionPercentage = tut.eligible > 0 ? Math.round((tut.completed / tut.eligible) * 100) : 0;
+                                return (
+                                    <div key={idx} className="bg-slate-50 rounded-xl p-4 border border-slate-200 shadow-sm hover:shadow-md transition-shadow">
+                                        <div className="flex justify-between items-start mb-3">
+                                            <div>
+                                                <h4 className="font-bold text-slate-800 capitalize leading-tight">{tut.role?.toLowerCase().replace('_', ' ') || 'Global'}</h4>
+                                            </div>
+                                            <span className="text-sm font-black text-orange-700 bg-orange-100 px-2 py-1 rounded-md">{completionPercentage}%</span>
+                                        </div>
+
+                                        <div className="w-full bg-slate-200 rounded-full h-2.5 mb-3">
+                                            <div className="bg-orange-500 h-2.5 rounded-full" style={{ width: `${completionPercentage}%` }}></div>
+                                        </div>
+
+                                        <div className="flex justify-between text-xs font-semibold">
+                                            <span className="text-orange-600">{tut.completed} completed</span>
+                                            <span className="text-slate-500 text-[10px]">{tut.eligible} eligible</span>
+                                            <span className="text-slate-400">{tut.skipped} skipped</span>
+                                        </div>
+                                    </div>
+                                )
+                            })}
+                        </div>
+                    )}
+                </div>
+            </motion.div>
         </div>
     );
 }

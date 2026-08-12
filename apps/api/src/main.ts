@@ -10,6 +10,7 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 
 import { AppModule } from './app.module';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
+import { TransformInterceptor } from "./common/interceptors/transform.interceptor";
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
 
 async function bootstrap(): Promise<void> {
@@ -47,7 +48,7 @@ async function bootstrap(): Promise<void> {
     // ── Global middleware ─────────────────────────────────────────────────────
     const httpAdapterHost = app.get(HttpAdapterHost);
     app.useGlobalFilters(new HttpExceptionFilter(httpAdapterHost));
-    app.useGlobalInterceptors(new LoggingInterceptor());
+    app.useGlobalInterceptors(new LoggingInterceptor(), new TransformInterceptor());
     app.useGlobalPipes(
         new ValidationPipe({
             whitelist: true,           // Strip unknown properties
