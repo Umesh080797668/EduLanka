@@ -1,6 +1,10 @@
 import type { ApiResponse } from '@edu-lanka/shared-types';
 
-const API_BASE_URL = process.env['NEXT_PUBLIC_API_URL'] ?? 'http://localhost/api/v1';
+// If running purely in the browser, we actively WANT to use a relative url to hit the Next.js rewrite proxy.
+// This beautifully avoids CORS errors since the browser only communicates with the same origin.
+const API_BASE_URL = typeof window !== 'undefined'
+    ? '/api/v1'
+    : (process.env['NEXT_PUBLIC_API_URL'] ?? 'http://localhost:8081/api/v1');
 
 interface RequestOptions extends RequestInit {
     token?: string;
