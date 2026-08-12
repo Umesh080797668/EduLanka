@@ -139,12 +139,13 @@ export class AuthService {
             .maybeSingle();
 
         if (adminData) {
-            const tokens = await this.issueTokenPair({ sub: adminData.id as string, tenantId: 'system', role: adminData.role as UserRole, email });
+            const rootTenantId = 'a1b2c3d4-0000-0000-0000-000000000000';
+            const tokens = await this.issueTokenPair({ sub: adminData.id as string, tenantId: rootTenantId, role: adminData.role as UserRole, email });
             return {
                 data: {
                     access_token: tokens.accessToken,
                     refresh_token: tokens.refreshToken,
-                    user: { id: adminData.id, role: adminData.role, tenantId: 'system' }
+                    user: { id: adminData.id, role: adminData.role, tenantId: rootTenantId }
                 }
             };
         }
