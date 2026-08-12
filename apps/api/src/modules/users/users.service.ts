@@ -31,8 +31,22 @@ export class UsersService {
 
 
     async getMe(caller: JwtPayload) {
-        const slug = caller.tenantId;
-        const db = this.supabase.getTenantClient(slug);
+        const tenantId = caller.tenantId;
+
+        // Route SUPER_ADMIN profile reads dynamically to the correct global table securely bypass the proxy
+        if (caller.role === UserRole.SUPER_ADMIN) {
+            const { data, error } = await this.supabase.adminClient
+                .from('platform_admins')
+                .select('*')
+                .eq('id', caller.sub)
+                .maybeSingle();
+
+            if (error) throw new InternalServerErrorException('Failed to fetch platform profile: ' + error.message);
+            if (!data) throw new NotFoundException('Platform admin profile not found for sub ' + caller.sub);
+            return data;
+        }
+
+        const db = this.supabase.getTenantClient(tenantId);
 
         const { data, error } = await db
             .from('users')
