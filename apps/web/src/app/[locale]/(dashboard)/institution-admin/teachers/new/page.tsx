@@ -2,7 +2,7 @@
 
 import { motion } from 'framer-motion';
 import { UserPlus, ArrowLeft, Save, Briefcase, Mail, Phone, Loader2, AlertCircle, CheckCircle2, Copy } from 'lucide-react';
-import Link from 'next/link';
+import { Link } from '@/i18n/routing';
 import { useState } from 'react';
 import { useTranslations } from 'next-intl';
 

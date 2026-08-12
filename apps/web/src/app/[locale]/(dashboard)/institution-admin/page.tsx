@@ -2,7 +2,7 @@
 
 import { motion } from 'framer-motion';
 import { ShieldCheck, Users, Settings, Activity, Building, ChevronRight, Loader2 } from 'lucide-react';
-import Link from 'next/link';
+import { Link } from '@/i18n/routing';
 import { useEffect, useState } from 'react';
 import { TutorialProvider } from '@/components/TutorialProvider';
 import { HelpButton } from '@/components/HelpButton';
@@ -24,7 +24,7 @@ export default function InstitutionAdminDashboard() {
 
                 const [res, tutRes] = await Promise.all([
                     fetch('/api/v1/tenants/stats', { headers }),
-                    fetch('/api/v1/tutorials/stats', { headers })
+                    fetch('/api/v1/institution-admin/tutorials/stats', { headers })
                 ]);
 
                 if (res.ok) {

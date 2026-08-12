@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import Link from 'next/link';
+import { Link } from '@/i18n/routing';
 import { useParams } from 'next/navigation';
 import { fetchTeacher, RequestOpts } from '@/lib/api/school';
 import type { TeacherProfile } from '@edu-lanka/shared-types';

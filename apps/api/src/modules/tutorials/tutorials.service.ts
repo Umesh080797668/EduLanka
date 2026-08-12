@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, BadRequestException, InternalServerErrorException } from '@nestjs/common';
+import { Injectable, NotFoundException, InternalServerErrorException } from '@nestjs/common';
 import { SupabaseService } from '../supabase/supabase.service';
 import { CreateTutorialDto } from './dto/tutorial.dto';
 import { UserRole } from '@edu-lanka/shared-types';
@@ -85,23 +85,10 @@ export class TutorialsService {
 
         const client = this.supabase.getTenantClient(user.tenantId);
 
-        // Ensure user actually maps to the user_id if needed, but if user_id in user_tutorials is 
-        // the global user_id, then user.sub is fine! However, the schema references `tenant_x.users(id)`. 
-        // Usually, EduLanka API resolves the tenant user first. Let's do that to be safe.
-        const { data: tenantUser, error: userErr } = await client
-            .from('users')
-            .select('id')
-            .eq('user_id', user.sub)
-            .maybeSingle();
-
-        if (userErr || !tenantUser) {
-            throw new BadRequestException('User not found in tenant schema: ' + (userErr ? userErr.message : 'no matching row for authUid ' + user.sub));
-        }
-
         const { data, error } = await client
             .from('user_tutorials')
             .upsert({
-                user_id: tenantUser.id,
+                user_id: user.sub, // Directly use the provided token internal user identity securely
                 tutorial_id: tutorialId,
                 status: status,
                 completed_at: new Date().toISOString()

@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from '@/i18n/routing';
-import Link from 'next/link';
+import { Link } from '@/i18n/routing';
 import { enrollStudent, RequestOpts } from '@/lib/api/school';
 import { Gender, ALStream } from '@edu-lanka/shared-types';
 import { useTranslations } from 'next-intl';
