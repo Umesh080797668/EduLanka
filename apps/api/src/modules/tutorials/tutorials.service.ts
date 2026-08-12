@@ -93,7 +93,7 @@ export class TutorialsService {
                 status: status,
                 completed_at: new Date().toISOString()
             }, {
-                onConflict: 'user_id, tutorial_id'
+                onConflict: 'user_id,tutorial_id'
             })
             .select()
             .single();

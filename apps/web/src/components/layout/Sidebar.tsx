@@ -9,11 +9,13 @@ import {
     Users,
     Settings,
     LogOut,
-    Server
+    Server,
+    X
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useTranslations } from 'next-intl';
+import { useSidebar } from './SidebarContext';
 
 const NAV_ITEMS = {
     STUDENT: [
@@ -41,6 +43,7 @@ export default function Sidebar() {
     const pathname = usePathname();
     const t = useTranslations('Sidebar');
     const [role, setRole] = useState<'STUDENT' | 'PARENT' | 'TEACHER' | 'SCHOOL_ADMIN' | 'SUPER_ADMIN' | null>(null);
+    const { isOpen, setIsOpen } = useSidebar();
 
     useEffect(() => {
         let mounted = true;
@@ -58,9 +61,9 @@ export default function Sidebar() {
 
     const items = role ? NAV_ITEMS[role] : [];
 
-    return (
-        <aside className="w-64 bg-slate-900 border-r border-slate-800 flex-shrink-0 flex flex-col text-slate-300">
-            <div className="h-16 flex items-center px-6 border-b border-slate-800">
+    const sidebarContent = (
+        <div className="w-64 bg-slate-900 h-full flex flex-col text-slate-300">
+            <div className="h-16 flex items-center justify-between px-6 border-b border-slate-800">
                 <motion.div
                     initial={{ opacity: 0, x: -10 }}
                     animate={{ opacity: 1, x: 0 }}
@@ -71,6 +74,9 @@ export default function Sidebar() {
                     </div>
                     EduLanka
                 </motion.div>
+                <button onClick={() => setIsOpen(false)} className="md:hidden p-2 text-slate-400 hover:text-white">
+                    <X className="w-5 h-5" />
+                </button>
             </div>
 
             <nav className="flex-1 py-6 px-4 space-y-1 overflow-y-auto">
@@ -81,7 +87,7 @@ export default function Sidebar() {
                     const isActive = pathname === item.href || pathname?.startsWith(item.href + '/');
                     const Icon = item.icon;
                     return (
-                        <Link key={item.nameKey} href={item.href}>
+                        <Link key={item.nameKey} href={item.href} onClick={() => setIsOpen(false)}>
                             <span
                                 className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 group relative ${isActive
                                     ? 'bg-indigo-600 text-white'
@@ -116,6 +122,39 @@ export default function Sidebar() {
                     <span className="font-medium text-sm">{t('signOut')}</span>
                 </button>
             </div>
-        </aside>
+        </div>
+    );
+
+    return (
+        <>
+            {/* Desktop Sidebar */}
+            <aside className="hidden md:flex flex-shrink-0 border-r border-slate-800">
+                {sidebarContent}
+            </aside>
+
+            {/* Mobile Sidebar */}
+            <AnimatePresence>
+                {isOpen && (
+                    <>
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            onClick={() => setIsOpen(false)}
+                            className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-40 md:hidden"
+                        />
+                        <motion.aside
+                            initial={{ x: '-100%' }}
+                            animate={{ x: 0 }}
+                            exit={{ x: '-100%' }}
+                            transition={{ type: 'spring', bounce: 0, duration: 0.3 }}
+                            className="fixed inset-y-0 left-0 z-50 md:hidden shadow-2xl block"
+                        >
+                            {sidebarContent}
+                        </motion.aside>
+                    </>
+                )}
+            </AnimatePresence>
+        </>
     );
 }

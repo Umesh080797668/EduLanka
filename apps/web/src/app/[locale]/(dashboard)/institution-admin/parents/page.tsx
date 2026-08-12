@@ -22,7 +22,7 @@ export default function ParentsPage() {
 
     return (
         <div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
                 <h1 style={{ fontSize: '1.5rem', fontWeight: 600 }}>{t('title')}</h1>
                 <Link
                     href="/institution-admin/users"
