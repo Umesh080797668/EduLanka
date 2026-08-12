@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter } from '@/i18n/routing';
 import { fetchParent, fetchStudents, linkStudentToParent, unlinkStudentFromParent, RequestOpts } from '@/lib/api/school';
 import type { ParentProfile, StudentProfile } from '@edu-lanka/shared-types';
 import { ParentRelationship } from '@edu-lanka/shared-types';

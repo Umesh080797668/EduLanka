@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter } from '@/i18n/routing';
 import Link from 'next/link';
 import { enrollStudent, RequestOpts } from '@/lib/api/school';
 import { Gender, ALStream } from '@edu-lanka/shared-types';

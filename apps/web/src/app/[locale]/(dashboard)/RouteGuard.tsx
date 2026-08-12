@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter, usePathname } from 'next/navigation';
+import { useRouter, usePathname } from '@/i18n/routing';
 import { Loader2 } from 'lucide-react';
 
 export default function RouteGuard({ children }: { children: React.ReactNode }) {

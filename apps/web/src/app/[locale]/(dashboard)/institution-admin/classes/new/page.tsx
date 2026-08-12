@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter } from '@/i18n/routing';
 import Link from 'next/link';
 import { createClass, fetchGrades, RequestOpts } from '@/lib/api/school';
 import type { GradeProfile } from '@edu-lanka/shared-types';
