@@ -78,4 +78,13 @@ export class TutorialsController {
     createGlobalTutorial(@Body() dto: CreateTutorialDto) {
         return this.tutorialsService.createTutorial(dto);
     }
+
+    @Get('system-admin/tutorials/stats')
+    @UseGuards(JwtAuthGuard, RolesGuard)
+    @Roles(UserRole.SUPER_ADMIN)
+    @ApiBearerAuth()
+    @ApiOperation({ summary: 'Get global tutorial statistics (Super Admin)' })
+    getGlobalStats() {
+        return this.tutorialsService.getGlobalStats();
+    }
 }

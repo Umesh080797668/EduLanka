@@ -223,4 +223,16 @@ export class TutorialsService {
 
         return { success: true, data: tutorial };
     }
+
+    async getGlobalStats() {
+        // Execute the RPC which natively loops across all active tenant schemas to aggregate real statistics
+        const { data: stats, error } = await this.supabase.adminClient
+            .rpc('get_global_tutorial_stats');
+
+        if (error) {
+            throw new InternalServerErrorException('Failed to aggregate global tutorial stats: ' + error.message);
+        }
+
+        return { success: true, data: stats };
+    }
 }
