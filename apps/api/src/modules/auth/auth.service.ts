@@ -81,30 +81,27 @@ export class AuthService {
     private async resolveTenantUser(
         tenantId: string,
         authUid: string,
-    ): Promise<{ tenantSlug: string; userId: string; role: UserRole }> {
+    ): Promise<{ tenantId: string; userId: string; role: UserRole }> {
         const { data: tenantData, error: tenantError } = await this.supabaseService.adminClient
             .from('tenants')
-            .select('slug, status')
+            .select('id, status')
             .eq('id', tenantId)
             .maybeSingle();
 
         if (tenantError || !tenantData) throw new NotFoundException('Tenant not found');
         if (tenantData.status !== 'ACTIVE') throw new UnauthorizedException('Tenant is not active');
 
-        const tenantClient = this.supabaseService.getTenantClient(tenantData.slug);
-        console.log(`resolveTenantUser QUERYING Schema: tenant_${tenantData.slug}, user_id: ${authUid}`);
+        const tenantClient = this.supabaseService.getTenantClient(tenantId);
         const { data: userData, error: userError } = await tenantClient
             .from('users')
             .select('id, role, is_active')
             .eq('user_id', authUid)
             .maybeSingle();
 
-        console.log(`resolveTenantUser RESULT:`, userData, userError);
-        if (userError) console.error("resolveTenantUser DB Error:", userError);
         if (userError || !userData) throw new UnauthorizedException('User does not belong to this tenant');
         if (!userData.is_active) throw new UnauthorizedException('User account is deactivated');
 
-        return { tenantSlug: tenantData.slug, userId: userData.id as string, role: userData.role as UserRole };
+        return { tenantId: tenantData.id, userId: userData.id as string, role: userData.role as UserRole };
     }
 
     // ── Public API ─────────────────────────────────────────────────────────────
