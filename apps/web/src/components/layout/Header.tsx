@@ -55,6 +55,14 @@ export default function Header() {
         // ---------------- Socket.io Connection ----------------
         // Hybrid Strategy: Starts with Polling, upgrades to WebSocket
         const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
+
+        // Vercel serverless completely breaks Socket.io long-polling states resulting in 400s.
+        // Disable real-time sockets if deployed to Vercel to preserve UX.
+        if (apiUrl.includes('vercel.app')) {
+            console.log('[Notifications] Socket.io is disabled on Vercel Serverless deployments.');
+            return;
+        }
+
         const socket = io(apiUrl, {
             transports: ['polling', 'websocket'],
             autoConnect: true,

@@ -25,7 +25,8 @@
         "classMgmt": "வகுப்பு மேலாண்மை",
         "userDirectory": "பயனர் அடைவு",
         "schoolPolicies": "பள்ளி கொள்கைகள்",
-        "overviewDashboard": "கண்ணோட்ட டாஷ்போர்டு"
+        "overviewDashboard": "கண்ணோட்ட டாஷ்போர்டு",
+        "notifications": "அறிவிப்புகள்"
     },
     "Login": {
         "invalidCreds": "தவறான சான்றளிப்புகள். மீண்டும் முயற்சிக்கவும்.",

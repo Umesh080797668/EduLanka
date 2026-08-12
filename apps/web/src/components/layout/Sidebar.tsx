@@ -36,6 +36,7 @@ const NAV_ITEMS = {
     ],
     SUPER_ADMIN: [
         { nameKey: 'dashboard', href: '/system-admin', icon: Server },
+        { nameKey: 'users', href: '/system-admin/users', icon: Users },
     ]
 };
 

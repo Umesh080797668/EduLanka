@@ -25,7 +25,8 @@
         "classMgmt": "Class Management",
         "userDirectory": "User Directory",
         "schoolPolicies": "School Policies",
-        "overviewDashboard": "Overview Dashboard"
+        "overviewDashboard": "Overview Dashboard",
+        "notifications": "Notifications"
     },
     "Login": {
         "invalidCreds": "Invalid credentials. Please try again.",

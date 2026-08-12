@@ -25,7 +25,8 @@
         "classMgmt": "පන්ති කළමනාකරණය",
         "userDirectory": "පරිශීලක නාමාවලිය",
         "schoolPolicies": "පාසල් ප්‍රතිපත්ති",
-        "overviewDashboard": "දළ විශ්ලේෂණ උපකරණ පුවරුව"
+        "overviewDashboard": "දළ විශ්ලේෂණ උපකරණ පුවරුව",
+        "notifications": "නිවේදන"
     },
     "Login": {
         "invalidCreds": "අවලංගු අක්තපත්‍ර. කරුණාකර නැවත උත්සාහ කරන්න.",
