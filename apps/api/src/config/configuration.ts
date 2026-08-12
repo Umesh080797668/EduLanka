@@ -16,6 +16,7 @@ export const configuration = () => ({
         serviceRoleKey: process.env['SUPABASE_SERVICE_ROLE_KEY'] as string,
     },
     redis: {
+        url: process.env['REDIS_URL'] as string | undefined,
         host: process.env['REDIS_HOST'] ?? 'localhost',
         port: parseInt(process.env['REDIS_PORT'] ?? '6379', 10),
         password: process.env['REDIS_PASSWORD'] ?? '',

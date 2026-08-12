@@ -43,6 +43,7 @@ import { TutorialsModule } from './modules/tutorials/tutorials.module';
                 SUPABASE_SERVICE_ROLE_KEY: Joi.string().required(),
 
                 // Redis
+                REDIS_URL: Joi.string().uri().optional(),
                 REDIS_HOST: Joi.string().default('localhost'),
                 REDIS_PORT: Joi.number().default(6379),
                 REDIS_PASSWORD: Joi.string().allow('').default(''),
@@ -74,7 +75,9 @@ import { TutorialsModule } from './modules/tutorials/tutorials.module';
                         limit: 50000,
                     },
                 ],
-                storage: new ThrottlerStorageRedisService(`redis://${config.get('redis.password') ? `:${config.get('redis.password')}@` : ''}${config.get('redis.host')}:${config.get('redis.port')}`),
+                storage: new ThrottlerStorageRedisService(
+                    config.get<string>('redis.url') || `redis://${config.get<string>('redis.password') ? `:${config.get<string>('redis.password')}@` : ''}${config.get<string>('redis.host')}:${config.get<number>('redis.port')}`
+                ),
             }),
         }),
 

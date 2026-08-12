@@ -17,6 +17,15 @@ import { RedisService } from './redis.service';
             provide: 'REDIS_CLIENT',
             inject: [ConfigService],
             useFactory: (configService: ConfigService<AppConfiguration>) => {
+                const url = configService.get('redis.url', { infer: true });
+                if (url) {
+                    return new Redis(url, {
+                        lazyConnect: true,
+                        enableReadyCheck: true,
+                        maxRetriesPerRequest: 3,
+                    });
+                }
+
                 const host = configService.get('redis.host', { infer: true }) ?? 'localhost';
                 const port = configService.get('redis.port', { infer: true }) ?? 6379;
                 const password = configService.get('redis.password', { infer: true });
