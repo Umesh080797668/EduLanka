@@ -21,7 +21,7 @@ The long-term vision includes an **AI & Predictive Analytics Engine** — a Qwen
 
 ## 2. Cross-Cutting Requirement: In-App Tutorials for Every Frontend
 
-Every frontend surface — Next.js web dashboards (Student, Parent, Teacher, School Admin, and eventually Zonal/MoE) and the Flutter mobile app — must ship with a built-in tutorial/walkthrough system covering every feature available to that role at that point in the rollout. This is not a Phase 6 polish item; it is delivered incrementally alongside each phase, so a feature never ships without its accompanying tutorial.
+Every frontend surface — Next.js web dashboards (Student, Parent, Teacher, School Admin, Zonal Office, MoE, and System Admin portals) and the Flutter mobile app — must ship with a built-in tutorial/walkthrough system covering every feature available to that role at that point in the rollout. This is not a Phase 6 polish item; it is delivered incrementally alongside each phase, so a feature never ships without its accompanying tutorial.
 
 **Design principles:**
 - **Role-scoped, not generic.** A Student never sees the Teacher's grading tutorial; a Parent never sees Admin SMS-campaign steps. Each role's onboarding only covers what that role can actually do.
@@ -65,6 +65,7 @@ The full vision spans roughly six independently hard products: a multi-tenant sc
 - Student/Parent/Teacher portals: enrollment, class assignment, grade entry, static PDF report cards.
 - School Admin: account management, basic policy enforcement.
 - Auth & API Gateway (Nginx/Kong) — rate limiting, auth routing established early so later services plug in cleanly.
+- **System Admin:** Manual provisioning of new school tenants (via backend/CLI), managing global `SUPER_ADMIN` tutorial content schemas.
 - **First-run guided tour + help system** shipped for all Phase 1 screens across every role (Student, Parent, Teacher, School Admin): enrollment, grade entry, static report cards, account/policy management.
 
 **Explicitly deferred:** chat, SMS, AI, mobile app, timetabling, marketplace.
@@ -82,6 +83,7 @@ The full vision spans roughly six independently hard products: a multi-tenant sc
 - Targeted notice scoping: Universal (MoE-ready but MoE role deferred to Phase 6), School-Wide, Grade-Level, Class-Specific.
 - Twilio SMS integration: alphanumeric sender IDs, UTF-8 Unicode support.
 - **Disaster Mode**: Principal/Admin-triggered Twilio SMS blast to all parents; forces offline-sync posture in preparation for the Phase 3 mobile app.
+- **System Admin:** Global SMS quota monitoring, WebSocket gateway observability, and broadcasting platform-wide maintenance notices.
 - **Tutorials added** for chat (how to message/moderate), notice scoping, and — critically — a dedicated Disaster Mode walkthrough for Admins/Principals ("what happens when I trigger this") and a parent-facing explainer of what a Disaster Mode SMS means.
 
 **Why this phase, not later:** Disaster Mode and SMS are low-AI-dependency, high-local-relevance features that differentiate EduLanka from generic school SaaS immediately — good for early school acquisition before AI capability exists.
@@ -99,6 +101,7 @@ The full vision spans roughly six independently hard products: a multi-tenant sc
 - Media Asset Hub via Cloudinary: HLS adaptive-bitrate video, encrypted offline video downloads to local storage.
 - Paper Hub: exam paper PDFs paired with official marking schemes for split-screen practice.
 - Sync engine: reconciles offline-completed work when connectivity returns (built directly on the Disaster Mode groundwork from Phase 2).
+- **System Admin:** Global CDN (Cloudinary) storage monitoring, managing mobile app release syncs, and uploading national past papers to the central Paper Hub.
 - **Mobile-native tutorial system** launched: bundled, offline-capable walkthroughs for the Flutter app covering offline homework, video downloads, and the Paper Hub, so onboarding works even with no connectivity.
 
 **Explicitly deferred:** National Resource Marketplace (school-internal resource sharing only in this phase), AI assistant, gamification badges.
@@ -116,6 +119,7 @@ The full vision spans roughly six independently hard products: a multi-tenant sc
 - Dedicated Vector Database (Pinecone/Qdrant/Milvus) for semantic similarity search over chunked curriculum documents.
 - Retriever layer: combines, ranks, and injects retrieved context.
 - Qwen LLM integration via Python/FastAPI: answers generated strictly from retrieved context, not open-ended generation.
+- **System Admin:** Indexing national curriculum documents into the Vector DB, monitoring RAG pipeline health, and auditing LLM API token costs.
 - **Assistant onboarding tutorial**: a short first-run walkthrough teaching students what the Academic Assistant can and can't do (curriculum-grounded only, not general-purpose chat), plus example prompts.
 
 **Query flow:**
@@ -140,6 +144,7 @@ The full vision spans roughly six independently hard products: a multi-tenant sc
 - Exam Prediction: G.C.E. O/L, A/L, and Grade 5 Scholarship projections from historical term-test trajectories.
 - Smart Recommendation Engine: on poor module performance, auto-curates resources from the internal Resource Hub (marketplace-wide recommendations wait for Phase 6).
 - Teacher Performance Analytics & Behaviour Analytics, and Parent Engagement Score.
+- **System Admin:** Auditing predictive model accuracy, tuning baseline risk-score thresholds, and monitoring ML compute infrastructure.
 - **Tutorials for interpreting predictive data**: teachers get a walkthrough on reading risk scores and intervention alerts responsibly (what the score means, what it doesn't mean); admins get one for Teacher Performance Analytics.
 
 **Why this phase, not earlier:** This is the phase most dependent on prior phases actually being used — models trained on thin or synthetic data produce unreliable, potentially harmful predictions (e.g., wrongly flagging a student as high-risk). Sequencing it after a real data collection period is a deliberate risk-reduction choice, not a nice-to-have.
@@ -157,7 +162,9 @@ The full vision spans roughly six independently hard products: a multi-tenant sc
 - National Resource Marketplace: expands the internal Resource Hub into a nationwide teacher-to-teacher sharing platform (lesson plans, slides, worksheets), enabling network effects once enough schools are onboard.
 - Ministry Data Warehouse: nightly ETL from supabase into ClickHouse (OLAP) for Provincial/Zonal/MoE hierarchical dashboards (Province ➔ District ➔ Zone ➔ School ➔ Grade ➔ Subject).
 - Interactive Digital Report Cards and gamification badges (upgrade from Phase 1's static PDFs).
-- Zonal/MoE role: universal emergency notices, 210-day audit workflows, national analytics review.
+- **Zonal Office Portal:** Audit workflows for local schools within a specific zone, zone-level analytics reporting.
+- **MoE Portal:** Universal emergency notices, national analytics review, country-wide policy monitoring.
+- **System Admin (Platform Owner):** Handoff of hierarchical dashboards to MoE; focuses on national-scale ClickHouse (OLAP) performance scaling and infrastructure reliability.
 - **Full tutorial coverage completed** across every role including the new Zonal/MoE hierarchical dashboard, Smart Timetable Generator (with a dedicated "how constraints work" explainer, given how easily timetabling tools lose admin trust), and the National Resource Marketplace publishing flow.
 
 **Tech introduced:** Google OR-Tools, ClickHouse, Prometheus/Grafana/OpenTelemetry/Sentry for national-scale observability.
@@ -174,7 +181,9 @@ The full vision spans roughly six independently hard products: a multi-tenant sc
 | **Parent Portal** | Track attendance, view report cards, receive SMS notices, chat with teachers. | Parent Engagement Score (Ph.5). |
 | **Teacher Portal** | Issue announcements, moderate chats, upload videos, track attendance, mark papers. | Early Warning System, Teacher Performance Analytics, Behaviour Analytics (Ph.5). |
 | **School Admin** | Manage accounts, broadcast notices, audit chats, run SMS campaigns. | Smart Timetable Generator, School AI Insights (Ph.6). |
-| **Zonal / MoE** | *(not active until Ph.6)* | Hierarchical Dashboard, universal notices, national audits (Ph.6). |
+| **Zonal Office Portal** | *(not active until Ph.6)* | Zone-level dashboards, local school audits, zone-level analytics (Ph.6). |
+| **MoE Portal** | *(not active until Ph.6)* | National aggregate dashboards, universal emergency notices, MoE oversight (Ph.6). |
+| **System Admin Portal** | Provision schools, monitor CDN/SMS quotas, upload global tutorials/papers (Ph.1-3). | Manage Vector DB, audit AI models, monitor LLM costs and national scale (Ph.4-6). |
 | **Resource Hub** | School-internal repository for blogs, videos, links, exam papers with marking schemes. | National Resource Marketplace (Ph.6). |
 
 ## 6. Platform Architecture (Target State — Phase 6)

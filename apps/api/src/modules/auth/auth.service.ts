@@ -113,9 +113,9 @@ export class AuthService {
      * POST /auth/login
      * Validate credentials via Supabase, confirm tenant membership, issue JWT pair.
      */
-    async login(email: string, password: string, tenantId: string): Promise<any> {
-        if (!email || !password || !tenantId) {
-            throw new BadRequestException('Email, password, and tenantId are required');
+    async login(email: string, password: string): Promise<any> {
+        if (!email || !password) {
+            throw new BadRequestException('Email and password are required');
         }
 
         const { data, error } = await this.supabaseService.adminClient.auth.signInWithPassword({
@@ -129,7 +129,33 @@ export class AuthService {
         }
         if (!data.user) throw new UnauthorizedException('Invalid credentials');
 
-        const { userId, role: userRole } = await this.resolveTenantUser(tenantId, data.user.id);
+        const authUser = data.user;
+
+        // 1. Check if user is a Global Platform Admin
+        const { data: adminData } = await this.supabaseService.adminClient
+            .from('platform_admins')
+            .select('id, role')
+            .eq('user_id', authUser.id)
+            .maybeSingle();
+
+        if (adminData) {
+            const tokens = await this.issueTokenPair({ sub: adminData.id as string, tenantId: 'system', role: adminData.role as UserRole, email });
+            return {
+                data: {
+                    access_token: tokens.accessToken,
+                    refresh_token: tokens.refreshToken,
+                    user: { id: adminData.id, role: adminData.role, tenantId: 'system' }
+                }
+            };
+        }
+
+        // 2. Resolve normal tenant users based on user_metadata
+        const tenantId = authUser.user_metadata?.tenant_id;
+        if (!tenantId) {
+            throw new UnauthorizedException('User is not associated with any tenant');
+        }
+
+        const { userId, role: userRole } = await this.resolveTenantUser(tenantId, authUser.id);
 
         const tokens = await this.issueTokenPair({ sub: userId, tenantId, role: userRole, email });
         return {
@@ -138,7 +164,8 @@ export class AuthService {
                 refresh_token: tokens.refreshToken,
                 user: {
                     id: userId,
-                    role: userRole
+                    role: userRole,
+                    tenantId
                 }
             }
         };
@@ -170,7 +197,7 @@ export class AuthService {
             email: dto.email,
             password: dto.password,
             email_confirm: true,
-            user_metadata: { full_name: dto.fullName, tenant_id: dto.tenantId },
+            user_metadata: { full_name: dto.fullName, tenant_id: dto.tenantId, role: dto.role },
         });
 
         if (createError || !created.user) {
