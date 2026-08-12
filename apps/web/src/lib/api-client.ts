@@ -17,10 +17,18 @@ async function apiFetch<T>(
 ): Promise<T> {
     const { token, tenantId, headers: extraHeaders, ...rest } = options;
 
+    let finalToken = token;
+    let finalTenantId = tenantId;
+
+    if (typeof window !== 'undefined') {
+        if (!finalToken) finalToken = localStorage.getItem('token') || undefined;
+        if (!finalTenantId) finalTenantId = localStorage.getItem('tenantId') || undefined;
+    }
+
     const headers: Record<string, string> = {
         'Content-Type': 'application/json',
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        ...(tenantId ? { 'X-Tenant-Id': tenantId } : {}),
+        ...(finalToken ? { Authorization: `Bearer ${finalToken}` } : {}),
+        ...(finalTenantId ? { 'X-Tenant-Id': finalTenantId } : {}),
         ...(extraHeaders as Record<string, string>),
     };
 
