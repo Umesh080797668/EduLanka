@@ -64,9 +64,12 @@ export class AuthService {
         const accessJti = randomUUID();
         const refreshJti = randomUUID();
 
+        const accessEx = parseDurationToSeconds(this.expiresIn);
+        const refreshEx = parseDurationToSeconds(this.refreshExpiresIn);
+
         const [accessToken, refreshToken] = await Promise.all([
-            this.jwtService.signAsync({ ...payload, jti: accessJti }, { expiresIn: this.expiresIn }),
-            this.jwtService.signAsync({ ...payload, jti: refreshJti }, { expiresIn: this.refreshExpiresIn }),
+            this.jwtService.signAsync({ ...payload, jti: accessJti }, { expiresIn: accessEx }),
+            this.jwtService.signAsync({ ...payload, jti: refreshJti }, { expiresIn: refreshEx }),
         ]);
 
         const refreshTtl = parseDurationToSeconds(this.refreshExpiresIn);

@@ -20,6 +20,15 @@
             "dependsOn": [
                 "^build"
             ],
+            "env": [
+                "NODE_ENV",
+                "SUPABASE_URL",
+                "SUPABASE_SERVICE_ROLE_KEY",
+                "REDIS_URL",
+                "JWT_SECRET",
+                "JWT_EXPIRES_IN",
+                "JWT_REFRESH_EXPIRES_IN"
+            ],
             "inputs": [
                 "$TURBO_DEFAULT$",
                 ".env*"
