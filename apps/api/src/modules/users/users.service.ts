@@ -46,8 +46,8 @@ export class UsersService {
             .eq('id', caller.sub)
             .maybeSingle();
 
-        if (error) throw new InternalServerErrorException('Failed to fetch user');
-        if (!data) throw new NotFoundException('User profile not found');
+        if (error) throw new InternalServerErrorException('Failed to fetch user: ' + error.message);
+        if (!data) throw new NotFoundException('User profile not found for sub ' + caller.sub);
         return data;
     }
 

@@ -88,7 +88,7 @@ export class TutorialsService {
             .single();
 
         if (userErr || !tenantUser) {
-            throw new BadRequestException('User not found in tenant schema');
+            throw new BadRequestException('User not found in tenant schema: ' + (userErr ? userErr.message : 'no matching row for authUid ' + user.sub));
         }
 
         const { data, error } = await client
