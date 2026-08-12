@@ -3,13 +3,10 @@ import { SupabaseService } from '../supabase/supabase.service';
 import { CreateTutorialDto } from './dto/tutorial.dto';
 import type { JwtPayload } from '@edu-lanka/shared-types';
 
-import { TenantService } from '../tenant/tenant.service';
-
 @Injectable()
 export class TutorialsService {
     constructor(
-        private readonly supabase: SupabaseService,
-        private readonly tenantService: TenantService
+        private readonly supabase: SupabaseService
     ) { }
 
     // =========================================================================
@@ -57,8 +54,8 @@ export class TutorialsService {
     // =========================================================================
 
     async getUserCompletions(user: JwtPayload) {
-        const tenant = await this.tenantService.findOneById(user.tenantId, user);
-        const client = this.supabase.getTenantClient(tenant.slug);
+
+        const client = this.supabase.getTenantClient(user.tenantId);
 
         const { data, error } = await client
             .from('user_tutorials')
@@ -77,8 +74,8 @@ export class TutorialsService {
     }
 
     async updateUserStatus(tutorialId: string, status: 'COMPLETED' | 'SKIPPED', user: JwtPayload) {
-        const tenant = await this.tenantService.findOneById(user.tenantId, user);
-        const client = this.supabase.getTenantClient(tenant.slug);
+
+        const client = this.supabase.getTenantClient(user.tenantId);
 
         // Ensure user actually maps to the user_id if needed, but if user_id in user_tutorials is 
         // the global user_id, then user.sub is fine! However, the schema references `tenant_x.users(id)`. 
@@ -121,8 +118,8 @@ export class TutorialsService {
     // =========================================================================
 
     async getTenantStats(user: JwtPayload) {
-        const tenant = await this.tenantService.findOneById(user.tenantId, user);
-        const client = this.supabase.getTenantClient(tenant.slug);
+
+        const client = this.supabase.getTenantClient(user.tenantId);
 
         // 1. Fetch all active global tutorials
         const { data: allTutorials, error: tutErr } = await this.supabase.adminClient

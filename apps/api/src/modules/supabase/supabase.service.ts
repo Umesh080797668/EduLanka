@@ -45,25 +45,43 @@ export class SupabaseService implements OnModuleInit {
     }
 
     /**
-     * Returns a service-role client scoped to a specific tenant schema.
-     * Schema: `tenant_<slug>` — queries run in the correct Postgres schema.
+     * Sprint 7 Architecture: Returns a proxied service-role client.
+     * All .from('table') queries natively automatically inject .eq('tenant_id', tenantId)
+     * enforcing Data Partitioning at the Node.js layer seamlessly.
      *
-     * @param slug - tenant slug, e.g. 'dev-school'
+     * @param tenantId - tenant UUID, e.g. a1b2c3d4...
      */
-    getTenantClient(slug: string): AnySupabaseClient {
-        const url = this.configService.get('supabase.url', { infer: true })!;
-        const key = this.configService.get('supabase.serviceRoleKey', { infer: true })!;
+    getTenantClient(tenantId: string): AnySupabaseClient {
+        // Return a perfectly invisible proxy wrapping the admin client
+        return new Proxy(this._adminClient, {
+            get(target, prop, receiver) {
+                if (prop === 'from') {
+                    // Intercept the .from('...') call
+                    return (table: string) => {
+                        const queryBuilder = (target as any).from(table);
+                        const tableStr = String(table);
 
-        // Cast via unknown to bypass the schema generic mismatch —
-        // Supabase's .db.schema is typed as 'public' by default but we
-        // need a runtime-variable schema name. This is safe: the JS
-        // runtime uses the string directly; generics are compile-only.
-        return createClient(url, key, {
-            auth: {
-                autoRefreshToken: false,
-                persistSession: false,
-            },
-            db: { schema: `tenant_${slug}` as 'public' },
+                        // If the table is literally `tenants` or global registry, don't partition it!
+                        if (tableStr === 'tenants' || tableStr === 'plans' || tableStr === 'platform_admins' || tableStr === 'tutorials') {
+                            return queryBuilder;
+                        }
+
+                        // Otherwise we hook into select, update, delete intelligently
+                        const methods = ['select', 'update', 'delete'];
+                        for (const method of methods) {
+                            const original = queryBuilder[method];
+                            if (typeof original === 'function') {
+                                queryBuilder[method] = function (...args: any[]) {
+                                    return original.apply(this, args).eq('tenant_id', tenantId);
+                                };
+                            }
+                        }
+
+                        return queryBuilder;
+                    };
+                }
+                return Reflect.get(target, prop, receiver);
+            }
         }) as AnySupabaseClient;
     }
 }

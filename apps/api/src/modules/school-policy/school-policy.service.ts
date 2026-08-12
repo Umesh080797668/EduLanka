@@ -11,7 +11,6 @@ import {
 import type { JwtPayload } from '@edu-lanka/shared-types';
 import { UserRole } from '@edu-lanka/shared-types';
 import { SupabaseService } from '../supabase/supabase.service';
-import { TenantService } from '../tenant/tenant.service';
 import { UpdatePolicyDto } from './dto/policy.dto';
 
 @Injectable()
@@ -20,7 +19,6 @@ export class SchoolPolicyService {
 
     constructor(
         private readonly supabase: SupabaseService,
-        private readonly tenantService: TenantService,
     ) { }
 
     private guardAdmin(caller: JwtPayload): void {
@@ -29,13 +27,9 @@ export class SchoolPolicyService {
         }
     }
 
-    private async resolveSlug(caller: JwtPayload): Promise<string> {
-        const tenant = await this.tenantService.findOneById(caller.tenantId, caller);
-        return tenant.slug;
-    }
 
     async getPolicy(caller: JwtPayload) {
-        const slug = await this.resolveSlug(caller);
+        const slug = caller.tenantId;
         const db = this.supabase.getTenantClient(slug);
 
         const { data, error } = await db.from('school_policy').select('*').limit(1).maybeSingle();
@@ -46,7 +40,7 @@ export class SchoolPolicyService {
 
     async updatePolicy(dto: UpdatePolicyDto, caller: JwtPayload) {
         this.guardAdmin(caller);
-        const slug = await this.resolveSlug(caller);
+        const slug = caller.tenantId;
         const db = this.supabase.getTenantClient(slug);
 
         // Build update payload (snake_case for Supabase)

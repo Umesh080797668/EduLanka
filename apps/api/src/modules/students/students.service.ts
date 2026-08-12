@@ -12,7 +12,6 @@ import {
 import type { JwtPayload } from '@edu-lanka/shared-types';
 import { UserRole } from '@edu-lanka/shared-types';
 import { SupabaseService } from '../supabase/supabase.service';
-import { TenantService } from '../tenant/tenant.service';
 import { CreateStudentDto, UpdateStudentDto, AssignClassDto } from './dto/student.dto';
 
 @Injectable()
@@ -21,7 +20,6 @@ export class StudentsService {
 
     constructor(
         private readonly supabase: SupabaseService,
-        private readonly tenantService: TenantService,
     ) { }
 
     private guardAdmin(caller: JwtPayload): void {
@@ -30,10 +28,6 @@ export class StudentsService {
         }
     }
 
-    private async resolveSlug(caller: JwtPayload): Promise<string> {
-        const tenant = await this.tenantService.findOneById(caller.tenantId, caller);
-        return tenant.slug;
-    }
 
     private generateAdmissionNo(year: number, seq: number): string {
         return `${year}/${String(seq).padStart(4, '0')}`;
@@ -41,7 +35,7 @@ export class StudentsService {
 
     async enroll(dto: CreateStudentDto, caller: JwtPayload) {
         this.guardAdmin(caller);
-        const slug = await this.resolveSlug(caller);
+        const slug = caller.tenantId;
         const db = this.supabase.getTenantClient(slug);
 
         // Step 1: Generate admission number if not provided
@@ -128,7 +122,7 @@ export class StudentsService {
     }
 
     async findMe(caller: JwtPayload) {
-        const slug = await this.resolveSlug(caller);
+        const slug = caller.tenantId;
         const db = this.supabase.getTenantClient(slug);
 
         const { data: student } = await db.from('students').select('*').eq('user_id', caller.sub).maybeSingle();
@@ -138,7 +132,7 @@ export class StudentsService {
     }
 
     async findAll(caller: JwtPayload) {
-        const slug = await this.resolveSlug(caller);
+        const slug = caller.tenantId;
         const db = this.supabase.getTenantClient(slug);
 
         const { data, error } = await db
@@ -166,7 +160,7 @@ export class StudentsService {
     }
 
     async findOne(id: string, caller: JwtPayload) {
-        const slug = await this.resolveSlug(caller);
+        const slug = caller.tenantId;
         const db = this.supabase.getTenantClient(slug);
 
         const { data, error } = await db
@@ -190,7 +184,7 @@ export class StudentsService {
 
     async updateProfile(id: string, dto: UpdateStudentDto, caller: JwtPayload) {
         this.guardAdmin(caller);
-        const slug = await this.resolveSlug(caller);
+        const slug = caller.tenantId;
         const db = this.supabase.getTenantClient(slug);
 
         // Fetch student to get user_id
@@ -230,7 +224,7 @@ export class StudentsService {
 
     async assignToClass(id: string, dto: AssignClassDto, caller: JwtPayload) {
         this.guardAdmin(caller);
-        const slug = await this.resolveSlug(caller);
+        const slug = caller.tenantId;
         const db = this.supabase.getTenantClient(slug);
 
         const { data, error } = await db
@@ -250,7 +244,7 @@ export class StudentsService {
 
     async deactivate(id: string, caller: JwtPayload) {
         this.guardAdmin(caller);
-        const slug = await this.resolveSlug(caller);
+        const slug = caller.tenantId;
         const db = this.supabase.getTenantClient(slug);
 
         const { data: studentRow } = await db.from('students').select('user_id').eq('id', id).maybeSingle();

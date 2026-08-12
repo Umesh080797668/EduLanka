@@ -53,13 +53,13 @@ INSERT INTO public.tenants (
 ) ON CONFLICT DO NOTHING;
 
 -- 2. Provision the per-tenant schema
-SELECT public.create_tenant_schema('royal-college');
+-- SELECT public.create_tenant_schema('royal-college');
 
 -- 2.5 Force transition to ACTIVE in case RPC idempotency skips the status flip
 UPDATE public.tenants SET status = 'ACTIVE' WHERE slug = 'royal-college';
 
 -- =============================================================================
--- 3. Seed per-tenant users (inside tenant_royal-college schema)
+-- 3. Seed per-tenant users (inside public schema, properly linked to tenant)
 -- NOTE: auth_uid values are placeholder UUIDs — link to real Supabase Auth users
 --       after you invite them via the Supabase dashboard.
 -- =============================================================================
@@ -75,7 +75,7 @@ VALUES (
 ) ON CONFLICT DO NOTHING;
 
 -- School Admin
-INSERT INTO "tenant_royal-college".users (id, user_id, tenant_id, email, full_name, role)
+INSERT INTO public.users (id, user_id, tenant_id, email, full_name, role)
 VALUES (
     'b0000000-0000-0000-0000-000000000001',
     'b0000000-0000-0000-0000-000000000001',
@@ -86,7 +86,7 @@ VALUES (
 ) ON CONFLICT DO NOTHING;
 
 -- Teacher
-INSERT INTO "tenant_royal-college".users (id, user_id, tenant_id, email, full_name, role)
+INSERT INTO public.users (id, user_id, tenant_id, email, full_name, role)
 VALUES (
     'b0000000-0000-0000-0000-000000000002',
     'b0000000-0000-0000-0000-000000000002',
@@ -97,7 +97,7 @@ VALUES (
 ) ON CONFLICT DO NOTHING;
 
 -- Student user
-INSERT INTO "tenant_royal-college".users (id, user_id, tenant_id, email, full_name, role)
+INSERT INTO public.users (id, user_id, tenant_id, email, full_name, role)
 VALUES (
     'b0000000-0000-0000-0000-000000000003',
     'b0000000-0000-0000-0000-000000000003',
@@ -108,7 +108,7 @@ VALUES (
 ) ON CONFLICT DO NOTHING;
 
 -- Parent user
-INSERT INTO "tenant_royal-college".users (id, user_id, tenant_id, email, full_name, role)
+INSERT INTO public.users (id, user_id, tenant_id, email, full_name, role)
 VALUES (
     'b0000000-0000-0000-0000-000000000004',
     'b0000000-0000-0000-0000-000000000004',
@@ -119,7 +119,7 @@ VALUES (
 ) ON CONFLICT DO NOTHING;
 
 -- Teacher record
-INSERT INTO "tenant_royal-college".teachers (id, tenant_id, user_id, employee_no)
+INSERT INTO public.teachers (id, tenant_id, user_id, employee_no)
 VALUES (
     'f0000000-0000-0000-0000-000000000001',
     'a1b2c3d4-0000-0000-0000-000000000001',
@@ -128,7 +128,7 @@ VALUES (
 ) ON CONFLICT DO NOTHING;
 
 -- Class: Grade 10 Section A
-INSERT INTO "tenant_royal-college".classes (id, tenant_id, grade, section, year)
+INSERT INTO public.classes (id, tenant_id, grade, section, year)
 VALUES (
     'c0000000-0000-0000-0000-000000000001',
     'a1b2c3d4-0000-0000-0000-000000000001',
@@ -137,8 +137,8 @@ VALUES (
     2026
 ) ON CONFLICT DO NOTHING;
 
--- Class: Grade 10 Section C (Owned by same teacher)
-INSERT INTO "tenant_royal-college".classes (id, tenant_id, grade, section, year)
+-- Class: Grade 10 Section C
+INSERT INTO public.classes (id, tenant_id, grade, section, year)
 VALUES (
     'c0000000-0000-0000-0000-000000000002',
     'a1b2c3d4-0000-0000-0000-000000000001',
@@ -147,8 +147,8 @@ VALUES (
     2026
 ) ON CONFLICT DO NOTHING;
 
--- Class: Grade 13 Bio (Owned by same teacher)
-INSERT INTO "tenant_royal-college".classes (id, tenant_id, grade, section, year)
+-- Class: Grade 13 Bio
+INSERT INTO public.classes (id, tenant_id, grade, section, year)
 VALUES (
     'c0000000-0000-0000-0000-000000000003',
     'a1b2c3d4-0000-0000-0000-000000000001',
@@ -158,7 +158,7 @@ VALUES (
 ) ON CONFLICT DO NOTHING;
 
 -- class_teachers map
-INSERT INTO "tenant_royal-college".class_teachers (id, class_id, teacher_id)
+INSERT INTO public.class_teachers (id, class_id, teacher_id)
 VALUES 
     (gen_random_uuid(), 'c0000000-0000-0000-0000-000000000001', 'f0000000-0000-0000-0000-000000000001'),
     (gen_random_uuid(), 'c0000000-0000-0000-0000-000000000002', 'f0000000-0000-0000-0000-000000000001'),
@@ -166,7 +166,7 @@ VALUES
 ON CONFLICT DO NOTHING;
 
 -- Student record
-INSERT INTO "tenant_royal-college".students (id, tenant_id, user_id, class_id, admission_no, date_of_birth, gender)
+INSERT INTO public.students (id, tenant_id, user_id, class_id, admission_no, date_of_birth, gender)
 VALUES (
     'd0000000-0000-0000-0000-000000000001',
     'a1b2c3d4-0000-0000-0000-000000000001',
@@ -177,10 +177,11 @@ VALUES (
     'MALE'
 ) ON CONFLICT DO NOTHING;
 
--- Parent → Student link
-INSERT INTO "tenant_royal-college".parent_children (id, parent_user_id, student_id, relationship)
+-- Parent → Student link (using public.parents, correctly targeting user_id instead of parent_user_id)
+INSERT INTO public.parents (id, tenant_id, user_id, student_id, relationship)
 VALUES (
     'e0000000-0000-0000-0000-000000000001',
+    'a1b2c3d4-0000-0000-0000-000000000001',
     'b0000000-0000-0000-0000-000000000004',
     'd0000000-0000-0000-0000-000000000001',
     'FATHER'

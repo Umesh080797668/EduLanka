@@ -12,7 +12,6 @@ import {
 import type { JwtPayload } from '@edu-lanka/shared-types';
 import { UserRole } from '@edu-lanka/shared-types';
 import { SupabaseService } from '../supabase/supabase.service';
-import { TenantService } from '../tenant/tenant.service';
 import { CreateClassDto, UpdateClassDto, AssignTeacherDto } from './dto/class.dto';
 
 @Injectable()
@@ -21,7 +20,6 @@ export class ClassesService {
 
     constructor(
         private readonly supabase: SupabaseService,
-        private readonly tenantService: TenantService,
     ) { }
 
     private guardAdmin(caller: JwtPayload): void {
@@ -30,14 +28,10 @@ export class ClassesService {
         }
     }
 
-    private async resolveSlug(caller: JwtPayload): Promise<string> {
-        const tenant = await this.tenantService.findOneById(caller.tenantId, caller);
-        return tenant.slug;
-    }
 
     async create(dto: CreateClassDto, caller: JwtPayload) {
         this.guardAdmin(caller);
-        const slug = await this.resolveSlug(caller);
+        const slug = caller.tenantId;
         const db = this.supabase.getTenantClient(slug);
 
         const { data, error } = await db
@@ -59,7 +53,7 @@ export class ClassesService {
     }
 
     async findAll(caller: JwtPayload, teacherId?: string) {
-        const slug = await this.resolveSlug(caller);
+        const slug = caller.tenantId;
         const db = this.supabase.getTenantClient(slug);
 
         const { data: classesData, error: classesError } = await db
@@ -104,7 +98,7 @@ export class ClassesService {
     }
 
     async findOne(id: string, caller: JwtPayload) {
-        const slug = await this.resolveSlug(caller);
+        const slug = caller.tenantId;
         const db = this.supabase.getTenantClient(slug);
 
         const { data, error } = await db
@@ -128,7 +122,7 @@ export class ClassesService {
 
     async update(id: string, dto: UpdateClassDto, caller: JwtPayload) {
         this.guardAdmin(caller);
-        const slug = await this.resolveSlug(caller);
+        const slug = caller.tenantId;
         const db = this.supabase.getTenantClient(slug);
 
         const { data, error } = await db
@@ -148,7 +142,7 @@ export class ClassesService {
 
     async remove(id: string, caller: JwtPayload) {
         this.guardAdmin(caller);
-        const slug = await this.resolveSlug(caller);
+        const slug = caller.tenantId;
         const db = this.supabase.getTenantClient(slug);
 
         const { error } = await db.from('classes').delete().eq('id', id);
@@ -158,7 +152,7 @@ export class ClassesService {
 
     async assignTeacher(classId: string, dto: AssignTeacherDto, caller: JwtPayload) {
         this.guardAdmin(caller);
-        const slug = await this.resolveSlug(caller);
+        const slug = caller.tenantId;
         const db = this.supabase.getTenantClient(slug);
 
         const { data, error } = await db
@@ -183,7 +177,7 @@ export class ClassesService {
 
     async removeTeacher(classId: string, teacherId: string, caller: JwtPayload) {
         this.guardAdmin(caller);
-        const slug = await this.resolveSlug(caller);
+        const slug = caller.tenantId;
         const db = this.supabase.getTenantClient(slug);
 
         const { error } = await db

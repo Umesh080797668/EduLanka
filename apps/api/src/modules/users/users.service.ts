@@ -12,7 +12,6 @@ import {
 import type { JwtPayload } from '@edu-lanka/shared-types';
 import { UserRole } from '@edu-lanka/shared-types';
 import { SupabaseService } from '../supabase/supabase.service';
-import { TenantService } from '../tenant/tenant.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 
@@ -22,7 +21,6 @@ export class UsersService {
 
     constructor(
         private readonly supabase: SupabaseService,
-        private readonly tenantService: TenantService,
     ) { }
 
     private guardAdmin(caller: JwtPayload): void {
@@ -31,13 +29,9 @@ export class UsersService {
         }
     }
 
-    private async resolveSlug(caller: JwtPayload): Promise<string> {
-        const tenant = await this.tenantService.findOneById(caller.tenantId, caller);
-        return tenant.slug;
-    }
 
     async getMe(caller: JwtPayload) {
-        const slug = await this.resolveSlug(caller);
+        const slug = caller.tenantId;
         const db = this.supabase.getTenantClient(slug);
 
         const { data, error } = await db
@@ -53,7 +47,7 @@ export class UsersService {
 
     async create(dto: CreateUserDto, caller: JwtPayload) {
         this.guardAdmin(caller);
-        const slug = await this.resolveSlug(caller);
+        const slug = caller.tenantId;
         const db = this.supabase.getTenantClient(slug);
 
         // Disallow creating SUPER_ADMINs through this tenant endpoint
@@ -121,7 +115,7 @@ export class UsersService {
 
     async findAll(caller: JwtPayload, role?: string) {
         this.guardAdmin(caller);
-        const slug = await this.resolveSlug(caller);
+        const slug = caller.tenantId;
         const db = this.supabase.getTenantClient(slug);
 
         let query = db.from('users').select('*').order('created_at', { ascending: false });
@@ -136,7 +130,7 @@ export class UsersService {
 
     async findOne(id: string, caller: JwtPayload) {
         this.guardAdmin(caller);
-        const slug = await this.resolveSlug(caller);
+        const slug = caller.tenantId;
         const db = this.supabase.getTenantClient(slug);
 
         const { data, error } = await db.from('users').select('*').eq('id', id).maybeSingle();
@@ -147,7 +141,7 @@ export class UsersService {
 
     async update(id: string, dto: UpdateUserDto, caller: JwtPayload) {
         this.guardAdmin(caller);
-        const slug = await this.resolveSlug(caller);
+        const slug = caller.tenantId;
         const db = this.supabase.getTenantClient(slug);
 
         const { data, error } = await db
@@ -167,7 +161,7 @@ export class UsersService {
 
     async setActivationStatus(id: string, isActive: boolean, caller: JwtPayload) {
         this.guardAdmin(caller);
-        const slug = await this.resolveSlug(caller);
+        const slug = caller.tenantId;
         const db = this.supabase.getTenantClient(slug);
 
         const { data, error } = await db
@@ -186,7 +180,7 @@ export class UsersService {
         if (caller.role !== UserRole.SUPER_ADMIN) {
             throw new ForbiddenException('Only super admins can hard-delete users');
         }
-        const slug = await this.resolveSlug(caller);
+        const slug = caller.tenantId;
         const db = this.supabase.getTenantClient(slug);
 
         const { error, count } = await db

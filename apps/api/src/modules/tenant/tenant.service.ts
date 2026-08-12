@@ -106,25 +106,14 @@ export class TenantService {
             throw new InternalServerErrorException('Failed to create tenant');
         }
 
-        // 2. Provision the per-tenant schema via stored procedure
-        const { error: rpcErr } = await this.supabase.adminClient.rpc(
-            'create_tenant_schema_sprint6_override',
-            { p_slug: dto.slug },
-        );
+        // Sprint 7: Schema provisioning is obliterated! Tenants instantly share the natively isolated public schema!
+        await this.supabase.adminClient
+            .from('tenants')
+            .update({ status: TenantStatus.ACTIVE })
+            .eq('id', inserted.id);
 
-        if (rpcErr) {
-            // Schema creation failed — mark as DEPROVISIONED so it's visible
-            await this.supabase.adminClient
-                .from('tenants')
-                .update({ status: TenantStatus.DEPROVISIONED })
-                .eq('id', inserted.id);
-
-            this.logger.error(`Schema provisioning failed for ${dto.slug}: ${rpcErr.message}`);
-            throw new InternalServerErrorException('Schema provisioning failed');
-        }
-
-        this.logger.log(`Provisioned tenant "${dto.slug}" (${inserted.id})`);
-        return this.rowToTenant(inserted as TenantRow);
+        this.logger.log(`Created tenant "${dto.slug}" (${inserted.id}) in unified public schema.`);
+        return this.rowToTenant({ ...inserted, status: TenantStatus.ACTIVE } as TenantRow);
     }
 
     /**

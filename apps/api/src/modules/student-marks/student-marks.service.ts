@@ -8,7 +8,6 @@ import {
 import type { JwtPayload } from '@edu-lanka/shared-types';
 import { UserRole } from '@edu-lanka/shared-types';
 import { SupabaseService } from '../supabase/supabase.service';
-import { TenantService } from '../tenant/tenant.service';
 import { CreateMarkDto } from './dto/student-marks.dto';
 
 @Injectable()
@@ -17,20 +16,15 @@ export class StudentMarksService {
 
     constructor(
         private readonly supabase: SupabaseService,
-        private readonly tenantService: TenantService,
     ) { }
 
-    private async resolveSlug(caller: JwtPayload): Promise<string> {
-        const tenant = await this.tenantService.findOneById(caller.tenantId, caller);
-        return tenant.slug;
-    }
 
     async upsertMark(dto: CreateMarkDto, caller: JwtPayload) {
         if (caller.role !== UserRole.SCHOOL_ADMIN && caller.role !== UserRole.TEACHER && caller.role !== UserRole.SUPER_ADMIN) {
             throw new ForbiddenException('Only teachers and admins can enter marks');
         }
 
-        const slug = await this.resolveSlug(caller);
+        const slug = caller.tenantId;
         const db = this.supabase.getTenantClient(slug);
 
         let teacherId = null;
@@ -66,7 +60,7 @@ export class StudentMarksService {
             throw new ForbiddenException('Not allowed to view full class marks');
         }
 
-        const slug = await this.resolveSlug(caller);
+        const slug = caller.tenantId;
         const db = this.supabase.getTenantClient(slug);
 
         const { data, error } = await db
@@ -84,7 +78,7 @@ export class StudentMarksService {
     }
 
     async getMarksByStudent(studentId: string, caller: JwtPayload) {
-        const slug = await this.resolveSlug(caller);
+        const slug = caller.tenantId;
         const db = this.supabase.getTenantClient(slug);
 
         if (caller.role === UserRole.STUDENT) {

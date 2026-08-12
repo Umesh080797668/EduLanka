@@ -12,7 +12,6 @@ import {
 import type { JwtPayload } from '@edu-lanka/shared-types';
 import { UserRole } from '@edu-lanka/shared-types';
 import { SupabaseService } from '../supabase/supabase.service';
-import { TenantService } from '../tenant/tenant.service';
 import { CreateTeacherDto, UpdateTeacherDto } from './dto/teacher.dto';
 
 @Injectable()
@@ -21,7 +20,6 @@ export class TeachersService {
 
     constructor(
         private readonly supabase: SupabaseService,
-        private readonly tenantService: TenantService,
     ) { }
 
     private guardAdmin(caller: JwtPayload): void {
@@ -30,10 +28,6 @@ export class TeachersService {
         }
     }
 
-    private async resolveSlug(caller: JwtPayload): Promise<string> {
-        const tenant = await this.tenantService.findOneById(caller.tenantId, caller);
-        return tenant.slug;
-    }
 
     private generateEmployeeNo(year: number, seq: number): string {
         return `EMP/${year}/${String(seq).padStart(4, '0')}`;
@@ -41,7 +35,7 @@ export class TeachersService {
 
     async create(dto: CreateTeacherDto, caller: JwtPayload) {
         this.guardAdmin(caller);
-        const slug = await this.resolveSlug(caller);
+        const slug = caller.tenantId;
         const db = this.supabase.getTenantClient(slug);
 
         // Step 1: Create Supabase auth user
@@ -114,7 +108,7 @@ export class TeachersService {
     }
 
     async findAll(caller: JwtPayload) {
-        const slug = await this.resolveSlug(caller);
+        const slug = caller.tenantId;
         const db = this.supabase.getTenantClient(slug);
 
         const { data, error } = await db
@@ -133,7 +127,7 @@ export class TeachersService {
     }
 
     async findOne(id: string, caller: JwtPayload) {
-        const slug = await this.resolveSlug(caller);
+        const slug = caller.tenantId;
         const db = this.supabase.getTenantClient(slug);
 
         const { data, error } = await db
@@ -155,7 +149,7 @@ export class TeachersService {
 
     async update(id: string, dto: UpdateTeacherDto, caller: JwtPayload) {
         this.guardAdmin(caller);
-        const slug = await this.resolveSlug(caller);
+        const slug = caller.tenantId;
         const db = this.supabase.getTenantClient(slug);
 
         const { data: teacherRow } = await db
@@ -190,7 +184,7 @@ export class TeachersService {
     }
 
     async getClasses(id: string, caller: JwtPayload) {
-        const slug = await this.resolveSlug(caller);
+        const slug = caller.tenantId;
         const db = this.supabase.getTenantClient(slug);
 
         const { data, error } = await db

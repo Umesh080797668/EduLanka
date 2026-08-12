@@ -12,7 +12,6 @@ import {
 import type { JwtPayload } from '@edu-lanka/shared-types';
 import { UserRole, ParentRelationship } from '@edu-lanka/shared-types';
 import { SupabaseService } from '../supabase/supabase.service';
-import { TenantService } from '../tenant/tenant.service';
 import { LinkStudentDto } from './dto/parent.dto';
 
 @Injectable()
@@ -21,7 +20,6 @@ export class ParentsService {
 
     constructor(
         private readonly supabase: SupabaseService,
-        private readonly tenantService: TenantService,
     ) { }
 
     private guardAdmin(caller: JwtPayload): void {
@@ -30,13 +28,9 @@ export class ParentsService {
         }
     }
 
-    private async resolveSlug(caller: JwtPayload): Promise<string> {
-        const tenant = await this.tenantService.findOneById(caller.tenantId, caller);
-        return tenant.slug;
-    }
 
     async getMe(caller: JwtPayload) {
-        const slug = await this.resolveSlug(caller);
+        const slug = caller.tenantId;
         const db = this.supabase.getTenantClient(slug);
 
         const { data: userData, error: userError } = await db
@@ -75,7 +69,7 @@ export class ParentsService {
     }
 
     async findAll(caller: JwtPayload) {
-        const slug = await this.resolveSlug(caller);
+        const slug = caller.tenantId;
         const db = this.supabase.getTenantClient(slug);
 
         const { data, error } = await db
@@ -89,7 +83,7 @@ export class ParentsService {
     }
 
     async findOne(parentUserId: string, caller: JwtPayload) {
-        const slug = await this.resolveSlug(caller);
+        const slug = caller.tenantId;
         const db = this.supabase.getTenantClient(slug);
 
         const { data, error } = await db
@@ -105,7 +99,7 @@ export class ParentsService {
     }
 
     async getChildren(parentUserId: string, caller: JwtPayload) {
-        const slug = await this.resolveSlug(caller);
+        const slug = caller.tenantId;
         const db = this.supabase.getTenantClient(slug);
 
         const { data, error } = await db
@@ -119,7 +113,7 @@ export class ParentsService {
 
     async linkToStudent(parentUserId: string, dto: LinkStudentDto, caller: JwtPayload) {
         this.guardAdmin(caller);
-        const slug = await this.resolveSlug(caller);
+        const slug = caller.tenantId;
         const db = this.supabase.getTenantClient(slug);
 
         // Verify parent user exists and has PARENT role
@@ -155,7 +149,7 @@ export class ParentsService {
 
     async unlinkFromStudent(parentUserId: string, studentId: string, caller: JwtPayload) {
         this.guardAdmin(caller);
-        const slug = await this.resolveSlug(caller);
+        const slug = caller.tenantId;
         const db = this.supabase.getTenantClient(slug);
 
         const { error } = await db

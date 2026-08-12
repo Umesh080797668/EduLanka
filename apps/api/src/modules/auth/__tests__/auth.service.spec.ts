@@ -147,7 +147,7 @@ describe('AuthService', () => {
     describe('login()', () => {
         it('returns a token pair on valid credentials', async () => {
             const { service } = await buildModule(makeSupabase());
-            const result = await service.login('t@school.lk', 'pass123456', 'tenant-uuid');
+            const result = await service.login('t@school.lk', 'pass123456');
             expect(result).toHaveProperty('accessToken');
             expect(result).toHaveProperty('refreshToken');
             expect(result).toHaveProperty('expiresIn');
@@ -155,43 +155,43 @@ describe('AuthService', () => {
 
         it('stores refresh token in Redis on login', async () => {
             const { service, redis } = await buildModule(makeSupabase());
-            await service.login('t@school.lk', 'pass123456', 'tenant-uuid');
+            await service.login('t@school.lk', 'pass123456');
             expect(redis.storeRefreshToken).toHaveBeenCalledTimes(1);
         });
 
         it('throws UnauthorizedException on bad credentials', async () => {
             const { service } = await buildModule(makeSupabase({ signInError: true }));
-            await expect(service.login('t@school.lk', 'wrong', 'tenant-uuid'))
+            await expect(service.login('t@school.lk', 'wrong'))
                 .rejects.toThrow(UnauthorizedException);
         });
 
         it('throws NotFoundException when tenant does not exist', async () => {
             const { service } = await buildModule(makeSupabase({ noTenant: true }));
-            await expect(service.login('t@school.lk', 'pass123456', 'tenant-uuid'))
+            await expect(service.login('t@school.lk', 'pass123456'))
                 .rejects.toThrow(NotFoundException);
         });
 
         it('throws UnauthorizedException when tenant is SUSPENDED', async () => {
             const { service } = await buildModule(makeSupabase({ tenantStatus: 'SUSPENDED' }));
-            await expect(service.login('t@school.lk', 'pass123456', 'tenant-uuid'))
+            await expect(service.login('t@school.lk', 'pass123456'))
                 .rejects.toThrow(UnauthorizedException);
         });
 
         it('throws UnauthorizedException when user is not in the tenant', async () => {
             const { service } = await buildModule(makeSupabase({ noUser: true }));
-            await expect(service.login('t@school.lk', 'pass123456', 'tenant-uuid'))
+            await expect(service.login('t@school.lk', 'pass123456'))
                 .rejects.toThrow(UnauthorizedException);
         });
 
         it('throws UnauthorizedException when user account is inactive', async () => {
             const { service } = await buildModule(makeSupabase({ userInactive: true }));
-            await expect(service.login('t@school.lk', 'pass123456', 'tenant-uuid'))
+            await expect(service.login('t@school.lk', 'pass123456'))
                 .rejects.toThrow(UnauthorizedException);
         });
 
         it('throws BadRequestException when required fields are missing', async () => {
             const { service } = await buildModule(makeSupabase());
-            await expect(service.login('', 'pass123456', 'tenant-uuid'))
+            await expect(service.login('', 'pass123456'))
                 .rejects.toThrow(BadRequestException);
         });
     });
