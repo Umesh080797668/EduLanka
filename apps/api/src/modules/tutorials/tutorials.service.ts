@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException, BadRequestException, InternalServerErrorException } from '@nestjs/common';
 import { SupabaseService } from '../supabase/supabase.service';
 import { CreateTutorialDto } from './dto/tutorial.dto';
+import { UserRole } from '@edu-lanka/shared-types';
 import type { JwtPayload } from '@edu-lanka/shared-types';
 
 @Injectable()
@@ -74,6 +75,13 @@ export class TutorialsService {
     }
 
     async updateUserStatus(tutorialId: string, status: 'COMPLETED' | 'SKIPPED', user: JwtPayload) {
+        // System Admins don't have a valid tenancy trace for tracking tutorials natively in the schools
+        if (user.role === UserRole.SUPER_ADMIN) {
+            return {
+                success: true,
+                message: 'Tutorial states for SUPER_ADMIN are ephemeral and not tracked in the database.'
+            };
+        }
 
         const client = this.supabase.getTenantClient(user.tenantId);
 
@@ -84,7 +92,7 @@ export class TutorialsService {
             .from('users')
             .select('id')
             .eq('user_id', user.sub)
-            .single();
+            .maybeSingle();
 
         if (userErr || !tenantUser) {
             throw new BadRequestException('User not found in tenant schema: ' + (userErr ? userErr.message : 'no matching row for authUid ' + user.sub));
