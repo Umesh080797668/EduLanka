@@ -7,7 +7,13 @@
         "NODE_ENV",
         "NEXT_PUBLIC_API_URL",
         "NEXT_PUBLIC_SUPABASE_URL",
-        "NEXT_PUBLIC_SUPABASE_ANON_KEY"
+        "NEXT_PUBLIC_SUPABASE_ANON_KEY",
+        "SUPABASE_URL",
+        "SUPABASE_SERVICE_ROLE_KEY",
+        "REDIS_URL",
+        "JWT_SECRET",
+        "JWT_EXPIRES_IN",
+        "JWT_REFRESH_EXPIRES_IN"
     ],
     "tasks": {
         "build": {
