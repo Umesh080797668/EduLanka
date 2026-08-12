@@ -57,7 +57,8 @@ export class TutorialsService {
     // =========================================================================
 
     async getUserCompletions(user: JwtPayload) {
-        const client = this.supabase.getTenantClient(user.tenantId);
+        const tenant = await this.tenantService.findOneById(user.tenantId, user);
+        const client = this.supabase.getTenantClient(tenant.slug);
 
         const { data, error } = await client
             .from('user_tutorials')
@@ -76,7 +77,8 @@ export class TutorialsService {
     }
 
     async updateUserStatus(tutorialId: string, status: 'COMPLETED' | 'SKIPPED', user: JwtPayload) {
-        const client = this.supabase.getTenantClient(user.tenantId);
+        const tenant = await this.tenantService.findOneById(user.tenantId, user);
+        const client = this.supabase.getTenantClient(tenant.slug);
 
         // Ensure user actually maps to the user_id if needed, but if user_id in user_tutorials is 
         // the global user_id, then user.sub is fine! However, the schema references `tenant_x.users(id)`. 
