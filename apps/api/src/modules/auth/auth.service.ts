@@ -139,11 +139,9 @@ export class AuthService {
             const rootTenantId = 'a1b2c3d4-0000-0000-0000-000000000000';
             const tokens = await this.issueTokenPair({ sub: adminData.id as string, tenantId: rootTenantId, role: adminData.role as UserRole, email });
             return {
-                data: {
-                    access_token: tokens.accessToken,
-                    refresh_token: tokens.refreshToken,
-                    user: { id: adminData.id, role: adminData.role, tenantId: rootTenantId }
-                }
+                access_token: tokens.accessToken,
+                refresh_token: tokens.refreshToken,
+                user: { id: adminData.id, role: adminData.role, tenantId: rootTenantId }
             };
         }
 
@@ -157,14 +155,12 @@ export class AuthService {
 
         const tokens = await this.issueTokenPair({ sub: userId, tenantId, role: userRole, email });
         return {
-            data: {
-                access_token: tokens.accessToken,
-                refresh_token: tokens.refreshToken,
-                user: {
-                    id: userId,
-                    role: userRole,
-                    tenantId
-                }
+            access_token: tokens.accessToken,
+            refresh_token: tokens.refreshToken,
+            user: {
+                id: userId,
+                role: userRole,
+                tenantId
             }
         };
     }
