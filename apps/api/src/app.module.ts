@@ -23,6 +23,7 @@ import { GradesModule } from './modules/grades/grades.module';
 import { StudentMarksModule } from './modules/student-marks/student-marks.module';
 import { ReportCardsModule } from './modules/report-cards/report-cards.module';
 import { TutorialsModule } from './modules/tutorials/tutorials.module';
+import { NotificationsModule } from './modules/notifications/notifications.module';
 
 @Module({
     imports: [
@@ -95,6 +96,7 @@ import { TutorialsModule } from './modules/tutorials/tutorials.module';
         StudentMarksModule,
         ReportCardsModule,
         TutorialsModule,
+        NotificationsModule,
     ],
     providers: [
         {

@@ -88,12 +88,13 @@ export class TutorialsService {
         const { data, error } = await client
             .from('user_tutorials')
             .upsert({
+                tenant_id: user.tenantId,
                 user_id: user.sub, // Directly use the provided token internal user identity securely
                 tutorial_id: tutorialId,
                 status: status,
                 completed_at: new Date().toISOString()
             }, {
-                onConflict: 'user_id,tutorial_id'
+                onConflict: 'tenant_id,user_id,tutorial_id'
             })
             .select()
             .single();

@@ -142,6 +142,53 @@ export class UsersService {
         return data ?? [];
     }
 
+    async findAllGlobal(caller: JwtPayload) {
+        if (caller.role !== UserRole.SUPER_ADMIN) {
+            throw new ForbiddenException('Only super admins can view the global directory');
+        }
+
+        const { data, error } = await this.supabase.adminClient
+            .from('users')
+            .select(`
+                *,
+                tenants:tenant_id (
+                    id,
+                    slug,
+                    name,
+                    status,
+                    sms_approved
+                )
+            `)
+            .order('created_at', { ascending: false });
+
+        if (error) throw new InternalServerErrorException('Failed to list global users: ' + error.message);
+        return data ?? [];
+    }
+
+    async toggleTenantSms(tenantId: string, caller: JwtPayload) {
+        if (caller.role !== UserRole.SUPER_ADMIN) {
+            throw new ForbiddenException('Only super admins can toggle SMS features');
+        }
+
+        const { data: tenantData } = await this.supabase.adminClient
+            .from('tenants')
+            .select('sms_approved')
+            .eq('id', tenantId)
+            .maybeSingle();
+
+        if (!tenantData) throw new NotFoundException('Tenant not found');
+
+        const { data, error } = await this.supabase.adminClient
+            .from('tenants')
+            .update({ sms_approved: !tenantData.sms_approved })
+            .eq('id', tenantId)
+            .select()
+            .maybeSingle();
+
+        if (error) throw new InternalServerErrorException('Failed to toggle SMS approval');
+        return data;
+    }
+
     async findOne(id: string, caller: JwtPayload) {
         this.guardAdmin(caller);
         const slug = caller.tenantId;

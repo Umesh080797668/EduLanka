@@ -110,6 +110,12 @@ export const unlinkStudentFromParent = (parentId: string, studentId: string, opt
 export const fetchUsers = (role: string | undefined, opts: RequestOpts) =>
     apiClient.get<any[]>(`/users${role ? `?role=${role}` : ''}`, opts);
 
+export const fetchGlobalUsers = (opts: RequestOpts) =>
+    apiClient.get<any[]>('/users/global-directory', opts);
+
+export const toggleTenantSms = (tenantId: string, opts: RequestOpts) =>
+    apiClient.patch(`/users/global-directory/tenant/${tenantId}/sms`, {}, opts);
+
 export const createUser = (data: any, opts: RequestOpts) =>
     apiClient.post<any>('/users', data, opts);
 

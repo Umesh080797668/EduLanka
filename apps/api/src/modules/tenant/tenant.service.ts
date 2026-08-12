@@ -84,7 +84,7 @@ export class TenantService {
             throw new ForbiddenException('Only super admins can provision tenants');
         }
 
-        // 1. Insert registry row (status = PROVISIONING)
+        // 1. Insert registry row (status = PROVISIONING, PRO gets SMS automatically)
         const { data: inserted, error: insertErr } = await this.supabase.adminClient
             .from('tenants')
             .insert({
@@ -94,6 +94,7 @@ export class TenantService {
                 status: TenantStatus.PROVISIONING,
                 school_type: dto.schoolType,
                 contact_email: dto.contactEmail,
+                sms_approved: dto.plan === TenantPlan.PRO ? true : false,
             })
             .select()
             .single();

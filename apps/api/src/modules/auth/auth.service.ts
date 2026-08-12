@@ -234,6 +234,84 @@ export class AuthService {
     }
 
     /**
+     * POST /auth/self-register
+     * Allows public self-registration if the tenant policy allows it.
+     */
+    async selfRegister(dto: SignupDto): Promise<TokenPair> {
+        // Disallow creating system/admin roles via public endpoint
+        if (dto.role === UserRole.SUPER_ADMIN || dto.role === UserRole.SCHOOL_ADMIN) {
+            throw new ForbiddenException('Cannot self-register as an administrator');
+        }
+
+        // 1. Resolve tenant
+        const { data: tenantData, error: tenantError } = await this.supabaseService.adminClient
+            .from('tenants')
+            .select('slug, status')
+            .eq('id', dto.tenantId)
+            .maybeSingle();
+
+        if (tenantError || !tenantData) throw new NotFoundException('Tenant not found');
+        if (tenantData.status !== 'ACTIVE') throw new UnauthorizedException('Tenant is not active');
+
+        // 2. Resolve school_policy
+        const { data: spData, error: spError } = await this.supabaseService.adminClient
+            .from('school_policy')
+            .select('allow_self_enrollment')
+            .eq('tenant_id', dto.tenantId)
+            .maybeSingle();
+
+        if (spError || !spData?.allow_self_enrollment) {
+            throw new ForbiddenException('Self-enrollment is not enabled for this school/tenant.');
+        }
+
+        // 3. Create Supabase Auth user
+        const { data: created, error: createError } = await this.supabaseService.adminClient.auth.admin.createUser({
+            email: dto.email,
+            password: dto.password,
+            email_confirm: true,
+            user_metadata: { full_name: dto.fullName, tenant_id: dto.tenantId, role: dto.role },
+        });
+
+        if (createError || !created.user) {
+            this.logger.error(`Supabase createUser failed: ${createError?.message}`);
+            if (createError?.message?.toLowerCase().includes('already')) {
+                throw new BadRequestException('An account with this email already exists');
+            }
+            throw new InternalServerErrorException('Failed to create user account');
+        }
+
+        const authUid = created.user.id;
+
+        // 4. Insert into tenant schema users table
+        const tenantClient = this.supabaseService.getTenantClient(tenantData.slug);
+        const { data: newUser, error: insertError } = await tenantClient
+            .from('users')
+            .insert({
+                user_id: authUid,
+                email: dto.email,
+                full_name: dto.fullName,
+                role: dto.role,
+                is_active: true,
+            })
+            .select('id')
+            .single();
+
+        if (insertError || !newUser) {
+            // Rollback Supabase auth user to avoid orphans
+            await this.supabaseService.adminClient.auth.admin.deleteUser(authUid);
+            this.logger.error(`Tenant user insert failed: ${insertError?.message}`);
+            throw new InternalServerErrorException('Failed to register user in tenant');
+        }
+
+        return this.issueTokenPair({
+            sub: newUser.id as string,
+            tenantId: dto.tenantId,
+            role: dto.role,
+            email: dto.email,
+        });
+    }
+
+    /**
      * POST /auth/forgot-password
      * Trigger Supabase password-reset email. Always returns success to prevent user enumeration.
      */

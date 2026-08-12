@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { fetchUsers, RequestOpts } from '@/lib/api/school';
+import { fetchUsers, setUserActive, RequestOpts } from '@/lib/api/school';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Users, Search, Loader2, ShieldCheck, CheckCircle2, XCircle, MoreVertical } from 'lucide-react';
 import { TutorialProvider } from '@/components/TutorialProvider';
@@ -11,16 +11,42 @@ import { useTranslations } from 'next-intl';
 export default function UsersPage() {
     const t = useTranslations('InstitutionAdminUsers');
     const [users, setUsers] = useState<any[]>([]);
+    const [searchQuery, setSearchQuery] = useState('');
     const [loading, setLoading] = useState(true);
+    const [actionLoading, setActionLoading] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
 
-    useEffect(() => {
+    const refreshUsers = () => {
+        setLoading(true);
         const opts: RequestOpts = { token: localStorage.getItem('token') || '', tenantId: localStorage.getItem('tenantId') || '' };
         fetchUsers(undefined, opts) // List all users
             .then(setUsers)
             .catch((err) => setError(err.message))
             .finally(() => setLoading(false));
+    };
+
+    useEffect(() => {
+        refreshUsers();
     }, []);
+
+    const toggleUserStatus = async (user: any) => {
+        if (user.role === 'SCHOOL_ADMIN') return;
+        setActionLoading(user.id);
+        const opts: RequestOpts = { token: localStorage.getItem('token') || '', tenantId: localStorage.getItem('tenantId') || '' };
+        try {
+            await setUserActive(user.id, !user.is_active, opts);
+            await refreshUsers();
+        } catch (e: any) {
+            setError(e.message || 'Failed to update user status');
+        } finally {
+            setActionLoading(null);
+        }
+    };
+
+    const filteredUsers = users.filter(u =>
+        (u.full_name?.toLowerCase() || '').includes(searchQuery.toLowerCase()) ||
+        (u.email?.toLowerCase() || '').includes(searchQuery.toLowerCase())
+    );
 
     return (
         <TutorialProvider role="SCHOOL_ADMIN" screenId="users">
@@ -42,6 +68,8 @@ export default function UsersPage() {
                             <Search className="w-5 h-5 absolute left-3 top-2.5 text-slate-400" />
                             <input
                                 type="text"
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
                                 placeholder={t('searchPlaceholder')}
                                 className="w-full bg-slate-50 border border-slate-200 rounded-lg pl-10 pr-4 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all"
                             />
@@ -79,17 +107,17 @@ export default function UsersPage() {
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100">
-                                {!loading && users.length === 0 ? (
+                                {!loading && filteredUsers.length === 0 ? (
                                     <tr>
                                         <td colSpan={4} className="px-6 py-12 text-center text-slate-500">
                                             <div className="flex flex-col items-center justify-center gap-3">
                                                 <Users className="w-10 h-10 text-slate-300" />
-                                                <p>{t('noUsers')}</p>
+                                                <p>{searchQuery ? 'No users matching search.' : t('noUsers')}</p>
                                             </div>
                                         </td>
                                     </tr>
                                 ) : (
-                                    users.map((user, idx) => (
+                                    filteredUsers.map((user, idx) => (
                                         <motion.tr
                                             key={user.id}
                                             initial={{ opacity: 0, y: 10 }}
@@ -126,14 +154,19 @@ export default function UsersPage() {
                                             <td className="px-6 py-4 text-right">
                                                 <div className="flex items-center justify-end gap-2">
                                                     <button
-                                                        className="px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:text-slate-900 font-medium text-sm transition-all shadow-sm"
-                                                        onClick={() => alert('Phase 1')}
+                                                        disabled={user.role === 'SCHOOL_ADMIN' || actionLoading === user.id}
+                                                        className={`px-3 py-1.5 rounded-lg border text-sm font-medium transition-all shadow-sm flex items-center justify-center min-w-[90px]
+                                                            ${user.role === 'SCHOOL_ADMIN' ? 'bg-slate-50 text-slate-400 border-slate-200 cursor-not-allowed' :
+                                                                'bg-white text-slate-600 hover:bg-slate-50 hover:text-slate-900 border-slate-200'}`}
+                                                        onClick={() => toggleUserStatus(user)}
                                                     >
-                                                        {user.is_active ? t('deactivate') : t('reactivate')}
+                                                        {actionLoading === user.id ? <Loader2 className="w-4 h-4 animate-spin" /> : user.is_active ? t('deactivate') : t('reactivate')}
                                                     </button>
-                                                    <button className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors">
-                                                        <MoreVertical className="w-5 h-5" />
-                                                    </button>
+                                                    {user.role !== 'SCHOOL_ADMIN' && (
+                                                        <button className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors">
+                                                            <MoreVertical className="w-5 h-5" />
+                                                        </button>
+                                                    )}
                                                 </div>
                                             </td>
                                         </motion.tr>

@@ -31,9 +31,11 @@
         "@nestjs/jwt": "^10.2.0",
         "@nestjs/passport": "^10.0.3",
         "@nestjs/platform-fastify": "^10.3.10",
+        "@nestjs/platform-socket.io": "^11.1.29",
         "@nestjs/swagger": "^7.4.0",
         "@nestjs/terminus": "^10.2.3",
         "@nestjs/throttler": "^6.5.0",
+        "@nestjs/websockets": "^11.1.29",
         "@supabase/supabase-js": "^2.45.3",
         "@types/pg": "^8.21.0",
         "class-transformer": "^0.5.1",
@@ -46,7 +48,8 @@
         "pdfkit": "^0.19.1",
         "pg": "^8.23.0",
         "reflect-metadata": "^0.2.2",
-        "rxjs": "^7.8.1"
+        "rxjs": "^7.8.1",
+        "socket.io": "^4.8.3"
     },
     "devDependencies": {
         "@edu-lanka/config": "workspace:*",

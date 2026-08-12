@@ -3,9 +3,10 @@
 import { Bell, Search, User, Menu } from 'lucide-react';
 import { usePathname } from 'next/navigation';
 import { motion } from 'framer-motion';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useTranslations } from 'next-intl';
 import { useSidebar } from './SidebarContext';
+import { io, Socket } from 'socket.io-client';
 
 export default function Header() {
     const pathname = usePathname();
@@ -13,6 +14,11 @@ export default function Header() {
     const [userName, setUserName] = useState('...');
     const [userRole, setUserRole] = useState('...');
     const { setIsOpen } = useSidebar();
+
+    // Notifications State
+    const [notifications, setNotifications] = useState<any[]>([]);
+    const [showNotifications, setShowNotifications] = useState(false);
+    const socketRef = useRef<Socket | null>(null);
 
     useEffect(() => {
         const fetchUser = async () => {
@@ -45,6 +51,33 @@ export default function Header() {
             }
         };
         fetchUser();
+
+        // ---------------- Socket.io Connection ----------------
+        // Hybrid Strategy: Starts with Polling, upgrades to WebSocket
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
+        const socket = io(apiUrl, {
+            transports: ['polling', 'websocket'],
+            autoConnect: true,
+        });
+
+        socket.on('connect', () => {
+            console.log(`[Notifications] Connected with ID: ${socket.id} via ${socket.io.engine.transport.name}`);
+
+            // Optionally monitor transport upgrades from polling to websocket
+            socket.io.engine.on('upgrade', (transport) => {
+                console.log('[Notifications] Transport upgraded to', transport.name);
+            });
+        });
+
+        socket.on('system_notification', (data) => {
+            setNotifications(prev => [data, ...prev]);
+        });
+
+        socketRef.current = socket;
+
+        return () => {
+            socket.disconnect();
+        };
     }, [t]);
 
     // Determine title based on path
@@ -84,10 +117,55 @@ export default function Header() {
                     />
                 </div>
 
-                <button className="relative p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-full transition-colors">
-                    <Bell className="w-5 h-5" />
-                    <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-rose-500 rounded-full border-2 border-white"></span>
-                </button>
+                <div className="relative">
+                    <button
+                        className="relative p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-full transition-colors focus:outline-none"
+                        onClick={() => setShowNotifications(!showNotifications)}
+                    >
+                        <Bell className="w-5 h-5" />
+                        {notifications.length > 0 && (
+                            <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-rose-500 rounded-full border-2 border-white animate-pulse"></span>
+                        )}
+                    </button>
+
+                    {/* Notifications Dropdown */}
+                    {showNotifications && (
+                        <div className="absolute right-0 mt-2 w-80 bg-white rounded-xl shadow-xl border border-slate-200 overflow-hidden z-50">
+                            <div className="p-3 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+                                <h3 className="font-semibold text-slate-800 text-sm">{t('notifications') || 'Notifications'}</h3>
+                                <span className="text-xs bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full font-bold">
+                                    {notifications.length}
+                                </span>
+                            </div>
+                            <div className="max-h-80 overflow-y-auto">
+                                {notifications.length === 0 ? (
+                                    <div className="p-6 text-center text-slate-500 text-sm">
+                                        No new notifications.
+                                    </div>
+                                ) : (
+                                    <div className="divide-y divide-slate-50">
+                                        {notifications.map((notif, idx) => (
+                                            <div key={idx} className="p-4 hover:bg-slate-50 transition-colors flex items-start gap-3">
+                                                <div className={`w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center
+                                                    ${notif.type === 'warning' ? 'bg-amber-100 text-amber-600' :
+                                                        notif.type === 'info' ? 'bg-blue-100 text-blue-600' : 'bg-slate-100 text-slate-600'}`}>
+                                                    <Bell className="w-4 h-4" />
+                                                </div>
+                                                <div>
+                                                    <h4 className="text-sm font-semibold text-slate-800">{notif.title}</h4>
+                                                    <p className="text-xs text-slate-500 mt-0.5 leading-relaxed">{notif.message}</p>
+                                                    <span className="text-[10px] text-slate-400 mt-1 block">
+                                                        {new Date(notif.timestamp).toLocaleTimeString()}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    )}
+                </div>
 
                 <div className="w-px h-6 bg-slate-200 mx-2"></div>
 

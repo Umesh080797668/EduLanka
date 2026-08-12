@@ -57,6 +57,16 @@ export class AuthController {
         return this.authService.signup(dto, caller);
     }
 
+    // ── POST /auth/self-register ───────────────────────────────────────────────
+    @Post('self-register')
+    @Version('1')
+    @HttpCode(HttpStatus.CREATED)
+    @ApiOperation({ summary: 'Create a new user if tenant allows self-enrollment (public)' })
+    @ApiCreatedResponse({ description: 'User created and token pair issued' })
+    selfRegister(@Body() dto: SignupDto) {
+        return this.authService.selfRegister(dto);
+    }
+
     // ── POST /auth/forgot-password ─────────────────────────────────────────────
     @Post('forgot-password')
     @Version('1')

@@ -48,7 +48,22 @@ export class SchoolPolicyService {
         if (dto.academicYear !== undefined) updatePayload.academic_year = dto.academicYear;
         if (dto.maxStudentsPerClass !== undefined) updatePayload.max_students_per_class = dto.maxStudentsPerClass;
         if (dto.allowSelfEnrollment !== undefined) updatePayload.allow_self_enrollment = dto.allowSelfEnrollment;
-        if (dto.smsEnabled !== undefined) updatePayload.sms_enabled = dto.smsEnabled;
+        if (dto.smsEnabled !== undefined) {
+            if (dto.smsEnabled) {
+                // Must verify if system admin approved SMS for this tenant before allowing it to be turned on
+                const { data: tenantData } = await this.supabase.adminClient
+                    .from('tenants')
+                    .select('sms_approved')
+                    .eq('slug', slug)
+                    .maybeSingle();
+
+                if (!tenantData?.sms_approved) {
+                    throw new ForbiddenException('SMS notifications have not been approved for this tenant. Please contact a System Admin.');
+                }
+            }
+            updatePayload.sms_enabled = dto.smsEnabled;
+        }
+
         if (dto.defaultLanguage !== undefined) updatePayload.default_language = dto.defaultLanguage;
         if (dto.timezone !== undefined) updatePayload.timezone = dto.timezone;
         if (dto.schoolHoursStart !== undefined) updatePayload.school_hours_start = dto.schoolHoursStart;

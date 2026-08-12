@@ -39,7 +39,13 @@ export default function SchoolPolicyPage() {
 
         const opts: RequestOpts = { token: localStorage.getItem('token') || '', tenantId: localStorage.getItem('tenantId') || '' };
         try {
-            const updated = await updatePolicy(formData, opts);
+            // Strip out read-only fields to bypass NestJS ValidationPipe whitelisting
+            const {
+                id, tenant_id, created_at, updated_at,
+                ...validPayload
+            } = formData as any;
+
+            const updated = await updatePolicy(validPayload, opts);
             setPolicy(updated);
             setSuccess(t('successMsg'));
             setTimeout(() => setSuccess(null), 4000);

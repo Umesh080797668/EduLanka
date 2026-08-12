@@ -34,6 +34,18 @@ export class UsersController {
         return this.usersService.findAll(user, role);
     }
 
+    @Get('global-directory')
+    @ApiOperation({ summary: 'List all users across all tenants (super admin only)' })
+    findAllGlobal(@CurrentUser() user: JwtPayload) {
+        return this.usersService.findAllGlobal(user);
+    }
+
+    @Patch('global-directory/tenant/:id/sms')
+    @ApiOperation({ summary: 'Toggle SMS feature approval for a specific tenant (super admin only)' })
+    toggleTenantSms(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: JwtPayload) {
+        return this.usersService.toggleTenantSms(id, user);
+    }
+
     @Get(':id')
     @ApiOperation({ summary: 'Get a user by ID (admin only)' })
     findOne(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: JwtPayload) {
