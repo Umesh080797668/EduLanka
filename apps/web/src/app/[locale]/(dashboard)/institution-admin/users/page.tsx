@@ -7,11 +7,13 @@ import { Users, Search, Loader2, ShieldCheck, CheckCircle2, XCircle, MoreVertica
 import { TutorialProvider } from '@/components/TutorialProvider';
 import { HelpButton } from '@/components/HelpButton';
 import { useTranslations } from 'next-intl';
+import { useSearchParams } from 'next/navigation';
 
 export default function UsersPage() {
     const t = useTranslations('InstitutionAdminUsers');
+    const searchParams = useSearchParams();
     const [users, setUsers] = useState<any[]>([]);
-    const [searchQuery, setSearchQuery] = useState('');
+    const [searchQuery, setSearchQuery] = useState(searchParams?.get('query') || '');
     const [loading, setLoading] = useState(true);
     const [actionLoading, setActionLoading] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
@@ -28,6 +30,11 @@ export default function UsersPage() {
     useEffect(() => {
         refreshUsers();
     }, []);
+
+    useEffect(() => {
+        const query = searchParams?.get('query');
+        if (query) setSearchQuery(query);
+    }, [searchParams]);
 
     const toggleUserStatus = async (user: any) => {
         if (user.role === 'SCHOOL_ADMIN') return;

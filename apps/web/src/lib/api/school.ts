@@ -146,5 +146,11 @@ export const createGrade = (data: any, opts: RequestOpts) =>
 export const updateGrade = (id: string, data: any, opts: RequestOpts) =>
     apiClient.patch<GradeProfile>(`/grades/${id}`, data, opts);
 
+// -----------------------------------------------------------------------------
+// Tenants
+// -----------------------------------------------------------------------------
+export const fetchTenants = (opts: RequestOpts) =>
+    apiClient.get<any[]>('/tenants', opts);
+
 export const deleteGrade = (id: string, opts: RequestOpts) =>
     apiClient.delete(`/grades/${id}`, opts);

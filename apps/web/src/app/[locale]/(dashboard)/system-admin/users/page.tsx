@@ -5,14 +5,18 @@ import { fetchGlobalUsers, setUserActive, toggleTenantSms, RequestOpts } from '@
 import { motion, AnimatePresence } from 'framer-motion';
 import { Users, Search, Loader2, ShieldCheck, CheckCircle2, XCircle, MoreVertical, Database, Smartphone } from 'lucide-react';
 import { useTranslations } from 'next-intl';
+import { useSearchParams } from 'next/navigation';
 
 export default function SystemAdminUsersPage() {
     const t = useTranslations('InstitutionAdminUsers');
+    const searchParams = useSearchParams();
     const [users, setUsers] = useState<any[]>([]);
-    const [searchQuery, setSearchQuery] = useState('');
+    const [searchQuery, setSearchQuery] = useState(searchParams?.get('query') || '');
     const [loading, setLoading] = useState(true);
     const [actionLoading, setActionLoading] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
+    const [userToConfirm, setUserToConfirm] = useState<any | null>(null);
+    const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
 
     const refreshUsers = () => {
         setLoading(true);
@@ -27,20 +31,36 @@ export default function SystemAdminUsersPage() {
         refreshUsers();
     }, []);
 
-    const toggleUserStatus = async (user: any) => {
-        // System admin can technically disable school admins or other users, but block super admin self-disable
-        if (user.role === 'SUPER_ADMIN') return;
+    // Sync external URI changes onto local frame
+    useEffect(() => {
+        const query = searchParams?.get('query');
+        if (query !== null && query !== undefined) {
+            setSearchQuery(query);
+        }
+    }, [searchParams]);
 
-        setActionLoading(user.id);
-        const opts: RequestOpts = { token: localStorage.getItem('token') || '', tenantId: localStorage.getItem('tenantId') || '' };
+    const confirmToggleStatus = async () => {
+        if (!userToConfirm) return;
+
+        setActionLoading(userToConfirm.id);
+        const targetTenantId = userToConfirm.tenant_id || localStorage.getItem('tenantId') || '';
+        const opts: RequestOpts = { token: localStorage.getItem('token') || '', tenantId: targetTenantId };
+
         try {
-            await setUserActive(user.id, !user.is_active, opts);
+            await setUserActive(userToConfirm.id, !userToConfirm.is_active, opts);
             await refreshUsers();
         } catch (e: any) {
             setError(e.message || 'Failed to update user status');
         } finally {
             setActionLoading(null);
+            setUserToConfirm(null);
+            setActiveDropdown(null);
         }
+    };
+
+    const handleActionClick = (user: any) => {
+        if (user.role === 'SUPER_ADMIN') return;
+        setUserToConfirm(user);
     };
 
     const handleSmsToggle = async (tenantId: string) => {
@@ -95,6 +115,45 @@ export default function SystemAdminUsersPage() {
                         <p className="font-medium text-sm">{error}</p>
                     </motion.div>
                 )}
+
+                {/* Confirmation Modal */}
+                <AnimatePresence>
+                    {userToConfirm && (
+                        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
+                            <motion.div
+                                initial={{ opacity: 0, scale: 0.95 }}
+                                animate={{ opacity: 1, scale: 1 }}
+                                exit={{ opacity: 0, scale: 0.95 }}
+                                className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6"
+                            >
+                                <h3 className="text-xl font-bold text-slate-900 mb-2">
+                                    {userToConfirm.is_active ? 'Deactivate User?' : 'Reactivate User?'}
+                                </h3>
+                                <p className="text-slate-500 text-sm mb-6">
+                                    Are you sure you want to {userToConfirm.is_active ? 'deactivate' : 'reactivate'} the account for <strong className="text-slate-700">{userToConfirm.full_name}</strong>?
+                                    {userToConfirm.is_active ? ' They will instantly lose access to the EduLanka portal.' : ' They will regain portal access.'}
+                                </p>
+                                <div className="flex gap-3 justify-end">
+                                    <button
+                                        onClick={() => setUserToConfirm(null)}
+                                        className="px-4 py-2 hover:bg-slate-100 text-slate-700 rounded-lg font-medium transition-colors"
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button
+                                        onClick={confirmToggleStatus}
+                                        disabled={actionLoading === userToConfirm.id}
+                                        className={`px-4 py-2 text-white rounded-lg font-medium transition-colors flex items-center gap-2 ${userToConfirm.is_active ? 'bg-rose-600 hover:bg-rose-700' : 'bg-emerald-600 hover:bg-emerald-700'
+                                            }`}
+                                    >
+                                        {actionLoading === userToConfirm.id ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+                                        {userToConfirm.is_active ? 'Yes, Deactivate' : 'Yes, Reactivate'}
+                                    </button>
+                                </div>
+                            </motion.div>
+                        </div>
+                    )}
+                </AnimatePresence>
 
                 <div className="overflow-x-auto border border-slate-200 rounded-xl relative min-h-[400px]">
                     <AnimatePresence>
@@ -193,20 +252,49 @@ export default function SystemAdminUsersPage() {
                                             </span>
                                         </td>
                                         <td className="px-6 py-4 text-right">
-                                            <div className="flex items-center justify-end gap-2">
+                                            <div className="flex items-center justify-end gap-2 relative">
                                                 <button
                                                     disabled={user.role === 'SUPER_ADMIN' || actionLoading === user.id}
                                                     className={`px-3 py-1.5 rounded-lg border text-sm font-medium transition-all shadow-sm flex items-center justify-center min-w-[90px]
                                                         ${user.role === 'SUPER_ADMIN' ? 'bg-slate-50 text-slate-400 border-slate-200 cursor-not-allowed' :
                                                             'bg-white text-slate-600 hover:bg-slate-50 hover:text-slate-900 border-slate-200'}`}
-                                                    onClick={() => toggleUserStatus(user)}
+                                                    onClick={() => handleActionClick(user)}
                                                 >
                                                     {actionLoading === user.id ? <Loader2 className="w-4 h-4 animate-spin" /> : user.is_active ? t('deactivate') : t('reactivate')}
                                                 </button>
                                                 {user.role !== 'SUPER_ADMIN' && (
-                                                    <button className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors">
-                                                        <MoreVertical className="w-5 h-5" />
-                                                    </button>
+                                                    <div className="relative">
+                                                        <button
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                setActiveDropdown(activeDropdown === user.id ? null : user.id);
+                                                            }}
+                                                            className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors"
+                                                        >
+                                                            <MoreVertical className="w-5 h-5" />
+                                                        </button>
+
+                                                        <AnimatePresence>
+                                                            {activeDropdown === user.id && (
+                                                                <>
+                                                                    <div className="fixed inset-0 z-30" onClick={() => setActiveDropdown(null)} />
+                                                                    <motion.div
+                                                                        initial={{ opacity: 0, y: -10, scale: 0.95 }}
+                                                                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                                                                        exit={{ opacity: 0, scale: 0.95 }}
+                                                                        className="absolute right-0 top-full mt-1 w-48 bg-white border border-slate-200 rounded-xl shadow-lg z-40 overflow-hidden flex flex-col"
+                                                                    >
+                                                                        <button onClick={() => { setActiveDropdown(null); handleActionClick(user); }} className="px-4 py-2.5 text-sm text-left hover:bg-slate-50 border-b border-slate-100 font-medium text-slate-700">
+                                                                            {user.is_active ? 'Deactivate Account' : 'Reactivate Account'}
+                                                                        </button>
+                                                                        <button onClick={() => setActiveDropdown(null)} className="px-4 py-2.5 text-sm text-left hover:bg-slate-50 font-medium text-slate-500">
+                                                                            View Audit Logs
+                                                                        </button>
+                                                                    </motion.div>
+                                                                </>
+                                                            )}
+                                                        </AnimatePresence>
+                                                    </div>
                                                 )}
                                             </div>
                                         </td>

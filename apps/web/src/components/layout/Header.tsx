@@ -1,7 +1,7 @@
 'use client';
 
 import { Bell, Search, User, Menu } from 'lucide-react';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { useEffect, useState, useRef } from 'react';
 import { useTranslations } from 'next-intl';
@@ -10,10 +10,12 @@ import { io, Socket } from 'socket.io-client';
 
 export default function Header() {
     const pathname = usePathname();
+    const router = useRouter();
     const t = useTranslations('Header');
     const [userName, setUserName] = useState('...');
     const [userRole, setUserRole] = useState('...');
     const { setIsOpen } = useSidebar();
+    const [searchQuery, setSearchQuery] = useState('');
 
     // Notifications State
     const [notifications, setNotifications] = useState<any[]>([]);
@@ -97,6 +99,17 @@ export default function Header() {
         return t('overviewDashboard');
     };
 
+    const handleSearch = (e: React.KeyboardEvent<HTMLInputElement>) => {
+        if (e.key === 'Enter' && searchQuery.trim()) {
+            const queryUri = encodeURIComponent(searchQuery.trim());
+            if (userRole === 'SUPER ADMIN') {
+                router.push(`/system-admin/users?query=${queryUri}`);
+            } else if (userRole === 'SCHOOL ADMIN') {
+                router.push(`/institution-admin/users?query=${queryUri}`);
+            }
+        }
+    };
+
     return (
         <header className="h-16 flex items-center justify-between px-6 bg-white/70 backdrop-blur-md border-b border-slate-200 sticky top-0 z-10">
             <div className="flex items-center gap-4">
@@ -120,6 +133,9 @@ export default function Header() {
                     <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                     <input
                         type="text"
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        onKeyDown={handleSearch}
                         placeholder={t('searchPlaceholder')}
                         className="pl-9 pr-4 py-1.5 bg-slate-100 border-none rounded-full text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none transition-all w-64"
                     />

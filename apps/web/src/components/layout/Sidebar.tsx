@@ -10,7 +10,8 @@ import {
     Settings,
     LogOut,
     Server,
-    X
+    X,
+    Building2
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -36,6 +37,7 @@ const NAV_ITEMS = {
     ],
     SUPER_ADMIN: [
         { nameKey: 'dashboard', href: '/system-admin', icon: Server },
+        { nameKey: 'tenants', href: '/system-admin/tenants', icon: Building2 },
         { nameKey: 'users', href: '/system-admin/users', icon: Users },
     ]
 };
