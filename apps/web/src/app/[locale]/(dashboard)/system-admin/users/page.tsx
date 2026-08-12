@@ -17,6 +17,7 @@ export default function SystemAdminUsersPage() {
     const [error, setError] = useState<string | null>(null);
     const [userToConfirm, setUserToConfirm] = useState<any | null>(null);
     const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
+    const [auditLogTarget, setAuditLogTarget] = useState<any | null>(null);
 
     const refreshUsers = () => {
         setLoading(true);
@@ -155,6 +156,38 @@ export default function SystemAdminUsersPage() {
                     )}
                 </AnimatePresence>
 
+                {/* Audit Log Placeholder Modal */}
+                <AnimatePresence>
+                    {auditLogTarget && (
+                        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
+                            <motion.div
+                                initial={{ opacity: 0, scale: 0.95 }}
+                                animate={{ opacity: 1, scale: 1 }}
+                                exit={{ opacity: 0, scale: 0.95 }}
+                                className="bg-white rounded-2xl shadow-xl max-w-2xl w-full p-6"
+                            >
+                                <div className="flex justify-between items-center mb-6">
+                                    <h3 className="text-xl font-bold text-slate-900 flex items-center gap-2">
+                                        <Database className="w-5 h-5 text-indigo-500" />
+                                        Audit Sequence: {auditLogTarget.full_name}
+                                    </h3>
+                                    <button onClick={() => setAuditLogTarget(null)} className="p-1 hover:bg-slate-100 rounded-lg text-slate-500">
+                                        <XCircle className="w-5 h-5" />
+                                    </button>
+                                </div>
+                                <div className="bg-slate-50 rounded-xl border border-slate-200 p-8 flex flex-col items-center justify-center min-h-[300px]">
+                                    <div className="relative">
+                                        <Loader2 className="w-10 h-10 animate-spin text-slate-300" />
+                                        <Database className="w-5 h-5 text-indigo-500 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
+                                    </div>
+                                    <p className="mt-4 text-slate-600 font-medium font-mono text-sm">Awaiting Audit Infrastructure Connection...</p>
+                                    <p className="text-slate-400 text-xs mt-2 max-w-sm text-center">Data streams for deep tenant audit trails are currently disconnected from backend persistence layers. Awaiting target allocation.</p>
+                                </div>
+                            </motion.div>
+                        </div>
+                    )}
+                </AnimatePresence>
+
                 <div className="overflow-x-auto border border-slate-200 rounded-xl relative min-h-[400px]">
                     <AnimatePresence>
                         {loading && (
@@ -253,15 +286,6 @@ export default function SystemAdminUsersPage() {
                                         </td>
                                         <td className="px-6 py-4 text-right">
                                             <div className="flex items-center justify-end gap-2 relative">
-                                                <button
-                                                    disabled={user.role === 'SUPER_ADMIN' || actionLoading === user.id}
-                                                    className={`px-3 py-1.5 rounded-lg border text-sm font-medium transition-all shadow-sm flex items-center justify-center min-w-[90px]
-                                                        ${user.role === 'SUPER_ADMIN' ? 'bg-slate-50 text-slate-400 border-slate-200 cursor-not-allowed' :
-                                                            'bg-white text-slate-600 hover:bg-slate-50 hover:text-slate-900 border-slate-200'}`}
-                                                    onClick={() => handleActionClick(user)}
-                                                >
-                                                    {actionLoading === user.id ? <Loader2 className="w-4 h-4 animate-spin" /> : user.is_active ? t('deactivate') : t('reactivate')}
-                                                </button>
                                                 {user.role !== 'SUPER_ADMIN' && (
                                                     <div className="relative">
                                                         <button
@@ -269,7 +293,7 @@ export default function SystemAdminUsersPage() {
                                                                 e.stopPropagation();
                                                                 setActiveDropdown(activeDropdown === user.id ? null : user.id);
                                                             }}
-                                                            className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors"
+                                                            className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors border border-slate-200 bg-white"
                                                         >
                                                             <MoreVertical className="w-5 h-5" />
                                                         </button>
@@ -284,11 +308,12 @@ export default function SystemAdminUsersPage() {
                                                                         exit={{ opacity: 0, scale: 0.95 }}
                                                                         className="absolute right-0 top-full mt-1 w-48 bg-white border border-slate-200 rounded-xl shadow-lg z-40 overflow-hidden flex flex-col"
                                                                     >
-                                                                        <button onClick={() => { setActiveDropdown(null); handleActionClick(user); }} className="px-4 py-2.5 text-sm text-left hover:bg-slate-50 border-b border-slate-100 font-medium text-slate-700">
+                                                                        <button onClick={() => { setActiveDropdown(null); handleActionClick(user); }} className={`px-4 py-3 text-sm text-left hover:bg-slate-50 border-b border-slate-100 font-medium ${user.is_active ? 'text-rose-600' : 'text-emerald-600'}`}>
                                                                             {user.is_active ? 'Deactivate Account' : 'Reactivate Account'}
                                                                         </button>
-                                                                        <button onClick={() => setActiveDropdown(null)} className="px-4 py-2.5 text-sm text-left hover:bg-slate-50 font-medium text-slate-500">
+                                                                        <button onClick={() => { setActiveDropdown(null); setAuditLogTarget(user); }} className="px-4 py-3 text-sm text-left hover:bg-slate-50 font-medium text-slate-600 flex items-center justify-between">
                                                                             View Audit Logs
+                                                                            <ShieldCheck className="w-4 h-4 text-slate-300" />
                                                                         </button>
                                                                     </motion.div>
                                                                 </>

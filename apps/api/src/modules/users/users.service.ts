@@ -222,8 +222,13 @@ export class UsersService {
 
     async setActivationStatus(id: string, isActive: boolean, caller: JwtPayload) {
         this.guardAdmin(caller);
-        const slug = caller.tenantId;
-        const db = this.supabase.getTenantClient(slug);
+
+        let db = this.supabase.getTenantClient(caller.tenantId);
+
+        // Super Admins override RLS logic to manipulate global cross-tenant entities seamlessly
+        if (caller.role === UserRole.SUPER_ADMIN) {
+            db = this.supabase.adminClient;
+        }
 
         const { data, error } = await db
             .from('users')

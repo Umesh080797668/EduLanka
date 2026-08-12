@@ -16,6 +16,7 @@ export default function Header() {
     const [userRole, setUserRole] = useState('...');
     const { setIsOpen } = useSidebar();
     const [searchQuery, setSearchQuery] = useState('');
+    const [isTyping, setIsTyping] = useState(false);
 
     // Notifications State
     const [notifications, setNotifications] = useState<any[]>([]);
@@ -99,13 +100,38 @@ export default function Header() {
         return t('overviewDashboard');
     };
 
+    // Debounce the search query
+    useEffect(() => {
+        if (!isTyping) return;
+        const timer = setTimeout(() => {
+            if (searchQuery.trim()) {
+                const queryUri = encodeURIComponent(searchQuery.trim());
+                if (userRole === 'SUPER ADMIN') {
+                    router.push(`/system-admin/users?query=${queryUri}`);
+                } else if (userRole === 'SCHOOL ADMIN') {
+                    router.push(`/institution-admin/users?query=${queryUri}`);
+                }
+            } else if (searchQuery === '') {
+                // If they clear the search, push back to base dir
+                if (userRole === 'SUPER ADMIN') router.push(`/system-admin/users`);
+                if (userRole === 'SCHOOL ADMIN') router.push(`/institution-admin/users`);
+            }
+            setIsTyping(false);
+        }, 400);
+
+        return () => clearTimeout(timer);
+    }, [searchQuery, isTyping, router, userRole]);
+
     const handleSearch = (e: React.KeyboardEvent<HTMLInputElement>) => {
-        if (e.key === 'Enter' && searchQuery.trim()) {
-            const queryUri = encodeURIComponent(searchQuery.trim());
-            if (userRole === 'SUPER ADMIN') {
-                router.push(`/system-admin/users?query=${queryUri}`);
-            } else if (userRole === 'SCHOOL ADMIN') {
-                router.push(`/institution-admin/users?query=${queryUri}`);
+        if (e.key === 'Enter') {
+            setIsTyping(false); // Force rapid push
+            if (searchQuery.trim()) {
+                const queryUri = encodeURIComponent(searchQuery.trim());
+                if (userRole === 'SUPER ADMIN') {
+                    router.push(`/system-admin/users?query=${queryUri}`);
+                } else if (userRole === 'SCHOOL ADMIN') {
+                    router.push(`/institution-admin/users?query=${queryUri}`);
+                }
             }
         }
     };
@@ -134,7 +160,10 @@ export default function Header() {
                     <input
                         type="text"
                         value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
+                        onChange={(e) => {
+                            setSearchQuery(e.target.value);
+                            setIsTyping(true);
+                        }}
                         onKeyDown={handleSearch}
                         placeholder={t('searchPlaceholder')}
                         className="pl-9 pr-4 py-1.5 bg-slate-100 border-none rounded-full text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none transition-all w-64"
