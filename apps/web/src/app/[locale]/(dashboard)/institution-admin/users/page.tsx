@@ -7,7 +7,6 @@ import { Users, Search, Loader2, ShieldCheck, CheckCircle2, XCircle, MoreVertica
 import { TutorialProvider } from '@/components/TutorialProvider';
 import { HelpButton } from '@/components/HelpButton';
 import { useTranslations } from 'next-intl';
-import { PageSkeleton } from '@/components/ui/Skeleton';
 
 export default function UsersPage() {
     const t = useTranslations('InstitutionAdminUsers');
