@@ -50,7 +50,15 @@ export default function LoginPage() {
                 router.push(route);
             } else {
                 const errorData = await res.json();
-                setError(errorData.message || t('invalidCreds'));
+                const backendMessage = errorData?.error?.message || errorData?.message;
+
+                if (backendMessage && backendMessage.startsWith('User account is deactivated')) {
+                    const role = backendMessage.split(':')[1] || 'STUDENT';
+                    router.push(`/deactivated?role=${role}`);
+                    return;
+                }
+
+                setError(backendMessage || t('invalidCreds'));
             }
         } catch (err: any) {
             setError(err.message || t('networkError'));

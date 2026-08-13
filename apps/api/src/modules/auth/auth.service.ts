@@ -99,7 +99,7 @@ export class AuthService {
             .maybeSingle();
 
         if (userError || !userData) throw new UnauthorizedException('User does not belong to this tenant');
-        if (!userData.is_active) throw new UnauthorizedException('User account is deactivated');
+        if (!userData.is_active) throw new UnauthorizedException(`User account is deactivated:${userData.role}`);
 
         return { tenantId: tenantData.id, userId: userData.id as string, role: userData.role as UserRole };
     }
