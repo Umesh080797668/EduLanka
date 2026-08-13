@@ -76,17 +76,17 @@ export default function SystemAdminTenantsPage() {
         // Find current status to rollback if error
         const targetTenant = tenants.find(t => t.id === tenantId);
         if (!targetTenant) return;
-        const currentToggle = targetTenant.sms_approved;
+        const currentToggle = targetTenant.smsApproved;
 
         // Optimistic UI Update — instant visual feedback
-        setTenants(prev => prev.map(t => t.id === tenantId ? { ...t, sms_approved: !currentToggle } : t));
+        setTenants(prev => prev.map(t => t.id === tenantId ? { ...t, smsApproved: !currentToggle } : t));
 
         try {
             await toggleTenantSms(tenantId, opts);
             // No silent refresh — optimistic state is the source of truth
         } catch (e: any) {
             // Rollback on fail
-            setTenants(prev => prev.map(t => t.id === tenantId ? { ...t, sms_approved: currentToggle } : t));
+            setTenants(prev => prev.map(t => t.id === tenantId ? { ...t, smsApproved: currentToggle } : t));
             setError(e.message || 'Failed to toggle SMS feature');
         } finally {
             setActionLoading(null);
@@ -294,7 +294,7 @@ export default function SystemAdminTenantsPage() {
                                             <button
                                                 disabled={actionLoading === `sms-${tnt.id}`}
                                                 onClick={() => handleSmsToggle(tnt.id)}
-                                                className={`text-xs px-3 py-1.5 rounded-lg border transition-all shadow-sm flex items-center justify-center gap-1 min-w-[100px] ${tnt.sms_approved
+                                                className={`text-xs px-3 py-1.5 rounded-lg border transition-all shadow-sm flex items-center justify-center gap-1 min-w-[100px] ${tnt.smsApproved
                                                     ? 'bg-purple-50 text-purple-700 border-purple-200 hover:bg-purple-100'
                                                     : 'bg-white text-slate-600 hover:bg-slate-50 border-slate-200'
                                                     }`}
@@ -305,7 +305,7 @@ export default function SystemAdminTenantsPage() {
                                                 ) : (
                                                     <Smartphone className="w-3.5 h-3.5" />
                                                 )}
-                                                {tnt.sms_approved ? 'Disable SMS' : 'Enable SMS'}
+                                                {tnt.smsApproved ? 'Disable SMS' : 'Enable SMS'}
                                             </button>
 
                                             <div className="relative">

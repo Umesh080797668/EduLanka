@@ -203,7 +203,7 @@ describe('TenantService', () => {
             await expect(
                 service.updateStatus(
                     'aaaabbbb-0000-0000-0000-000000000001',
-                    TenantStatus.SUSPENDED,
+                    { status: TenantStatus.SUSPENDED },
                     schoolAdminCaller,
                 ),
             ).rejects.toThrow(ForbiddenException);
@@ -215,7 +215,7 @@ describe('TenantService', () => {
             }));
             const result = await service.updateStatus(
                 'aaaabbbb-0000-0000-0000-000000000001',
-                TenantStatus.SUSPENDED,
+                { status: TenantStatus.SUSPENDED },
                 superAdminCaller,
             );
             expect(result.status).toBe(TenantStatus.SUSPENDED);

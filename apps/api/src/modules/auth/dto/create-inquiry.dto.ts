@@ -1,10 +1,12 @@
-import { IsNotEmpty, IsString, IsUUID } from 'class-validator';
+import { IsNotEmpty, IsString } from 'class-validator';
 
 export class CreateInquiryDto {
-    @IsUUID()
+    @IsString()
+    @IsNotEmpty()
     tenantId!: string;
 
-    @IsUUID()
+    @IsString()
+    @IsNotEmpty()
     userId!: string;
 
     @IsString()
