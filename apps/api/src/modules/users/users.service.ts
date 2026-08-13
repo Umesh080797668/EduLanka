@@ -240,6 +240,16 @@ export class UsersService {
 
         if (error) throw new InternalServerErrorException(`Failed to set user activation to ${isActive}`);
         if (!data) throw new NotFoundException(`User ${id} not found`);
+
+        // Automatically resolve pending inquiries if the account is being reactivated
+        if (isActive) {
+            await this.supabase.adminClient
+                .from('deactivation_inquiries')
+                .update({ status: 'RESOLVED' })
+                .eq('user_id', id)
+                .eq('status', 'PENDING');
+        }
+
         return data;
     }
 

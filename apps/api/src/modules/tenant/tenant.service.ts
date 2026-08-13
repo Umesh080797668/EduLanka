@@ -226,6 +226,15 @@ export class TenantService {
             throw new NotFoundException(`Tenant ${id} not found`);
         }
 
+        // Automatically resolve pending inquiries if the tenant is reactivated
+        if (dto.status === TenantStatus.ACTIVE) {
+            await this.supabase.adminClient
+                .from('deactivation_inquiries')
+                .update({ status: 'RESOLVED' })
+                .eq('tenant_id', id)
+                .eq('status', 'PENDING');
+        }
+
         return this.rowToTenant(data as TenantRow);
     }
 }

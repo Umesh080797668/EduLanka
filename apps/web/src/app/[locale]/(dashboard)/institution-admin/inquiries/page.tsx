@@ -2,24 +2,46 @@
 
 import { useState, useEffect } from 'react';
 import { useTranslations } from 'next-intl';
-import { fetchInquiries, RequestOpts } from '@/lib/api/school';
+import { fetchInquiries, updateInquiryStatus, RequestOpts } from '@/lib/api/school';
+import { Loader2, Check, X } from 'lucide-react';
 
 export default function InquiriesPage() {
     const t = useTranslations('Inquiries');
     const [inquiries, setInquiries] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
+    const [actionLoading, setActionLoading] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
 
-    useEffect(() => {
+    const safeFetch = () => {
         const opts: RequestOpts = {
             token: localStorage.getItem('token') || '',
             tenantId: localStorage.getItem('tenantId') || ''
         };
-        fetchInquiries(opts)
+        return fetchInquiries(opts)
             .then(data => setInquiries(data))
             .catch(err => setError(err.message))
             .finally(() => setLoading(false));
+    };
+
+    useEffect(() => {
+        safeFetch();
     }, []);
+
+    const handleUpdateStatus = async (id: string, newStatus: 'RESOLVED' | 'REJECTED') => {
+        setActionLoading(id);
+        const opts: RequestOpts = {
+            token: localStorage.getItem('token') || '',
+            tenantId: localStorage.getItem('tenantId') || ''
+        };
+        try {
+            await updateInquiryStatus(id, newStatus, opts);
+            await safeFetch();
+        } catch (err: any) {
+            setError(err.message || 'Failed to update status');
+        } finally {
+            setActionLoading(null);
+        }
+    };
 
     if (loading) return <div style={{ padding: '2rem', textAlign: 'center' }}>Loading...</div>;
     if (error) return <div style={{ padding: '2rem', color: '#b91c1c' }}>Error: {error}</div>;
@@ -45,6 +67,7 @@ export default function InquiriesPage() {
                             <th style={{ padding: '1rem', fontSize: '0.875rem', fontWeight: 600, color: '#374151', width: '30%' }}>{t('message')}</th>
                             <th style={{ padding: '1rem', fontSize: '0.875rem', fontWeight: 600, color: '#374151' }}>{t('status')}</th>
                             <th style={{ padding: '1rem', fontSize: '0.875rem', fontWeight: 600, color: '#374151' }}>{t('date')}</th>
+                            <th style={{ padding: '1rem', fontSize: '0.875rem', fontWeight: 600, color: '#374151', textAlign: 'right' }}>Actions</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -81,6 +104,34 @@ export default function InquiriesPage() {
                                 </td>
                                 <td style={{ padding: '1rem', fontSize: '0.875rem', color: '#6b7280' }}>
                                     {new Date(inq.created_at).toLocaleDateString()}
+                                </td>
+                                <td style={{ padding: '1rem', textAlign: 'right' }}>
+                                    {inq.status === 'PENDING' && (
+                                        <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
+                                            <button
+                                                disabled={actionLoading === inq.id}
+                                                onClick={() => handleUpdateStatus(inq.id, 'RESOLVED')}
+                                                style={{
+                                                    padding: '0.4rem', background: '#dcfce7', color: '#166534',
+                                                    borderRadius: '6px', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', opacity: actionLoading === inq.id ? 0.5 : 1
+                                                }}
+                                                title="Resolve"
+                                            >
+                                                {actionLoading === inq.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+                                            </button>
+                                            <button
+                                                disabled={actionLoading === inq.id}
+                                                onClick={() => handleUpdateStatus(inq.id, 'REJECTED')}
+                                                style={{
+                                                    padding: '0.4rem', background: '#fee2e2', color: '#991b1b',
+                                                    borderRadius: '6px', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', opacity: actionLoading === inq.id ? 0.5 : 1
+                                                }}
+                                                title="Reject"
+                                            >
+                                                {actionLoading === inq.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <X className="w-4 h-4" />}
+                                            </button>
+                                        </div>
+                                    )}
                                 </td>
                             </tr>
                         )) : (

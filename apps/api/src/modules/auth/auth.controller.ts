@@ -9,6 +9,9 @@ import {
     HttpStatus,
     UseGuards,
     Version,
+    Patch,
+    Param,
+    ParseUUIDPipe,
 } from '@nestjs/common';
 import {
     ApiTags,
@@ -29,6 +32,7 @@ import { LoginDto } from './dto/login.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { SignupDto } from './dto/signup.dto';
+import { UpdateInquiryStatusDto } from './dto/update-inquiry-status.dto';
 import { CreateInquiryDto } from './dto/create-inquiry.dto';
 
 @ApiTags('auth')
@@ -131,5 +135,21 @@ export class AuthController {
     @ApiOkResponse({ description: 'List of inquiries' })
     getInquiries(@CurrentUser() user: JwtPayload) {
         return this.authService.getInquiries(user);
+    }
+
+    // ── PATCH /auth/inquiries/:id/status ───────────────────────────────────────
+    @Patch('inquiries/:id/status')
+    @Version('1')
+    @UseGuards(JwtAuthGuard, RolesGuard)
+    @Roles(UserRole.SCHOOL_ADMIN, UserRole.SUPER_ADMIN)
+    @ApiBearerAuth()
+    @ApiOperation({ summary: 'Update deactivation inquiry status (Admins only)' })
+    @ApiOkResponse({ description: 'Inquiry successfully updated' })
+    updateInquiryStatus(
+        @Param('id', ParseUUIDPipe) id: string,
+        @Body() dto: UpdateInquiryStatusDto,
+        @CurrentUser() user: JwtPayload
+    ) {
+        return this.authService.updateInquiryStatus(id, dto, user);
     }
 }

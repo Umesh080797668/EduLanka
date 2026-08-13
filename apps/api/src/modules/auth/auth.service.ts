@@ -162,6 +162,40 @@ export class AuthService {
         return data;
     }
 
+    async updateInquiryStatus(id: string, dto: any, caller: JwtPayload): Promise<{ success: boolean }> {
+        // Enforce RBAC
+        if (caller.role !== UserRole.SUPER_ADMIN && caller.role !== UserRole.SCHOOL_ADMIN) {
+            throw new ForbiddenException('Only admins can update inquiries');
+        }
+
+        // Verify the inquiry exists and belongs to the caller's tenant if SCHOOL_ADMIN
+        const { data: inquiry, error: findError } = await this.supabaseService.adminClient
+            .from('deactivation_inquiries')
+            .select('id, tenant_id')
+            .eq('id', id)
+            .maybeSingle();
+
+        if (findError || !inquiry) {
+            throw new NotFoundException('Inquiry not found');
+        }
+
+        if (caller.role === UserRole.SCHOOL_ADMIN && inquiry.tenant_id !== caller.tenantId) {
+            throw new ForbiddenException('You cannot update inquiries outside your institution');
+        }
+
+        const { error: updateError } = await this.supabaseService.adminClient
+            .from('deactivation_inquiries')
+            .update({ status: dto.status })
+            .eq('id', id);
+
+        if (updateError) {
+            this.logger.error(`Failed to update inquiry status: ${updateError.message}`);
+            throw new InternalServerErrorException('Failed to update inquiry status');
+        }
+
+        return { success: true };
+    }
+
     /**
      * POST /auth/login
      * Validate credentials via Supabase, confirm tenant membership, issue JWT pair.

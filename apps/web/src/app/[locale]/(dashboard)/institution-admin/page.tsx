@@ -80,7 +80,7 @@ export default function InstitutionAdminDashboard() {
                                 {t('dashboardSubtitle')}
                             </p>
                             <div className="flex gap-4">
-                                <Link href="/institution-admin/users" id="nav-users">
+                                <Link href="/institution-admin/students" id="nav-users">
                                     <button className="bg-white text-indigo-950 px-5 py-2.5 rounded-lg font-semibold hover:bg-indigo-50 transition-colors shadow-sm flex items-center gap-2">
                                         <Users className="w-4 h-4" />
                                         {t('manageUsers')}
@@ -137,7 +137,7 @@ export default function InstitutionAdminDashboard() {
                         </h3>
                     </div>
                     <div className="divide-y divide-slate-100">
-                        <Link href="/institution-admin/users" className="flex items-center justify-between p-4 hover:bg-slate-50 transition-colors group">
+                        <Link href="/institution-admin/students" className="flex items-center justify-between p-4 hover:bg-slate-50 transition-colors group">
                             <div className="flex items-center gap-4">
                                 <div className="w-10 h-10 bg-slate-100 rounded-lg flex items-center justify-center text-slate-600 group-hover:bg-indigo-50 group-hover:text-indigo-600 transition-colors">
                                     <Users className="w-5 h-5" />

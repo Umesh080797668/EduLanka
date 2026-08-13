@@ -166,3 +166,6 @@ export const deleteGrade = (id: string, opts: RequestOpts) =>
 // -----------------------------------------------------------------------------
 export const fetchInquiries = (opts: RequestOpts) =>
     apiClient.get<any[]>('/auth/inquiries', opts);
+
+export const updateInquiryStatus = (id: string, status: 'RESOLVED' | 'REJECTED', opts: RequestOpts) =>
+    apiClient.patch(`/auth/inquiries/${id}/status`, { status }, opts);
