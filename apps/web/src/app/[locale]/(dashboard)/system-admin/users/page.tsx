@@ -1,9 +1,9 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { fetchGlobalUsers, setUserActive, toggleTenantSms, RequestOpts } from '@/lib/api/school';
+import { fetchGlobalUsers, setUserActive, RequestOpts } from '@/lib/api/school';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Users, Search, Loader2, ShieldCheck, CheckCircle2, XCircle, MoreVertical, Database, Smartphone } from 'lucide-react';
+import { Users, Search, Loader2, ShieldCheck, CheckCircle2, XCircle, MoreVertical, Database } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { useSearchParams } from 'next/navigation';
 
@@ -62,19 +62,6 @@ export default function SystemAdminUsersPage() {
     const handleActionClick = (user: any) => {
         if (user.role === 'SUPER_ADMIN') return;
         setUserToConfirm(user);
-    };
-
-    const handleSmsToggle = async (tenantId: string) => {
-        setActionLoading(`sms-${tenantId}`);
-        const opts: RequestOpts = { token: localStorage.getItem('token') || '', tenantId: localStorage.getItem('tenantId') || '' };
-        try {
-            await toggleTenantSms(tenantId, opts);
-            await refreshUsers();
-        } catch (e: any) {
-            setError(e.message || 'Failed to toggle SMS feature');
-        } finally {
-            setActionLoading(null);
-        }
     };
 
     const filteredUsers = users.filter(u =>
@@ -246,24 +233,6 @@ export default function SystemAdminUsersPage() {
                                                 <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-slate-100 text-slate-700 text-xs font-semibold font-mono">
                                                     {user.tenants?.slug || 'SysRoot'}
                                                 </span>
-                                                {user.tenants && (
-                                                    <button
-                                                        disabled={actionLoading === `sms-${user.tenants.id}`}
-                                                        onClick={() => handleSmsToggle(user.tenants.id)}
-                                                        className={`text-[10px] px-2 py-0.5 rounded-full border transition-all flex items-center justify-center gap-1 ${user.tenants.sms_approved
-                                                            ? 'bg-purple-50 text-purple-700 border-purple-200 hover:bg-purple-100'
-                                                            : 'bg-slate-50 text-slate-500 border-slate-200 hover:bg-slate-100'
-                                                            }`}
-                                                        title="Toggle Tenant SMS System Limits"
-                                                    >
-                                                        {actionLoading === `sms-${user.tenants.id}` ? (
-                                                            <Loader2 className="w-3 h-3 animate-spin" />
-                                                        ) : (
-                                                            <Smartphone className="w-3 h-3" />
-                                                        )}
-                                                        {user.tenants.sms_approved ? 'SMS OK' : 'SMS OFF'}
-                                                    </button>
-                                                )}
                                             </div>
                                         </td>
                                         <td className="px-6 py-4">

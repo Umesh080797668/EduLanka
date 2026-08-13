@@ -33,6 +33,7 @@ interface TenantRow {
     address_district: string | null;
     address_province: string | null;
     address_postal: string | null;
+    sms_approved: boolean;
     created_at: string;
     updated_at: string;
 }
@@ -58,6 +59,7 @@ export class TenantService {
             logoUrl: row.logo_url ?? undefined,
             contactEmail: row.contact_email,
             phoneNumber: row.phone_number ?? undefined,
+            smsApproved: row.sms_approved ?? false,
             address: row.address_city
                 ? {
                     street: row.address_street ?? undefined,

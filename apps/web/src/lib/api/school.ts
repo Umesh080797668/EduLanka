@@ -152,5 +152,8 @@ export const updateGrade = (id: string, data: any, opts: RequestOpts) =>
 export const fetchTenants = (opts: RequestOpts) =>
     apiClient.get<any[]>('/tenants', opts);
 
+export const fetchTenant = (id: string, opts: RequestOpts) =>
+    apiClient.get<any>(`/tenants/${id}`, opts);
+
 export const deleteGrade = (id: string, opts: RequestOpts) =>
     apiClient.delete(`/grades/${id}`, opts);

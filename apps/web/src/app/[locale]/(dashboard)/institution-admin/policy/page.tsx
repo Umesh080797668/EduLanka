@@ -1,8 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { fetchPolicy, updatePolicy, RequestOpts } from '@/lib/api/school';
-import type { SchoolPolicy } from '@edu-lanka/shared-types';
+import { fetchPolicy, updatePolicy, fetchTenant, RequestOpts } from '@/lib/api/school';
+import type { SchoolPolicy, Tenant } from '@edu-lanka/shared-types';
 import { motion } from 'framer-motion';
 import { Settings, Save, CheckCircle2, AlertCircle, Loader2, Clock, MapPin, Building2, Languages } from 'lucide-react';
 import { TutorialProvider } from '@/components/TutorialProvider';
@@ -12,6 +12,7 @@ import { useTranslations } from 'next-intl';
 export default function SchoolPolicyPage() {
     const t = useTranslations('InstitutionAdminPolicy');
     const [, setPolicy] = useState<SchoolPolicy | null>(null);
+    const [tenant, setTenant] = useState<Tenant | null>(null);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -21,15 +22,24 @@ export default function SchoolPolicyPage() {
     const [formData, setFormData] = useState<Partial<SchoolPolicy>>({});
 
     useEffect(() => {
-        const opts: RequestOpts = { token: localStorage.getItem('token') || '', tenantId: localStorage.getItem('tenantId') || '' };
-        fetchPolicy(opts)
-            .then((data) => {
-                setPolicy(data);
-                setFormData(data);
-            })
-            .catch((err) => setError(err.message))
-            .finally(() => setLoading(false));
-    }, []);
+        const load = async () => {
+            const opts: RequestOpts = { token: localStorage.getItem('token') || '', tenantId: localStorage.getItem('tenantId') || '' };
+            try {
+                const tenantId = localStorage.getItem('tenantId') || '';
+                const [policyData, tenantData] = await Promise.all([
+                    fetchPolicy(opts),
+                    fetchTenant(tenantId, opts)
+                ]);
+                setTenant(tenantData);
+                setFormData(policyData || {});
+            } catch (err: any) {
+                setError(err.message || t('fetchError'));
+            } finally {
+                setLoading(false);
+            }
+        };
+        load();
+    }, [t]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -244,16 +254,32 @@ export default function SchoolPolicyPage() {
                                 </div>
                             </label>
 
-                            <label className="flex items-center gap-4 p-4 rounded-xl border border-slate-200 hover:border-indigo-300 hover:bg-slate-50 transition-colors cursor-pointer group">
+                            <label className={`flex items-center gap-4 p-4 rounded-xl border transition-colors group ${!tenant?.smsApproved ? 'opacity-50 cursor-not-allowed bg-slate-50 border-slate-200' : 'border-slate-200 hover:border-indigo-300 hover:bg-slate-50 cursor-pointer'}`}>
                                 <input
                                     type="checkbox"
-                                    checked={formData.sms_enabled || false}
-                                    onChange={e => setFormData({ ...formData, sms_enabled: e.target.checked })}
-                                    className="w-5 h-5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                                    checked={tenant?.smsApproved ? (formData.sms_enabled || false) : false}
+                                    onChange={e => {
+                                        if (tenant?.smsApproved) {
+                                            setFormData({ ...formData, sms_enabled: e.target.checked });
+                                        }
+                                    }}
+                                    disabled={!tenant?.smsApproved}
+                                    className="w-5 h-5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 disabled:opacity-50"
                                 />
                                 <div>
-                                    <span className="block font-semibold text-slate-800 group-hover:text-indigo-900 transition-colors">{t('smsNotifications')}</span>
-                                    <span className="text-sm text-slate-500">{t('smsNotificationsDesc')}</span>
+                                    <span className="block font-semibold text-slate-800 transition-colors">
+                                        {t('smsNotifications')}
+                                        {!tenant?.smsApproved && (
+                                            <span className="ml-2 text-[10px] uppercase font-bold tracking-wider text-rose-600 bg-rose-100 px-1.5 py-0.5 rounded">
+                                                System Locked
+                                            </span>
+                                        )}
+                                    </span>
+                                    <span className="text-sm text-slate-500">
+                                        {!tenant?.smsApproved
+                                            ? 'Blocked by System Admin. Upgrade plan to unlock SMS features.'
+                                            : t('smsNotificationsDesc')}
+                                    </span>
                                 </div>
                             </label>
                         </div>

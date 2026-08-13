@@ -35,6 +35,7 @@ export interface Tenant {
     logoUrl?: string;
     contactEmail: string;
     phoneNumber?: string;
+    smsApproved?: boolean; // System Admin controlled — whether SMS features are enabled for this tenant
     address?: TenantAddress;
     createdAt: string; // ISO-8601
     updatedAt: string;
