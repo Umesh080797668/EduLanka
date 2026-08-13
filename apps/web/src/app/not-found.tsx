@@ -24,7 +24,7 @@ export default function NotFoundPage() {
                     {t('description')}
                 </p>
                 <a
-                    href="/"
+                    href="/en"
                     style={{
                         color: 'var(--color-brand-500)',
                         textDecoration: 'underline',

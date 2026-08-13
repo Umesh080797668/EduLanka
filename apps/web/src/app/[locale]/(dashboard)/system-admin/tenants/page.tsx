@@ -39,10 +39,22 @@ export default function SystemAdminTenantsPage() {
     const handleSmsToggle = async (tenantId: string) => {
         setActionLoading(`sms-${tenantId}`);
         const opts: RequestOpts = { token: localStorage.getItem('token') || '', tenantId: localStorage.getItem('tenantId') || '' };
+
+        // Find current status to rollback if error
+        const targetTenant = tenants.find(t => t.id === tenantId);
+        if (!targetTenant) return;
+        const currentToggle = targetTenant.sms_approved;
+
+        // Optimistic UI Update
+        setTenants(prev => prev.map(t => t.id === tenantId ? { ...t, sms_approved: !currentToggle } : t));
+
         try {
             await toggleTenantSms(tenantId, opts);
-            await refreshTenants();
+            // Optionally refresh silently in background 
+            refreshTenants();
         } catch (e: any) {
+            // Rollback on fail
+            setTenants(prev => prev.map(t => t.id === tenantId ? { ...t, sms_approved: currentToggle } : t));
             setError(e.message || 'Failed to toggle SMS feature');
         } finally {
             setActionLoading(null);

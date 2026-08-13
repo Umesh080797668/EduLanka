@@ -11,7 +11,10 @@ import {
     LogOut,
     Server,
     X,
-    Building2
+    Building2,
+    UserCheck,
+    UserCog,
+    Baby
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -32,6 +35,11 @@ const NAV_ITEMS = {
     ],
     SCHOOL_ADMIN: [
         { nameKey: 'dashboard', href: '/institution-admin', icon: LayoutDashboard },
+        { nameKey: 'classes', href: '/institution-admin/classes', icon: BookOpen },
+        { nameKey: 'grades', href: '/institution-admin/grades', icon: GraduationCap },
+        { nameKey: 'students', href: '/institution-admin/students', icon: Baby },
+        { nameKey: 'teachers', href: '/institution-admin/teachers', icon: UserCog },
+        { nameKey: 'parents', href: '/institution-admin/parents', icon: UserCheck },
         { nameKey: 'users', href: '/institution-admin/users', icon: Users },
         { nameKey: 'policy', href: '/institution-admin/policy', icon: Settings },
     ],

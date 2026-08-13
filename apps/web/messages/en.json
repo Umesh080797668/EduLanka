@@ -15,6 +15,11 @@
         "users": "Users",
         "tenants": "Tenants",
         "policy": "Policy",
+        "students": "Students",
+        "teachers": "Teachers",
+        "parents": "Parents",
+        "classes": "Classes",
+        "grades": "Grades & Reports",
         "signOut": "Sign Out"
     },
     "Header": {

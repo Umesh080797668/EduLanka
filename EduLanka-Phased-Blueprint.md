@@ -256,3 +256,15 @@ This is the eventual Free/Pro matrix once all phases ship. In practice, Pro-tier
 - **Phase 5:** Scikit-learn / XGBoost for Early Warning and Exam Prediction models, served alongside the FastAPI AI engine.
 - **Phase 6:** Google OR-Tools (Smart Timetable Generator), ClickHouse (Ministry Data Warehouse / OLAP), Prometheus, Grafana, OpenTelemetry, Sentry (national-scale observability).
 - **Cross-cutting (all phases):** tour/coach-mark libraries (e.g., driver.js / Shepherd.js / react-joyride for web, tutorial_coach_mark or a custom overlay for Flutter), a central structured tutorial-content store (screen → steps → copy → media, translatable into Sinhala/Tamil/English), and bundled offline tutorial assets for mobile.
+
+
+### Later Enhancements 
+**1. National School Leaderboard & Analytics (Gamification)**
+   - **Metrics Engine:** A nightly background worker (`Cron/BullMQ`) that synthesizes daily attendance arrays, assignment completion velocities, and standardized term test curves into a normalized "School Engagement Score" (SES).
+   - **Architecture:** Utilizing the ClickHouse OLAP cluster, cross-tenant telemetry is pulled seamlessly without degrading operational database performance. 
+   - **UX:** A public or Ministry-level dashboard plotting the Top 50 schools nationally or provincially, granting awards (badges) that render on the School's profile across the mobile and web portals to encourage institutional competitiveness and transparency.
+
+**2. Inter-School Event Grids (Multi-Tenant Hubs)**
+   - **Cross-Schema Collaboration:** Breaking the rigid RLS isolation temporarily via `Event Hubs` where multiple `tenant_id` pools can register participants.
+   - **Use Cases:** Regional sports meets, national debates, and inter-district hackathons. 
+   - **Data Flow:** A specialized `public.events` global table that utilizes Foreign Keys tracking the `tenant_id` of the hosting school and JSONB arrays storing the `user_id` mapped identities of participating guest schools, generating universal QR tickets and global push notifications.

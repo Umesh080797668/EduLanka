@@ -209,7 +209,8 @@ export class UsersService {
             .from('users')
             .update({
                 ...(dto.fullName && { full_name: dto.fullName }),
-                ...(dto.phoneNumber && { phone_number: dto.phoneNumber }),
+                ...(dto.phoneNumber !== undefined && { phone_number: dto.phoneNumber }),
+                ...(dto.avatarUrl !== undefined && { avatar_url: dto.avatarUrl }),
             })
             .eq('id', id)
             .select()

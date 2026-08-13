@@ -1,7 +1,7 @@
 'use client';
 
 import { Bell, Search, User, Menu } from 'lucide-react';
-import { usePathname, useRouter } from 'next/navigation';
+import { usePathname, useRouter } from '@/i18n/routing';
 import { motion } from 'framer-motion';
 import { useEffect, useState, useRef } from 'react';
 import { useTranslations } from 'next-intl';

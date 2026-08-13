@@ -39,13 +39,30 @@ export default function SchoolPolicyPage() {
 
         const opts: RequestOpts = { token: localStorage.getItem('token') || '', tenantId: localStorage.getItem('tenantId') || '' };
         try {
-            // Strip out read-only fields to bypass NestJS ValidationPipe whitelisting
+            // Strip out read-only fields and remap strictly to camelCase for DTO ValidationPipe
             const {
-                id, tenant_id, created_at, updated_at,
-                ...validPayload
+                id: _id, tenant_id: _tenant_id, created_at: _created_at, updated_at: _updated_at,
+                academic_year, max_students_per_class, allow_self_enrollment,
+                sms_enabled, default_language, supported_mediums,
+                school_hours_start, school_hours_end, timezone
             } = formData as any;
 
-            const updated = await updatePolicy(validPayload, opts);
+            const dtoPayload = {
+                academicYear: academic_year ? Number(academic_year) : undefined,
+                maxStudentsPerClass: max_students_per_class ? Number(max_students_per_class) : undefined,
+                allowSelfEnrollment: allow_self_enrollment,
+                smsEnabled: sms_enabled,
+                defaultLanguage: default_language,
+                supportedMediums: supported_mediums,
+                schoolHoursStart: school_hours_start,
+                schoolHoursEnd: school_hours_end,
+                timezone: timezone
+            };
+
+            // Purge undefined values
+            const cleanPayload = Object.fromEntries(Object.entries(dtoPayload).filter(([_, v]) => v !== undefined));
+
+            const updated = await updatePolicy(cleanPayload, opts);
             setPolicy(updated);
             setSuccess(t('successMsg'));
             setTimeout(() => setSuccess(null), 4000);
