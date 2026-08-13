@@ -32,7 +32,7 @@ export class GradesService {
         const db = this.supabase.getTenantClient(slug);
 
         const { data, error } = await db
-            .from('grades')
+            .from('grades_config')
             .insert({
                 level: dto.level,
                 name: dto.name,
@@ -54,7 +54,7 @@ export class GradesService {
         const db = this.supabase.getTenantClient(slug);
 
         const { data, error } = await db
-            .from('grades')
+            .from('grades_config')
             .select('*')
             .order('level', { ascending: true });
 
@@ -70,7 +70,7 @@ export class GradesService {
         const db = this.supabase.getTenantClient(slug);
 
         const { data, error } = await db
-            .from('grades')
+            .from('grades_config')
             .select('*')
             .eq('id', id)
             .maybeSingle();
@@ -92,7 +92,7 @@ export class GradesService {
         if (dto.isActive !== undefined) updates.is_active = dto.isActive;
 
         const { data, error } = await db
-            .from('grades')
+            .from('grades_config')
             .update(updates)
             .eq('id', id)
             .select()
@@ -112,7 +112,7 @@ export class GradesService {
         const db = this.supabase.getTenantClient(slug);
 
         const { error, count } = await db
-            .from('grades')
+            .from('grades_config')
             .delete({ count: 'exact' })
             .eq('id', id);
 

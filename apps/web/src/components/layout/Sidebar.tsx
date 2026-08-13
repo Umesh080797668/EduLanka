@@ -20,6 +20,7 @@ import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTranslations } from 'next-intl';
 import { useSidebar } from './SidebarContext';
+import { LanguageSwitcher } from '@/components/ui/LanguageSwitcher';
 
 const NAV_ITEMS = {
     STUDENT: [
@@ -40,7 +41,6 @@ const NAV_ITEMS = {
         { nameKey: 'students', href: '/institution-admin/students', icon: Baby },
         { nameKey: 'teachers', href: '/institution-admin/teachers', icon: UserCog },
         { nameKey: 'parents', href: '/institution-admin/parents', icon: UserCheck },
-        { nameKey: 'users', href: '/institution-admin/users', icon: Users },
         { nameKey: 'policy', href: '/institution-admin/policy', icon: Settings },
     ],
     SUPER_ADMIN: [
@@ -121,7 +121,8 @@ export default function Sidebar() {
                 })}
             </nav>
 
-            <div className="p-4 border-t border-slate-800">
+            <div className="p-4 border-t border-slate-800 space-y-3">
+                <LanguageSwitcher />
                 <button
                     onClick={() => {
                         localStorage.clear();

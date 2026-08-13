@@ -45,13 +45,12 @@ export default function SystemAdminTenantsPage() {
         if (!targetTenant) return;
         const currentToggle = targetTenant.sms_approved;
 
-        // Optimistic UI Update
+        // Optimistic UI Update — instant visual feedback
         setTenants(prev => prev.map(t => t.id === tenantId ? { ...t, sms_approved: !currentToggle } : t));
 
         try {
             await toggleTenantSms(tenantId, opts);
-            // Optionally refresh silently in background 
-            refreshTenants();
+            // No silent refresh — optimistic state is the source of truth
         } catch (e: any) {
             // Rollback on fail
             setTenants(prev => prev.map(t => t.id === tenantId ? { ...t, sms_approved: currentToggle } : t));
