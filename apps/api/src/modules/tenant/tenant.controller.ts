@@ -58,6 +58,10 @@ export class CreateTenantDto {
 export class UpdateTenantStatusDto {
     @IsEnum(TenantStatus)
     status!: TenantStatus;
+
+    @IsString()
+    @IsOptional()
+    deactivationReason?: string;
 }
 
 // ── Controller ────────────────────────────────────────────────────────────────
@@ -134,6 +138,6 @@ export class TenantController {
         @Body() dto: UpdateTenantStatusDto,
         @CurrentUser() user: JwtPayload,
     ) {
-        return this.tenantService.updateStatus(id, dto.status, user);
+        return this.tenantService.updateStatus(id, dto, user);
     }
 }

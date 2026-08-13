@@ -16,6 +16,8 @@ export default function SystemAdminUsersPage() {
     const [actionLoading, setActionLoading] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [userToConfirm, setUserToConfirm] = useState<any | null>(null);
+    const [deactivationReason, setDeactivationReason] = useState('');
+    const [activeStep, setActiveStep] = useState<1 | 2>(1);
     const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
     const [auditLogTarget, setAuditLogTarget] = useState<any | null>(null);
 
@@ -48,13 +50,15 @@ export default function SystemAdminUsersPage() {
         const opts: RequestOpts = { token: localStorage.getItem('token') || '', tenantId: targetTenantId };
 
         try {
-            await setUserActive(userToConfirm.id, !userToConfirm.is_active, opts);
+            await setUserActive(userToConfirm.id, !userToConfirm.is_active, opts, deactivationReason);
             await refreshUsers();
         } catch (e: any) {
             setError(e.message || 'Failed to update user status');
         } finally {
             setActionLoading(null);
             setUserToConfirm(null);
+            setDeactivationReason('');
+            setActiveStep(1);
             setActiveDropdown(null);
         }
     };
@@ -62,6 +66,8 @@ export default function SystemAdminUsersPage() {
     const handleActionClick = (user: any) => {
         if (user.role === 'SUPER_ADMIN') return;
         setUserToConfirm(user);
+        setDeactivationReason('');
+        setActiveStep(1);
     };
 
     const filteredUsers = users.filter(u =>
@@ -117,27 +123,67 @@ export default function SystemAdminUsersPage() {
                                 <h3 className="text-xl font-bold text-slate-900 mb-2">
                                     {userToConfirm.is_active ? 'Deactivate User?' : 'Reactivate User?'}
                                 </h3>
-                                <p className="text-slate-500 text-sm mb-6">
-                                    Are you sure you want to {userToConfirm.is_active ? 'deactivate' : 'reactivate'} the account for <strong className="text-slate-700">{userToConfirm.full_name}</strong>?
-                                    {userToConfirm.is_active ? ' They will instantly lose access to the EduLanka portal.' : ' They will regain portal access.'}
-                                </p>
-                                <div className="flex gap-3 justify-end">
-                                    <button
-                                        onClick={() => setUserToConfirm(null)}
-                                        className="px-4 py-2 hover:bg-slate-100 text-slate-700 rounded-lg font-medium transition-colors"
-                                    >
-                                        Cancel
-                                    </button>
-                                    <button
-                                        onClick={confirmToggleStatus}
-                                        disabled={actionLoading === userToConfirm.id}
-                                        className={`px-4 py-2 text-white rounded-lg font-medium transition-colors flex items-center gap-2 ${userToConfirm.is_active ? 'bg-rose-600 hover:bg-rose-700' : 'bg-emerald-600 hover:bg-emerald-700'
-                                            }`}
-                                    >
-                                        {actionLoading === userToConfirm.id ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
-                                        {userToConfirm.is_active ? 'Yes, Deactivate' : 'Yes, Reactivate'}
-                                    </button>
-                                </div>
+
+                                {activeStep === 1 && (
+                                    <>
+                                        <p className="text-slate-500 text-sm mb-6">
+                                            Are you sure you want to {userToConfirm.is_active ? 'deactivate' : 'reactivate'} the account for <strong className="text-slate-700">{userToConfirm.full_name}</strong>?
+                                            {userToConfirm.is_active ? ' They will instantly lose access to the EduLanka portal.' : ' They will regain portal access.'}
+                                        </p>
+                                        <div className="flex gap-3 justify-end">
+                                            <button
+                                                onClick={() => setUserToConfirm(null)}
+                                                className="px-4 py-2 hover:bg-slate-100 text-slate-700 rounded-lg font-medium transition-colors"
+                                            >
+                                                Cancel
+                                            </button>
+                                            <button
+                                                onClick={() => {
+                                                    if (userToConfirm.is_active) {
+                                                        setActiveStep(2);
+                                                    } else {
+                                                        confirmToggleStatus();
+                                                    }
+                                                }}
+                                                className={`px-4 py-2 text-white rounded-lg font-medium transition-colors flex items-center gap-2 ${userToConfirm.is_active ? 'bg-rose-600 hover:bg-rose-700' : 'bg-emerald-600 hover:bg-emerald-700'}`}
+                                            >
+                                                {userToConfirm.is_active ? 'Proceed to Deactivate' : 'Yes, Reactivate'}
+                                            </button>
+                                        </div>
+                                    </>
+                                )}
+
+                                {activeStep === 2 && (
+                                    <>
+                                        <p className="text-slate-500 text-sm mb-4">
+                                            Please provide a reason for deactivation (optional). This will be shown to the user if they attempt to log in.
+                                        </p>
+                                        <textarea
+                                            rows={3}
+                                            placeholder="Enter reason..."
+                                            value={deactivationReason}
+                                            onChange={(e) => setDeactivationReason(e.target.value)}
+                                            className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-sm focus:outline-none focus:ring-2 focus:ring-rose-500 mb-6 resize-none"
+                                        />
+                                        <div className="flex gap-3 justify-end">
+                                            <button
+                                                onClick={() => setActiveStep(1)}
+                                                disabled={actionLoading === userToConfirm.id}
+                                                className="px-4 py-2 hover:bg-slate-100 text-slate-700 rounded-lg font-medium transition-colors"
+                                            >
+                                                Back
+                                            </button>
+                                            <button
+                                                onClick={confirmToggleStatus}
+                                                disabled={actionLoading === userToConfirm.id}
+                                                className="px-4 py-2 text-white bg-rose-600 hover:bg-rose-700 rounded-lg font-medium transition-colors flex items-center gap-2"
+                                            >
+                                                {actionLoading === userToConfirm.id ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+                                                Confirm Deactivation
+                                            </button>
+                                        </div>
+                                    </>
+                                )}
                             </motion.div>
                         </div>
                     )}

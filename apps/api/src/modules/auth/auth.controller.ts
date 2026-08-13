@@ -2,6 +2,7 @@ import type { JwtPayload } from '@edu-lanka/shared-types';
 import { UserRole } from '@edu-lanka/shared-types';
 import {
     Controller,
+    Get,
     Post,
     Body,
     HttpCode,
@@ -28,6 +29,7 @@ import { LoginDto } from './dto/login.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { SignupDto } from './dto/signup.dto';
+import { CreateInquiryDto } from './dto/create-inquiry.dto';
 
 @ApiTags('auth')
 @Controller('auth')
@@ -107,5 +109,27 @@ export class AuthController {
     @ApiNoContentResponse({ description: 'Logged out — refresh token revoked' })
     async logout(@CurrentUser() user: JwtPayload, @Body() dto: RefreshTokenDto) {
         await this.authService.logout(user, dto.refreshToken);
+    }
+
+    // ── POST /auth/inquiries ───────────────────────────────────────────────────
+    @Post('inquiries')
+    @Version('1')
+    @HttpCode(HttpStatus.CREATED)
+    @ApiOperation({ summary: 'Submit an inquiry/appeal from a deactivated user account' })
+    @ApiCreatedResponse({ description: 'Inquiry successfully submitted' })
+    submitInquiry(@Body() dto: CreateInquiryDto) {
+        return this.authService.submitInquiry(dto);
+    }
+
+    // ── GET /auth/inquiries ────────────────────────────────────────────────────
+    @Get('inquiries')
+    @Version('1')
+    @UseGuards(JwtAuthGuard, RolesGuard)
+    @Roles(UserRole.SCHOOL_ADMIN, UserRole.SUPER_ADMIN)
+    @ApiBearerAuth()
+    @ApiOperation({ summary: 'List deactivation inquiries (Admins only)' })
+    @ApiOkResponse({ description: 'List of inquiries' })
+    getInquiries(@CurrentUser() user: JwtPayload) {
+        return this.authService.getInquiries(user);
     }
 }

@@ -221,7 +221,7 @@ export class UsersService {
         return data;
     }
 
-    async setActivationStatus(id: string, isActive: boolean, caller: JwtPayload) {
+    async setActivationStatus(id: string, isActive: boolean, caller: JwtPayload, reason?: string) {
         this.guardAdmin(caller);
 
         let db = this.supabase.getTenantClient(caller.tenantId);
@@ -233,7 +233,7 @@ export class UsersService {
 
         const { data, error } = await db
             .from('users')
-            .update({ is_active: isActive })
+            .update({ is_active: isActive, deactivation_reason: isActive ? null : (reason || null) })
             .eq('id', id)
             .select()
             .maybeSingle();

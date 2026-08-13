@@ -64,8 +64,12 @@ export class UsersController {
 
     @Patch(':id/deactivate')
     @ApiOperation({ summary: 'Deactivate a user account (admin only)' })
-    deactivate(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: JwtPayload) {
-        return this.usersService.setActivationStatus(id, false, user);
+    deactivate(
+        @Param('id', ParseUUIDPipe) id: string,
+        @CurrentUser() user: JwtPayload,
+        @Body('deactivationReason') reason?: string
+    ) {
+        return this.usersService.setActivationStatus(id, false, user, reason);
     }
 
     @Patch(':id/reactivate')

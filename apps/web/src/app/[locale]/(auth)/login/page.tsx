@@ -52,9 +52,14 @@ export default function LoginPage() {
                 const errorData = await res.json();
                 const backendMessage = errorData?.error?.message || errorData?.message;
 
-                if (backendMessage && backendMessage.startsWith('User account is deactivated')) {
-                    const role = backendMessage.split(':')[1] || 'STUDENT';
-                    router.push(`/deactivated?role=${role}`);
+                if (backendMessage && backendMessage.startsWith('User account is deactivated|')) {
+                    try {
+                        const payloadStr = backendMessage.split('|')[1];
+                        const payload = JSON.parse(payloadStr);
+                        router.push(`/deactivated?role=${payload.role}&tenantId=${payload.tenantId}&userId=${payload.userId}&reason=${encodeURIComponent(payload.reason || '')}`);
+                    } catch (e) {
+                        router.push(`/deactivated?role=STUDENT`);
+                    }
                     return;
                 }
 

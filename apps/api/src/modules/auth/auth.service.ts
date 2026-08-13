@@ -18,6 +18,7 @@ import type { AppConfiguration } from '../../config/configuration';
 import { RedisService } from '../redis/redis.service';
 import { SupabaseService } from '../supabase/supabase.service';
 import type { SignupDto } from './dto/signup.dto';
+import type { CreateInquiryDto } from './dto/create-inquiry.dto';
 
 export interface TokenPair {
     accessToken: string;
@@ -94,17 +95,72 @@ export class AuthService {
         const tenantClient = this.supabaseService.getTenantClient(tenantId);
         const { data: userData, error: userError } = await tenantClient
             .from('users')
-            .select('id, role, is_active')
+            .select('id, role, is_active, deactivation_reason')
             .eq('user_id', authUid)
             .maybeSingle();
 
         if (userError || !userData) throw new UnauthorizedException('User does not belong to this tenant');
-        if (!userData.is_active) throw new UnauthorizedException(`User account is deactivated:${userData.role}`);
+        if (!userData.is_active) {
+            const payload = JSON.stringify({
+                role: userData.role,
+                tenantId: tenantData.id,
+                userId: userData.id,
+                reason: userData.deactivation_reason
+            });
+            throw new UnauthorizedException(`User account is deactivated|${payload}`);
+        }
 
         return { tenantId: tenantData.id, userId: userData.id as string, role: userData.role as UserRole };
     }
 
     // ── Public API ─────────────────────────────────────────────────────────────
+
+    async submitInquiry(dto: CreateInquiryDto): Promise<{ success: boolean }> {
+        const { error } = await this.supabaseService.adminClient
+            .from('deactivation_inquiries')
+            .insert({
+                tenant_id: dto.tenantId,
+                user_id: dto.userId,
+                role: dto.role,
+                message: dto.message,
+                status: 'PENDING'
+            });
+
+        if (error) {
+            this.logger.error(`Failed to insert deactivation inquiry: ${error.message}`);
+            throw new InternalServerErrorException('Failed to submit inquiry');
+        }
+
+        return { success: true };
+    }
+
+    async getInquiries(user: JwtPayload): Promise<any[]> {
+        const query = this.supabaseService.adminClient
+            .from('deactivation_inquiries')
+            .select(`
+                id,
+                role,
+                message,
+                status,
+                created_at,
+                tenants ( id, name ),
+                users ( id, full_name, email, role )
+            `)
+            .order('created_at', { ascending: false });
+
+        if (user.role !== UserRole.SUPER_ADMIN) {
+            query.eq('tenant_id', user.tenantId);
+        }
+
+        const { data, error } = await query;
+
+        if (error) {
+            this.logger.error(`Failed to fetch inquiries: ${error.message}`);
+            throw new InternalServerErrorException('Failed to fetch inquiries');
+        }
+
+        return data;
+    }
 
     /**
      * POST /auth/login

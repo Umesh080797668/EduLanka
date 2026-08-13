@@ -203,7 +203,7 @@ export class TenantService {
      */
     async updateStatus(
         id: string,
-        status: TenantStatus,
+        dto: { status: TenantStatus, deactivationReason?: string },
         caller: JwtPayload,
     ): Promise<Tenant> {
         if (caller.role !== UserRole.SUPER_ADMIN) {
@@ -212,7 +212,7 @@ export class TenantService {
 
         const { data, error } = await this.supabase.adminClient
             .from('tenants')
-            .update({ status })
+            .update({ status: dto.status, deactivation_reason: dto.deactivationReason || null })
             .eq('id', id)
             .select()
             .maybeSingle();

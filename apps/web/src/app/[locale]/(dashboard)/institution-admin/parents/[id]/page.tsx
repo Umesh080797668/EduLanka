@@ -21,6 +21,12 @@ export default function ParentDetailPage({ params }: { params: { id: string } })
     const [mapping, setMapping] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
+    // Status Modal State
+    const [showStatusModal, setShowStatusModal] = useState(false);
+    const [activeStep, setActiveStep] = useState<1 | 2>(1);
+    const [deactivationReason, setDeactivationReason] = useState('');
+    const [actionLoading, setActionLoading] = useState(false);
+
     const loadData = async () => {
         setLoading(true);
         try {
@@ -69,12 +75,34 @@ export default function ParentDetailPage({ params }: { params: { id: string } })
         }
     };
 
+    const confirmToggleStatus = async () => {
+        if (!parent) return;
+
+        setActionLoading(true);
+        const opts: RequestOpts = { token: localStorage.getItem('token') || '', tenantId: localStorage.getItem('tenantId') || '' };
+        try {
+            const { setUserActive } = await import('@/lib/api/school');
+            await setUserActive(parent.id, !parent.is_active, opts, deactivationReason);
+
+            await loadData();
+        } catch (e: any) {
+            setError(e.message || 'Failed to update user status');
+        } finally {
+            setActionLoading(false);
+            setShowStatusModal(false);
+            setDeactivationReason('');
+            setActiveStep(1);
+        }
+    };
+
     if (loading) return <div style={{ padding: '2rem', textAlign: 'center' }}>{t('loadingParent')}</div>;
     if (error && !parent) return <div style={{ padding: '2rem', color: 'red' }}>Error: {error}</div>;
     if (!parent) return <div style={{ padding: '2rem' }}>{t('parentNotFound')}</div>;
 
     const linkedStudentIds = parent.parent_children?.map(pc => pc.student_id) || [];
     const availableStudents = allStudents.filter(s => !linkedStudentIds.includes(s.id));
+
+    const isActive = parent.is_active;
 
     return (
         <div style={{ maxWidth: '900px', margin: '0 auto' }}>
@@ -85,14 +113,106 @@ export default function ParentDetailPage({ params }: { params: { id: string } })
                 >
                     &larr; {t('backParents')}
                 </button>
-                <h1 style={{ fontSize: '1.8rem', fontWeight: 600, color: '#111827' }}>
-                    {parent.full_name}
-                </h1>
-                <p style={{ color: '#4b5563', marginTop: '0.25rem' }}>
-                    {t('contact')}: {parent.phone_number || parent.email || t('unregistered')}
-                </p>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                    <div>
+                        <h1 style={{ fontSize: '1.8rem', fontWeight: 600, color: '#111827', display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                            {parent.full_name}
+                            <span style={{
+                                padding: '0.25rem 0.6rem',
+                                borderRadius: '9999px',
+                                fontSize: '0.8rem',
+                                fontWeight: 500,
+                                background: isActive ? '#dcfce7' : '#fee2e2',
+                                color: isActive ? '#166534' : '#991b1b',
+                                border: `1px solid ${isActive ? '#bbf7d0' : '#fecaca'}`
+                            }}>
+                                {isActive ? t('active') : t('inactive')}
+                            </span>
+                        </h1>
+                        <p style={{ color: '#4b5563', marginTop: '0.25rem' }}>
+                            {t('contact')}: {parent.phone_number || parent.email || t('unregistered')}
+                        </p>
+                    </div>
+
+                    <button
+                        onClick={() => {
+                            setDeactivationReason('');
+                            setActiveStep(1);
+                            setShowStatusModal(true);
+                        }}
+                        style={{
+                            padding: '0.5rem 1rem',
+                            borderRadius: '6px',
+                            fontSize: '0.875rem',
+                            fontWeight: 500,
+                            cursor: 'pointer',
+                            background: 'white',
+                            border: `1px solid ${isActive ? '#fca5a5' : '#86efac'}`,
+                            color: isActive ? '#dc2626' : '#16a34a'
+                        }}
+                    >
+                        {isActive ? 'Suspend Account' : 'Reactivate Account'}
+                    </button>
+                </div>
                 {error && <div style={{ marginTop: '1rem', padding: '1rem', background: '#fee2e2', color: '#b91c1c', borderRadius: '6px' }}>{error}</div>}
             </div>
+
+            {showStatusModal && (
+                <div style={{ position: 'fixed', inset: 0, zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(15, 23, 42, 0.5)' }}>
+                    <div style={{ background: 'white', borderRadius: '1rem', boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)', maxWidth: '28rem', width: '100%', padding: '1.5rem' }}>
+                        <h3 style={{ fontSize: '1.25rem', fontWeight: 700, color: '#0f172a', marginBottom: '0.5rem' }}>
+                            {isActive ? 'Suspend Parent?' : 'Reactivate Parent?'}
+                        </h3>
+
+                        {activeStep === 1 && (
+                            <>
+                                <p style={{ color: '#64748b', fontSize: '0.875rem', marginBottom: '1.5rem' }}>
+                                    Are you sure you want to {isActive ? 'suspend' : 'reactivate'} the account for <strong>{parent.full_name}</strong>?
+                                    {isActive ? ' They will lose access to the portal immediately.' : ' They will regain portal access.'}
+                                </p>
+                                <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end' }}>
+                                    <button onClick={() => setShowStatusModal(false)} style={{ padding: '0.5rem 1rem', borderRadius: '0.5rem', background: '#f1f5f9', color: '#475569', fontWeight: 500, border: 'none', cursor: 'pointer' }}>
+                                        Cancel
+                                    </button>
+                                    <button
+                                        onClick={() => isActive ? setActiveStep(2) : confirmToggleStatus()}
+                                        style={{ padding: '0.5rem 1rem', borderRadius: '0.5rem', background: isActive ? '#e11d48' : '#059669', color: 'white', fontWeight: 500, border: 'none', cursor: 'pointer' }}
+                                    >
+                                        {isActive ? 'Proceed to Suspend' : 'Yes, Reactivate'}
+                                    </button>
+                                </div>
+                            </>
+                        )}
+
+                        {activeStep === 2 && (
+                            <>
+                                <p style={{ color: '#64748b', fontSize: '0.875rem', marginBottom: '1rem' }}>
+                                    Please provide a reason for suspension (optional). This will be shown to the parent when they try to log in.
+                                </p>
+                                <textarea
+                                    rows={3}
+                                    placeholder="Enter reason..."
+                                    value={deactivationReason}
+                                    onChange={(e) => setDeactivationReason(e.target.value)}
+                                    style={{ width: '100%', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '0.5rem', padding: '0.75rem', fontSize: '0.875rem', marginBottom: '1.5rem', resize: 'none' }}
+                                />
+                                <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end' }}>
+                                    <button onClick={() => setActiveStep(1)} disabled={actionLoading} style={{ padding: '0.5rem 1rem', borderRadius: '0.5rem', background: '#f1f5f9', color: '#475569', fontWeight: 500, border: 'none', cursor: 'pointer' }}>
+                                        Back
+                                    </button>
+                                    <button
+                                        onClick={confirmToggleStatus}
+                                        disabled={actionLoading}
+                                        style={{ padding: '0.5rem 1rem', borderRadius: '0.5rem', background: '#e11d48', color: 'white', fontWeight: 500, border: 'none', cursor: 'pointer', opacity: actionLoading ? 0.7 : 1 }}
+                                    >
+                                        {actionLoading ? 'Saving...' : 'Confirm Suspension'}
+                                    </button>
+                                </div>
+                            </>
+                        )}
+                    </div>
+                </div>
+            )}
 
             <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '2rem' }}>
                 {/* Linked Children List */}

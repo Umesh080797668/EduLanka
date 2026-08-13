@@ -14,7 +14,8 @@ import {
     Building2,
     UserCheck,
     UserCog,
-    Baby
+    Baby,
+    MessageSquare
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -42,11 +43,13 @@ const NAV_ITEMS = {
         { nameKey: 'teachers', href: '/institution-admin/teachers', icon: UserCog },
         { nameKey: 'parents', href: '/institution-admin/parents', icon: UserCheck },
         { nameKey: 'policy', href: '/institution-admin/policy', icon: Settings },
+        { nameKey: 'inquiries', href: '/institution-admin/inquiries', icon: MessageSquare },
     ],
     SUPER_ADMIN: [
         { nameKey: 'dashboard', href: '/system-admin', icon: Server },
         { nameKey: 'tenants', href: '/system-admin/tenants', icon: Building2 },
         { nameKey: 'users', href: '/system-admin/users', icon: Users },
+        { nameKey: 'inquiries', href: '/system-admin/inquiries', icon: MessageSquare },
     ]
 };
 

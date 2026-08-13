@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { fetchTenants, toggleTenantSms, RequestOpts } from '@/lib/api/school';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Building2, Search, Loader2, CheckCircle2, XCircle, ShieldCheck, Smartphone, Settings2 } from 'lucide-react';
+import { Building2, Search, Loader2, CheckCircle2, XCircle, ShieldCheck, Smartphone, Settings2, MoreVertical } from 'lucide-react';
 import { useSearchParams } from 'next/navigation';
 import { TenantStatus } from '@edu-lanka/shared-types';
 
@@ -14,6 +14,12 @@ export default function SystemAdminTenantsPage() {
     const [loading, setLoading] = useState(true);
     const [actionLoading, setActionLoading] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
+
+    // New states for multi-step tenant status toggle
+    const [tenantToConfirm, setTenantToConfirm] = useState<any | null>(null);
+    const [deactivationReason, setDeactivationReason] = useState('');
+    const [activeStep, setActiveStep] = useState<1 | 2>(1);
+    const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
 
     const refreshTenants = () => {
         setLoading(true);
@@ -36,6 +42,33 @@ export default function SystemAdminTenantsPage() {
         }
     }, [searchParams]);
 
+    const handleActionClick = (tenant: any) => {
+        setTenantToConfirm(tenant);
+        setDeactivationReason('');
+        setActiveStep(1);
+    };
+
+    const confirmToggleStatus = async () => {
+        if (!tenantToConfirm) return;
+        import('@/lib/api/school').then(async ({ updateTenantStatus }) => {
+            setActionLoading(tenantToConfirm.id);
+            const opts: RequestOpts = { token: localStorage.getItem('token') || '', tenantId: localStorage.getItem('tenantId') || '' };
+            const nextStatus = tenantToConfirm.status === TenantStatus.ACTIVE ? TenantStatus.SUSPENDED : TenantStatus.ACTIVE;
+            try {
+                await updateTenantStatus(tenantToConfirm.id, nextStatus, opts, deactivationReason);
+                await refreshTenants();
+            } catch (e: any) {
+                setError(e.message || 'Failed to update tenant status');
+            } finally {
+                setActionLoading(null);
+                setTenantToConfirm(null);
+                setDeactivationReason('');
+                setActiveStep(1);
+                setActiveDropdown(null);
+            }
+        });
+    };
+
     const handleSmsToggle = async (tenantId: string) => {
         setActionLoading(`sms-${tenantId}`);
         const opts: RequestOpts = { token: localStorage.getItem('token') || '', tenantId: localStorage.getItem('tenantId') || '' };
@@ -43,17 +76,17 @@ export default function SystemAdminTenantsPage() {
         // Find current status to rollback if error
         const targetTenant = tenants.find(t => t.id === tenantId);
         if (!targetTenant) return;
-        const currentToggle = targetTenant.smsApproved;
+        const currentToggle = targetTenant.sms_approved;
 
         // Optimistic UI Update — instant visual feedback
-        setTenants(prev => prev.map(t => t.id === tenantId ? { ...t, smsApproved: !currentToggle } : t));
+        setTenants(prev => prev.map(t => t.id === tenantId ? { ...t, sms_approved: !currentToggle } : t));
 
         try {
             await toggleTenantSms(tenantId, opts);
             // No silent refresh — optimistic state is the source of truth
         } catch (e: any) {
             // Rollback on fail
-            setTenants(prev => prev.map(t => t.id === tenantId ? { ...t, smsApproved: currentToggle } : t));
+            setTenants(prev => prev.map(t => t.id === tenantId ? { ...t, sms_approved: currentToggle } : t));
             setError(e.message || 'Failed to toggle SMS feature');
         } finally {
             setActionLoading(null);
@@ -99,6 +132,85 @@ export default function SystemAdminTenantsPage() {
                         <p className="font-medium text-sm">{error}</p>
                     </motion.div>
                 )}
+
+                {/* Confirmation Modal */}
+                <AnimatePresence>
+                    {tenantToConfirm && (
+                        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
+                            <motion.div
+                                initial={{ opacity: 0, scale: 0.95 }}
+                                animate={{ opacity: 1, scale: 1 }}
+                                exit={{ opacity: 0, scale: 0.95 }}
+                                className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6"
+                            >
+                                <h3 className="text-xl font-bold text-slate-900 mb-2">
+                                    {tenantToConfirm.status === TenantStatus.ACTIVE ? 'Suspend Tenant?' : 'Reactivate Tenant?'}
+                                </h3>
+
+                                {activeStep === 1 && (
+                                    <>
+                                        <p className="text-slate-500 text-sm mb-6">
+                                            Are you sure you want to {tenantToConfirm.status === TenantStatus.ACTIVE ? 'suspend' : 'reactivate'} <strong className="text-slate-700">{tenantToConfirm.name}</strong>?
+                                            {tenantToConfirm.status === TenantStatus.ACTIVE ? ' All users inside this school will lose access to the portal immediately.' : ' The school operations will resume.'}
+                                        </p>
+                                        <div className="flex gap-3 justify-end">
+                                            <button
+                                                onClick={() => setTenantToConfirm(null)}
+                                                className="px-4 py-2 hover:bg-slate-100 text-slate-700 rounded-lg font-medium transition-colors"
+                                            >
+                                                Cancel
+                                            </button>
+                                            <button
+                                                onClick={() => {
+                                                    if (tenantToConfirm.status === TenantStatus.ACTIVE) {
+                                                        setActiveStep(2);
+                                                    } else {
+                                                        confirmToggleStatus();
+                                                    }
+                                                }}
+                                                className={`px-4 py-2 text-white rounded-lg font-medium transition-colors flex items-center gap-2 ${tenantToConfirm.status === TenantStatus.ACTIVE ? 'bg-rose-600 hover:bg-rose-700' : 'bg-emerald-600 hover:bg-emerald-700'}`}
+                                            >
+                                                {tenantToConfirm.status === TenantStatus.ACTIVE ? 'Proceed to Suspend' : 'Yes, Reactivate'}
+                                            </button>
+                                        </div>
+                                    </>
+                                )}
+
+                                {activeStep === 2 && (
+                                    <>
+                                        <p className="text-slate-500 text-sm mb-4">
+                                            Please provide a reason for suspension (optional). This will be shown to users when they try to log in.
+                                        </p>
+                                        <textarea
+                                            rows={3}
+                                            placeholder="Enter reason..."
+                                            value={deactivationReason}
+                                            onChange={(e) => setDeactivationReason(e.target.value)}
+                                            className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-sm focus:outline-none focus:ring-2 focus:ring-rose-500 mb-6 resize-none"
+                                        />
+                                        <div className="flex gap-3 justify-end">
+                                            <button
+                                                onClick={() => setActiveStep(1)}
+                                                disabled={actionLoading === tenantToConfirm.id}
+                                                className="px-4 py-2 hover:bg-slate-100 text-slate-700 rounded-lg font-medium transition-colors"
+                                            >
+                                                Back
+                                            </button>
+                                            <button
+                                                onClick={confirmToggleStatus}
+                                                disabled={actionLoading === tenantToConfirm.id}
+                                                className="px-4 py-2 text-white bg-rose-600 hover:bg-rose-700 rounded-lg font-medium transition-colors flex items-center gap-2"
+                                            >
+                                                {actionLoading === tenantToConfirm.id ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+                                                Confirm Suspension
+                                            </button>
+                                        </div>
+                                    </>
+                                )}
+                            </motion.div>
+                        </div>
+                    )}
+                </AnimatePresence>
 
                 <div className="overflow-x-auto border border-slate-200 rounded-xl relative min-h-[400px]">
                     <AnimatePresence>
@@ -182,7 +294,7 @@ export default function SystemAdminTenantsPage() {
                                             <button
                                                 disabled={actionLoading === `sms-${tnt.id}`}
                                                 onClick={() => handleSmsToggle(tnt.id)}
-                                                className={`text-xs px-3 py-1.5 rounded-lg border transition-all shadow-sm flex items-center justify-center gap-1 min-w-[100px] ${tnt.smsApproved
+                                                className={`text-xs px-3 py-1.5 rounded-lg border transition-all shadow-sm flex items-center justify-center gap-1 min-w-[100px] ${tnt.sms_approved
                                                     ? 'bg-purple-50 text-purple-700 border-purple-200 hover:bg-purple-100'
                                                     : 'bg-white text-slate-600 hover:bg-slate-50 border-slate-200'
                                                     }`}
@@ -193,8 +305,38 @@ export default function SystemAdminTenantsPage() {
                                                 ) : (
                                                     <Smartphone className="w-3.5 h-3.5" />
                                                 )}
-                                                {tnt.smsApproved ? 'Disable SMS' : 'Enable SMS'}
+                                                {tnt.sms_approved ? 'Disable SMS' : 'Enable SMS'}
                                             </button>
+
+                                            <div className="relative">
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        setActiveDropdown(activeDropdown === tnt.id ? null : tnt.id);
+                                                    }}
+                                                    className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors border border-slate-200 bg-white ml-2"
+                                                >
+                                                    <MoreVertical className="w-5 h-5" />
+                                                </button>
+
+                                                <AnimatePresence>
+                                                    {activeDropdown === tnt.id && (
+                                                        <>
+                                                            <div className="fixed inset-0 z-30" onClick={() => setActiveDropdown(null)} />
+                                                            <motion.div
+                                                                initial={{ opacity: 0, y: -10, scale: 0.95 }}
+                                                                animate={{ opacity: 1, y: 0, scale: 1 }}
+                                                                exit={{ opacity: 0, scale: 0.95 }}
+                                                                className="absolute right-0 top-full mt-1 w-48 bg-white border border-slate-200 rounded-xl shadow-lg z-40 overflow-hidden flex flex-col"
+                                                            >
+                                                                <button onClick={() => { setActiveDropdown(null); handleActionClick(tnt); }} className={`px-4 py-3 text-sm text-left hover:bg-slate-50 font-medium ${tnt.status === TenantStatus.ACTIVE ? 'text-rose-600' : 'text-emerald-600'}`}>
+                                                                    {tnt.status === TenantStatus.ACTIVE ? 'Suspend Tenant' : 'Reactivate Tenant'}
+                                                                </button>
+                                                            </motion.div>
+                                                        </>
+                                                    )}
+                                                </AnimatePresence>
+                                            </div>
                                         </td>
                                     </motion.tr>
                                 ))

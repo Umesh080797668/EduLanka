@@ -122,8 +122,8 @@ export const createUser = (data: any, opts: RequestOpts) =>
 export const updateUser = (id: string, data: any, opts: RequestOpts) =>
     apiClient.patch<any>(`/users/${id}`, data, opts);
 
-export const setUserActive = (id: string, active: boolean, opts: RequestOpts) =>
-    apiClient.patch<any>(`/users/${id}/${active ? 'reactivate' : 'deactivate'}`, {}, opts);
+export const setUserActive = (id: string, active: boolean, opts: RequestOpts, reason?: string) =>
+    apiClient.patch<any>(`/users/${id}/${active ? 'reactivate' : 'deactivate'}`, { deactivationReason: reason }, opts);
 
 // -----------------------------------------------------------------------------
 // School Policy
@@ -155,5 +155,14 @@ export const fetchTenants = (opts: RequestOpts) =>
 export const fetchTenant = (id: string, opts: RequestOpts) =>
     apiClient.get<any>(`/tenants/${id}`, opts);
 
+export const updateTenantStatus = (id: string, status: string, opts: RequestOpts, reason?: string) =>
+    apiClient.patch<any>(`/tenants/${id}/status`, { status, deactivationReason: reason }, opts);
+
 export const deleteGrade = (id: string, opts: RequestOpts) =>
     apiClient.delete(`/grades/${id}`, opts);
+
+// -----------------------------------------------------------------------------
+// Inquiries
+// -----------------------------------------------------------------------------
+export const fetchInquiries = (opts: RequestOpts) =>
+    apiClient.get<any[]>('/auth/inquiries', opts);
