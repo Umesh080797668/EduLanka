@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { fetchGrades, updateGrade, RequestOpts } from '@/lib/api/school';
+import { fetchGrades, RequestOpts } from '@/lib/api/school';
 import type { GradeProfile } from '@edu-lanka/shared-types';
 import { useTranslations } from 'next-intl';
 import { PageSkeleton } from '@/components/ui/Skeleton';
@@ -29,15 +29,7 @@ export default function GradesPage() {
         Promise.resolve().then(() => loadData());
     }, []);
 
-    const toggleStatus = async (id: string, current: boolean) => {
-        try {
-            const opts: RequestOpts = { token: localStorage.getItem('token') || '', tenantId: localStorage.getItem('tenantId') || '' };
-            await updateGrade(id, { isActive: !current }, opts);
-            await loadData();
-        } catch (err: any) {
-            alert(err.message);
-        }
-    };
+
 
     return (
         <div>
@@ -61,38 +53,19 @@ export default function GradesPage() {
                         <thead style={{ background: '#f9fafb', borderBottom: '1px solid #e5e7eb' }}>
                             <tr>
                                 <th style={{ padding: '0.75rem 1rem', fontWeight: 500, color: '#374151' }}>{t('levelContext')}</th>
-                                <th style={{ padding: '0.75rem 1rem', fontWeight: 500, color: '#374151' }}>{t('curriculumPhase')}</th>
-                                <th style={{ padding: '0.75rem 1rem', fontWeight: 500, color: '#374151', textAlign: 'right' }}>{t('statusToggle')}</th>
+                                <th style={{ padding: '0.75rem 1rem', fontWeight: 500, color: '#374151' }}>Label</th>
                             </tr>
                         </thead>
                         <tbody>
-                            {grades.map((grade) => (
-                                <tr key={grade.id} style={{ borderBottom: '1px solid #e5e7eb', opacity: grade.is_active ? 1 : 0.6 }}>
+                            {grades.map((grade: any) => (
+                                <tr key={grade.id} style={{ borderBottom: '1px solid #e5e7eb' }}>
                                     <td style={{ padding: '0.75rem 1rem' }}>
-                                        <div style={{ fontWeight: 500 }}>{grade.name}</div>
-                                        <div style={{ fontSize: '0.85rem', color: '#6b7280' }}>{t('level')} {grade.level}</div>
+                                        <div style={{ fontWeight: 500 }}>{t('level')} {grade.level}</div>
                                     </td>
                                     <td style={{ padding: '0.75rem 1rem' }}>
                                         <span style={{ background: '#f3f4f6', padding: '0.2rem 0.6rem', borderRadius: '4px', fontSize: '0.85rem', fontWeight: 500 }}>
-                                            {grade.curriculum_type.replace('_', ' ')}
+                                            {grade.label}
                                         </span>
-                                    </td>
-                                    <td style={{ padding: '0.75rem 1rem', textAlign: 'right' }}>
-                                        <button
-                                            onClick={() => toggleStatus(grade.id, grade.is_active)}
-                                            style={{
-                                                background: grade.is_active ? '#fee2e2' : '#d1fae5',
-                                                color: grade.is_active ? '#b91c1c' : '#065f46',
-                                                border: 'none',
-                                                padding: '0.4rem 0.8rem',
-                                                borderRadius: '4px',
-                                                cursor: 'pointer',
-                                                fontWeight: 500,
-                                                fontSize: '0.85rem'
-                                            }}
-                                        >
-                                            {grade.is_active ? t('deactivate') : t('reactivate')}
-                                        </button>
                                     </td>
                                 </tr>
                             ))}
