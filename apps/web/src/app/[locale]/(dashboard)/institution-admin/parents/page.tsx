@@ -25,19 +25,7 @@ export default function ParentsPage() {
         <div>
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
                 <h1 style={{ fontSize: '1.5rem', fontWeight: 600 }}>{t('title')}</h1>
-                <Link
-                    href="/institution-admin/users"
-                    style={{
-                        background: 'var(--color-brand-600)',
-                        color: 'white',
-                        padding: '0.5rem 1rem',
-                        borderRadius: '6px',
-                        textDecoration: 'none',
-                        fontWeight: 500,
-                    }}
-                >
-                    {t('manageViaUsers')}
-                </Link>
+
             </div>
 
             {loading ? (

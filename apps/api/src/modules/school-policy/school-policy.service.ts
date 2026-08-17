@@ -54,7 +54,7 @@ export class SchoolPolicyService {
                 const { data: tenantData } = await this.supabase.adminClient
                     .from('tenants')
                     .select('sms_approved')
-                    .eq('slug', slug)
+                    .eq('id', slug)
                     .maybeSingle();
 
                 if (!tenantData?.sms_approved) {
