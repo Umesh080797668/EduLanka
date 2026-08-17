@@ -73,8 +73,8 @@ export default function NewClassPage() {
                         style={{ width: '100%', padding: '0.5rem', borderRadius: '4px', border: '1px solid #d1d5db' }}
                     >
                         {loadingGrades ? <option>{t('loadingGrades')}</option> : null}
-                        {grades.map(g => (
-                            <option key={g.id} value={g.id}>{g.name} — {String(g.curriculum_type || '').replace('_', ' ')}</option>
+                        {grades.map((g: any) => (
+                            <option key={g.id} value={g.id}>{g.label || `Grade ${g.level}`}</option>
                         ))}
                     </select>
                 </div>
