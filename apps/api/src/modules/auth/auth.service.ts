@@ -305,6 +305,7 @@ export class AuthService {
                 full_name: dto.fullName,
                 role: dto.role,
                 is_active: true,
+                tenant_id: dto.tenantId
             })
             .select('id')
             .single();
@@ -313,7 +314,7 @@ export class AuthService {
             // Rollback Supabase auth user to avoid orphans
             await this.supabaseService.adminClient.auth.admin.deleteUser(authUid);
             this.logger.error(`Tenant user insert failed: ${insertError?.message}`);
-            throw new InternalServerErrorException('Failed to register user in tenant');
+            throw new InternalServerErrorException('Failed to register user in tenant: ' + insertError?.message);
         }
 
         return this.issueTokenPair({
@@ -383,6 +384,7 @@ export class AuthService {
                 full_name: dto.fullName,
                 role: dto.role,
                 is_active: true,
+                tenant_id: dto.tenantId
             })
             .select('id')
             .single();
@@ -391,7 +393,7 @@ export class AuthService {
             // Rollback Supabase auth user to avoid orphans
             await this.supabaseService.adminClient.auth.admin.deleteUser(authUid);
             this.logger.error(`Tenant user insert failed: ${insertError?.message}`);
-            throw new InternalServerErrorException('Failed to register user in tenant');
+            throw new InternalServerErrorException('Failed to register user in tenant: ' + insertError?.message);
         }
 
         return this.issueTokenPair({

@@ -71,7 +71,7 @@ export class StudentsService {
                 .from('users')
                 .insert({
                     user_id: authUid,
-                    email: dto.email ?? null,
+                    email: fakeEmail,
                     full_name: dto.fullName,
                     role: UserRole.STUDENT, tenant_id: slug,
                     phone_number: dto.phoneNumber ?? null,
@@ -81,7 +81,7 @@ export class StudentsService {
 
             if (userErr || !userRow) {
                 await this.supabase.adminClient.auth.admin.deleteUser(authUid);
-                this.logger.error('Users Insert Failed: ' + userErr?.message); throw new InternalServerErrorException('Failed to create user profile');
+                this.logger.error('Users Insert Failed: ' + userErr?.message); throw new InternalServerErrorException('Failed to create user profile: ' + userErr?.message);
             }
 
             // Step 4: Insert into students table
@@ -106,7 +106,7 @@ export class StudentsService {
                     throw new ForbiddenException(studentErr.message);
                 }
                 this.logger.error(`Failed to enroll student: ${studentErr.message}`);
-                throw new InternalServerErrorException('Failed to enroll student');
+                throw new InternalServerErrorException('Failed to enroll student: ' + studentErr.message);
             }
 
             this.logger.log(`Enrolled student ${admissionNo} for tenant ${slug}`);

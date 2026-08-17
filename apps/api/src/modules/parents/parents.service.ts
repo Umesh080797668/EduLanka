@@ -83,6 +83,7 @@ export class ParentsService {
     }
 
     async findOne(parentUserId: string, caller: JwtPayload) {
+        if (parentUserId === 'undefined') throw new NotFoundException('Invalid parent UUID format');
         const slug = caller.tenantId;
         const db = this.supabase.getTenantClient(slug);
 
@@ -95,13 +96,14 @@ export class ParentsService {
 
         if (error) {
             if (error.code === '22P02') throw new NotFoundException('Invalid parent UUID format');
-            throw new InternalServerErrorException('Failed to fetch parent');
+            throw new InternalServerErrorException('Failed to fetch parent: ' + error.message);
         }
         if (!data) throw new NotFoundException(`Parent ${parentUserId} not found`);
         return data;
     }
 
     async getChildren(parentUserId: string, caller: JwtPayload) {
+        if (parentUserId === 'undefined') throw new NotFoundException('Invalid parent UUID format');
         const slug = caller.tenantId;
         const db = this.supabase.getTenantClient(slug);
 
