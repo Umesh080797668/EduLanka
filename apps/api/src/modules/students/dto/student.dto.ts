@@ -7,8 +7,7 @@ import {
     IsOptional,
     IsEnum,
     IsDateString,
-    IsUUID,
-    Length,
+    MaxLength,
     Matches,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
@@ -33,7 +32,7 @@ export class CreateStudentDto {
     @ApiPropertyOptional({ description: 'Admission number (auto-generated if omitted)', example: '2026/001' })
     @IsString()
     @IsOptional()
-    @Length(1, 20)
+    @MaxLength(20)
     admissionNo?: string;
 
     @ApiPropertyOptional({ description: 'Date of birth (ISO-8601)', example: '2010-05-15' })
@@ -47,7 +46,7 @@ export class CreateStudentDto {
     gender?: Gender;
 
     @ApiPropertyOptional({ description: 'Class UUID to enroll the student into' })
-    @IsUUID()
+    @IsString()
     @IsOptional()
     classId?: string;
 
@@ -104,7 +103,7 @@ export class UpdateStudentDto {
 
 export class AssignClassDto {
     @ApiProperty({ description: 'Class UUID to assign the student to' })
-    @IsUUID()
+    @IsString()
     @IsNotEmpty()
     classId!: string;
 }

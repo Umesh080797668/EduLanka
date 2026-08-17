@@ -75,7 +75,7 @@ export default function NewClassPage() {
                     >
                         {loadingGrades ? <option>{t('loadingGrades')}</option> : null}
                         {grades.map(g => (
-                            <option key={g.id} value={g.id}>{g.name} — {g.curriculum_type.replace('_', ' ')}</option>
+                            <option key={g.id} value={g.id}>{g.name} — {String(g.curriculum_type || '').replace('_', ' ')}</option>
                         ))}
                     </select>
                 </div>

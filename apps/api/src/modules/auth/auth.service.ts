@@ -150,6 +150,7 @@ export class AuthService {
 
         if (user.role !== UserRole.SUPER_ADMIN) {
             query.eq('tenant_id', user.tenantId);
+            query.neq('role', UserRole.SCHOOL_ADMIN);
         }
 
         const { data, error } = await query;

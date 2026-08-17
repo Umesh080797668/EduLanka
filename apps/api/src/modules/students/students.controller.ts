@@ -3,7 +3,7 @@
 // =============================================================================
 import {
     Controller, Get, Post, Patch, Delete,
-    Body, Param, ParseUUIDPipe, UseGuards, HttpCode, HttpStatus,
+    Body, Param, UseGuards, HttpCode, HttpStatus,
 } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
@@ -41,14 +41,14 @@ export class StudentsController {
 
     @Get(':id')
     @ApiOperation({ summary: 'Get a student by ID (includes class and parent info)' })
-    findOne(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: JwtPayload) {
+    findOne(@Param('id') id: string, @CurrentUser() user: JwtPayload) {
         return this.studentsService.findOne(id, user);
     }
 
     @Patch(':id')
     @ApiOperation({ summary: 'Update a student profile (admin only)' })
     updateProfile(
-        @Param('id', ParseUUIDPipe) id: string,
+        @Param('id') id: string,
         @Body() dto: UpdateStudentDto,
         @CurrentUser() user: JwtPayload,
     ) {
@@ -58,7 +58,7 @@ export class StudentsController {
     @Post(':id/assign-class')
     @ApiOperation({ summary: 'Assign student to a class/section (admin only)' })
     assignToClass(
-        @Param('id', ParseUUIDPipe) id: string,
+        @Param('id') id: string,
         @Body() dto: AssignClassDto,
         @CurrentUser() user: JwtPayload,
     ) {
@@ -68,7 +68,7 @@ export class StudentsController {
     @Delete(':id')
     @HttpCode(HttpStatus.NO_CONTENT)
     @ApiOperation({ summary: 'Deactivate a student account (admin only)' })
-    deactivate(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: JwtPayload) {
+    deactivate(@Param('id') id: string, @CurrentUser() user: JwtPayload) {
         return this.studentsService.deactivate(id, user);
     }
 }
