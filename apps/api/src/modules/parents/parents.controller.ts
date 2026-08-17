@@ -3,7 +3,7 @@
 // =============================================================================
 import {
     Controller, Get, Post, Delete,
-    Body, Param, ParseUUIDPipe, UseGuards, HttpCode, HttpStatus,
+    Body, Param, UseGuards, HttpCode, HttpStatus,
 } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
@@ -34,13 +34,13 @@ export class ParentsController {
 
     @Get(':id')
     @ApiOperation({ summary: 'Get a parent by user ID (includes linked children)' })
-    findOne(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: JwtPayload) {
+    findOne(@Param('id') id: string, @CurrentUser() user: JwtPayload) {
         return this.parentsService.findOne(id, user);
     }
 
     @Get(':id/children')
     @ApiOperation({ summary: 'Get all children linked to a parent' })
-    getChildren(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: JwtPayload) {
+    getChildren(@Param('id') id: string, @CurrentUser() user: JwtPayload) {
         return this.parentsService.getChildren(id, user);
     }
 
@@ -48,7 +48,7 @@ export class ParentsController {
     @HttpCode(HttpStatus.CREATED)
     @ApiOperation({ summary: 'Link a student to a parent (admin only)' })
     linkToStudent(
-        @Param('id', ParseUUIDPipe) parentUserId: string,
+        @Param('id') parentUserId: string,
         @Body() dto: LinkStudentDto,
         @CurrentUser() user: JwtPayload,
     ) {
@@ -59,8 +59,8 @@ export class ParentsController {
     @HttpCode(HttpStatus.NO_CONTENT)
     @ApiOperation({ summary: 'Unlink a student from a parent (admin only)' })
     unlinkFromStudent(
-        @Param('id', ParseUUIDPipe) parentUserId: string,
-        @Param('studentId', ParseUUIDPipe) studentId: string,
+        @Param('id') parentUserId: string,
+        @Param('studentId') studentId: string,
         @CurrentUser() user: JwtPayload,
     ) {
         return this.parentsService.unlinkFromStudent(parentUserId, studentId, user);

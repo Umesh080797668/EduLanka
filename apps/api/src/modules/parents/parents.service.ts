@@ -93,7 +93,10 @@ export class ParentsService {
             .eq('role', UserRole.PARENT)
             .maybeSingle();
 
-        if (error) throw new InternalServerErrorException('Failed to fetch parent');
+        if (error) {
+            if (error.code === '22P02') throw new NotFoundException('Invalid parent UUID format');
+            throw new InternalServerErrorException('Failed to fetch parent');
+        }
         if (!data) throw new NotFoundException(`Parent ${parentUserId} not found`);
         return data;
     }
@@ -107,7 +110,10 @@ export class ParentsService {
             .select('*, students(id, admission_no, al_stream, users(full_name, email), classes(grade, section, year))')
             .eq('parent_user_id', parentUserId);
 
-        if (error) throw new InternalServerErrorException('Failed to fetch children');
+        if (error) {
+            if (error.code === '22P02') throw new NotFoundException('Invalid parent UUID format');
+            throw new InternalServerErrorException('Failed to fetch children');
+        }
         return data ?? [];
     }
 

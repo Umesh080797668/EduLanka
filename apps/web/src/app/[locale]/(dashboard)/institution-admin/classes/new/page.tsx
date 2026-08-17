@@ -22,9 +22,8 @@ export default function NewClassPage() {
     useEffect(() => {
         const opts: RequestOpts = { token: localStorage.getItem('token') || '', tenantId: localStorage.getItem('tenantId') || '' };
         fetchGrades(opts).then(res => {
-            const activeGrades = res.filter(g => g.is_active);
-            setGrades(activeGrades);
-            if (activeGrades.length > 0) setGradeId(activeGrades[0].id);
+            setGrades(res);
+            if (res.length > 0) setGradeId(res[0].id);
         }).finally(() => setLoadingGrades(false));
     }, []);
 

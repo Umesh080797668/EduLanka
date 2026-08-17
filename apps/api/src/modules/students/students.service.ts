@@ -39,7 +39,7 @@ export class StudentsService {
         const db = this.supabase.getTenantClient(slug);
 
         // Step 1: Generate admission number if not provided
-        const admissionNo = dto.admissionNo ?? this.generateAdmissionNo(
+        const admissionNo = (dto.admissionNo && dto.admissionNo.trim() !== '') ? dto.admissionNo : this.generateAdmissionNo(
             new Date().getFullYear(),
             Math.floor(Math.random() * 9000) + 1000,
         );
@@ -89,7 +89,7 @@ export class StudentsService {
                 .from('students')
                 .insert({
                     user_id: userRow.id,
-                    class_id: dto.classId ?? null,
+                    class_id: (dto.classId && dto.classId.trim() !== '') ? dto.classId : null,
                     admission_no: admissionNo,
                     date_of_birth: dto.dateOfBirth ?? null,
                     gender: dto.gender ?? null,
@@ -169,7 +169,10 @@ export class StudentsService {
             .eq('id', id)
             .maybeSingle();
 
-        if (error) throw new InternalServerErrorException('Failed to fetch student');
+        if (error) {
+            if (error.code === '22P02') throw new NotFoundException(`Invalid student ID format: ${id}`);
+            throw new InternalServerErrorException('Failed to fetch student');
+        }
         if (!data) throw new NotFoundException(`Student ${id} not found`);
 
         const { data: userData } = await db.from('users').select('full_name, email, phone_number, avatar_url, role, is_active').eq('id', data.user_id).maybeSingle();
@@ -235,6 +238,7 @@ export class StudentsService {
             .maybeSingle();
 
         if (error) {
+            if (error.code === '22P02') throw new NotFoundException(`Invalid student or class ID format`);
             if (error.code === '23503') throw new NotFoundException('Class not found');
             throw new InternalServerErrorException('Failed to assign class');
         }

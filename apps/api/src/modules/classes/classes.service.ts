@@ -107,7 +107,10 @@ export class ClassesService {
             .eq('id', id)
             .maybeSingle();
 
-        if (error) throw new InternalServerErrorException('Failed to fetch class');
+        if (error) {
+            if (error.code === '22P02') throw new NotFoundException(`Invalid class ID format: ${id}`);
+            throw new InternalServerErrorException('Failed to fetch class');
+        }
         if (!data) throw new NotFoundException(`Class ${id} not found`);
 
         const { data: gradesData } = await db.from('grades').select('*');

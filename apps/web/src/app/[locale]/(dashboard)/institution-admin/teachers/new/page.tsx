@@ -105,7 +105,7 @@ export default function NewTeacherPage() {
                             >
                                 {t('addAnother')}
                             </button>
-                            <Link href="/institution-admin/users">
+                            <Link href="/institution-admin/teachers">
                                 <button className="px-6 py-3 bg-indigo-600 text-white rounded-xl font-bold flex items-center justify-center hover:bg-indigo-700 transition-colors shadow-sm">
                                     {t('returnDirectory')}
                                 </button>
@@ -120,7 +120,7 @@ export default function NewTeacherPage() {
     return (
         <div className="max-w-4xl mx-auto space-y-6">
             <div className="flex items-center gap-4 mb-8">
-                <Link href="/institution-admin/users">
+                <Link href="/institution-admin/teachers">
                     <button className="p-2 rounded-full hover:bg-slate-100 text-slate-500 transition-colors">
                         <ArrowLeft className="w-5 h-5" />
                     </button>
@@ -209,7 +209,7 @@ export default function NewTeacherPage() {
                         {t('securePasswordGen')}
                     </p>
                     <div className="flex gap-3">
-                        <Link href="/institution-admin/users">
+                        <Link href="/institution-admin/teachers">
                             <button className="px-5 py-2 text-sm font-semibold text-slate-600 rounded-lg hover:bg-slate-200 transition-colors">
                                 {t('cancel')}
                             </button>
