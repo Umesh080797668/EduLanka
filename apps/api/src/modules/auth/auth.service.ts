@@ -202,15 +202,46 @@ export class AuthService {
      * POST /auth/login
      * Validate credentials via Supabase, confirm tenant membership, issue JWT pair.
      */
-    async login(email: string, password: string): Promise<any> {
-        if (!email || !password) {
-            throw new BadRequestException('Email and password are required');
+    async login(identifier: string, password: string): Promise<any> {
+        if (!identifier || !password) {
+            throw new BadRequestException('Identifier and password are required');
         }
 
-        const { data, error } = await this.supabaseService.adminClient.auth.signInWithPassword({
-            email,
-            password,
-        });
+        let authPayload: any = { password };
+
+        if (identifier.includes('@')) {
+            authPayload.email = identifier;
+        } else {
+            // First check Phone in users natively matching EXACT identifiers
+            const { data: phoneMatch } = await this.supabaseService.adminClient
+                .from('users')
+                .select('email, phone_number')
+                .eq('phone_number', identifier)
+                .maybeSingle();
+
+            if (phoneMatch) {
+                if (phoneMatch.email) authPayload.email = phoneMatch.email;
+                else authPayload.phone = phoneMatch.phone_number;
+            } else {
+                // Check Admission No natively joining back up to the users properties
+                const { data: studentMatch } = await this.supabaseService.adminClient
+                    .from('students')
+                    .select('users!inner(email, phone_number)')
+                    .eq('admission_no', identifier)
+                    .maybeSingle();
+
+                if (studentMatch && studentMatch.users) {
+                    const mappedUser: any = Array.isArray(studentMatch.users) ? studentMatch.users[0] : studentMatch.users;
+                    if (mappedUser.email) authPayload.email = mappedUser.email;
+                    else authPayload.phone = mappedUser.phone_number;
+                } else {
+                    // Raw string proxy directly towards Supabase SMS APIs as absolute fallback
+                    authPayload.phone = identifier;
+                }
+            }
+        }
+
+        const { data, error } = await this.supabaseService.adminClient.auth.signInWithPassword(authPayload);
 
         if (error) {
             console.error("signInWithPassword Error:", error.message, error.name, error.status);
@@ -229,7 +260,7 @@ export class AuthService {
 
         if (adminData) {
             const rootTenantId = 'a1b2c3d4-0000-0000-0000-000000000000';
-            const tokens = await this.issueTokenPair({ sub: adminData.id as string, tenantId: rootTenantId, role: adminData.role as UserRole, email });
+            const tokens = await this.issueTokenPair({ sub: adminData.id as string, tenantId: rootTenantId, role: adminData.role as UserRole, email: authUser.email ?? authUser.phone ?? identifier });
             return {
                 access_token: tokens.accessToken,
                 refresh_token: tokens.refreshToken,
@@ -245,7 +276,7 @@ export class AuthService {
 
         const { userId, role: userRole } = await this.resolveTenantUser(tenantId, authUser.id);
 
-        const tokens = await this.issueTokenPair({ sub: userId, tenantId, role: userRole, email });
+        const tokens = await this.issueTokenPair({ sub: userId, tenantId, role: userRole, email: authUser.email ?? authUser.phone ?? identifier });
         return {
             access_token: tokens.accessToken,
             refresh_token: tokens.refreshToken,

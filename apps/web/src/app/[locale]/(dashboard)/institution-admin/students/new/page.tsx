@@ -79,9 +79,9 @@ export default function NewStudentPage() {
                         />
                     </div>
                     <div>
-                        <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500, fontSize: '0.875rem' }}>{t('emailAddress')}</label>
+                        <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500, fontSize: '0.875rem' }}>{t('emailAddress')} (Optional)</label>
                         <input
-                            type="email" required
+                            type="email"
                             value={formData.email}
                             onChange={e => setFormData({ ...formData, email: e.target.value })}
                             style={{ width: '100%', padding: '0.5rem', borderRadius: '4px', border: '1px solid #d1d5db' }}

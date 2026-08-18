@@ -44,21 +44,33 @@ export class StudentsService {
             Math.floor(Math.random() * 9000) + 1000,
         );
 
-        // Map admissionNo to a dummy email for Supabase Auth since students log in via admissionNo
-        const normalizedAdmission = admissionNo.replace(/[^a-zA-Z0-9]/g, '_').toLowerCase();
-        const fakeEmail = `${normalizedAdmission}@${slug}.student.local`;
+        let identityEmail = dto.email;
+        let identityPhone = dto.phoneNumber;
+
+        const authPayload: any = {
+            password: dto.temporaryPassword,
+        };
+
+        if (identityEmail) {
+            authPayload.email = identityEmail;
+            authPayload.email_confirm = true;
+        } else if (identityPhone) {
+            authPayload.phone = identityPhone;
+            authPayload.phone_confirm = true;
+        } else {
+            const normalizedAdmission = admissionNo.replace(/[^a-zA-Z0-9]/g, '_').toLowerCase();
+            identityEmail = `stu_${normalizedAdmission}@${slug}.internal.edulanka.lk`;
+            authPayload.email = identityEmail;
+            authPayload.email_confirm = true;
+        }
 
         // Step 2: Create Supabase Auth user
-        const { data: authData, error: authErr } = await this.supabase.adminClient.auth.admin.createUser({
-            email: fakeEmail,
-            password: dto.temporaryPassword,
-            email_confirm: true,
-        });
+        const { data: authData, error: authErr } = await this.supabase.adminClient.auth.admin.createUser(authPayload);
 
         if (authErr || !authData.user) {
             this.logger.error(`Supabase auth createUser failed: ${authErr?.message}`);
-            if (authErr?.message.includes('email address')) {
-                throw new ConflictException('A student with this admission number already has an account');
+            if (authErr?.message.includes('email address') || authErr?.message.includes('phone')) {
+                throw new ConflictException('A user with this identity already exists');
             }
             throw new InternalServerErrorException('Failed to create authentication account');
         }
@@ -71,7 +83,7 @@ export class StudentsService {
                 .from('users')
                 .insert({
                     user_id: authUid,
-                    email: fakeEmail,
+                    email: identityEmail ?? null,
                     full_name: dto.fullName,
                     role: UserRole.STUDENT, tenant_id: slug,
                     phone_number: dto.phoneNumber ?? null,

@@ -29,7 +29,12 @@ export default function ParentsPage() {
         <div>
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
                 <h1 style={{ fontSize: '1.5rem', fontWeight: 600 }}>{t('title')}</h1>
-
+                <Link
+                    href="/institution-admin/parents/new"
+                    className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl transition-colors shadow-sm text-sm"
+                >
+                    {t('addParent')}
+                </Link>
             </div>
 
             {loading ? (

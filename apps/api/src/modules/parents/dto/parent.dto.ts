@@ -1,7 +1,7 @@
 // =============================================================================
 // Parents Module DTOs
 // =============================================================================
-import { IsNotEmpty, IsEnum, IsOptional } from 'class-validator';
+import { IsNotEmpty, IsEnum, IsOptional, IsString, Matches, ValidateIf } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { ParentRelationship } from '@edu-lanka/shared-types';
 
@@ -20,4 +20,30 @@ export class UnlinkStudentDto {
     @ApiProperty({ description: 'Student UUID to unlink from this parent' })
     @IsNotEmpty()
     studentId!: string;
+}
+
+export class CreateParentDto {
+    @ApiProperty({ example: 'Nuwan Perera' })
+    @IsString()
+    @IsNotEmpty()
+    fullName!: string;
+
+    @ApiPropertyOptional({ example: 'nuwan@example.com' })
+    @ValidateIf(o => !o.phoneNumber)
+    @IsString()
+    @IsNotEmpty()
+    email?: string;
+
+    @ApiPropertyOptional({ example: '+94771234567' })
+    @ValidateIf(o => !o.email)
+    @IsString()
+    @IsNotEmpty()
+    phoneNumber?: string;
+
+    @ApiProperty({ minLength: 8 })
+    @IsString()
+    @Matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/, {
+        message: 'Password must contain uppercase, lowercase, and a number',
+    })
+    temporaryPassword!: string;
 }

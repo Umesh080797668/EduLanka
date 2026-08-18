@@ -12,7 +12,7 @@ import {
 import type { JwtPayload } from '@edu-lanka/shared-types';
 import { UserRole, ParentRelationship } from '@edu-lanka/shared-types';
 import { SupabaseService } from '../supabase/supabase.service';
-import { LinkStudentDto } from './dto/parent.dto';
+import { LinkStudentDto, CreateParentDto } from './dto/parent.dto';
 
 @Injectable()
 export class ParentsService {
@@ -25,6 +25,59 @@ export class ParentsService {
     private guardAdmin(caller: JwtPayload): void {
         if (caller.role !== UserRole.SCHOOL_ADMIN && caller.role !== UserRole.SUPER_ADMIN) {
             throw new ForbiddenException('Only school admins can manage parent-student links');
+        }
+    }
+
+    async create(dto: CreateParentDto, caller: JwtPayload) {
+        this.guardAdmin(caller);
+        const slug = caller.tenantId;
+        const db = this.supabase.getTenantClient(slug);
+
+        const authPayload: any = {
+            password: dto.temporaryPassword,
+        };
+
+        if (dto.email) {
+            authPayload.email = dto.email;
+            authPayload.email_confirm = true;
+        } else if (dto.phoneNumber) {
+            authPayload.phone = dto.phoneNumber;
+            authPayload.phone_confirm = true;
+        } else {
+            throw new InternalServerErrorException('Parent must possess either an email or phone number explicitly.');
+        }
+
+        const { data: authData, error: authErr } = await this.supabase.adminClient.auth.admin.createUser(authPayload);
+
+        if (authErr || !authData.user) {
+            this.logger.error(`Supabase auth createUser failed: ${authErr?.message}`);
+            throw new InternalServerErrorException('Failed to create authentication account');
+        }
+
+        const authUid = authData.user.id;
+
+        try {
+            const { data: userRow, error: userErr } = await db
+                .from('users')
+                .insert({
+                    user_id: authUid,
+                    tenant_id: slug,
+                    email: dto.email || null,
+                    full_name: dto.fullName,
+                    phone_number: dto.phoneNumber || null,
+                    role: UserRole.PARENT,
+                    is_active: true,
+                })
+                .select()
+                .single();
+
+            if (userErr) throw userErr;
+            return userRow;
+        } catch (error: any) {
+            await this.supabase.adminClient.auth.admin.deleteUser(authUid);
+            if (error.code === '23505') throw new ConflictException('A parent with this email already exists in this tenant');
+            this.logger.error(`Failed to insert parent user record: ${error.message}`);
+            throw new InternalServerErrorException('Failed to provision parent profile');
         }
     }
 

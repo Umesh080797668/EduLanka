@@ -47,7 +47,7 @@ export class AuthController {
     @ApiOperation({ summary: 'Authenticate and receive a JWT access + refresh token pair' })
     @ApiOkResponse({ description: 'Token pair issued successfully' })
     login(@Body() dto: LoginDto) {
-        return this.authService.login(dto.email, dto.password);
+        return this.authService.login(dto.identifier, dto.password);
     }
 
     // ── POST /auth/signup ───────────────────────────────────────────────────────

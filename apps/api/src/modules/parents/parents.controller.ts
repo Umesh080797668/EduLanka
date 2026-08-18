@@ -11,7 +11,7 @@ import { TenantGuard } from '../../common/guards/tenant.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import type { JwtPayload } from '@edu-lanka/shared-types';
 import { ParentsService } from './parents.service';
-import { LinkStudentDto } from './dto/parent.dto';
+import { LinkStudentDto, CreateParentDto } from './dto/parent.dto';
 
 @ApiTags('parents')
 @ApiBearerAuth()
@@ -24,6 +24,13 @@ export class ParentsController {
     @ApiOperation({ summary: 'Get current parent profile and linked children' })
     getMe(@CurrentUser() user: JwtPayload) {
         return this.parentsService.getMe(user);
+    }
+
+    @Post()
+    @HttpCode(HttpStatus.CREATED)
+    @ApiOperation({ summary: 'Create a new parent account (admin only)' })
+    create(@Body() dto: CreateParentDto, @CurrentUser() user: JwtPayload) {
+        return this.parentsService.create(dto, user);
     }
 
     @Get()

@@ -10,7 +10,7 @@ import { useTranslations } from 'next-intl';
 export default function LoginPage() {
     const router = useRouter();
     const t = useTranslations('Login');
-    const [email, setEmail] = useState('');
+    const [identifier, setIdentifier] = useState('');
     const [password, setPassword] = useState('');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -26,7 +26,7 @@ export default function LoginPage() {
                 headers: {
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({ email, password })
+                body: JSON.stringify({ identifier, password })
             });
 
             if (res.ok) {
@@ -116,15 +116,15 @@ export default function LoginPage() {
 
                         <form onSubmit={handleLogin} className="space-y-5">
                             <div className="space-y-1.5">
-                                <label className="block text-sm font-semibold text-slate-300">{t('email')}</label>
+                                <label className="block text-sm font-semibold text-slate-300">Email, Phone, or Admission No</label>
                                 <input
-                                    type="email"
+                                    type="text"
                                     required
-                                    autoComplete="email"
-                                    value={email}
-                                    onChange={(e) => setEmail(e.target.value)}
+                                    autoComplete="username"
+                                    value={identifier}
+                                    onChange={(e) => setIdentifier(e.target.value)}
                                     className="w-full bg-slate-900/40 border border-white/10 rounded-xl px-4 py-3.5 text-sm text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all placeholder:text-slate-500"
-                                    placeholder={t('emailPlaceholder')}
+                                    placeholder="e.g. admin@school.edu.lk / +9477... / 1004"
                                 />
                             </div>
 
