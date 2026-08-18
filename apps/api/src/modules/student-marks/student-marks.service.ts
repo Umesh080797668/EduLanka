@@ -87,7 +87,7 @@ export class StudentMarksService {
                 throw new ForbiddenException('Not allowed');
             }
         } else if (caller.role === UserRole.PARENT) {
-            const { data: pc } = await db.from('parent_children').select('id').eq('parent_user_id', caller.sub).eq('student_id', studentId).maybeSingle();
+            const { data: pc } = await db.from('parents').select('id').eq('user_id', caller.sub).eq('student_id', studentId).maybeSingle();
             if (!pc) {
                 throw new ForbiddenException('Parent is not linked to this student');
             }

@@ -381,7 +381,9 @@
     "relationshipContext": "Relationship Context",
     "linking": "Linking...",
     "mapStudent": "+ Map Student Record",
-    "unlinkConfirm": "Are you sure you want to decouple this student from this parent?"
+    "unlinkConfirm": "Are you sure you want to decouple this student from this parent?",
+    "active": "Active",
+    "inactive": "Inactive"
   },
   "InstitutionAdminStudents": {
     "title": "Students",

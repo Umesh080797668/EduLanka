@@ -100,7 +100,7 @@ export default function ParentDetailPage({ params }: { params: Promise<{ id: str
     if (error && !parent) return <div style={{ padding: '2rem', color: 'red' }}>Error: {error}</div>;
     if (!parent) return <div style={{ padding: '2rem' }}>{t('parentNotFound')}</div>;
 
-    const linkedStudentIds = parent.parent_children?.map(pc => pc.student_id) || [];
+    const linkedStudentIds = parent.parents?.map(pc => pc.student_id) || [];
     const availableStudents = allStudents.filter(s => !linkedStudentIds.includes(s.id));
 
     const isActive = parent.is_active;
@@ -220,11 +220,11 @@ export default function ParentDetailPage({ params }: { params: Promise<{ id: str
                 <div style={{ background: 'white', borderRadius: '8px', border: '1px solid #e5e7eb', padding: '1.5rem' }}>
                     <h2 style={{ fontSize: '1.2rem', fontWeight: 600, marginBottom: '1.5rem' }}>{t('mappedChildren')}</h2>
 
-                    {!parent.parent_children || parent.parent_children.length === 0 ? (
+                    {!parent.parents || parent.parents.length === 0 ? (
                         <p style={{ color: '#6b7280', padding: '2rem 0', textAlign: 'center' }}>{t('noStudentsMapped')}</p>
                     ) : (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                            {parent.parent_children.map((pc: any) => (
+                            {parent.parents.map((pc: any) => (
                                 <div key={pc.student_id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1rem', border: '1px solid #f3f4f6', borderRadius: '6px' }}>
                                     <div>
                                         <div style={{ fontWeight: 500, color: '#111827' }}>{pc.students?.users?.full_name}</div>

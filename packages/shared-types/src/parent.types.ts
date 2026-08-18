@@ -19,7 +19,7 @@ export interface ParentProfile {
     phone_number?: string;
     role: string;
     is_active: boolean;
-    parent_children?: any[]; // nested mappings
+    parents?: any[]; // nested mappings
     created_at: string;
     updated_at: string;
 }

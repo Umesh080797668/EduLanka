@@ -180,8 +180,8 @@ export class StudentsService {
 
         const { data: classData } = await db.from('classes').select('*').eq('id', data.class_id).maybeSingle();
         data.classes = classData;
-        const { data: parentData } = await db.from('parent_children').select('*').eq('student_id', id);
-        data.parent_children = parentData || [];
+        const { data: parentData } = await db.from('parents').select('*').eq('student_id', id);
+        data.parents = parentData || [];
         return data;
     }
 

@@ -64,14 +64,14 @@ export default function ParentsPage() {
                                     </td>
                                     <td style={{ padding: '0.75rem 1rem' }}>
                                         <span style={{
-                                            background: parent.parent_children && parent.parent_children.length > 0 ? '#d1fae5' : '#f3f4f6',
-                                            color: parent.parent_children && parent.parent_children.length > 0 ? '#065f46' : '#6b7280',
+                                            background: parent.parents && parent.parents.length > 0 ? '#d1fae5' : '#f3f4f6',
+                                            color: parent.parents && parent.parents.length > 0 ? '#065f46' : '#6b7280',
                                             padding: '0.2rem 0.6rem',
                                             borderRadius: '999px',
                                             fontSize: '0.8rem',
                                             fontWeight: 500
                                         }}>
-                                            {parent.parent_children?.length || 0} {t('children')}
+                                            {parent.parents?.length || 0} {t('children')}
                                         </span>
                                     </td>
                                     <td style={{ padding: '0.75rem 1rem', textAlign: 'right' }}>

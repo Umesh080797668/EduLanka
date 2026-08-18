@@ -68,8 +68,8 @@ export interface StudentProfile {
         year: number;
     } | null;
 
-    parent_children?: Array<{
-        parent_user_id: string;
+    parents?: Array<{
+        user_id: string;
         relationship: string;
         users: {
             full_name: string;
