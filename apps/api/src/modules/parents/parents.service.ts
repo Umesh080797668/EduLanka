@@ -47,9 +47,9 @@ export class ParentsService {
         if (!userData) throw new NotFoundException('Parent profile not found');
 
         const { data: childrenData, error: childrenError } = await db
-            .from('parent_children')
+            .from('parents')
             .select('student_id, students(id, admission_no, classes(grade, section, year), users(full_name, email))')
-            .eq('parent_user_id', caller.sub);
+            .eq('user_id', caller.sub);
 
         if (childrenError) {
             console.error("PARENTS_CHILDREN_ERROR:", childrenError);
@@ -89,7 +89,7 @@ export class ParentsService {
 
         const { data, error } = await db
             .from('users')
-            .select('*, parent_children(id, student_id, relationship, students(id, admission_no, users(full_name, email)))')
+            .select('*, parents(id, student_id, relationship, students(id, admission_no, users(full_name, email)))')
             .eq('id', parentUserId)
             .eq('role', UserRole.PARENT)
             .maybeSingle();
@@ -108,9 +108,9 @@ export class ParentsService {
         const db = this.supabase.getTenantClient(slug);
 
         const { data, error } = await db
-            .from('parent_children')
+            .from('parents')
             .select('*, students(id, admission_no, al_stream, users(full_name, email), classes(grade, section, year))')
-            .eq('parent_user_id', parentUserId);
+            .eq('user_id', parentUserId);
 
         if (error) {
             if (error.code === '22P02') throw new NotFoundException('Invalid parent UUID format');
@@ -135,9 +135,9 @@ export class ParentsService {
         if (!parentUser) throw new NotFoundException(`Parent user ${parentUserId} not found`);
 
         const { data, error } = await db
-            .from('parent_children')
+            .from('parents')
             .insert({
-                parent_user_id: parentUserId,
+                user_id: parentUserId,
                 student_id: dto.studentId,
                 relationship: dto.relationship ?? ParentRelationship.GUARDIAN,
             })
@@ -161,9 +161,9 @@ export class ParentsService {
         const db = this.supabase.getTenantClient(slug);
 
         const { error } = await db
-            .from('parent_children')
+            .from('parents')
             .delete()
-            .eq('parent_user_id', parentUserId)
+            .eq('user_id', parentUserId)
             .eq('student_id', studentId);
 
         if (error) throw new InternalServerErrorException('Failed to unlink parent from student');

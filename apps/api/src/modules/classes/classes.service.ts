@@ -126,8 +126,6 @@ export class ClassesService {
         const gradesMap = new Map();
         if (gradesData) gradesData.forEach((g: any) => gradesMap.set(g.level, g));
         data.grades = gradesMap.get(data.grade);
-        data.class_teachers = [];
-        data.students = [];
 
         return data;
     }
