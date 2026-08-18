@@ -34,9 +34,18 @@ export class ClassesService {
         const slug = caller.tenantId;
         const db = this.supabase.getTenantClient(slug);
 
+        const { data: gradeConfig } = await db.from('grades_config').select('level').eq('id', dto.gradeId).single();
+        if (!gradeConfig) throw new NotFoundException('Grade configuration not found');
+
         const { data, error } = await db
             .from('classes')
-            .insert({ grade_id: dto.gradeId, section: dto.section, year: dto.year, medium: dto.medium ?? null })
+            .insert({
+                tenant_id: slug,
+                grade: gradeConfig.level,
+                section: dto.section,
+                year: dto.year,
+                medium: dto.medium ?? null
+            })
             .select()
             .single();
 
@@ -66,9 +75,9 @@ export class ClassesService {
             throw new InternalServerErrorException('Failed to fetch classes');
         }
 
-        const { data: gradesData } = await db.from('grades').select('*');
+        const { data: gradesData } = await db.from('grades_config').select('*');
         const gradesMap = new Map();
-        if (gradesData) gradesData.forEach((g: any) => gradesMap.set(g.id, g));
+        if (gradesData) gradesData.forEach((g: any) => gradesMap.set(g.level, g));
 
         const { data: ctData } = await db.from('class_teachers').select('*, teachers(*, users(*))');
         const ctMap = new Map();
@@ -81,7 +90,7 @@ export class ClassesService {
 
         let classes = (classesData || []).map((c: any) => ({
             ...c,
-            grades: gradesMap.get(c.grade_id),
+            grades: gradesMap.get(c.grade),
             class_teachers: ctMap.get(c.id) || []
         }));
 
@@ -113,10 +122,10 @@ export class ClassesService {
         }
         if (!data) throw new NotFoundException(`Class ${id} not found`);
 
-        const { data: gradesData } = await db.from('grades').select('*');
+        const { data: gradesData } = await db.from('grades_config').select('*');
         const gradesMap = new Map();
-        if (gradesData) gradesData.forEach((g: any) => gradesMap.set(g.id, g));
-        data.grades = gradesMap.get(data.grade_id);
+        if (gradesData) gradesData.forEach((g: any) => gradesMap.set(g.level, g));
+        data.grades = gradesMap.get(data.grade);
         data.class_teachers = [];
         data.students = [];
 

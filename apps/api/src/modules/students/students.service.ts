@@ -94,7 +94,7 @@ export class StudentsService {
                     date_of_birth: dto.dateOfBirth ?? null,
                     gender: dto.gender ?? null,
                     al_stream: dto.alStream ?? null,
-                    medium: dto.medium ?? null, tenant_id: slug,
+                    tenant_id: slug,
                 })
                 .select('*')
                 .single();

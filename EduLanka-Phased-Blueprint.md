@@ -1,5 +1,7 @@
 # EduLanka SaaS Platform — Phased Architecture & Roadmap Blueprint
 
+> **Revision note:** This blueprint has been updated to reflect two changes made against the original design: (1) the database moved from schema-per-tenant to a single shared Supabase schema with `tenant_id` + Row-Level Security (see §4a), and (2) pricing moved from a flat Free/Pro monthly fee to a per-active-student billing model across four tiers (see §7). Sections below are marked "Revised" where they diverge from the original spec.
+
 ## 1. System Vision & Sri Lankan Educational Taxonomy
 
 EduLanka is a national-scale, multi-tenant educational SaaS ecosystem engineered specifically for Sri Lanka. It models the Sri Lankan educational grade structure (Grades 1–13) across localized school management, an offline-first Flutter mobile application, an automated Twilio SMS gateway system, and a federated content library.
@@ -37,7 +39,7 @@ Every frontend surface — Next.js web dashboards (Student, Parent, Teacher, Sch
 **Implementation approach:**
 - **Web (Next.js):** a lightweight coach-mark/tour library (e.g., driver.js, Shepherd.js, or react-joyride) driving spotlighted walkthroughs, plus a help-content panel sourced from a central tutorial-content store.
 - **Mobile (Flutter):** an equivalent in-app walkthrough package (e.g., tutorial_coach_mark or a custom overlay) with tutorial assets bundled at build time and updated via app releases (or a lightweight content-sync job when online).
-- **Shared content model:** tutorials are defined as structured data (screen ID → ordered steps → element target → copy → optional media) stored centrally (editable exclusively by `SUPER_ADMIN` users) and rendered by both frontends, so tutorial content is authored once and consumed by web and mobile alike, and stays in sync with which features are actually live for a given tenant's plan (Free vs. Pro) and phase rollout.
+- **Shared content model:** tutorials are defined as structured data (screen ID → ordered steps → element target → copy → optional media) stored centrally (editable exclusively by `SUPER_ADMIN` users) and rendered by both frontends, so tutorial content is authored once and consumed by web and mobile alike, and stays in sync with which features are actually live for a given tenant's plan (Community / Starter / Growth / Institutional — see §7) and phase rollout.
 
 ## 3. Why Phase This Project
 
@@ -61,16 +63,39 @@ The full vision spans roughly six independently hard products: a multi-tenant sc
 **Goal:** A single-tenant-capable core platform a school could run daily operations on, with the multi-tenant data model in place from day one (even if only one tenant exists at launch).
 
 **Scope:**
-- Multi-tenant data model: schema-per-tenant supabase, tenant provisioning, role-based access (Student, Parent, Teacher, School Admin).
+- Multi-tenant data model: **single shared Postgres schema on Supabase**, every tenant-scoped table carrying a `tenant_id` column, Row-Level Security policies keyed off the `tenantId` claim in the JWT, tenant provisioning, role-based access (Student, Parent, Teacher, School Admin). *(Revised — see §4a. Originally spec'd as schema-per-tenant; collapsed to a shared schema in Sprint 7 for cost and operability reasons.)*
 - Student/Parent/Teacher portals: enrollment, class assignment, grade entry, static PDF report cards.
 - School Admin: account management, basic policy enforcement.
 - Auth & API Gateway (Nginx/Kong) — rate limiting, auth routing established early so later services plug in cleanly.
-- **System Admin:** Manual provisioning of new school tenants (via backend/CLI), managing global `SUPER_ADMIN` tutorial content schemas.
+- **System Admin:** Manual provisioning of new school tenants (via backend/CLI, now a single `INSERT` into `public.tenants` — no per-tenant schema DDL to run), managing global `SUPER_ADMIN` tutorial content schemas.
 - **First-run guided tour + help system** shipped for all Phase 1 screens across every role (Student, Parent, Teacher, School Admin): enrollment, grade entry, static report cards, account/policy management.
 
 **Explicitly deferred:** chat, SMS, AI, mobile app, timetabling, marketplace.
 
-**Tech introduced:** Next.js 16+ (web dashboards), NestJS (REST APIs), supabase, Redis (sessions), tour/coach-mark library + central tutorial-content store.
+**Tech introduced:** Next.js 16+ (web dashboards), NestJS (REST APIs), Supabase (shared schema + RLS), Redis (sessions), tour/coach-mark library + central tutorial-content store.
+
+---
+
+## 4a. Multi-Tenancy Model — Revised: Shared Schema, Not Schema-per-Tenant
+
+**This supersedes the original schema-per-tenant design referenced in earlier drafts of this blueprint (and in Phase 1's initial scope).** The platform now runs on a single shared `public` schema in Supabase, with every tenant-scoped table isolated by a `tenant_id` foreign key and Postgres Row-Level Security.
+
+**Why the change:**
+- **Cost.** Schema-per-tenant meant every new school added a full duplicated set of tables, indexes, RLS policies, and triggers. On Supabase's connection/compute pricing this scales cost roughly linearly (or worse) with tenant count, well before there's revenue to match — untenable for a bootstrapped, pre-revenue platform.
+- **Operability.** Every migration had to be written twice: once as a normal `CREATE TABLE`, once as a `format('...%I...', schema_name)` dynamic-SQL function re-applied to *every existing tenant schema* (see the `apply_sprintN_to_tenant()` pattern in early migrations). This doubled migration-authoring effort and made a single typo in a dynamic-SQL block a platform-wide outage risk instead of a single-table bug.
+- **Backup/restore and tooling friction.** Standard Postgres/Supabase tooling (dashboard table browser, PITR, `pg_dump`, connection pooling) assumes a small, stable set of schemas. Hundreds of `tenant_<slug>` schemas fights that tooling instead of working with it.
+- **No functional upside for EduLanka's needs.** Schema-per-tenant is usually chosen for very strict compliance isolation or per-tenant custom schema drift — neither applies here. RLS on a shared schema gives the same query-level data isolation guarantee (a `tenant_id` mismatch simply returns zero rows) at a fraction of the operational cost.
+
+**What changed concretely (Sprint 7 / migration `20260813000000_sprint7_single_schema.sql`):**
+- All per-tenant tables (`users`, `classes`, `teachers`, `students`, `parents`, `class_teachers`, `student_marks`, `user_tutorials`, `school_policy`, etc.) now live once in `public`, each with a `tenant_id UUID REFERENCES public.tenants(id)`.
+- Every table has a `USING (tenant_id::TEXT = current_setting('request.jwt.claim.tenantId', true))` RLS policy, plus a `service_role_all` bypass policy for the NestJS backend's service-role key.
+- The `create_tenant_schema()` / `drop_tenant_schema()` RPCs and the various `apply_sprintN_to_tenant()` dynamic-SQL functions are dropped. Provisioning a school is now a single `INSERT INTO public.tenants`; deprovisioning is a status flip (soft-delete) rather than a destructive `DROP SCHEMA ... CASCADE`.
+- At the API layer, `SupabaseService.getTenantClient()` no longer opens a connection scoped to a `tenant_<slug>` schema — it returns a proxied service-role client that auto-appends `.eq('tenant_id', ...)` to every `select`/`update`/`delete` call, so existing service code (`classes.service.ts`, `parents.service.ts`, etc.) didn't need a full rewrite.
+
+**Known gaps this reopened (flagging for near-term follow-up, not deferring silently):**
+- The free-tier **student cap enforcement was lost in the collapse**. The old `check_tenant_student_limit()` trigger and `apply_sprint4_to_tenant()` cap logic were written against the schema-per-tenant model (`TG_TABLE_SCHEMA`-based) and were not ported to a `public.students` equivalent — there is currently no DB-level guard stopping a Free-tier tenant from exceeding its plan's student allowance. This needs a rewritten trigger scoped to `tenant_id` instead of schema name (see §7a for how this now plugs into the revised pricing model).
+- `getTenantClient(tenantId)` is invoked inconsistently across services — most call sites correctly pass the tenant's UUID, but at least one (`TenantService.getStats()`) passes `tenant.slug`, which silently produces a `tenant_id`-filter that never matches and returns zero counts. Worth an audit pass now that the proxy pattern is relied on everywhere.
+- Because billing is about to move to active-student-count metering (§7a), the missing cap logic and the `getTenantClient` slug/UUID inconsistency should be fixed together — the same nightly job that counts billable students per tenant is the natural place to also enforce/report cap overages.
 
 ---
 
@@ -215,9 +240,10 @@ The diagram below represents the fully realized architecture; earlier phases imp
 │                              STORAGE & AI LAYER                                 │
 │                                                                                 │
 │ ┌─────────────────────────┐  ┌────────────────────────┐  ┌────────────────────┐ │
-│ │ supabase Cluster      │  │ Meilisearch + Vector DB│  │ Media Asset Hub    │ │
-│ │ (Schema-per-Tenant DB)  │  │ (Hybrid RAG Retrieval) │  │ (Cloudinary CDN)   │ │
-│ │      (Phase 1)          │  │      (Phase 4)         │  │     (Phase 3)      │ │
+│ │ Supabase Cluster        │  │ Meilisearch + Vector DB│  │ Media Asset Hub    │ │
+│ │ (Shared Schema + RLS)   │  │ (Hybrid RAG Retrieval) │  │ (Cloudinary CDN)   │ │
+│ │  (Phase 1, rev. Sprint 7)│  │      (Phase 4)         │  │     (Phase 3)      │ │
+│ │      (Phase 1, rev. Sprint 7) │                    │  │                    │ │
 │ └────────────┬────────────┘  └───────────┬────────────┘  └────────────────────┘ │
 │              │                           │                                      │
 │              ▼ (Nightly ETL)             ▼ (Context)                            │
@@ -229,27 +255,44 @@ The diagram below represents the fully realized architecture; earlier phases imp
 └─────────────────────────────────────────────────────────────────────────────────┘
 ```
 
-## 7. Pricing Architecture & Feature Matrix (Free vs. Pro, Target State)
+## 7. Pricing Architecture — Revised: Per-Student Pricing (Replaces Flat Free/Pro)
 
-This is the eventual Free/Pro matrix once all phases ship. In practice, Pro-tier gating only becomes meaningful starting Phase 4 (AI features); Phases 1–3 features can ship as a single tier while the platform is proving itself with early-adopter schools.
+**This replaces the old flat LKR 0 / LKR 5,000-per-month Free/Pro model.** The old model had two problems in practice: (1) a flat monthly fee doesn't scale with a school's actual size — a 200-student school and a 2,000-student school paid the same LKR 5,000 on Pro, which undercharges large schools and overcharges small ones; and (2) the Free-tier's 250-student cap was never actually enforced at the database level once the schema-per-tenant cap trigger was lost in the Sprint 7 collapse (§4a), so it wasn't a real ceiling.
 
-| Feature Domain | Free Package (LKR 0 / month) | Pro Package (LKR 5,000 / month) | Phase Introduced |
-|---|---|---|---|
-| Student Capacity | Up to 250 Active Students | Unlimited Students | 1 |
-| Report Cards & Badges | Static PDFs | Interactive Digital Reports & Gamification Badges | 1 / 6 |
-| Real-Time Chat | Class Section Groups Only | Full Chat Engine (Groups, DMs, File/Voice Attachments) | 2 |
-| Notices & Disaster Mode | In-App/Web notices only | Universal Scoping + Disaster Mode + 500 Twilio SMS/mo | 2 |
-| Offline Mobile Sync | Basic (Max 3 days retention) | Full Offline Sync (Unlimited Flutter SQLite storage) | 3 |
-| Video & Downloads | Embedded Links Only (YouTube) | Direct Hosting, Streaming & Granted Encrypted Downloads | 3 |
-| Cloud Storage Quota | 500 MB Document Storage | Unlimited Storage (Cloudinary Backed CDN) | 3 |
-| AI Academic Assistant | Disabled | Enabled (Qwen RAG-based subject tutoring) | 4 |
-| Predictive Analytics | Basic Analytics | Early Warning System, Exam Predictions & AI Insights | 5 |
-| Teacher Blogs & Resources | School-internal only | Publish to National Resource Marketplace | 6 |
-| Smart Timetables | Manual entry | Algorithmic Constraint-based Generation | 6 |
+**Guiding rule: revenue is derived only from active student count.** Teachers, parents, and admin/staff accounts are never billed and never capped — a school is never discouraged from adding staff. What a school pays scales with how many *students* it actually enrolls and keeps active, billed monthly per **Active Student** (a student row with `is_active = true`, mirroring how the old cap trigger counted).
+
+### 7a. Tiers
+
+| Tier | Price | Active Student Cap | What It Unlocks | Phase |
+|---|---|---|---|---|
+| **Community** (Free) | LKR 0 / student | Up to 100 active students | Enrollment, class assignment, grade entry, static PDF report cards, in-app/web notices only (no SMS), 500 MB shared document storage | 1 |
+| **Starter** | LKR 40 / student / month (min. LKR 3,000/mo) | Uncapped | Everything in Community, plus: full real-time chat (class groups, DMs), targeted notice scoping, Disaster Mode + 3 Twilio SMS/student/month included, offline mobile sync (7-day retention), embedded video links, 2 GB storage | 2 / 3 (partial) |
+| **Growth** | LKR 75 / student / month (min. LKR 8,000/mo) | Uncapped | Everything in Starter, plus: unlimited offline Flutter SQLite sync, direct video hosting/streaming with encrypted downloads, Paper Hub, fair-use unlimited Cloudinary storage, AI Academic Assistant (Qwen RAG tutoring, fair-use token quota per student) | 3 / 4 |
+| **Institutional** | LKR 110 / student / month, volume-negotiated above 1,000 students | Uncapped | Everything in Growth, plus: Early Warning System, Exam Prediction, Teacher Performance Analytics, Smart Timetable Generator, publishing to the National Resource Marketplace, Zonal/MoE hierarchical reporting where applicable | 5 / 6 |
+
+**Volume discount (applies to Starter, Growth, Institutional):**
+
+| Active Students | Discount off listed per-student rate |
+|---|---|
+| 1 – 250 | 0% (listed rate) |
+| 251 – 1,000 | 10% |
+| 1,001 – 3,000 | 20% |
+| 3,000+ | Custom quote (zonal/national-scale deployments negotiate directly) |
+
+**SMS is metered separately, on top of the tier price.** Twilio cost isn't proportional to student count the way seat-based features are — a quiet school and a school that blasts weekly Disaster Mode alerts consume very different SMS volume for the same student count. Each paid tier includes a small monthly SMS bundle per student (see table above); usage beyond the bundle is billed at cost-plus-margin per message, so heavy SMS use doesn't get cross-subsidized by light-SMS schools on the same tier.
+
+**Why per-student instead of flat-fee:** it directly ties EduLanka's revenue to the platform's actual Supabase/Cloudinary/compute cost driver — active student rows and their associated data (marks, attendance, chat history, offline sync payloads) scale per student, not per school. A small rural Type 3 school and a large Colombo 1AB national school now pay proportionally to their actual footprint and value received, rather than the old flat rate that made Pro a bad deal for small schools and an underpriced deal for large ones.
+
+### 7b. Billing Mechanics (Implementation Note)
+
+- **Active student count is now cheap to compute.** Under the old schema-per-tenant model, metering meant running `SELECT count(*) FROM tenant_<slug>.students` once per tenant schema. Under the shared-schema model (§4a), it's a single query: `SELECT tenant_id, count(*) FROM public.students WHERE is_active = true GROUP BY tenant_id` — one pass across all tenants instead of N per-schema round-trips. This was a direct cost/operability win from the Sprint 7 migration, independent of the pricing redesign.
+- **A nightly billing job** (proposed: `BullMQ` cron in the NestJS API, or a Supabase Edge Function) should run this aggregate query, join against `public.tenants.plan` and a redesigned `public.plans` table (per-student rate + student cap replacing the old flat `price_lkr`), and write the computed monthly charge to a new `public.billing_snapshots` table for invoicing.
+- **The Community-tier 100-student cap needs a real enforcement trigger again** — this is the same gap flagged in §4a. It should be rewritten as a `BEFORE INSERT` trigger on `public.students` that counts `WHERE tenant_id = NEW.tenant_id AND is_active = true` against the tenant's plan cap (pulled from the redesigned `public.plans`), instead of the old `TG_TABLE_SCHEMA`-based version that no longer applies.
+- **`public.plans` needs new columns**: `price_per_student_lkr`, `student_cap` (nullable = uncapped), replacing the old single `price_lkr` + `max_students` pair, plus the volume-discount breakpoints (either as columns or a small `public.plan_volume_discounts` lookup table).
 
 ## 8. Technology Stack Specifications (by Phase)
 
-- **Phase 1:** Next.js 16+ (App Router, Turbopack, RSC, Tailwind CSS), NestJS REST APIs, supabase (schema-per-tenant), Redis (sessions).
+- **Phase 1:** Next.js 16+ (App Router, Turbopack, RSC, Tailwind CSS), NestJS REST APIs, Supabase (shared schema, `tenant_id` + RLS — revised from schema-per-tenant in Sprint 7, see §4a), Redis (sessions).
 - **Phase 2:** NestJS WebSockets (chat gateway), Twilio Programmable Messaging API (alphanumeric sender IDs, UTF-8), Redis (WebSocket state, SMS queues).
 - **Phase 3:** Flutter (Dart), SQLite (sqflite) for offline storage, Cloudinary (HLS video transcoding, encrypted offline downloads).
 - **Phase 4:** Python (FastAPI) AI engine, Meilisearch, dedicated Vector Database (Pinecone / Qdrant / Milvus), Qwen LLM.
@@ -265,6 +308,6 @@ This is the eventual Free/Pro matrix once all phases ship. In practice, Pro-tier
    - **UX:** A public or Ministry-level dashboard plotting the Top 50 schools nationally or provincially, granting awards (badges) that render on the School's profile across the mobile and web portals to encourage institutional competitiveness and transparency.
 
 **2. Inter-School Event Grids (Multi-Tenant Hubs)**
-   - **Cross-Schema Collaboration:** Breaking the rigid RLS isolation temporarily via `Event Hubs` where multiple `tenant_id` pools can register participants.
+   - **Cross-Tenant Collaboration:** Breaking the rigid RLS isolation temporarily via `Event Hubs` where multiple `tenant_id` pools can register participants (now a straightforward RLS policy exception in the shared schema, rather than a cross-schema join).
    - **Use Cases:** Regional sports meets, national debates, and inter-district hackathons. 
    - **Data Flow:** A specialized `public.events` global table that utilizes Foreign Keys tracking the `tenant_id` of the hosting school and JSONB arrays storing the `user_id` mapped identities of participating guest schools, generating universal QR tickets and global push notifications.

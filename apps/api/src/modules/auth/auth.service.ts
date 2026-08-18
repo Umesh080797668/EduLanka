@@ -7,6 +7,7 @@ import {
     NotFoundException,
     InternalServerErrorException,
     ForbiddenException,
+    ConflictException,
     Logger,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -313,6 +314,9 @@ export class AuthService {
         if (insertError || !newUser) {
             // Rollback Supabase auth user to avoid orphans
             await this.supabaseService.adminClient.auth.admin.deleteUser(authUid);
+            if (insertError?.code === '23505') {
+                throw new ConflictException('An account with this email already exists in this tenant');
+            }
             this.logger.error(`Tenant user insert failed: ${insertError?.message}`);
             throw new InternalServerErrorException('Failed to register user in tenant: ' + insertError?.message);
         }
