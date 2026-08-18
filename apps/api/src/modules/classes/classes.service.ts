@@ -67,7 +67,7 @@ export class ClassesService {
 
         const { data: classesData, error: classesError } = await db
             .from('classes')
-            .select('*')
+            .select('*, students(id)')
             .order('section', { ascending: true });
 
         if (classesError) {

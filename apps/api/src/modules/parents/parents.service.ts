@@ -137,6 +137,7 @@ export class ParentsService {
         const { data, error } = await db
             .from('parents')
             .insert({
+                tenant_id: slug,
                 user_id: parentUserId,
                 student_id: dto.studentId,
                 relationship: dto.relationship ?? ParentRelationship.GUARDIAN,

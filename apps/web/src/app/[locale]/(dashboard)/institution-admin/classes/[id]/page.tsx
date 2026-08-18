@@ -139,7 +139,7 @@ export default function ClassDetailPage({ params }: PageProps) {
                 {/* Stats Row */}
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                     {[
-                        { label: 'Students', value: cls.studentCount ?? 0, icon: Users },
+                        { label: 'Students', value: cls.students?.length ?? 0, icon: Users },
                         { label: 'Teachers Assigned', value: (cls.class_teachers || []).length, icon: UserCog },
                         { label: 'Year', value: cls.year, icon: BookOpen },
                     ].map(({ label, value, icon: Icon }) => (
