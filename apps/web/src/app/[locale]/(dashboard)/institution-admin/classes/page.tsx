@@ -151,7 +151,7 @@ export default function ClassesPage() {
                                             </td>
                                             <td className="px-6 py-4 text-right">
                                                 <Link
-                                                    href={`/institution-admin/classes/${cls.id}`}
+                                                    href={`/institution-admin/classes/${cls.id || 'DEBUG-' + Object.keys(cls).join('-')}`}
                                                     className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-indigo-50 text-slate-600 hover:text-indigo-700 border border-slate-200 hover:border-indigo-300 rounded-lg text-sm font-medium transition-all shadow-sm"
                                                 >
                                                     {t('manage')}

@@ -23,7 +23,10 @@ export default function InstitutionAdminDashboard() {
                     'x-tenant-id': localStorage.getItem('tenantId') || 'a1b2c3d4-0000-0000-0000-000000000001'
                 };
 
-                const res = await fetch('/api/v1/tenants/stats', { headers });
+                const res = await fetch('/api/v1/tenants/stats', {
+                    headers,
+                    cache: 'no-store'
+                });
 
                 if (res.ok) {
                     const json = await res.json();

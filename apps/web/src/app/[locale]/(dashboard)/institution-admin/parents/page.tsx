@@ -72,7 +72,7 @@ export default function ParentsPage() {
                                     </td>
                                     <td style={{ padding: '0.75rem 1rem', textAlign: 'right' }}>
                                         <Link
-                                            href={`/institution-admin/parents/${parent.id}`}
+                                            href={`/institution-admin/parents/${parent.id || 'DEBUG-' + Object.keys(parent).join('-')}`}
                                             style={{ color: 'var(--color-brand-600)', textDecoration: 'none', fontWeight: 500 }}
                                         >
                                             {t('viewMap')} &rarr;

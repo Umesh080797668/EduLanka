@@ -182,12 +182,15 @@ export class TenantService {
      */
     async getStats(caller: JwtPayload): Promise<any> {
         const tenant = await this.findOneById(caller.tenantId, caller);
-        const db = this.supabase.getTenantClient(tenant.slug);
+        const db = this.supabase.getTenantClient(tenant.id);
 
         const [usersReq, classesReq] = await Promise.all([
             db.from('users').select('*', { count: 'exact', head: true }),
             db.from('classes').select('*', { count: 'exact', head: true })
         ]);
+
+        if (usersReq.error) this.logger.error('usersReq map err: ' + usersReq.error.message);
+        if (classesReq.error) this.logger.error('classesReq map err: ' + classesReq.error.message);
 
         return {
             users: usersReq.count || 0,
