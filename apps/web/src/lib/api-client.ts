@@ -42,7 +42,13 @@ async function apiFetch<T>(
         headers,
     });
 
-    const json = (await response.json()) as ApiResponse<T>;
+    let json: ApiResponse<T>;
+    try {
+        const text = await response.text();
+        json = text ? JSON.parse(text) as ApiResponse<T> : { success: response.ok, data: null as any };
+    } catch {
+        json = { success: response.ok, data: null as any };
+    }
 
     if (!response.ok || !json.success) {
         throw new Error(json.error?.message ?? `API error: ${response.status}`);

@@ -74,7 +74,7 @@ export class ParentsService {
 
         const { data, error } = await db
             .from('users')
-            .select('*')
+            .select('*, parents(id, student_id, relationship)')
             .eq('role', UserRole.PARENT)
             .order('created_at', { ascending: false });
 

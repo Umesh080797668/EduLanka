@@ -112,7 +112,7 @@ export class ClassesService {
 
         const { data, error } = await db
             .from('classes')
-            .select('*')
+            .select('*, class_teachers(id, is_homeroom, subject, teacher_id, teachers(id, user_id, users(full_name, email))), students(id, admission_no, users(full_name, email))')
             .eq('id', id)
             .maybeSingle();
 
