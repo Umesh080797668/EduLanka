@@ -1,13 +1,14 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, use } from 'react';
 import { useRouter } from '@/i18n/routing';
 import { fetchParent, fetchStudents, linkStudentToParent, unlinkStudentFromParent, RequestOpts } from '@/lib/api/school';
 import type { ParentProfile, StudentProfile } from '@edu-lanka/shared-types';
 import { ParentRelationship } from '@edu-lanka/shared-types';
 import { useTranslations } from 'next-intl';
 
-export default function ParentDetailPage({ params }: { params: { id: string } }) {
+export default function ParentDetailPage({ params }: { params: Promise<{ id: string }> }) {
+    const { id } = use(params);
     const t = useTranslations('InstitutionAdminParents');
     const router = useRouter();
     const [parent, setParent] = useState<ParentProfile | null>(null);
@@ -32,7 +33,7 @@ export default function ParentDetailPage({ params }: { params: { id: string } })
         try {
             const opts: RequestOpts = { token: localStorage.getItem('token') || '', tenantId: localStorage.getItem('tenantId') || '' };
             const [parentData, studentsData] = await Promise.all([
-                fetchParent(params.id, opts),
+                fetchParent(id, opts),
                 fetchStudents(opts)
             ]);
             setParent(parentData);
@@ -47,14 +48,14 @@ export default function ParentDetailPage({ params }: { params: { id: string } })
 
     useEffect(() => {
         Promise.resolve().then(() => loadData());
-    }, [params.id]);
+    }, [id]);
 
     const handleLink = async (e: React.FormEvent) => {
         e.preventDefault();
         setMapping(true);
         try {
             const opts: RequestOpts = { token: localStorage.getItem('token') || '', tenantId: localStorage.getItem('tenantId') || '' };
-            await linkStudentToParent(params.id, { studentId: selectedStudentId, relationship }, opts);
+            await linkStudentToParent(id, { studentId: selectedStudentId, relationship }, opts);
             setSelectedStudentId('');
             await loadData();
         } catch (err: any) {
@@ -68,7 +69,7 @@ export default function ParentDetailPage({ params }: { params: { id: string } })
         if (!confirm(t('unlinkConfirm'))) return;
         try {
             const opts: RequestOpts = { token: localStorage.getItem('token') || '', tenantId: localStorage.getItem('tenantId') || '' };
-            await unlinkStudentFromParent(params.id, studentId, opts);
+            await unlinkStudentFromParent(id, studentId, opts);
             await loadData();
         } catch (err: any) {
             setError(err.message);

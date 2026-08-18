@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, use } from 'react';
 import { fetchClass, fetchTeachers, assignTeacherToClass, removeTeacherFromClass, RequestOpts } from '@/lib/api/school';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -10,11 +10,11 @@ import {
 import { Link } from '@/i18n/routing';
 
 interface PageProps {
-    params: { id: string };
+    params: Promise<{ id: string }>;
 }
 
 export default function ClassDetailPage({ params }: PageProps) {
-    const { id } = params;
+    const { id } = use(params);
     const [cls, setCls] = useState<any | null>(null);
     const [teachers, setTeachers] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
