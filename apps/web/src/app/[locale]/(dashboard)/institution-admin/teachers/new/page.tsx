@@ -23,7 +23,7 @@ export default function NewTeacherPage() {
             // Generate a secure temporary password
             const tempPassword = Math.random().toString(36).slice(-8) + Math.random().toString(36).slice(-4).toUpperCase() + '!';
 
-            const res = await fetch('/api/v1/auth/signup', {
+            const res = await fetch('/api/v1/teachers', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -33,9 +33,7 @@ export default function NewTeacherPage() {
                 body: JSON.stringify({
                     email,
                     fullName,
-                    password: tempPassword,
-                    role: 'TEACHER',
-                    tenantId: localStorage.getItem('tenantId') || 'a1b2c3d4-0000-0000-0000-000000000001'
+                    temporaryPassword: tempPassword
                 })
             });
 
