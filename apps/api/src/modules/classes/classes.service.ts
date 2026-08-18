@@ -67,7 +67,7 @@ export class ClassesService {
 
         const { data: classesData, error: classesError } = await db
             .from('classes')
-            .select('*, students(id)')
+            .select('*, students(id), class_teachers(id, is_homeroom, subject, teacher_id, teachers(id, user_id, users(full_name, email)))')
             .order('section', { ascending: true });
 
         if (classesError) {
@@ -79,19 +79,9 @@ export class ClassesService {
         const gradesMap = new Map();
         if (gradesData) gradesData.forEach((g: any) => gradesMap.set(g.level, g));
 
-        const { data: ctData } = await db.from('class_teachers').select('*, teachers(*, users(*))');
-        const ctMap = new Map();
-        if (ctData) {
-            ctData.forEach((ct: any) => {
-                if (!ctMap.has(ct.class_id)) ctMap.set(ct.class_id, []);
-                ctMap.get(ct.class_id).push(ct);
-            });
-        }
-
         let classes = (classesData || []).map((c: any) => ({
             ...c,
-            grades: gradesMap.get(c.grade),
-            class_teachers: ctMap.get(c.id) || []
+            grades: gradesMap.get(c.grade)
         }));
 
         if (teacherId) {

@@ -140,7 +140,7 @@ export default function ClassesPage() {
                                             <td className="px-6 py-4">
                                                 <div className="flex items-center gap-1.5 text-slate-700 font-medium text-sm">
                                                     <Users className="w-3.5 h-3.5 text-slate-400" />
-                                                    {(cls as any).studentCount ?? 0}
+                                                    {(cls as any).students?.length ?? 0}
                                                 </div>
                                             </td>
                                             <td className="px-6 py-4">
