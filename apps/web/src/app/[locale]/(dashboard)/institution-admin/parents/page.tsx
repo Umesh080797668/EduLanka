@@ -16,7 +16,11 @@ export default function ParentsPage() {
     useEffect(() => {
         const opts: RequestOpts = { token: localStorage.getItem('token') || '', tenantId: localStorage.getItem('tenantId') || '' };
         fetchParents(opts)
-            .then(setParents)
+            .then((data) => {
+                console.log("⭐⭐⭐ RAW FETCHED PARENTS DATA FROM API ⭐⭐⭐", JSON.stringify(data, null, 2));
+                data.forEach((p, i) => console.log(`Parent ${i} Keys:`, Object.keys(p), `ID Present?`, p.id !== undefined));
+                setParents(data);
+            })
             .catch((err) => setError(err.message))
             .finally(() => setLoading(false));
     }, []);
