@@ -211,11 +211,12 @@ export class StudentsService {
         if (!studentRow) throw new NotFoundException(`Student ${id} not found`);
 
         // Update user profile fields
-        if (dto.fullName || dto.phoneNumber) {
+        if (dto.fullName || dto.phoneNumber || dto.avatarUrl) {
             await db.from('users')
                 .update({
                     ...(dto.fullName && { full_name: dto.fullName }),
                     ...(dto.phoneNumber && { phone_number: dto.phoneNumber }),
+                    ...(dto.avatarUrl && { avatar_url: dto.avatarUrl }),
                 })
                 .eq('id', studentRow.user_id);
         }

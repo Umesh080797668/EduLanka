@@ -43,6 +43,14 @@ async function apiFetch<T>(
         headers,
     });
 
+    if (response.status === 401) {
+        if (typeof window !== 'undefined') {
+            authManager.clearAuth();
+            window.location.href = '/auth/login';
+        }
+        throw new Error('Session expired. Please sign in again.');
+    }
+
     let json: ApiResponse<T>;
     try {
         const text = await response.text();

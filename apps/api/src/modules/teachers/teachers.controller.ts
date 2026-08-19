@@ -2,7 +2,7 @@
 // Teachers Controller
 // =============================================================================
 import {
-    Controller, Get, Post, Patch,
+    Controller, Get, Post, Patch, Delete,
     Body, Param, ParseUUIDPipe, UseGuards, HttpCode, HttpStatus,
 } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
@@ -53,5 +53,12 @@ export class TeachersController {
     @ApiOperation({ summary: 'Get all classes assigned to a teacher' })
     getClasses(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: JwtPayload) {
         return this.teachersService.getClasses(id, user);
+    }
+
+    @Delete(':id')
+    @HttpCode(HttpStatus.NO_CONTENT)
+    @ApiOperation({ summary: 'Deactivate a teacher account (admin only)' })
+    deactivate(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: JwtPayload) {
+        return this.teachersService.deactivate(id, user);
     }
 }

@@ -3,16 +3,26 @@ import { authManager } from '@/lib/auth-store';
 
 import { useState, useEffect } from 'react';
 import { Link } from '@/i18n/routing';
-import { fetchStudents, RequestOpts } from '@/lib/api/school';
+import { fetchStudents, deactivateStudent, RequestOpts } from '@/lib/api/school';
 import type { StudentProfile } from '@edu-lanka/shared-types';
 import { useTranslations } from 'next-intl';
 import { PageSkeleton } from '@/components/ui/Skeleton';
+import MultiStepModal from '@/components/ui/MultiStepModal';
+import { Trash2 } from 'lucide-react';
 
 export default function StudentsPage() {
     const t = useTranslations('InstitutionAdminStudents');
     const [students, setStudents] = useState<StudentProfile[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [studentToDelete, setStudentToDelete] = useState<StudentProfile | null>(null);
+
+    const handleDeleteConfirm = async () => {
+        if (!studentToDelete) return;
+        const opts: RequestOpts = { token: authManager.getToken() || '', tenantId: authManager.getTenantId() || '' };
+        await deactivateStudent(studentToDelete.id, opts);
+        setStudents(prev => prev.map(s => s.id === studentToDelete.id ? { ...s, users: { ...s.users!, is_active: false } } : s));
+    };
 
     useEffect(() => {
         // TODO (Phase 1): Retrieve auth token & tenantId from context/session
@@ -88,12 +98,21 @@ export default function StudentsPage() {
                                         </span>
                                     </td>
                                     <td style={{ padding: '0.75rem 1rem', textAlign: 'right' }}>
-                                        <Link
-                                            href={`/institution-admin/students/${student.id}`}
-                                            style={{ color: 'var(--color-brand-600)', textDecoration: 'none', fontWeight: 500 }}
-                                        >
-                                            {t('view')} &rarr;
-                                        </Link>
+                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '0.5rem' }}>
+                                            <Link
+                                                href={`/institution-admin/students/${student.id}`}
+                                                style={{ color: 'var(--color-brand-600)', textDecoration: 'none', fontWeight: 500 }}
+                                            >
+                                                {t('view')} &rarr;
+                                            </Link>
+                                            <button
+                                                onClick={() => setStudentToDelete(student)}
+                                                style={{ padding: '0.35rem', border: 'none', background: '#fee2e2', borderRadius: '4px', cursor: 'pointer', color: '#b91c1c' }}
+                                                title="Deactivate Student"
+                                            >
+                                                <Trash2 style={{ width: '1rem', height: '1rem' }} />
+                                            </button>
+                                        </div>
                                     </td>
                                 </tr>
                             ))}
@@ -101,6 +120,27 @@ export default function StudentsPage() {
                     </table>
                 </div>
             )}
+
+            <MultiStepModal
+                isOpen={!!studentToDelete}
+                onClose={() => setStudentToDelete(null)}
+                title="Deactivate Student"
+                steps={[
+                    {
+                        title: 'Are you absolutely sure?',
+                        description: `This action will initiate the deactivation process for the student ${studentToDelete?.users?.full_name}. Their access will be revoked but historical data will be preserved.`,
+                        confirmText: 'Yes, proceed',
+                        isDestructive: true
+                    },
+                    {
+                        title: 'Confirm Deactivation',
+                        description: 'Please confirm once more. They will no longer be able to log in to the portal.',
+                        confirmText: 'Deactivate Student',
+                        isDestructive: true
+                    }
+                ]}
+                onComplete={handleDeleteConfirm}
+            />
         </div>
     );
 }

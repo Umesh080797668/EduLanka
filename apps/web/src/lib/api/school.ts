@@ -19,6 +19,12 @@ export interface RequestOpts {
 }
 
 // -----------------------------------------------------------------------------
+// Uploads
+// -----------------------------------------------------------------------------
+export const getUploadSignature = (opts: RequestOpts) =>
+    apiClient.get<{ timestamp: number; folder: string; signature: string; apiKey: string }>('/upload/signature', opts);
+
+// -----------------------------------------------------------------------------
 // Classes
 // -----------------------------------------------------------------------------
 export const fetchClasses = (opts: RequestOpts) =>
@@ -38,6 +44,9 @@ export const assignTeacherToClass = (classId: string, data: { teacherId: string;
 
 export const removeTeacherFromClass = (classId: string, teacherId: string, opts: RequestOpts) =>
     apiClient.delete(`/classes/${classId}/teachers/${teacherId}`, opts);
+
+export const deleteClass = (id: string, opts: RequestOpts) =>
+    apiClient.delete(`/classes/${id}`, opts);
 
 // -----------------------------------------------------------------------------
 // Students
@@ -59,6 +68,7 @@ export const enrollStudent = (data: {
     classId?: string;
     alStream?: ALStream;
     medium?: InstructionMedium;
+    avatarUrl?: string;
 }, opts: RequestOpts) =>
     apiClient.post<StudentProfile>('/students', {
         ...data,
@@ -70,6 +80,9 @@ export const assignClassToStudent = (studentId: string, classId: string, opts: R
 
 export const updateStudent = (id: string, data: any, opts: RequestOpts) =>
     apiClient.patch<StudentProfile>(`/students/${id}`, data, opts);
+
+export const deactivateStudent = (id: string, opts: RequestOpts) =>
+    apiClient.delete(`/students/${id}`, opts);
 
 // -----------------------------------------------------------------------------
 // Teachers
@@ -88,6 +101,9 @@ export const createTeacher = (data: any, opts: RequestOpts) =>
 
 export const updateTeacher = (id: string, data: any, opts: RequestOpts) =>
     apiClient.patch<TeacherProfile>(`/teachers/${id}`, data, opts);
+
+export const deactivateTeacher = (id: string, opts: RequestOpts) =>
+    apiClient.delete(`/teachers/${id}`, opts);
 
 // -----------------------------------------------------------------------------
 // Parents

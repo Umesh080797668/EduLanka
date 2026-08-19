@@ -81,6 +81,11 @@ export class UpdateStudentDto {
     phoneNumber?: string;
 
     @ApiPropertyOptional()
+    @IsString()
+    @IsOptional()
+    avatarUrl?: string;
+
+    @ApiPropertyOptional()
     @IsDateString()
     @IsOptional()
     dateOfBirth?: string;

@@ -67,6 +67,11 @@ export class UpdateTeacherDto {
     @IsOptional()
     phoneNumber?: string;
 
+    @ApiPropertyOptional()
+    @IsString()
+    @IsOptional()
+    avatarUrl?: string;
+
     @ApiPropertyOptional({ enum: SubjectArea, isArray: true })
     @IsArray()
     @IsEnum(SubjectArea, { each: true })

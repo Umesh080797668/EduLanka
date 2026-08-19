@@ -41,6 +41,7 @@
         "@types/pg": "^8.21.0",
         "class-transformer": "^0.5.1",
         "class-validator": "^0.14.1",
+        "cloudinary": "^2.10.0",
         "fastify": "4.28.1",
         "ioredis": "^5.4.1",
         "joi": "^17.13.3",

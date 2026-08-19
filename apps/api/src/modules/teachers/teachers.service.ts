@@ -159,11 +159,12 @@ export class TeachersService {
             .maybeSingle();
         if (!teacherRow) throw new NotFoundException(`Teacher ${id} not found`);
 
-        if (dto.fullName || dto.phoneNumber) {
+        if (dto.fullName || dto.phoneNumber || dto.avatarUrl) {
             await db.from('users')
                 .update({
                     ...(dto.fullName && { full_name: dto.fullName }),
                     ...(dto.phoneNumber && { phone_number: dto.phoneNumber }),
+                    ...(dto.avatarUrl && { avatar_url: dto.avatarUrl }),
                 })
                 .eq('id', teacherRow.user_id);
         }
@@ -207,5 +208,18 @@ export class TeachersService {
         }
 
         return classList;
+    }
+
+    async deactivate(id: string, caller: JwtPayload) {
+        this.guardAdmin(caller);
+        const slug = caller.tenantId;
+        const db = this.supabase.getTenantClient(slug);
+
+        const { data: teacherRow } = await db.from('teachers').select('user_id').eq('id', id).maybeSingle();
+        if (!teacherRow) throw new NotFoundException(`Teacher ${id} not found`);
+
+        const { error } = await db.from('users').update({ is_active: false }).eq('id', teacherRow.user_id);
+        if (error) throw new InternalServerErrorException('Failed to deactivate teacher');
+        return { message: 'Teacher deactivated' };
     }
 }

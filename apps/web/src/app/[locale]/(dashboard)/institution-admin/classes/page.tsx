@@ -3,17 +3,26 @@ import { authManager } from '@/lib/auth-store';
 
 import { useState, useEffect } from 'react';
 import { Link } from '@/i18n/routing';
-import { fetchClasses, RequestOpts } from '@/lib/api/school';
+import { fetchClasses, deleteClass, RequestOpts } from '@/lib/api/school';
 import type { ClassProfile } from '@edu-lanka/shared-types';
 import { useTranslations } from 'next-intl';
 import { motion, AnimatePresence } from 'framer-motion';
-import { BookOpen, Plus, Loader2, XCircle, ChevronRight, Users, Star } from 'lucide-react';
+import { BookOpen, Plus, Loader2, XCircle, ChevronRight, Users, Star, Trash2 } from 'lucide-react';
+import MultiStepModal from '@/components/ui/MultiStepModal';
 
 export default function ClassesPage() {
     const t = useTranslations('InstitutionAdminClasses');
     const [classes, setClasses] = useState<ClassProfile[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [classToDelete, setClassToDelete] = useState<ClassProfile | null>(null);
+
+    const handleDeleteConfirm = async () => {
+        if (!classToDelete) return;
+        const opts: RequestOpts = { token: authManager.getToken() || '', tenantId: authManager.getTenantId() || '' };
+        await deleteClass(classToDelete.id, opts);
+        setClasses(prev => prev.filter(c => c.id !== classToDelete.id));
+    };
 
     useEffect(() => {
         const opts: RequestOpts = { token: authManager.getToken() || '', tenantId: authManager.getTenantId() || '' };
@@ -153,13 +162,22 @@ export default function ClassesPage() {
                                                 )}
                                             </td>
                                             <td className="px-6 py-4 text-right">
-                                                <Link
-                                                    href={`/institution-admin/classes/${cls.id || 'DEBUG-' + Object.keys(cls).join('-')}`}
-                                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-indigo-50 text-slate-600 hover:text-indigo-700 border border-slate-200 hover:border-indigo-300 rounded-lg text-sm font-medium transition-all shadow-sm"
-                                                >
-                                                    {t('manage')}
-                                                    <ChevronRight className="w-3.5 h-3.5" />
-                                                </Link>
+                                                <div className="flex items-center justify-end gap-2">
+                                                    <Link
+                                                        href={`/institution-admin/classes/${cls.id || 'DEBUG-' + Object.keys(cls).join('-')}`}
+                                                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-indigo-50 text-slate-600 hover:text-indigo-700 border border-slate-200 hover:border-indigo-300 rounded-lg text-sm font-medium transition-all shadow-sm"
+                                                    >
+                                                        {t('manage')}
+                                                        <ChevronRight className="w-3.5 h-3.5" />
+                                                    </Link>
+                                                    <button
+                                                        onClick={() => setClassToDelete(cls)}
+                                                        className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg border border-transparent hover:border-rose-100 transition-all"
+                                                        title="Delete Class"
+                                                    >
+                                                        <Trash2 className="w-4 h-4" />
+                                                    </button>
+                                                </div>
                                             </td>
                                         </motion.tr>
                                     );
@@ -169,6 +187,27 @@ export default function ClassesPage() {
                     </table>
                 </div>
             </motion.div>
+
+            <MultiStepModal
+                isOpen={!!classToDelete}
+                onClose={() => setClassToDelete(null)}
+                title="Delete Class"
+                steps={[
+                    {
+                        title: 'Are you absolutely sure?',
+                        description: `This action will initiate the deletion process for the class ${classToDelete?.section}. Teachers and students will be unassigned.`,
+                        confirmText: 'Yes, proceed',
+                        isDestructive: true
+                    },
+                    {
+                        title: 'Confirm Deletion',
+                        description: 'Please confirm once more. This action cannot be undone.',
+                        confirmText: 'Delete Class',
+                        isDestructive: true
+                    }
+                ]}
+                onComplete={handleDeleteConfirm}
+            />
         </div>
     );
 }

@@ -7,6 +7,7 @@ import { Link } from '@/i18n/routing';
 import { enrollStudent, fetchClasses, RequestOpts } from '@/lib/api/school';
 import { Gender, ALStream } from '@edu-lanka/shared-types';
 import { useTranslations } from 'next-intl';
+import ImageUpload from '@/components/ui/ImageUpload';
 
 export default function NewStudentPage() {
     const t = useTranslations('InstitutionAdminStudents');
@@ -31,6 +32,7 @@ export default function NewStudentPage() {
         alStream: '' as ALStream | '',
         classId: '',
         temporaryPassword: 'TempPassword123!',
+        avatarUrl: '',
     });
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -69,6 +71,21 @@ export default function NewStudentPage() {
 
             <form onSubmit={handleSubmit} style={{ background: 'white', padding: '2rem', borderRadius: '8px', border: '1px solid #e5e7eb' }}>
                 <h2 style={{ fontSize: '1.1rem', marginBottom: '1.5rem', paddingBottom: '0.5rem', borderBottom: '1px solid #e5e7eb' }}>{t('accountDetails')}</h2>
+
+                <div style={{ marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                    <ImageUpload
+                        currentImageUrl={formData.avatarUrl}
+                        onUploadSuccess={(url) => setFormData(prev => ({ ...prev, avatarUrl: url }))}
+                        onError={(err) => alert(err)}
+                        size={80}
+                        className="shrink-0"
+                    />
+                    <div style={{ fontSize: '0.875rem', color: '#6b7280' }}>
+                        <p style={{ fontWeight: 500, color: '#374151' }}>Profile Picture</p>
+                        <p>Upload a square image (JPEG/PNG) to serve as the student's avatar.</p>
+                    </div>
+                </div>
+
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem', marginBottom: '2rem' }}>
                     <div>
                         <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500, fontSize: '0.875rem' }}>{t('fullName')}</label>

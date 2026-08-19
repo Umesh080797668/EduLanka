@@ -6,11 +6,13 @@ import { Link } from '@/i18n/routing';
 import { useState } from 'react';
 import { apiClient } from '@/lib/api-client';
 import { useTranslations } from 'next-intl';
+import ImageUpload from '@/components/ui/ImageUpload';
 
 export default function NewTeacherPage() {
     const t = useTranslations('InstitutionAdminTeachers');
     const [fullName, setFullName] = useState('');
     const [email, setEmail] = useState('');
+    const [avatarUrl, setAvatarUrl] = useState('');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [successData, setSuccessData] = useState<{ email: string, tempPassword: string } | null>(null);
@@ -27,6 +29,7 @@ export default function NewTeacherPage() {
             await apiClient.post<any>('/teachers', {
                 email,
                 fullName,
+                avatarUrl,
                 temporaryPassword: tempPassword
             });
             setSuccessData({ email, tempPassword });
@@ -140,6 +143,21 @@ export default function NewTeacherPage() {
                                 <Briefcase className="w-5 h-5 text-indigo-500" />
                                 {t('personalInfo')}
                             </h3>
+
+                            <div className="flex items-center gap-4 mb-6">
+                                <ImageUpload
+                                    currentImageUrl={avatarUrl}
+                                    onUploadSuccess={setAvatarUrl}
+                                    onError={(err) => alert(err)}
+                                    size={80}
+                                    className="shrink-0"
+                                />
+                                <div className="text-sm text-slate-500">
+                                    <p className="font-semibold text-slate-700">Profile Picture</p>
+                                    <p>Upload a square image (JPEG/PNG) to serve as the teacher's avatar.</p>
+                                </div>
+                            </div>
+
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <div className="space-y-2">
                                     <label className="text-sm font-medium text-slate-700">{t('fullName')}</label>
