@@ -1,5 +1,6 @@
 'use client';
 import { authManager } from '@/lib/auth-store';
+import { apiClient } from '@/lib/api-client';
 
 import { Bell, Search, User, Menu } from 'lucide-react';
 import { usePathname, useRouter } from '@/i18n/routing';
@@ -33,21 +34,15 @@ export default function Header() {
             try {
                 // Fetch the dynamic user based on API (for simplicity, using generic me endpoint we added)
                 // Both /users/me and /parents/me work, but only if they have the right headers
-                const uri = role === 'PARENT' ? '/api/v1/parents/me' : '/api/v1/users/me';
-                const res = await fetch(uri, {
-                    credentials: 'include',
-                    headers: {}
-                });
-                if (res.ok) {
-                    const json = await res.json();
+                const uri = role === 'PARENT' ? '/parents/me' : '/users/me';
 
-                    if (role === 'PARENT') {
-                        setUserName(json.data?.users?.full_name || t('parentUser'));
-                    } else {
-                        setUserName(json.data?.full_name || t('user'));
-                    }
+                // Use apiClient so that the authManager seamlessly attaches the X-Tenant-Id header
+                const data = await apiClient.get<any>(uri);
+
+                if (role === 'PARENT') {
+                    setUserName(data?.users?.full_name || t('parentUser'));
                 } else {
-                    setUserName(t('sessionActive'));
+                    setUserName(data?.full_name || t('user'));
                 }
             } catch (e) {
                 console.error(e);

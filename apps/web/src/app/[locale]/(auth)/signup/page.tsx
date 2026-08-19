@@ -57,10 +57,10 @@ export default function SignupPage() {
 
             if (res.ok) {
                 const json = await res.json();
-                const { access_token, user } = json.data;
+                const { accessToken, user } = json.data;
                 const savedRole = user?.role || role;
 
-                authManager.setAuth(access_token, user?.tenantId || '', savedRole, user?.id || '');
+                authManager.setAuth(accessToken, user?.tenantId || '', savedRole, user?.id || '');
                 localStorage.setItem('role', savedRole);
 
                 const route = `/${savedRole.toLowerCase()}`;

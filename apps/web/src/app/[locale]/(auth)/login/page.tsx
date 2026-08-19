@@ -35,11 +35,11 @@ export default function LoginPage() {
                 const json = await res.json();
 
                 // Assuming Sprint 2 auth payload returns tokens and user info
-                const { access_token, user } = json.data;
+                const { accessToken, user } = json.data;
                 const role = user?.role || 'STUDENT'; // Fallback role if undefined
 
                 // Save to local storage for the rest of the app to consume
-                authManager.setAuth(access_token, user?.tenantId || '', role, user?.id || '');
+                authManager.setAuth(accessToken, user?.tenantId || '', role, user?.id || '');
                 localStorage.setItem('role', role);
 
                 // Initial route resolution based on role

@@ -262,8 +262,9 @@ export class AuthService {
             const rootTenantId = 'a1b2c3d4-0000-0000-0000-000000000000';
             const tokens = await this.issueTokenPair({ sub: adminData.id as string, tenantId: rootTenantId, role: adminData.role as UserRole, email: authUser.email ?? authUser.phone ?? identifier });
             return {
-                access_token: tokens.accessToken,
-                refresh_token: tokens.refreshToken,
+                accessToken: tokens.accessToken,
+                refreshToken: tokens.refreshToken,
+                expiresIn: tokens.expiresIn,
                 user: { id: adminData.id, role: adminData.role, tenantId: rootTenantId }
             };
         }
@@ -278,8 +279,9 @@ export class AuthService {
 
         const tokens = await this.issueTokenPair({ sub: userId, tenantId, role: userRole, email: authUser.email ?? authUser.phone ?? identifier });
         return {
-            access_token: tokens.accessToken,
-            refresh_token: tokens.refreshToken,
+            accessToken: tokens.accessToken,
+            refreshToken: tokens.refreshToken,
+            expiresIn: tokens.expiresIn,
             user: {
                 id: userId,
                 role: userRole,
@@ -293,7 +295,7 @@ export class AuthService {
      * Create a Supabase Auth user + tenant-schema user row, then issue tokens.
      * Only SCHOOL_ADMIN and SUPER_ADMIN can call this (enforced by RolesGuard on the controller).
      */
-    async signup(dto: SignupDto, caller: JwtPayload): Promise<TokenPair> {
+    async signup(dto: SignupDto, caller: JwtPayload): Promise<any> {
         // — ensure caller can only provision within their own tenant unless SUPER_ADMIN
         if (caller.role !== UserRole.SUPER_ADMIN && caller.tenantId !== dto.tenantId) {
             throw new ForbiddenException('Cannot create users in a different tenant');
@@ -352,19 +354,28 @@ export class AuthService {
             throw new InternalServerErrorException('Failed to register user in tenant: ' + insertError?.message);
         }
 
-        return this.issueTokenPair({
+        const tokens = await this.issueTokenPair({
             sub: newUser.id as string,
             tenantId: dto.tenantId,
             role: dto.role,
             email: dto.email,
         });
+
+        return {
+            ...tokens,
+            user: {
+                id: newUser.id as string,
+                role: dto.role,
+                tenantId: dto.tenantId
+            }
+        };
     }
 
     /**
      * POST /auth/self-register
      * Allows public self-registration if the tenant policy allows it.
      */
-    async selfRegister(dto: SignupDto): Promise<TokenPair> {
+    async selfRegister(dto: SignupDto): Promise<any> {
         // Disallow creating system/admin roles via public endpoint
         if (dto.role === UserRole.SUPER_ADMIN || dto.role === UserRole.SCHOOL_ADMIN) {
             throw new ForbiddenException('Cannot self-register as an administrator');
@@ -431,12 +442,21 @@ export class AuthService {
             throw new InternalServerErrorException('Failed to register user in tenant: ' + insertError?.message);
         }
 
-        return this.issueTokenPair({
+        const tokens = await this.issueTokenPair({
             sub: newUser.id as string,
             tenantId: dto.tenantId,
             role: dto.role,
             email: dto.email,
         });
+
+        return {
+            ...tokens,
+            user: {
+                id: newUser.id as string,
+                role: dto.role,
+                tenantId: dto.tenantId
+            }
+        };
     }
 
     /**

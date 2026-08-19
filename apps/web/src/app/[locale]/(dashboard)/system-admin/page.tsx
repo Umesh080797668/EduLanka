@@ -4,6 +4,7 @@ import { motion } from 'framer-motion';
 import { Server, Activity, BookOpenCheck } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { DashboardCardsSkeleton } from '@/components/ui/Skeleton';
+import { apiClient } from '@/lib/api-client';
 import { useTranslations } from 'next-intl';
 
 export default function SystemAdminDashboard() {
@@ -15,26 +16,13 @@ export default function SystemAdminDashboard() {
     useEffect(() => {
         const fetchStats = async () => {
             try {
-                const headers = {
-                    
-                    
-                };
-
                 const [res, tutRes] = await Promise.all([
-                    fetch('/api/v1/tenants/stats', {
-                    credentials: 'include', headers }),
-                    fetch('/api/v1/system-admin/tutorials/stats', {
-                    credentials: 'include', headers })
+                    apiClient.get<any>('/tenants/stats'),
+                    apiClient.get<any>('/system-admin/tutorials/stats')
                 ]);
 
-                if (res.ok) {
-                    const json = await res.json();
-                    setStats(json.data);
-                }
-                if (tutRes.ok) {
-                    const json = await tutRes.json();
-                    setTutorialStats(json.data);
-                }
+                setStats(res);
+                setTutorialStats(tutRes);
             } catch (e) {
                 console.error(e);
             } finally {
