@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { TutorialProvider } from '@/components/TutorialProvider';
 import { HelpButton } from '@/components/HelpButton';
+import { apiClient } from '@/lib/api-client';
 import { useTranslations } from 'next-intl';
 
 export default function StudentDashboard() {
@@ -15,19 +16,8 @@ export default function StudentDashboard() {
     useEffect(() => {
         const init = async () => {
             try {
-                const res = await fetch('/api/v1/students/me', {
-                    credentials: 'include',
-                    headers: {
-                        
-                        
-                    }
-                });
-                if (res.ok) {
-                    const json = await res.json();
-                    setStudentName(json.data.users?.full_name || 'Student');
-                } else {
-                    setStudentName('Student');
-                }
+                const data = await apiClient.get<any>('/students/me');
+                setStudentName(data?.users?.full_name || 'Student');
             } catch (e) {
                 console.error(e);
             } finally {

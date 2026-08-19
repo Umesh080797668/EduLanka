@@ -4,6 +4,7 @@ import { motion } from 'framer-motion';
 import { Users, FileEdit, ChevronRight, BookOpen, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
+import { apiClient } from '@/lib/api-client';
 import { useTranslations } from 'next-intl';
 
 export default function TeacherClassesPage() {
@@ -16,25 +17,11 @@ export default function TeacherClassesPage() {
             try {
                 // First get the teacher's profile ID from the generic endpoint or use the user's ID
                 // Since this system maps the classes by the user_id of the teacher under class_teachers
-                const userRes = await fetch('/api/v1/users/me', {
-                    credentials: 'include',
-                    headers: {
-                    }
-                });
+                const user = await apiClient.get<any>('/users/me');
 
-                if (userRes.ok) {
-                    const user = await userRes.json();
-
-                    const res = await fetch(`/api/v1/classes?teacherId=${user.data?.id}`, {
-                    credentials: 'include',
-                        headers: {
-                        }
-                    });
-
-                    if (res.ok) {
-                        const json = await res.json();
-                        setClasses(json.data || []);
-                    }
+                if (user) {
+                    const classesData = await apiClient.get<any>(`/classes?teacherId=${user?.id}`);
+                    setClasses(classesData || []);
                 }
             } catch (e) {
                 console.error(e);

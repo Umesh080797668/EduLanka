@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { TutorialProvider } from '@/components/TutorialProvider';
 import { HelpButton } from '@/components/HelpButton';
+import { apiClient } from '@/lib/api-client';
 import { useTranslations } from 'next-intl';
 
 export default function ParentDashboard() {
@@ -23,21 +24,12 @@ export default function ParentDashboard() {
         const init = async () => {
             try {
                 // In a real scenario, this would fetch /parents/me and their linked children
-                const res = await fetch('/api/v1/parents/me', {
-                    credentials: 'include',
-                    headers: {
-                    }
-                });
-                if (res.ok) {
-                    const json = await res.json();
-                    setParentName(json.data.users?.full_name || 'Parent');
-                    if (json.data.children && json.data.children.length > 0) {
-                        setChildrenData(json.data.children);
-                    } else {
-                        setChildrenData(FALLBACK_CHILDREN);
-                    }
+                const data = await apiClient.get<any>('/parents/me');
+
+                setParentName(data?.users?.full_name || 'Parent');
+                if (data?.children && data.children.length > 0) {
+                    setChildrenData(data.children);
                 } else {
-                    setParentName('Parent');
                     setChildrenData(FALLBACK_CHILDREN);
                 }
             } catch (e) {

@@ -3,6 +3,7 @@
 import { motion } from 'framer-motion';
 import { Shield, Clock, Search, Server, AlertCircle } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { authManager } from '@/lib/auth-store';
 import { useTranslations } from 'next-intl';
 
 export default function AuditLogsPage() {
@@ -19,7 +20,10 @@ export default function AuditLogsPage() {
             setLoading(true);
             try {
                 const res = await fetch(`/api/v1/audit-logs?limit=${limit}&offset=${(page - 1) * limit}`, {
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Tenant-Id': authManager.getTenantId() || ''
+                    },
                     credentials: 'include'
                 });
                 if (res.ok) {

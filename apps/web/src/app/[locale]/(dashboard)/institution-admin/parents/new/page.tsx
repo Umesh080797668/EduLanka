@@ -4,6 +4,7 @@ import { motion } from 'framer-motion';
 import { UserPlus, ArrowLeft, Save, Mail, Phone, Loader2, AlertCircle, CheckCircle2, Copy } from 'lucide-react';
 import { Link } from '@/i18n/routing';
 import { useState } from 'react';
+import { apiClient } from '@/lib/api-client';
 import { useTranslations } from 'next-intl';
 
 export default function NewParentPage() {
@@ -31,23 +32,8 @@ export default function NewParentPage() {
             };
             if (phoneNumber) payload.phoneNumber = phoneNumber;
 
-            const res = await fetch('/api/v1/parents', {
-                    credentials: 'include',
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    
-                    
-                },
-                body: JSON.stringify(payload)
-            });
-
-            if (res.ok) {
-                setSuccessData({ email, tempPassword });
-            } else {
-                const data = await res.json();
-                setError(data.message || 'Failed to provision parent account.');
-            }
+            await apiClient.post<any>('/parents', payload);
+            setSuccessData({ email, tempPassword });
         } catch (err: any) {
             setError(err.message || 'Error executing request.');
         } finally {

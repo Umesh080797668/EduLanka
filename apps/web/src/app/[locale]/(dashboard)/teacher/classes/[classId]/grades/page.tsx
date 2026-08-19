@@ -7,6 +7,7 @@ import { CheckCircle2, ChevronDown, ChevronLeft, Loader2, Save, FileEdit, Users 
 import Link from 'next/link';
 import { TutorialProvider } from '@/components/TutorialProvider';
 import { HelpButton } from '@/components/HelpButton';
+import { apiClient } from '@/lib/api-client';
 import { useTranslations } from 'next-intl';
 
 export default function TeacherGradesPage() {
@@ -24,19 +25,13 @@ export default function TeacherGradesPage() {
     useEffect(() => {
         const loadClassDetails = async () => {
             try {
-                const res = await fetch(`/api/v1/classes/${classId}`, {
-                    credentials: 'include',
-                    headers: {   }
-                });
-                if (res.ok) {
-                    const json = await res.json();
-                    if (json.data && json.data.students) {
-                        setStudents(json.data.students.map((st: any) => ({
-                            id: st.id,
-                            admissionNo: st.admission_no,
-                            name: st.users?.full_name || 'Unknown'
-                        })));
-                    }
+                const classData = await apiClient.get<any>(`/classes/${classId}`);
+                if (classData && classData.students) {
+                    setStudents(classData.students.map((st: any) => ({
+                        id: st.id,
+                        admissionNo: st.admission_no,
+                        name: st.users?.full_name || 'Unknown'
+                    })));
                 }
             } catch (e) {
                 console.error(t('failedToFetchRoster'), e);
@@ -45,18 +40,12 @@ export default function TeacherGradesPage() {
 
         const fetchMarks = async () => {
             try {
-                const res = await fetch(`/api/v1/student-marks/class/${classId}?term=${term}&year=${year}`, {
-                    credentials: 'include',
-                    headers: {  }
+                const marksData = await apiClient.get<any>(`/student-marks/class/${classId}?term=${term}&year=${year}`);
+                const newMarks: Record<string, any> = {};
+                marksData?.forEach((m: any) => {
+                    newMarks[m.student_id] = { value: m.marks, saving: false, saved: true };
                 });
-                if (res.ok) {
-                    const data = await res.json();
-                    const newMarks: Record<string, any> = {};
-                    data.data?.forEach((m: any) => {
-                        newMarks[m.student_id] = { value: m.marks, saving: false, saved: true };
-                    });
-                    setMarks(prev => ({ ...prev, ...newMarks }));
-                }
+                setMarks(prev => ({ ...prev, ...newMarks }));
             } catch (e) {
                 console.error(t('failedToFetchMarks'), e);
             }
@@ -79,36 +68,22 @@ export default function TeacherGradesPage() {
         setMarks(prev => ({ ...prev, [studentId]: { ...prev[studentId], saving: true, saved: false } }));
 
         try {
-            const res = await fetch('/api/v1/student-marks', {
-                    credentials: 'include',
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    
-                    
-                },
-                body: JSON.stringify({
-                    studentId,
-                    classId,
-                    subject,
-                    term,
-                    academicYear: year,
-                    marks: currentMark
-                })
+            await apiClient.post<any>('/student-marks', {
+                studentId,
+                classId,
+                subject,
+                term,
+                academicYear: year,
+                marks: currentMark
             });
 
-            if (res.ok) {
-                setMarks(prev => ({ ...prev, [studentId]: { ...prev[studentId], saving: false, saved: true } }));
-                setTimeout(() => {
-                    setMarks(prev => {
-                        if (!prev[studentId]) return prev;
-                        return { ...prev, [studentId]: { ...prev[studentId], saved: false } };
-                    });
-                }, 2000);
-            } else {
-                setMarks(prev => ({ ...prev, [studentId]: { ...prev[studentId], saving: false, saved: false } }));
-                alert(t('failedToSave'));
-            }
+            setMarks(prev => ({ ...prev, [studentId]: { ...prev[studentId], saving: false, saved: true } }));
+            setTimeout(() => {
+                setMarks(prev => {
+                    if (!prev[studentId]) return prev;
+                    return { ...prev, [studentId]: { ...prev[studentId], saved: false } };
+                });
+            }, 2000);
         } catch (e) {
             console.error(e);
             setMarks(prev => ({ ...prev, [studentId]: { ...prev[studentId], saving: false, saved: false } }));

@@ -7,6 +7,8 @@ import { Download, FileText, AlertCircle, Loader2, ArrowLeft } from 'lucide-reac
 import Link from 'next/link';
 import { TutorialProvider } from '@/components/TutorialProvider';
 import { HelpButton } from '@/components/HelpButton';
+import { apiClient } from '@/lib/api-client';
+import { authManager } from '@/lib/auth-store';
 import { useTranslations } from 'next-intl';
 
 export default function ParentGradesPage() {
@@ -26,16 +28,9 @@ export default function ParentGradesPage() {
             if (!studentId) return;
             setFetchingMarks(true);
             try {
-                const res = await fetch(`/api/v1/student-marks/student/${studentId}`, {
-                    credentials: 'include',
-                    headers: {
-                        
-                        
-                    }
-                });
-                if (res.ok) {
-                    const json = await res.json();
-                    setMarks(json.data.filter((m: any) => m.term === term && m.academic_year === year));
+                const marksData = await apiClient.get<any>(`/student-marks/student/${studentId}`);
+                if (marksData) {
+                    setMarks(marksData.filter((m: any) => m.term === term && m.academic_year === year));
                 }
             } catch (e) {
                 console.error(t('failedToLoad'), e);
@@ -50,10 +45,9 @@ export default function ParentGradesPage() {
         setDownloading(true);
         try {
             const res = await fetch(`/api/v1/report-cards/student/${studentId}/term/${term}/year/${year}/download`, {
-                    credentials: 'include',
+                credentials: 'include',
                 headers: {
-                    
-                    
+                    'X-Tenant-Id': authManager.getTenantId() || ''
                 }
             });
 

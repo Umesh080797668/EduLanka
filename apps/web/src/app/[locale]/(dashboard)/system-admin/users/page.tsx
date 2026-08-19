@@ -15,7 +15,10 @@ function AuditLogFetcher({ targetUserId }: { targetUserId: string }) {
 
     useEffect(() => {
         let isMounted = true;
-        fetch(`/api/v1/audit-logs?limit=20&offset=0&targetUserId=${targetUserId}`, { credentials: 'include' })
+        fetch(`/api/v1/audit-logs?limit=20&offset=0&targetUserId=${targetUserId}`, {
+            credentials: 'include',
+            headers: { 'X-Tenant-Id': authManager.getTenantId() || '' }
+        })
             .then(res => res.json())
             .then(json => { if (isMounted) setLogs(json.data || []) })
             .catch(() => { })

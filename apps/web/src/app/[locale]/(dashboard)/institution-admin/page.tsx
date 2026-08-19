@@ -7,6 +7,7 @@ import { useEffect, useState } from 'react';
 import { TutorialProvider } from '@/components/TutorialProvider';
 import { HelpButton } from '@/components/HelpButton';
 import { DashboardCardsSkeleton } from '@/components/ui/Skeleton';
+import { apiClient } from '@/lib/api-client';
 import { useTranslations } from 'next-intl';
 
 export default function InstitutionAdminDashboard() {
@@ -18,23 +19,8 @@ export default function InstitutionAdminDashboard() {
     useEffect(() => {
         const fetchStats = async () => {
             try {
-                const headers = {
-                    
-                    
-                };
-
-                const res = await fetch('/api/v1/tenants/stats', {
-                    credentials: 'include',
-                    headers,
-                    cache: 'no-store'
-                });
-
-                if (res.ok) {
-                    const json = await res.json();
-                    setStats(json.data);
-                }
-
-
+                const data = await apiClient.get<any>('/tenants/stats');
+                setStats(data);
             } catch (e) {
                 console.error(e);
             } finally {

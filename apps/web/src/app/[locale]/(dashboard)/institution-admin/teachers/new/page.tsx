@@ -4,6 +4,7 @@ import { motion } from 'framer-motion';
 import { UserPlus, ArrowLeft, Save, Briefcase, Mail, Phone, Loader2, AlertCircle, CheckCircle2, Copy } from 'lucide-react';
 import { Link } from '@/i18n/routing';
 import { useState } from 'react';
+import { apiClient } from '@/lib/api-client';
 import { useTranslations } from 'next-intl';
 
 export default function NewTeacherPage() {
@@ -23,27 +24,12 @@ export default function NewTeacherPage() {
             // Generate a secure temporary password
             const tempPassword = Math.random().toString(36).slice(-8) + Math.random().toString(36).slice(-4).toUpperCase() + '!';
 
-            const res = await fetch('/api/v1/teachers', {
-                    credentials: 'include',
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    
-                    
-                },
-                body: JSON.stringify({
-                    email,
-                    fullName,
-                    temporaryPassword: tempPassword
-                })
+            await apiClient.post<any>('/teachers', {
+                email,
+                fullName,
+                temporaryPassword: tempPassword
             });
-
-            if (res.ok) {
-                setSuccessData({ email, tempPassword });
-            } else {
-                const data = await res.json();
-                setError(data.message || 'Failed to provision teacher account.');
-            }
+            setSuccessData({ email, tempPassword });
         } catch (err: any) {
             setError(err.message || 'Error executing request.');
         } finally {

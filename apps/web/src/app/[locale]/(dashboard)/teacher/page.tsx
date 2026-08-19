@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { TutorialProvider } from '@/components/TutorialProvider';
 import { HelpButton } from '@/components/HelpButton';
+import { apiClient } from '@/lib/api-client';
 import { useTranslations } from 'next-intl';
 
 export default function TeacherDashboard() {
@@ -16,17 +17,8 @@ export default function TeacherDashboard() {
         const init = async () => {
             try {
                 // In a real scenario, this fetches /teachers/me
-                const res = await fetch('/api/v1/users/me', {
-                    credentials: 'include',
-                    headers: {
-                    }
-                });
-                if (res.ok) {
-                    const json = await res.json();
-                    setTeacherName(json.data?.full_name || 'Teacher');
-                } else {
-                    setTeacherName('Teacher');
-                }
+                const data = await apiClient.get<any>('/users/me');
+                setTeacherName(data?.full_name || 'Teacher');
             } catch (e) {
                 console.error(e);
             } finally {
