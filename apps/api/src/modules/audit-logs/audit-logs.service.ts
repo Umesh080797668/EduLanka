@@ -43,4 +43,34 @@ export class AuditLogsService {
             this.logger.error(`Failed to write audit log: ${e.message}`);
         }
     }
+    async listLogs(limit: number = 50, offset: number = 0, targetUserId?: string) {
+        try {
+            let query = this.supabase.adminClient
+                .from('audit_logs')
+                .select('*', { count: 'exact' });
+
+            if (targetUserId) {
+                query = query.or(`actor_id.eq.${targetUserId},entity_id.eq.${targetUserId}`);
+            }
+
+            const { data, error, count } = await query
+                .order('created_at', { ascending: false })
+                .range(offset, offset + limit - 1);
+
+            if (error) {
+                this.logger.error(`Failed to list audit logs: ${error.message}`);
+                throw new Error('Failed to retrieve audit logs');
+            }
+
+            return {
+                data: data || [],
+                total: count || 0,
+                page: Math.floor(offset / limit) + 1,
+                limit
+            };
+        } catch (e: any) {
+            this.logger.error(`Exception in listLogs: ${e.message}`);
+            throw e;
+        }
+    }
 }

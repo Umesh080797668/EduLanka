@@ -471,6 +471,7 @@
   "NotFound": {
     "title": "Page Not Found",
     "description": "Sorry, we couldn't find that page.",
+    "longDescription": "The requested page could not be found. It may have been moved, deleted, or you might not have access.",
     "returnHome": "Return home"
   },
   "Inquiries": {
@@ -529,6 +530,63 @@
     "deactivate": "Deactivate",
     "reactivateShort": "Reactivate",
     "smsEnable": "Enable SMS",
-    "smsDisable": "Disable SMS"
+    "smsDisable": "Disable SMS",
+    "toggleSmsTooltip": "Toggle Tenant SMS Rules System Wide"
+  },
+  "SystemAdminAuditLogs": {
+    "title": "System Audit Logs",
+    "subtitle": "Monitor system-wide administrative actions and security events.",
+    "filterPlaceholder": "Filter events...",
+    "totalRecords": "Total Records:",
+    "colAction": "Action",
+    "colTarget": "Target Entity",
+    "colActor": "Actor",
+    "colIp": "IP Address",
+    "colTime": "Timestamp",
+    "noLogs": "No audit logs recorded yet.",
+    "previous": "Previous",
+    "next": "Next",
+    "page": "Page",
+    "of": "of"
+  },
+  "SystemAdminUsersExtras": {
+    "globalEndUsers": "Global End-Users Directory",
+    "globalEndUsersDesc": "Cross-tenant administrative overview of all identities across the infrastructure.",
+    "deactivateUserPrompt": "Deactivate User?",
+    "reactivateUserPrompt": "Reactivate User?",
+    "areYouSure": "Are you sure you want to ",
+    "deactivateText": "deactivate",
+    "reactivateText": "reactivate",
+    "theAccountFor": " the account for ",
+    "loseAccessWarning": "? They will instantly lose access to the EduLanka portal.",
+    "regainAccessWarning": "? They will regain portal access.",
+    "cancel": "Cancel",
+    "proceedToDeactivate": "Proceed to Deactivate",
+    "yesReactivate": "Yes, Reactivate",
+    "deactivationReasonPrompt": "Please provide a reason for deactivation (optional). This will be shown to the user if they attempt to log in.",
+    "enterReason": "Enter reason...",
+    "back": "Back",
+    "confirmDeactivation": "Confirm Deactivation",
+    "auditSequence": "Audit Sequence: ",
+    "loadingAuditStreams": "Loading live audit streams...",
+    "noAuditLogs": "No audit logs found for this user.",
+    "searchPlaceholder": "Search by name, email or tenant...",
+    "reactivateAccountBtn": "Reactivate Account",
+    "deactivateAccountBtn": "Deactivate Account",
+    "viewAuditLogsBtn": "View Audit Logs",
+    "noUsersMatching": "No users matching search."
+  },
+  "ErrorBoundary": {
+    "title": "Something went wrong!",
+    "subtitle": "A critical error occurred while trying to render this section. We apologize for the inconvenience.",
+    "tryAgain": "Try Again"
+  },
+  "InquiriesExtras": {
+    "loading": "Loading...",
+    "loadingError": "Error: ",
+    "school": "School: ",
+    "actions": "Actions",
+    "resolve": "Resolve",
+    "reject": "Reject"
   }
 }

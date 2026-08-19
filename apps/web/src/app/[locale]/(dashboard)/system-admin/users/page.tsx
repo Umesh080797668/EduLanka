@@ -8,8 +8,54 @@ import { Users, Search, Loader2, ShieldCheck, CheckCircle2, XCircle, MoreVertica
 import { useTranslations } from 'next-intl';
 import { useSearchParams } from 'next/navigation';
 
+function AuditLogFetcher({ targetUserId }: { targetUserId: string }) {
+    const te = useTranslations('SystemAdminUsersExtras');
+    const [logs, setLogs] = useState<any[]>([]);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        let isMounted = true;
+        fetch(`/api/v1/audit-logs?limit=20&offset=0&targetUserId=${targetUserId}`, { credentials: 'include' })
+            .then(res => res.json())
+            .then(json => { if (isMounted) setLogs(json.data || []) })
+            .catch(() => { })
+            .finally(() => { if (isMounted) setLoading(false); });
+        return () => { isMounted = false; };
+    }, [targetUserId]);
+
+    const getActionColor = (action: string) => {
+        if (action.includes('PROVISION') || action.includes('CREATE')) return 'bg-emerald-100 text-emerald-700';
+        if (action.includes('DELETE') || action.includes('DISABLE')) return 'bg-red-100 text-red-700';
+        if (action.includes('UPDATE') || action.includes('CHANGE')) return 'bg-amber-100 text-amber-700';
+        return 'bg-blue-100 text-blue-700';
+    };
+
+    if (loading) return <div className="p-12 text-center flex flex-col items-center gap-3"><Loader2 className="w-8 h-8 animate-spin text-slate-300" /><span className="text-sm font-medium text-slate-400">{te('loadingAuditStreams')}</span></div>;
+    if (logs.length === 0) return <div className="p-8 text-center text-slate-500 font-medium">{te('noAuditLogs')}</div>;
+
+    return (
+        <table className="w-full text-left bg-white text-sm">
+            <tbody className="divide-y divide-slate-100">
+                {logs.map(log => (
+                    <tr key={log.id} className="hover:bg-slate-50">
+                        <td className="py-3 px-4">
+                            <span className={`inline-flex px-2 py-0.5 rounded text-[10px] font-bold ${getActionColor(log.action)}`}>
+                                {log.action.replace(/_/g, ' ')}
+                            </span>
+                        </td>
+                        <td className="py-3 px-4 text-slate-600 font-mono text-[11px] truncate w-24">({log.entity_type}) {log.entity_id}</td>
+                        <td className="py-3 px-4 text-slate-500 font-mono text-[11px]">{log.ip_address || 'SYS'}</td>
+                        <td className="py-3 px-4 text-slate-500 text-right text-xs">{new Date(log.created_at).toLocaleString()}</td>
+                    </tr>
+                ))}
+            </tbody>
+        </table>
+    );
+}
+
 export default function SystemAdminUsersPage() {
     const t = useTranslations('InstitutionAdminUsers');
+    const te = useTranslations('SystemAdminUsersExtras');
     const searchParams = useSearchParams();
     const [users, setUsers] = useState<any[]>([]);
     const [searchQuery, setSearchQuery] = useState(searchParams?.get('query') || '');
@@ -88,9 +134,9 @@ export default function SystemAdminUsersPage() {
                     <div>
                         <h1 className="text-2xl font-bold tracking-tight text-slate-900 flex items-center gap-3">
                             <Database className="w-6 h-6 text-purple-600" />
-                            Global End-Users Directory
+                            {te('globalEndUsers')}
                         </h1>
-                        <p className="text-slate-500 mt-1">Cross-tenant administrative overview of all identities across the infrastructure.</p>
+                        <p className="text-slate-500 mt-1">{te('globalEndUsersDesc')}</p>
                     </div>
                     <div className="relative max-w-sm w-full">
                         <Search className="w-5 h-5 absolute left-3 top-2.5 text-slate-400" />
@@ -98,7 +144,7 @@ export default function SystemAdminUsersPage() {
                             type="text"
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
-                            placeholder="Search by name, email or tenant..."
+                            placeholder={te('searchPlaceholder')}
                             className="w-full bg-slate-50 border border-slate-200 rounded-lg pl-10 pr-4 py-2 text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none transition-all"
                         />
                     </div>
@@ -122,21 +168,21 @@ export default function SystemAdminUsersPage() {
                                 className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6"
                             >
                                 <h3 className="text-xl font-bold text-slate-900 mb-2">
-                                    {userToConfirm.is_active ? 'Deactivate User?' : 'Reactivate User?'}
+                                    {userToConfirm.is_active ? te('deactivateUserPrompt') : te('reactivateUserPrompt')}
                                 </h3>
 
                                 {activeStep === 1 && (
                                     <>
                                         <p className="text-slate-500 text-sm mb-6">
-                                            Are you sure you want to {userToConfirm.is_active ? 'deactivate' : 'reactivate'} the account for <strong className="text-slate-700">{userToConfirm.full_name}</strong>?
-                                            {userToConfirm.is_active ? ' They will instantly lose access to the EduLanka portal.' : ' They will regain portal access.'}
+                                            {te('areYouSure')}{userToConfirm.is_active ? te('deactivateText') : te('reactivateText')}{te('theAccountFor')}<strong className="text-slate-700">{userToConfirm.full_name}</strong>
+                                            {userToConfirm.is_active ? te('loseAccessWarning') : te('regainAccessWarning')}
                                         </p>
                                         <div className="flex gap-3 justify-end">
                                             <button
                                                 onClick={() => setUserToConfirm(null)}
                                                 className="px-4 py-2 hover:bg-slate-100 text-slate-700 rounded-lg font-medium transition-colors"
                                             >
-                                                Cancel
+                                                {te('cancel')}
                                             </button>
                                             <button
                                                 onClick={() => {
@@ -148,7 +194,7 @@ export default function SystemAdminUsersPage() {
                                                 }}
                                                 className={`px-4 py-2 text-white rounded-lg font-medium transition-colors flex items-center gap-2 ${userToConfirm.is_active ? 'bg-rose-600 hover:bg-rose-700' : 'bg-emerald-600 hover:bg-emerald-700'}`}
                                             >
-                                                {userToConfirm.is_active ? 'Proceed to Deactivate' : 'Yes, Reactivate'}
+                                                {userToConfirm.is_active ? te('proceedToDeactivate') : te('yesReactivate')}
                                             </button>
                                         </div>
                                     </>
@@ -157,11 +203,11 @@ export default function SystemAdminUsersPage() {
                                 {activeStep === 2 && (
                                     <>
                                         <p className="text-slate-500 text-sm mb-4">
-                                            Please provide a reason for deactivation (optional). This will be shown to the user if they attempt to log in.
+                                            {te('deactivationReasonPrompt')}
                                         </p>
                                         <textarea
                                             rows={3}
-                                            placeholder="Enter reason..."
+                                            placeholder={te('enterReason')}
                                             value={deactivationReason}
                                             onChange={(e) => setDeactivationReason(e.target.value)}
                                             className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-sm focus:outline-none focus:ring-2 focus:ring-rose-500 mb-6 resize-none"
@@ -172,7 +218,7 @@ export default function SystemAdminUsersPage() {
                                                 disabled={actionLoading === userToConfirm.id}
                                                 className="px-4 py-2 hover:bg-slate-100 text-slate-700 rounded-lg font-medium transition-colors"
                                             >
-                                                Back
+                                                {te('back')}
                                             </button>
                                             <button
                                                 onClick={confirmToggleStatus}
@@ -180,7 +226,7 @@ export default function SystemAdminUsersPage() {
                                                 className="px-4 py-2 text-white bg-rose-600 hover:bg-rose-700 rounded-lg font-medium transition-colors flex items-center gap-2"
                                             >
                                                 {actionLoading === userToConfirm.id ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
-                                                Confirm Deactivation
+                                                {te('confirmDeactivation')}
                                             </button>
                                         </div>
                                     </>
@@ -203,19 +249,14 @@ export default function SystemAdminUsersPage() {
                                 <div className="flex justify-between items-center mb-6">
                                     <h3 className="text-xl font-bold text-slate-900 flex items-center gap-2">
                                         <Database className="w-5 h-5 text-indigo-500" />
-                                        Audit Sequence: {auditLogTarget.full_name}
+                                        {te('auditSequence')} <span className="font-mono text-lg">{auditLogTarget.full_name}</span>
                                     </h3>
                                     <button onClick={() => setAuditLogTarget(null)} className="p-1 hover:bg-slate-100 rounded-lg text-slate-500">
                                         <XCircle className="w-5 h-5" />
                                     </button>
                                 </div>
-                                <div className="bg-slate-50 rounded-xl border border-slate-200 p-8 flex flex-col items-center justify-center min-h-[300px]">
-                                    <div className="relative">
-                                        <Loader2 className="w-10 h-10 animate-spin text-slate-300" />
-                                        <Database className="w-5 h-5 text-indigo-500 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
-                                    </div>
-                                    <p className="mt-4 text-slate-600 font-medium font-mono text-sm">Awaiting Audit Infrastructure Connection...</p>
-                                    <p className="text-slate-400 text-xs mt-2 max-w-sm text-center">Data streams for deep tenant audit trails are currently disconnected from backend persistence layers. Awaiting target allocation.</p>
+                                <div className="max-h-[60vh] overflow-y-auto pr-2 rounded-xl border border-slate-200">
+                                    <AuditLogFetcher targetUserId={auditLogTarget.id} />
                                 </div>
                             </motion.div>
                         </div>
@@ -252,7 +293,7 @@ export default function SystemAdminUsersPage() {
                                     <td colSpan={5} className="px-6 py-12 text-center text-slate-500">
                                         <div className="flex flex-col items-center justify-center gap-3">
                                             <Users className="w-10 h-10 text-slate-300" />
-                                            <p>{searchQuery ? 'No users matching search.' : t('noUsers')}</p>
+                                            <p>{searchQuery ? te('noUsersMatching') : t('noUsers')}</p>
                                         </div>
                                     </td>
                                 </tr>
@@ -325,10 +366,10 @@ export default function SystemAdminUsersPage() {
                                                                         className="absolute right-0 top-full mt-1 w-48 bg-white border border-slate-200 rounded-xl shadow-lg z-40 overflow-hidden flex flex-col"
                                                                     >
                                                                         <button onClick={() => { setActiveDropdown(null); handleActionClick(user); }} className={`px-4 py-3 text-sm text-left hover:bg-slate-50 border-b border-slate-100 font-medium ${user.is_active ? 'text-rose-600' : 'text-emerald-600'}`}>
-                                                                            {user.is_active ? 'Deactivate Account' : 'Reactivate Account'}
+                                                                            {user.is_active ? te('deactivateAccountBtn') : te('reactivateAccountBtn')}
                                                                         </button>
                                                                         <button onClick={() => { setActiveDropdown(null); setAuditLogTarget(user); }} className="px-4 py-3 text-sm text-left hover:bg-slate-50 font-medium text-slate-600 flex items-center justify-between">
-                                                                            View Audit Logs
+                                                                            {te('viewAuditLogsBtn')}
                                                                             <ShieldCheck className="w-4 h-4 text-slate-300" />
                                                                         </button>
                                                                     </motion.div>

@@ -8,6 +8,7 @@ import { Loader2, Check, X } from 'lucide-react';
 
 export default function InquiriesPage() {
     const t = useTranslations('Inquiries');
+    const te = useTranslations('InquiriesExtras');
     const [inquiries, setInquiries] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [actionLoading, setActionLoading] = useState<string | null>(null);
@@ -44,8 +45,8 @@ export default function InquiriesPage() {
         }
     };
 
-    if (loading) return <div style={{ padding: '2rem', textAlign: 'center' }}>Loading...</div>;
-    if (error) return <div style={{ padding: '2rem', color: '#b91c1c' }}>Error: {error}</div>;
+    if (loading) return <div style={{ padding: '2rem', textAlign: 'center' }}>{te('loading')}</div>;
+    if (error) return <div style={{ padding: '2rem', color: '#b91c1c' }}>{te('loadingError')}{error}</div>;
 
     return (
         <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '1rem' }}>
@@ -68,7 +69,7 @@ export default function InquiriesPage() {
                             <th style={{ padding: '1rem', fontSize: '0.875rem', fontWeight: 600, color: '#374151', width: '30%' }}>{t('message')}</th>
                             <th style={{ padding: '1rem', fontSize: '0.875rem', fontWeight: 600, color: '#374151' }}>{t('status')}</th>
                             <th style={{ padding: '1rem', fontSize: '0.875rem', fontWeight: 600, color: '#374151' }}>{t('date')}</th>
-                            <th style={{ padding: '1rem', fontSize: '0.875rem', fontWeight: 600, color: '#374151', textAlign: 'right' }}>Actions</th>
+                            <th style={{ padding: '1rem', fontSize: '0.875rem', fontWeight: 600, color: '#374151', textAlign: 'right' }}>{te('actions')}</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -78,7 +79,7 @@ export default function InquiriesPage() {
                                     {inq.users?.full_name || 'N/A'}
                                     {inq.tenants?.name && (
                                         <div style={{ fontSize: '0.75rem', color: '#6b7280', marginTop: '0.1rem' }}>
-                                            School: {inq.tenants.name}
+                                            {te('school')}{inq.tenants.name}
                                         </div>
                                     )}
                                 </td>
@@ -116,7 +117,7 @@ export default function InquiriesPage() {
                                                     padding: '0.4rem', background: '#dcfce7', color: '#166534',
                                                     borderRadius: '6px', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', opacity: actionLoading === inq.id ? 0.5 : 1
                                                 }}
-                                                title="Resolve"
+                                                title={te('resolve')}
                                             >
                                                 {actionLoading === inq.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
                                             </button>
@@ -127,7 +128,7 @@ export default function InquiriesPage() {
                                                     padding: '0.4rem', background: '#fee2e2', color: '#991b1b',
                                                     borderRadius: '6px', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', opacity: actionLoading === inq.id ? 0.5 : 1
                                                 }}
-                                                title="Reject"
+                                                title={te('reject')}
                                             >
                                                 {actionLoading === inq.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <X className="w-4 h-4" />}
                                             </button>

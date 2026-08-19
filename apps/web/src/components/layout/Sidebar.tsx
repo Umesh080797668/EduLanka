@@ -16,7 +16,8 @@ import {
     UserCheck,
     UserCog,
     Baby,
-    MessageSquare
+    MessageSquare,
+    Shield
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -51,6 +52,7 @@ const NAV_ITEMS = {
         { nameKey: 'tenants', href: '/system-admin/tenants', icon: Building2 },
         { nameKey: 'users', href: '/system-admin/users', icon: Users },
         { nameKey: 'inquiries', href: '/system-admin/inquiries', icon: MessageSquare },
+        { nameKey: 'auditLogs', href: '/system-admin/audit-logs', icon: Shield },
     ]
 };
 

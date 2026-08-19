@@ -1,4 +1,5 @@
 import helmet from '@fastify/helmet';
+import compression from '@fastify/compress';
 import { VersioningType, ValidationPipe, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { NestFactory, HttpAdapterHost } from '@nestjs/core';
@@ -30,6 +31,7 @@ async function bootstrap(): Promise<void> {
     await app.register(helmet, {
         contentSecurityPolicy: nodeEnv === 'production',
     });
+    await app.register(compression, { encodings: ['gzip', 'deflate', 'br'] });
 
     app.enableCors({
         origin: nodeEnv === 'development' ? true : allowedOrigins,

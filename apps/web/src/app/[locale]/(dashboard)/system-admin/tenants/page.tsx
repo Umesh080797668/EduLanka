@@ -300,7 +300,7 @@ export default function SystemAdminTenantsPage() {
                                                     ? 'bg-purple-50 text-purple-700 border-purple-200 hover:bg-purple-100'
                                                     : 'bg-white text-slate-600 hover:bg-slate-50 border-slate-200'
                                                     }`}
-                                                title="Toggle Tenant SMS Rules System Wide"
+                                                title={t('toggleSmsTooltip')}
                                             >
                                                 {actionLoading === `sms-${tnt.id}` ? (
                                                     <Loader2 className="w-3.5 h-3.5 animate-spin" />
