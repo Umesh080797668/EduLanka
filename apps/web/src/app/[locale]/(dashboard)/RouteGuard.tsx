@@ -15,9 +15,9 @@ export default function RouteGuard({ children }: { children: React.ReactNode }) 
         Promise.resolve().then(() => {
             if (!mounted) return;
             const role = authManager.getRole()?.toUpperCase();
-            const token = authManager.getToken();
+            const isAuthenticated = typeof window !== 'undefined' ? localStorage.getItem('isAuthenticated') === 'true' : false;
 
-            if (!token || !role) {
+            if (!isAuthenticated || !role) {
                 router.replace('/login');
                 return;
             }

@@ -21,7 +21,8 @@
         "classes": "පන්ති",
         "grades": "ලකුණු සහ වාර්තා",
         "signOut": "ඉවත් වන්න",
-        "inquiries": "ගිණුම් විමසීම්"
+        "inquiries": "ගිණුම් විමසීම්",
+        "auditLogs": "විගණන ලොග"
     },
     "Header": {
         "searchPlaceholder": "සොයන්න...",

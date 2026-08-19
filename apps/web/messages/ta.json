@@ -21,7 +21,8 @@
         "classes": "வகுப்புகள்",
         "grades": "மதிப்பெண்கள் & அறிக்கைகள்",
         "signOut": "வெளியேறு",
-        "inquiries": "கணக்கு விசாரணைகள்"
+        "inquiries": "கணக்கு விசாரணைகள்",
+        "auditLogs": "தணிக்கை பதிவுகள்"
     },
     "Header": {
         "searchPlaceholder": "தேடுக...",

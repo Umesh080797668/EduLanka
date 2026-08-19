@@ -21,7 +21,8 @@
     "classes": "Classes",
     "grades": "Grades & Reports",
     "signOut": "Sign Out",
-    "inquiries": "Account Inquiries"
+    "inquiries": "Account Inquiries",
+    "auditLogs": "Audit Logs"
   },
   "Header": {
     "searchPlaceholder": "Search...",

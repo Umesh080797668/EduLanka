@@ -10,7 +10,17 @@ import type { AppConfiguration } from '../../../config/configuration';
 export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
     constructor(configService: ConfigService<AppConfiguration>) {
         super({
-            jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
+            jwtFromRequest: ExtractJwt.fromExtractors([
+                (request: any) => {
+                    const cookieHeader = request?.headers?.cookie;
+                    if (cookieHeader) {
+                        const match = cookieHeader.match(/(?:^|;\\s*)token=([^;]+)/);
+                        if (match) return match[1];
+                    }
+                    return null;
+                },
+                ExtractJwt.fromAuthHeaderAsBearerToken(),
+            ]),
             ignoreExpiration: false,
             secretOrKey: configService.get('jwt.secret', { infer: true }),
         });
