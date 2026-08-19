@@ -3,7 +3,7 @@
 // =============================================================================
 import {
     Controller, Get, Post, Delete,
-    Body, Param, UseGuards, HttpCode, HttpStatus,
+    Body, Param, UseGuards, HttpCode, HttpStatus, Patch
 } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
@@ -11,7 +11,7 @@ import { TenantGuard } from '../../common/guards/tenant.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import type { JwtPayload } from '@edu-lanka/shared-types';
 import { ParentsService } from './parents.service';
-import { LinkStudentDto, CreateParentDto } from './dto/parent.dto';
+import { LinkStudentDto, CreateParentDto, UpdateParentDto } from './dto/parent.dto';
 
 @ApiTags('parents')
 @ApiBearerAuth()
@@ -37,6 +37,19 @@ export class ParentsController {
     @ApiOperation({ summary: 'List all parent users in the current tenant' })
     findAll(@CurrentUser() user: JwtPayload) {
         return this.parentsService.findAll(user);
+    }
+
+    @Patch(':id')
+    @ApiOperation({ summary: 'Update a parent account (admin only)' })
+    update(@Param('id') id: string, @Body() dto: UpdateParentDto, @CurrentUser() user: JwtPayload) {
+        return this.parentsService.update(id, dto, user);
+    }
+
+    @Delete(':id')
+    @HttpCode(HttpStatus.NO_CONTENT)
+    @ApiOperation({ summary: 'Deactivate a parent account (admin only)' })
+    deactivate(@Param('id') id: string, @CurrentUser() user: JwtPayload) {
+        return this.parentsService.deactivate(id, user);
     }
 
     @Get(':id')

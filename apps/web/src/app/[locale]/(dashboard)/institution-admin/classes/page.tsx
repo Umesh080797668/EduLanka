@@ -164,7 +164,13 @@ export default function ClassesPage() {
                                             <td className="px-6 py-4 text-right">
                                                 <div className="flex items-center justify-end gap-2">
                                                     <Link
-                                                        href={`/institution-admin/classes/${cls.id || 'DEBUG-' + Object.keys(cls).join('-')}`}
+                                                        href={`/institution-admin/classes/${cls.id}?edit=true`}
+                                                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-slate-50 text-slate-600 border border-slate-200 rounded-lg text-sm font-medium transition-all shadow-sm"
+                                                    >
+                                                        Edit
+                                                    </Link>
+                                                    <Link
+                                                        href={`/institution-admin/classes/${cls.id}`}
                                                         className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-indigo-50 text-slate-600 hover:text-indigo-700 border border-slate-200 hover:border-indigo-300 rounded-lg text-sm font-medium transition-all shadow-sm"
                                                     >
                                                         {t('manage')}

@@ -3,10 +3,11 @@ import { authManager } from '@/lib/auth-store';
 
 import { useState, useEffect, use } from 'react';
 import { useRouter } from '@/i18n/routing';
-import { fetchParent, fetchStudents, linkStudentToParent, unlinkStudentFromParent, RequestOpts } from '@/lib/api/school';
+import { fetchParent, fetchStudents, linkStudentToParent, unlinkStudentFromParent, updateParent, RequestOpts } from '@/lib/api/school';
 import type { ParentProfile, StudentProfile } from '@edu-lanka/shared-types';
 import { ParentRelationship } from '@edu-lanka/shared-types';
 import { useTranslations } from 'next-intl';
+import ImageUpload from '@/components/ui/ImageUpload';
 
 export default function ParentDetailPage({ params }: { params: Promise<{ id: string }> }) {
     const { id } = use(params);
@@ -23,6 +24,16 @@ export default function ParentDetailPage({ params }: { params: Promise<{ id: str
     const [mapping, setMapping] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
+    // Edit State
+    const [isEditing, setIsEditing] = useState(false);
+    const [savingEdit, setSavingEdit] = useState(false);
+    const [editForm, setEditForm] = useState({
+        fullName: '',
+        email: '',
+        phoneNumber: '',
+        avatarUrl: ''
+    });
+
     // Status Modal State
     const [showStatusModal, setShowStatusModal] = useState(false);
     const [activeStep, setActiveStep] = useState<1 | 2>(1);
@@ -38,6 +49,12 @@ export default function ParentDetailPage({ params }: { params: Promise<{ id: str
                 fetchStudents(opts)
             ]);
             setParent(parentData);
+            setEditForm({
+                fullName: parentData.full_name,
+                email: parentData.email || '',
+                phoneNumber: parentData.phone_number || '',
+                avatarUrl: parentData.avatar_url || ''
+            });
             setAllStudents(studentsData);
             setError(null);
         } catch (err: any) {
@@ -97,6 +114,21 @@ export default function ParentDetailPage({ params }: { params: Promise<{ id: str
         }
     };
 
+    const handleSaveEdit = async () => {
+        if (!parent) return;
+        setSavingEdit(true);
+        try {
+            const opts: RequestOpts = { token: authManager.getToken() || '', tenantId: authManager.getTenantId() || '' };
+            await updateParent(parent.id, editForm, opts);
+            setIsEditing(false);
+            await loadData();
+        } catch (err: any) {
+            setError(err.message);
+        } finally {
+            setSavingEdit(false);
+        }
+    };
+
     if (loading) return <div style={{ padding: '2rem', textAlign: 'center' }}>{t('loadingParent')}</div>;
     if (error && !parent) return <div style={{ padding: '2rem', color: 'red' }}>Error: {error}</div>;
     if (!parent) return <div style={{ padding: '2rem' }}>{t('parentNotFound')}</div>;
@@ -116,45 +148,125 @@ export default function ParentDetailPage({ params }: { params: Promise<{ id: str
                     &larr; {t('backParents')}
                 </button>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                    <div>
-                        <h1 style={{ fontSize: '1.8rem', fontWeight: 600, color: '#111827', display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                            {parent.full_name}
-                            <span style={{
-                                padding: '0.25rem 0.6rem',
-                                borderRadius: '9999px',
-                                fontSize: '0.8rem',
-                                fontWeight: 500,
-                                background: isActive ? '#dcfce7' : '#fee2e2',
-                                color: isActive ? '#166534' : '#991b1b',
-                                border: `1px solid ${isActive ? '#bbf7d0' : '#fecaca'}`
-                            }}>
-                                {isActive ? t('active') : t('inactive')}
-                            </span>
-                        </h1>
-                        <p style={{ color: '#4b5563', marginTop: '0.25rem' }}>
-                            {t('contact')}: {parent.phone_number || parent.email || t('unregistered')}
-                        </p>
+                    <div style={{ display: 'flex', gap: '1.5rem', alignItems: 'center' }}>
+                        {isEditing ? (
+                            <ImageUpload
+                                currentImageUrl={editForm.avatarUrl}
+                                onUploadSuccess={(url) => setEditForm({ ...editForm, avatarUrl: url })}
+                                onError={(err) => alert(err)}
+                                size={64}
+                            />
+                        ) : (
+                            <div
+                                style={{ width: 64, height: 64, borderRadius: '50%', background: parent.avatar_url ? `url(${parent.avatar_url}) center/cover` : '#e5e7eb', flexShrink: 0 }}
+                            />
+                        )}
+
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                            {isEditing ? (
+                                <input
+                                    type="text" required
+                                    value={editForm.fullName}
+                                    onChange={e => setEditForm({ ...editForm, fullName: e.target.value })}
+                                    style={{ padding: '0.25rem 0.5rem', borderRadius: '4px', border: '1px solid #d1d5db', fontSize: '1.3rem', fontWeight: 600 }}
+                                />
+                            ) : (
+                                <h1 style={{ fontSize: '1.8rem', fontWeight: 600, color: '#111827', display: 'flex', alignItems: 'center', gap: '1rem', margin: 0 }}>
+                                    {parent.full_name}
+                                    <span style={{
+                                        padding: '0.25rem 0.6rem',
+                                        borderRadius: '9999px',
+                                        fontSize: '0.8rem',
+                                        fontWeight: 500,
+                                        background: isActive ? '#dcfce7' : '#fee2e2',
+                                        color: isActive ? '#166534' : '#991b1b',
+                                        border: `1px solid ${isActive ? '#bbf7d0' : '#fecaca'}`
+                                    }}>
+                                        {isActive ? t('active') : t('inactive')}
+                                    </span>
+                                </h1>
+                            )}
+
+                            {isEditing ? (
+                                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                    <input
+                                        type="tel"
+                                        placeholder="Phone"
+                                        value={editForm.phoneNumber}
+                                        onChange={e => setEditForm({ ...editForm, phoneNumber: e.target.value })}
+                                        style={{ padding: '0.25rem 0.5rem', borderRadius: '4px', border: '1px solid #d1d5db', fontSize: '0.875rem' }}
+                                    />
+                                    <input
+                                        type="email"
+                                        placeholder="Email"
+                                        value={editForm.email}
+                                        onChange={e => setEditForm({ ...editForm, email: e.target.value })}
+                                        style={{ padding: '0.25rem 0.5rem', borderRadius: '4px', border: '1px solid #d1d5db', fontSize: '0.875rem' }}
+                                    />
+                                </div>
+                            ) : (
+                                <p style={{ color: '#4b5563', margin: 0 }}>
+                                    {t('contact')}: {parent.phone_number || parent.email || t('unregistered')}
+                                </p>
+                            )}
+                        </div>
                     </div>
 
-                    <button
-                        onClick={() => {
-                            setDeactivationReason('');
-                            setActiveStep(1);
-                            setShowStatusModal(true);
-                        }}
-                        style={{
-                            padding: '0.5rem 1rem',
-                            borderRadius: '6px',
-                            fontSize: '0.875rem',
-                            fontWeight: 500,
-                            cursor: 'pointer',
-                            background: 'white',
-                            border: `1px solid ${isActive ? '#fca5a5' : '#86efac'}`,
-                            color: isActive ? '#dc2626' : '#16a34a'
-                        }}
-                    >
-                        {isActive ? 'Suspend Account' : 'Reactivate Account'}
-                    </button>
+                    <div style={{ display: 'flex', gap: '0.5rem' }}>
+                        {isEditing ? (
+                            <>
+                                <button
+                                    onClick={() => setIsEditing(false)}
+                                    style={{ padding: '0.5rem 1rem', borderRadius: '6px', fontSize: '0.875rem', fontWeight: 500, cursor: 'pointer', background: 'white', border: '1px solid #d1d5db', color: '#374151' }}
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    onClick={handleSaveEdit}
+                                    disabled={savingEdit}
+                                    style={{ padding: '0.5rem 1rem', borderRadius: '6px', fontSize: '0.875rem', fontWeight: 500, cursor: 'pointer', background: 'var(--color-brand-600)', border: 'none', color: 'white', opacity: savingEdit ? 0.7 : 1 }}
+                                >
+                                    {savingEdit ? 'Saving...' : 'Save'}
+                                </button>
+                            </>
+                        ) : (
+                            <button
+                                onClick={() => setIsEditing(true)}
+                                style={{
+                                    padding: '0.5rem 1rem',
+                                    borderRadius: '6px',
+                                    fontSize: '0.875rem',
+                                    fontWeight: 500,
+                                    cursor: 'pointer',
+                                    background: 'white',
+                                    border: '1px solid #d1d5db',
+                                    color: '#374151'
+                                }}
+                            >
+                                Edit Profile
+                            </button>
+                        )}
+
+                        <button
+                            onClick={() => {
+                                setDeactivationReason('');
+                                setActiveStep(1);
+                                setShowStatusModal(true);
+                            }}
+                            style={{
+                                padding: '0.5rem 1rem',
+                                borderRadius: '6px',
+                                fontSize: '0.875rem',
+                                fontWeight: 500,
+                                cursor: 'pointer',
+                                background: 'white',
+                                border: `1px solid ${isActive ? '#fca5a5' : '#86efac'}`,
+                                color: isActive ? '#dc2626' : '#16a34a'
+                            }}
+                        >
+                            {isActive ? 'Suspend Account' : 'Reactivate Account'}
+                        </button>
+                    </div>
                 </div>
                 {error && <div style={{ marginTop: '1rem', padding: '1rem', background: '#fee2e2', color: '#b91c1c', borderRadius: '6px' }}>{error}</div>}
             </div>

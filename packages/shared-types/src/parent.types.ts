@@ -17,6 +17,7 @@ export interface ParentProfile {
     email: string;
     full_name: string;
     phone_number?: string;
+    avatar_url?: string | null;
     role: string;
     is_active: boolean;
     parents?: any[]; // nested mappings

@@ -47,3 +47,25 @@ export class CreateParentDto {
     })
     temporaryPassword!: string;
 }
+
+export class UpdateParentDto {
+    @ApiPropertyOptional({ example: 'Nuwan Perera' })
+    @IsString()
+    @IsOptional()
+    fullName?: string;
+
+    @ApiPropertyOptional({ example: 'nuwan@example.com' })
+    @IsString()
+    @IsOptional()
+    email?: string;
+
+    @ApiPropertyOptional({ example: '+94771234567' })
+    @IsString()
+    @IsOptional()
+    phoneNumber?: string;
+
+    @ApiPropertyOptional()
+    @IsString()
+    @IsOptional()
+    avatarUrl?: string; // Standard for profile edits
+}

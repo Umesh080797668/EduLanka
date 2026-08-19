@@ -100,10 +100,16 @@ export default function StudentsPage() {
                                     <td style={{ padding: '0.75rem 1rem', textAlign: 'right' }}>
                                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '0.5rem' }}>
                                             <Link
+                                                href={`/institution-admin/students/${student.id}?edit=true`}
+                                                style={{ color: 'var(--color-brand-600)', textDecoration: 'none', fontWeight: 500, marginRight: '0.5rem' }}
+                                            >
+                                                Edit
+                                            </Link>
+                                            <Link
                                                 href={`/institution-admin/students/${student.id}`}
                                                 style={{ color: 'var(--color-brand-600)', textDecoration: 'none', fontWeight: 500 }}
                                             >
-                                                {t('view')} &rarr;
+                                                View &rarr;
                                             </Link>
                                             <button
                                                 onClick={() => setStudentToDelete(student)}

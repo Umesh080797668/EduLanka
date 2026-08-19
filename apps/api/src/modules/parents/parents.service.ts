@@ -12,7 +12,7 @@ import {
 import type { JwtPayload } from '@edu-lanka/shared-types';
 import { UserRole, ParentRelationship } from '@edu-lanka/shared-types';
 import { SupabaseService } from '../supabase/supabase.service';
-import { LinkStudentDto, CreateParentDto } from './dto/parent.dto';
+import { LinkStudentDto, CreateParentDto, UpdateParentDto } from './dto/parent.dto';
 
 @Injectable()
 export class ParentsService {
@@ -81,6 +81,53 @@ export class ParentsService {
         }
     }
 
+
+    async update(id: string, dto: UpdateParentDto, caller: JwtPayload) {
+        this.guardAdmin(caller);
+        const slug = caller.tenantId;
+        const db = this.supabase.getTenantClient(slug);
+
+        const updates: any = {};
+        if (dto.fullName) updates.full_name = dto.fullName;
+        if (dto.email !== undefined) updates.email = dto.email || null;
+        if (dto.phoneNumber !== undefined) updates.phone_number = dto.phoneNumber || null;
+        if (dto.avatarUrl !== undefined) updates.avatar_url = dto.avatarUrl || null;
+
+        if (Object.keys(updates).length === 0) return { message: 'No updates provided' };
+
+        const { data, error } = await db
+            .from('users')
+            .update(updates)
+            .eq('id', id)
+            .eq('role', UserRole.PARENT)
+            .select()
+            .single();
+
+        if (error) {
+            this.logger.error(`Failed to update parent: ${error.message}`);
+            throw new InternalServerErrorException('Failed to update parent');
+        }
+
+        return data;
+    }
+
+    async deactivate(parentUserId: string, caller: JwtPayload) {
+        this.guardAdmin(caller);
+        const slug = caller.tenantId;
+        const db = this.supabase.getTenantClient(slug);
+
+        const { error } = await db
+            .from('users')
+            .update({ is_active: false })
+            .eq('id', parentUserId)
+            .eq('role', UserRole.PARENT);
+
+        if (error) {
+            this.logger.error(`Failed to deactivate parent: ${error.message}`);
+            throw new InternalServerErrorException('Failed to deactivate parent');
+        }
+        return { message: 'Parent deactivated successfully' };
+    }
 
     async getMe(caller: JwtPayload) {
         const slug = caller.tenantId;

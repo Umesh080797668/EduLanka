@@ -120,6 +120,12 @@ export const linkStudentToParent = (parentId: string, data: { studentId: string;
 export const unlinkStudentFromParent = (parentId: string, studentId: string, opts: RequestOpts) =>
     apiClient.delete(`/parents/${parentId}/students/${studentId}`, opts);
 
+export const updateParent = (id: string, data: any, opts: RequestOpts) =>
+    apiClient.patch<ParentProfile>(`/parents/${id}`, data, opts);
+
+export const deactivateParent = (id: string, opts: RequestOpts) =>
+    apiClient.delete(`/parents/${id}`, opts);
+
 // -----------------------------------------------------------------------------
 // Users
 // -----------------------------------------------------------------------------

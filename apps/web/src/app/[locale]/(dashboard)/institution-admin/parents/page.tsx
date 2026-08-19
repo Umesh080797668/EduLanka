@@ -3,16 +3,26 @@ import { authManager } from '@/lib/auth-store';
 
 import { useState, useEffect } from 'react';
 import { Link } from '@/i18n/routing';
-import { fetchParents, RequestOpts } from '@/lib/api/school';
+import { fetchParents, deactivateParent, RequestOpts } from '@/lib/api/school';
 import type { ParentProfile } from '@edu-lanka/shared-types';
 import { useTranslations } from 'next-intl';
 import { PageSkeleton } from '@/components/ui/Skeleton';
+import MultiStepModal from '@/components/ui/MultiStepModal';
+import { Trash2 } from 'lucide-react';
 
 export default function ParentsPage() {
     const t = useTranslations('InstitutionAdminParents');
     const [parents, setParents] = useState<ParentProfile[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [parentToDelete, setParentToDelete] = useState<ParentProfile | null>(null);
+
+    const handleDeleteConfirm = async () => {
+        if (!parentToDelete) return;
+        const opts: RequestOpts = { token: authManager.getToken() || '', tenantId: authManager.getTenantId() || '' };
+        await deactivateParent(parentToDelete.id, opts);
+        setParents(prev => prev.map(p => p.id === parentToDelete.id ? { ...p, is_active: false } : p));
+    };
 
     useEffect(() => {
         const opts: RequestOpts = { token: authManager.getToken() || '', tenantId: authManager.getTenantId() || '' };
@@ -79,12 +89,27 @@ export default function ParentsPage() {
                                         </span>
                                     </td>
                                     <td style={{ padding: '0.75rem 1rem', textAlign: 'right' }}>
-                                        <Link
-                                            href={`/institution-admin/parents/${parent.id || 'DEBUG-' + Object.keys(parent).join('-')}`}
-                                            style={{ color: 'var(--color-brand-600)', textDecoration: 'none', fontWeight: 500 }}
-                                        >
-                                            {t('viewMap')} &rarr;
-                                        </Link>
+                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '0.5rem' }}>
+                                            <Link
+                                                href={`/institution-admin/parents/${parent.id}?edit=true`}
+                                                style={{ color: 'var(--color-brand-600)', textDecoration: 'none', fontWeight: 500, marginRight: '0.5rem' }}
+                                            >
+                                                Edit
+                                            </Link>
+                                            <Link
+                                                href={`/institution-admin/parents/${parent.id}`}
+                                                style={{ color: 'var(--color-brand-600)', textDecoration: 'none', fontWeight: 500 }}
+                                            >
+                                                {t('viewMap')} &rarr;
+                                            </Link>
+                                            <button
+                                                onClick={() => setParentToDelete(parent)}
+                                                style={{ padding: '0.35rem', border: 'none', background: '#fee2e2', borderRadius: '4px', cursor: 'pointer', color: '#b91c1c' }}
+                                                title="Deactivate Parent"
+                                            >
+                                                <Trash2 style={{ width: '1rem', height: '1rem' }} />
+                                            </button>
+                                        </div>
                                     </td>
                                 </tr>
                             ))}
@@ -92,6 +117,27 @@ export default function ParentsPage() {
                     </table>
                 </div>
             )}
+
+            <MultiStepModal
+                isOpen={!!parentToDelete}
+                onClose={() => setParentToDelete(null)}
+                title="Deactivate Parent"
+                steps={[
+                    {
+                        title: 'Are you absolutely sure?',
+                        description: `This action will initiate the deactivation process for this parent. Their access will be revoked but historical data will be preserved.`,
+                        confirmText: 'Yes, proceed',
+                        isDestructive: true
+                    },
+                    {
+                        title: 'Confirm Deactivation',
+                        description: 'Please confirm once more. They will no longer be able to log in to the portal.',
+                        confirmText: 'Deactivate Parent',
+                        isDestructive: true
+                    }
+                ]}
+                onComplete={handleDeleteConfirm}
+            />
         </div>
     );
 }
