@@ -1,4 +1,5 @@
 'use client';
+import { authManager } from '@/lib/auth-store';
 
 import { useState, useEffect } from 'react';
 import { Link } from '@/i18n/routing';
@@ -24,7 +25,7 @@ export default function TeacherDetailPage() {
 
     useEffect(() => {
         if (!id) return;
-        const opts: RequestOpts = { token: localStorage.getItem('token') || '', tenantId: localStorage.getItem('tenantId') || '' };
+        const opts: RequestOpts = { token: authManager.getToken() || '', tenantId: authManager.getTenantId() || '' };
 
         fetchTeacher(id, opts)
             .then(setTeacher)
@@ -36,7 +37,7 @@ export default function TeacherDetailPage() {
         if (!teacher || !teacher.users) return;
 
         setActionLoading(true);
-        const opts: RequestOpts = { token: localStorage.getItem('token') || '', tenantId: localStorage.getItem('tenantId') || '' };
+        const opts: RequestOpts = { token: authManager.getToken() || '', tenantId: authManager.getTenantId() || '' };
         try {
             const { setUserActive } = await import('@/lib/api/school');
             await setUserActive(teacher.user_id, !teacher.users.is_active, opts, deactivationReason);

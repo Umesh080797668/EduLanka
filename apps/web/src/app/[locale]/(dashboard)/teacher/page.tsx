@@ -19,8 +19,6 @@ export default function TeacherDashboard() {
                 const res = await fetch('/api/v1/users/me', {
                     credentials: 'include',
                     headers: {
-                        'Authorization': `Bearer ${localStorage.getItem('token')}`,
-                        ''
                     }
                 });
                 if (res.ok) {

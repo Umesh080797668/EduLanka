@@ -1,4 +1,5 @@
 'use client';
+import { authManager } from '@/lib/auth-store';
 
 import { useState, useEffect } from 'react';
 import { fetchPolicy, updatePolicy, fetchTenant, RequestOpts } from '@/lib/api/school';
@@ -23,12 +24,12 @@ export default function SchoolPolicyPage() {
 
     useEffect(() => {
         const load = async () => {
-            const opts: RequestOpts = { token: localStorage.getItem('token') || '', tenantId: localStorage.getItem('tenantId') || '' };
+            const opts: RequestOpts = { token: authManager.getToken() || '', tenantId: authManager.getTenantId() || '' };
             try {
-                 || '';
+
                 const [policyData, tenantData] = await Promise.all([
                     fetchPolicy(opts),
-                    fetchTenant(tenantId, opts)
+                    fetchTenant(authManager.getTenantId() || '', opts)
                 ]);
                 setTenant(tenantData);
                 setFormData(policyData || {});
@@ -47,11 +48,10 @@ export default function SchoolPolicyPage() {
         setError(null);
         setSuccess(null);
 
-        const opts: RequestOpts = { token: localStorage.getItem('token') || '', tenantId: localStorage.getItem('tenantId') || '' };
+        const opts: RequestOpts = { token: authManager.getToken() || '', tenantId: authManager.getTenantId() || '' };
         try {
             // Strip out read-only fields and remap strictly to camelCase for DTO ValidationPipe
             const {
-                id: _id, tenant_id: _tenant_id, created_at: _created_at, updated_at: _updated_at,
                 academic_year, max_students_per_class, allow_self_enrollment,
                 sms_enabled, default_language, supported_mediums,
                 school_hours_start, school_hours_end, timezone

@@ -1,4 +1,5 @@
 'use client';
+import { authManager } from '@/lib/auth-store';
 
 import { useState, useEffect } from 'react';
 import { useRouter } from '@/i18n/routing';
@@ -46,7 +47,7 @@ export default function SignupPage() {
 
         try {
             const res = await fetch('/api/v1/auth/self-register', {
-                    credentials: 'include',
+                credentials: 'include',
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
@@ -59,7 +60,8 @@ export default function SignupPage() {
                 const { access_token, user } = json.data;
                 const savedRole = user?.role || role;
 
-                                                localStorage.setItem('role', savedRole);
+                authManager.setAuth(access_token, user?.tenantId || '', savedRole, user?.id || '');
+                localStorage.setItem('role', savedRole);
 
                 const route = `/${savedRole.toLowerCase()}`;
                 router.push(route);

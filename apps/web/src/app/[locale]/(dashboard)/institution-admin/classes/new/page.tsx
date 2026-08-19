@@ -1,4 +1,5 @@
 'use client';
+import { authManager } from '@/lib/auth-store';
 
 import { useEffect, useState } from 'react';
 import { useRouter } from '@/i18n/routing';
@@ -20,7 +21,7 @@ export default function NewClassPage() {
     const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
-        const opts: RequestOpts = { token: localStorage.getItem('token') || '', tenantId: localStorage.getItem('tenantId') || '' };
+        const opts: RequestOpts = { token: authManager.getToken() || '', tenantId: authManager.getTenantId() || '' };
         fetchGrades(opts).then(res => {
             setGrades(res);
             if (res.length > 0) setGradeId(res[0].id);
@@ -32,7 +33,7 @@ export default function NewClassPage() {
         setSaving(true);
         setError(null);
 
-        const opts: RequestOpts = { token: localStorage.getItem('token') || '', tenantId: localStorage.getItem('tenantId') || '' };
+        const opts: RequestOpts = { token: authManager.getToken() || '', tenantId: authManager.getTenantId() || '' };
         try {
             await createClass({
                 gradeId,

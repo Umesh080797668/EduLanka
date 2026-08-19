@@ -1,4 +1,5 @@
 'use client';
+import { authManager } from '@/lib/auth-store';
 
 import { Bell, Search, User, Menu } from 'lucide-react';
 import { usePathname, useRouter } from '@/i18n/routing';
@@ -26,7 +27,7 @@ export default function Header() {
     useEffect(() => {
         const fetchUser = async () => {
 
-            const role = localStorage.getItem('role') || 'USER';
+            const role = authManager.getRole() || 'USER';
             setUserRole(role.replace('_', ' '));
 
             try {
@@ -35,7 +36,7 @@ export default function Header() {
                 const uri = role === 'PARENT' ? '/api/v1/parents/me' : '/api/v1/users/me';
                 const res = await fetch(uri, {
                     credentials: 'include',
-                    headers: {  }
+                    headers: {}
                 });
                 if (res.ok) {
                     const json = await res.json();
@@ -57,7 +58,7 @@ export default function Header() {
 
         // ---------------- Socket.io Connection ----------------
         // Hybrid Strategy: Starts with Polling, upgrades to WebSocket
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL || '';
 
         // Vercel serverless completely breaks Socket.io long-polling states resulting in 400s.
         // Disable real-time sockets if deployed to Vercel to preserve UX.

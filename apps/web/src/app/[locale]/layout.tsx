@@ -10,7 +10,7 @@ export const metadata: Metadata = {
     },
     description:
         'EduLanka — National-scale school management platform built for Sri Lanka. Grades 1–13, multi-tenant, teacher & parent portals.',
-    metadataBase: new URL(process.env['NEXT_PUBLIC_APP_URL'] ?? 'http://localhost:3000'),
+    metadataBase: new URL(process.env['NEXT_PUBLIC_APP_URL'] || 'https://edulanka.com'),
     openGraph: {
         siteName: 'EduLanka',
         type: 'website',

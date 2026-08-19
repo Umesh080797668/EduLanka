@@ -1,4 +1,5 @@
 'use client';
+import { authManager } from '@/lib/auth-store';
 
 import { useState, useEffect } from 'react';
 import { Link } from '@/i18n/routing';
@@ -15,11 +16,9 @@ export default function ClassesPage() {
     const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
-        const opts: RequestOpts = { token: localStorage.getItem('token') || '', tenantId: localStorage.getItem('tenantId') || '' };
+        const opts: RequestOpts = { token: authManager.getToken() || '', tenantId: authManager.getTenantId() || '' };
         fetchClasses(opts)
             .then((data) => {
-                console.log("⭐⭐⭐ RAW FETCHED CLASSES DATA FROM API ⭐⭐⭐", JSON.stringify(data, null, 2));
-                data.forEach((c, i) => console.log(`Class ${i} Keys:`, Object.keys(c), `ID Present?`, c.id !== undefined));
                 setClasses(data);
             })
             .catch((err) => setError(err.message))

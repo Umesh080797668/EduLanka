@@ -1,4 +1,5 @@
 'use client';
+import { authManager } from '@/lib/auth-store';
 
 import { useState } from 'react';
 import { useRouter } from '@/i18n/routing';
@@ -22,7 +23,7 @@ export default function LoginPage() {
 
         try {
             const res = await fetch('/api/v1/auth/login', {
-                    credentials: 'include',
+                credentials: 'include',
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
@@ -38,7 +39,8 @@ export default function LoginPage() {
                 const role = user?.role || 'STUDENT'; // Fallback role if undefined
 
                 // Save to local storage for the rest of the app to consume
-                                                localStorage.setItem('role', role);
+                authManager.setAuth(access_token, user?.tenantId || '', role, user?.id || '');
+                localStorage.setItem('role', role);
 
                 // Initial route resolution based on role
                 let route = `/${role.toLowerCase()}`;
@@ -56,7 +58,7 @@ export default function LoginPage() {
                         const payloadStr = backendMessage.split('|')[1];
                         const payload = JSON.parse(payloadStr);
                         router.push(`/deactivated?role=${payload.role}&tenantId=${payload.tenantId}&userId=${payload.userId}&reason=${encodeURIComponent(payload.reason || '')}`);
-                    } catch (e) {
+                    } catch {
                         router.push(`/deactivated?role=STUDENT`);
                     }
                     return;

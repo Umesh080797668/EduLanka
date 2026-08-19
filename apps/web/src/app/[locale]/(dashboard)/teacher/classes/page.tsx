@@ -19,8 +19,6 @@ export default function TeacherClassesPage() {
                 const userRes = await fetch('/api/v1/users/me', {
                     credentials: 'include',
                     headers: {
-                        'Authorization': `Bearer ${localStorage.getItem('token')}`,
-                        ''
                     }
                 });
 
@@ -30,8 +28,6 @@ export default function TeacherClassesPage() {
                     const res = await fetch(`/api/v1/classes?teacherId=${user.data?.id}`, {
                     credentials: 'include',
                         headers: {
-                            'Authorization': `Bearer ${localStorage.getItem('token')}`,
-                            ''
                         }
                     });
 

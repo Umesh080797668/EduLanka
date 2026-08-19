@@ -1,4 +1,5 @@
 'use client';
+import { authManager } from '@/lib/auth-store';
 
 import { useEffect } from 'react';
 import { useRouter } from '@/i18n/routing';
@@ -10,7 +11,7 @@ export default function DashboardPage() {
     const t = useTranslations('Dashboard');
 
     useEffect(() => {
-        const role = localStorage.getItem('role');
+        const role = authManager.getRole();
         if (!role) {
             // Missing role but active token edge-case
             localStorage.clear();

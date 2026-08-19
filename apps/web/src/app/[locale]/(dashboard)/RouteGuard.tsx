@@ -1,4 +1,5 @@
 'use client';
+import { authManager } from '@/lib/auth-store';
 
 import { useEffect, useState } from 'react';
 import { useRouter, usePathname } from '@/i18n/routing';
@@ -13,7 +14,8 @@ export default function RouteGuard({ children }: { children: React.ReactNode }) 
         let mounted = true;
         Promise.resolve().then(() => {
             if (!mounted) return;
-                        const role = localStorage.getItem('role')?.toUpperCase();
+            const role = authManager.getRole()?.toUpperCase();
+            const token = authManager.getToken();
 
             if (!token || !role) {
                 router.replace('/login');

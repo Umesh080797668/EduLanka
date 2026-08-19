@@ -1,4 +1,5 @@
 'use client';
+import { authManager } from '@/lib/auth-store';
 
 import { useState, useEffect } from 'react';
 import { useTranslations } from 'next-intl';
@@ -14,8 +15,8 @@ export default function InquiriesPage() {
 
     const safeFetch = () => {
         const opts: RequestOpts = {
-            token: localStorage.getItem('token') || '',
-            tenantId: localStorage.getItem('tenantId') || ''
+            token: authManager.getToken() || '',
+            tenantId: authManager.getTenantId() || ''
         };
         return fetchInquiries(opts)
             .then(data => setInquiries(data))
@@ -30,8 +31,8 @@ export default function InquiriesPage() {
     const handleUpdateStatus = async (id: string, newStatus: 'RESOLVED' | 'REJECTED') => {
         setActionLoading(id);
         const opts: RequestOpts = {
-            token: localStorage.getItem('token') || '',
-            tenantId: localStorage.getItem('tenantId') || ''
+            token: authManager.getToken() || '',
+            tenantId: authManager.getTenantId() || ''
         };
         try {
             await updateInquiryStatus(id, newStatus, opts);

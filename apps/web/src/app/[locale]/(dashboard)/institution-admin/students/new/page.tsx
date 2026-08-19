@@ -1,4 +1,5 @@
 'use client';
+import { authManager } from '@/lib/auth-store';
 
 import { useState, useEffect } from 'react';
 import { useRouter } from '@/i18n/routing';
@@ -16,7 +17,7 @@ export default function NewStudentPage() {
     const [classes, setClasses] = useState<any[]>([]);
 
     useEffect(() => {
-        const opts: RequestOpts = { token: localStorage.getItem('token') || '', tenantId: localStorage.getItem('tenantId') || '' };
+        const opts: RequestOpts = { token: authManager.getToken() || '', tenantId: authManager.getTenantId() || '' };
         fetchClasses(opts).then(setClasses).catch(() => { });
     }, []);
 
@@ -37,7 +38,7 @@ export default function NewStudentPage() {
         setSaving(true);
         setError(null);
 
-        const opts: RequestOpts = { token: localStorage.getItem('token') || '', tenantId: localStorage.getItem('tenantId') || '' };
+        const opts: RequestOpts = { token: authManager.getToken() || '', tenantId: authManager.getTenantId() || '' };
         try {
             await enrollStudent({
                 ...formData,

@@ -1,4 +1,5 @@
 'use client';
+import { authManager } from '@/lib/auth-store';
 
 import { useState, useEffect, use } from 'react';
 import { fetchClass, fetchTeachers, assignTeacherToClass, removeTeacherFromClass, RequestOpts } from '@/lib/api/school';
@@ -26,8 +27,8 @@ export default function ClassDetailPage({ params }: PageProps) {
     const [isHomeroom, setIsHomeroom] = useState(false);
 
     const opts = (): RequestOpts => ({
-        token: localStorage.getItem('token') || '',
-        tenantId: localStorage.getItem('tenantId') || '',
+        token: authManager.getToken() || '',
+        tenantId: authManager.getTenantId() || '',
     });
 
     const refreshClass = async () => {

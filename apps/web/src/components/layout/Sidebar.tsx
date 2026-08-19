@@ -1,4 +1,5 @@
 'use client';
+import { authManager } from '@/lib/auth-store';
 
 import { usePathname } from 'next/navigation';
 import { Link } from '@/i18n/routing';
@@ -63,7 +64,7 @@ export default function Sidebar() {
         let mounted = true;
         Promise.resolve().then(() => {
             if (!mounted) return;
-            const authRole = localStorage.getItem('role')?.toUpperCase() as any;
+            const authRole = authManager.getRole()?.toUpperCase() as any;
             if (authRole && NAV_ITEMS[authRole as keyof typeof NAV_ITEMS]) {
                 setRole(authRole);
             } else {

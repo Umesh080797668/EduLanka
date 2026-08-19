@@ -1,4 +1,5 @@
 'use client';
+import { authManager } from '@/lib/auth-store';
 
 import { useState, useEffect } from 'react';
 import { Link } from '@/i18n/routing';
@@ -29,7 +30,7 @@ export default function StudentDetailPage() {
 
     useEffect(() => {
         if (!id) return;
-        const opts: RequestOpts = { token: localStorage.getItem('token') || '', tenantId: localStorage.getItem('tenantId') || '' };
+        const opts: RequestOpts = { token: authManager.getToken() || '', tenantId: authManager.getTenantId() || '' };
 
         Promise.all([
             fetchStudent(id, opts),
@@ -51,7 +52,7 @@ export default function StudentDetailPage() {
         if (!selectedClassId) return;
 
         setAssigningClass(true);
-        const opts: RequestOpts = { token: localStorage.getItem('token') || '', tenantId: localStorage.getItem('tenantId') || '' };
+        const opts: RequestOpts = { token: authManager.getToken() || '', tenantId: authManager.getTenantId() || '' };
         try {
             const updated = await assignClassToStudent(id, selectedClassId, opts);
             setStudent(updated);
@@ -67,7 +68,7 @@ export default function StudentDetailPage() {
         if (!student || !student.users) return;
 
         setActionLoading(true);
-        const opts: RequestOpts = { token: localStorage.getItem('token') || '', tenantId: localStorage.getItem('tenantId') || '' };
+        const opts: RequestOpts = { token: authManager.getToken() || '', tenantId: authManager.getTenantId() || '' };
         try {
             const { setUserActive } = await import('@/lib/api/school');
             await setUserActive(student.user_id, !student.users.is_active, opts, deactivationReason);

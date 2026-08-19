@@ -1,10 +1,11 @@
+import { authManager } from '@/lib/auth-store';
 import type { ApiResponse } from '@edu-lanka/shared-types';
 
 // If running purely in the browser, we actively WANT to use a relative url to hit the Next.js rewrite proxy.
 // This beautifully avoids CORS errors since the browser only communicates with the same origin.
 const API_BASE_URL = typeof window !== 'undefined'
     ? '/api/v1'
-    : (process.env['NEXT_PUBLIC_API_URL'] ?? 'http://localhost:8081/api/v1');
+    : (process.env['NEXT_PUBLIC_API_URL'] ?? '');
 
 interface RequestOptions extends RequestInit {
     token?: string;
@@ -25,19 +26,18 @@ async function apiFetch<T>(
     let finalTenantId = tenantId;
 
     if (typeof window !== 'undefined') {
-        if (!finalToken) finalToken = localStorage.getItem('token') || undefined;
-        if (!finalTenantId) finalTenantId = localStorage.getItem('tenantId') || undefined;
+        if (!finalToken) finalToken = authManager.getToken() || undefined;
+        if (!finalTenantId) finalTenantId = authManager.getTenantId() || undefined;
     }
 
     const headers: Record<string, string> = {
         'Content-Type': 'application/json',
-        ...(finalToken ? { Authorization: `Bearer ${finalToken}` } : {}),
         ...(finalTenantId ? { 'X-Tenant-Id': finalTenantId } : {}),
         ...(extraHeaders as Record<string, string>),
     };
 
     const response = await fetch(`${API_BASE_URL}${path}`, {
-                    credentials: 'include',
+        credentials: 'include',
         cache: 'no-store',
         ...rest,
         headers,

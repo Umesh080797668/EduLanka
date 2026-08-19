@@ -1,4 +1,5 @@
 'use client';
+import { authManager } from '@/lib/auth-store';
 
 import { useState, useEffect } from 'react';
 import { fetchGlobalUsers, setUserActive, RequestOpts } from '@/lib/api/school';
@@ -23,7 +24,7 @@ export default function SystemAdminUsersPage() {
 
     const refreshUsers = () => {
         setLoading(true);
-        const opts: RequestOpts = { token: localStorage.getItem('token') || '', tenantId: localStorage.getItem('tenantId') || '' };
+        const opts: RequestOpts = { token: authManager.getToken() || '', tenantId: authManager.getTenantId() || '' };
         fetchGlobalUsers(opts)
             .then(setUsers)
             .catch((err) => setError(err.message))
@@ -46,8 +47,8 @@ export default function SystemAdminUsersPage() {
         if (!userToConfirm) return;
 
         setActionLoading(userToConfirm.id);
-        const targetTenantId = userToConfirm.tenant_id || localStorage.getItem('tenantId') || '';
-        const opts: RequestOpts = { token: localStorage.getItem('token') || '', tenantId: targetTenantId };
+        const targetTenantId = userToConfirm.tenant_id || authManager.getTenantId() || '';
+        const opts: RequestOpts = { token: authManager.getToken() || '', tenantId: targetTenantId };
 
         try {
             await setUserActive(userToConfirm.id, !userToConfirm.is_active, opts, deactivationReason);

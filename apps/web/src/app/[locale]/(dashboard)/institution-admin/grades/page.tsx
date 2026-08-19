@@ -1,4 +1,5 @@
 'use client';
+import { authManager } from '@/lib/auth-store';
 
 import { useState, useEffect } from 'react';
 import { fetchGrades, RequestOpts } from '@/lib/api/school';
@@ -15,7 +16,7 @@ export default function GradesPage() {
     const loadData = async () => {
         setLoading(true);
         try {
-            const opts: RequestOpts = { token: localStorage.getItem('token') || '', tenantId: localStorage.getItem('tenantId') || '' };
+            const opts: RequestOpts = { token: authManager.getToken() || '', tenantId: authManager.getTenantId() || '' };
             const data = await fetchGrades(opts);
             setGrades(data);
         } catch (err: any) {

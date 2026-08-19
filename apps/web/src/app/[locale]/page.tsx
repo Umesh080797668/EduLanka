@@ -1,4 +1,5 @@
 'use client';
+import { authManager } from '@/lib/auth-store';
 
 import { useEffect } from 'react';
 import { useRouter } from '@/i18n/routing';
@@ -9,7 +10,8 @@ export default function RootPage() {
 
     useEffect(() => {
         // Read auth state
-                if (token) {
+        const token = authManager.getToken();
+        if (token) {
             router.replace('/dashboard');
         } else {
             router.replace('/login');

@@ -1,4 +1,5 @@
 'use client';
+import { authManager } from '@/lib/auth-store';
 
 import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
 import { driver, DriveStep } from 'driver.js';
@@ -33,8 +34,8 @@ export const TutorialProvider: React.FC<TutorialProviderProps> = ({
 
     const [steps, setSteps] = useState<DriveStep[]>([]);
 
-    const getToken = () => typeof window !== 'undefined' ? localStorage.getItem('token') : null;
-    const getTenantId = () => typeof window !== 'undefined' ? localStorage.getItem('tenantId') : null;
+    const getToken = () => typeof window !== 'undefined' ? authManager.getToken() : null;
+    const getTenantId = () => typeof window !== 'undefined' ? authManager.getTenantId() : null;
     const isSkippedFlag = useRef(false);
 
     const markCompleteOrSkip = useCallback(async (status: 'COMPLETED' | 'SKIPPED', tutId: string, tenantIdStr: string, tokenStr: string) => {

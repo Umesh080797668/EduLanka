@@ -1,4 +1,5 @@
 'use client';
+import { authManager } from '@/lib/auth-store';
 
 import { useState, useEffect, use } from 'react';
 import { useRouter } from '@/i18n/routing';
@@ -31,7 +32,7 @@ export default function ParentDetailPage({ params }: { params: Promise<{ id: str
     const loadData = async () => {
         setLoading(true);
         try {
-            const opts: RequestOpts = { token: localStorage.getItem('token') || '', tenantId: localStorage.getItem('tenantId') || '' };
+            const opts: RequestOpts = { token: authManager.getToken() || '', tenantId: authManager.getTenantId() || '' };
             const [parentData, studentsData] = await Promise.all([
                 fetchParent(id, opts),
                 fetchStudents(opts)
@@ -54,7 +55,7 @@ export default function ParentDetailPage({ params }: { params: Promise<{ id: str
         e.preventDefault();
         setMapping(true);
         try {
-            const opts: RequestOpts = { token: localStorage.getItem('token') || '', tenantId: localStorage.getItem('tenantId') || '' };
+            const opts: RequestOpts = { token: authManager.getToken() || '', tenantId: authManager.getTenantId() || '' };
             await linkStudentToParent(id, { studentId: selectedStudentId, relationship }, opts);
             setSelectedStudentId('');
             await loadData();
@@ -68,7 +69,7 @@ export default function ParentDetailPage({ params }: { params: Promise<{ id: str
     const handleUnlink = async (studentId: string) => {
         if (!confirm(t('unlinkConfirm'))) return;
         try {
-            const opts: RequestOpts = { token: localStorage.getItem('token') || '', tenantId: localStorage.getItem('tenantId') || '' };
+            const opts: RequestOpts = { token: authManager.getToken() || '', tenantId: authManager.getTenantId() || '' };
             await unlinkStudentFromParent(id, studentId, opts);
             await loadData();
         } catch (err: any) {
@@ -80,7 +81,7 @@ export default function ParentDetailPage({ params }: { params: Promise<{ id: str
         if (!parent) return;
 
         setActionLoading(true);
-        const opts: RequestOpts = { token: localStorage.getItem('token') || '', tenantId: localStorage.getItem('tenantId') || '' };
+        const opts: RequestOpts = { token: authManager.getToken() || '', tenantId: authManager.getTenantId() || '' };
         try {
             const { setUserActive } = await import('@/lib/api/school');
             await setUserActive(parent.id, !parent.is_active, opts, deactivationReason);

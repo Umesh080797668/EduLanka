@@ -26,8 +26,6 @@ export default function ParentDashboard() {
                 const res = await fetch('/api/v1/parents/me', {
                     credentials: 'include',
                     headers: {
-                        'Authorization': `Bearer ${localStorage.getItem('token')}`,
-                        ''
                     }
                 });
                 if (res.ok) {

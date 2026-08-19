@@ -1,4 +1,5 @@
 'use client';
+import { authManager } from '@/lib/auth-store';
 
 import { useState, useEffect } from 'react';
 import { fetchTenants, toggleTenantSms, RequestOpts } from '@/lib/api/school';
@@ -25,7 +26,7 @@ export default function SystemAdminTenantsPage() {
 
     const refreshTenants = () => {
         setLoading(true);
-        const opts: RequestOpts = { token: localStorage.getItem('token') || '', tenantId: localStorage.getItem('tenantId') || '' };
+        const opts: RequestOpts = { token: authManager.getToken() || '', tenantId: authManager.getTenantId() || '' };
         fetchTenants(opts)
             .then(setTenants)
             .catch((err) => setError(err.message))
@@ -54,7 +55,7 @@ export default function SystemAdminTenantsPage() {
         if (!tenantToConfirm) return;
         import('@/lib/api/school').then(async ({ updateTenantStatus }) => {
             setActionLoading(tenantToConfirm.id);
-            const opts: RequestOpts = { token: localStorage.getItem('token') || '', tenantId: localStorage.getItem('tenantId') || '' };
+            const opts: RequestOpts = { token: authManager.getToken() || '', tenantId: authManager.getTenantId() || '' };
             const nextStatus = tenantToConfirm.status === TenantStatus.ACTIVE ? TenantStatus.SUSPENDED : TenantStatus.ACTIVE;
             try {
                 await updateTenantStatus(tenantToConfirm.id, nextStatus, opts, deactivationReason);
@@ -73,7 +74,7 @@ export default function SystemAdminTenantsPage() {
 
     const handleSmsToggle = async (tenantId: string) => {
         setActionLoading(`sms-${tenantId}`);
-        const opts: RequestOpts = { token: localStorage.getItem('token') || '', tenantId: localStorage.getItem('tenantId') || '' };
+        const opts: RequestOpts = { token: authManager.getToken() || '', tenantId: authManager.getTenantId() || '' };
 
         // Find current status to rollback if error
         const targetTenant = tenants.find(t => t.id === tenantId);

@@ -1,4 +1,5 @@
 'use client';
+import { authManager } from '@/lib/auth-store';
 
 import { useState, useEffect } from 'react';
 import { Link } from '@/i18n/routing';
@@ -14,7 +15,7 @@ export default function TeachersPage() {
     const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
-        const opts: RequestOpts = { token: localStorage.getItem('token') || '', tenantId: localStorage.getItem('tenantId') || '' };
+        const opts: RequestOpts = { token: authManager.getToken() || '', tenantId: authManager.getTenantId() || '' };
         fetchTeachers(opts)
             .then(setTeachers)
             .catch((err) => setError(err.message))

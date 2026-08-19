@@ -1,4 +1,5 @@
 'use client';
+import { authManager } from '@/lib/auth-store';
 
 import { useState, useEffect } from 'react';
 import { Link } from '@/i18n/routing';
@@ -15,7 +16,7 @@ export default function StudentsPage() {
 
     useEffect(() => {
         // TODO (Phase 1): Retrieve auth token & tenantId from context/session
-        const opts: RequestOpts = { token: localStorage.getItem('token') || '', tenantId: localStorage.getItem('tenantId') || '' };
+        const opts: RequestOpts = { token: authManager.getToken() || '', tenantId: authManager.getTenantId() || '' };
         fetchStudents(opts)
             .then(setStudents)
             .catch((err) => setError(err.message))
