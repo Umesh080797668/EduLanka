@@ -20,7 +20,7 @@ function AuditLogFetcher({ targetUserId }: { targetUserId: string }) {
             headers: { 'X-Tenant-Id': authManager.getTenantId() || '' }
         })
             .then(res => res.json())
-            .then(json => { if (isMounted) setLogs(json.data || []) })
+            .then(json => { if (isMounted) setLogs(json.data?.data || []) })
             .catch(() => { })
             .finally(() => { if (isMounted) setLoading(false); });
         return () => { isMounted = false; };

@@ -29,8 +29,8 @@ export default function AuditLogsPage() {
                 if (res.ok) {
                     const json = await res.json();
                     if (isMounted) {
-                        setLogs(json.data || []);
-                        setTotal(json.total || 0);
+                        setLogs(json.data?.data || []);
+                        setTotal(json.data?.total || 0);
                     }
                 }
             } catch (error) {
