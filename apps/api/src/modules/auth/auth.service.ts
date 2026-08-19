@@ -302,7 +302,7 @@ export class AuthService {
         // 1. Resolve tenant
         const { data: tenantData, error: tenantError } = await this.supabaseService.adminClient
             .from('tenants')
-            .select('slug, status')
+            .select('id, slug, status')
             .eq('id', dto.tenantId)
             .maybeSingle();
 
@@ -328,7 +328,7 @@ export class AuthService {
         const authUid = created.user.id;
 
         // 3. Insert into tenant schema users table
-        const tenantClient = this.supabaseService.getTenantClient(tenantData.slug);
+        const tenantClient = this.supabaseService.getTenantClient(tenantData.id);
         const { data: newUser, error: insertError } = await tenantClient
             .from('users')
             .insert({
@@ -373,7 +373,7 @@ export class AuthService {
         // 1. Resolve tenant
         const { data: tenantData, error: tenantError } = await this.supabaseService.adminClient
             .from('tenants')
-            .select('slug, status')
+            .select('id, slug, status')
             .eq('id', dto.tenantId)
             .maybeSingle();
 
@@ -410,7 +410,7 @@ export class AuthService {
         const authUid = created.user.id;
 
         // 4. Insert into tenant schema users table
-        const tenantClient = this.supabaseService.getTenantClient(tenantData.slug);
+        const tenantClient = this.supabaseService.getTenantClient(tenantData.id);
         const { data: newUser, error: insertError } = await tenantClient
             .from('users')
             .insert({
@@ -539,5 +539,33 @@ export class AuthService {
             // Token already expired or invalid — nothing to revoke
             this.logger.debug(`Logout called with invalid refresh token for user ${user.sub}`);
         }
+    }
+
+
+    /**
+     * GET /auth/tenants
+     * Public endpoint to fetch active tenants that allow self-enrollment.
+     */
+    async getPublicTenants(): Promise<any[]> {
+        const { data, error } = await this.supabaseService.adminClient
+            .from('tenants')
+            .select(`
+                id,
+                name,
+                school_policy!inner(allow_self_enrollment)
+            `)
+            .eq('status', 'ACTIVE')
+            .eq('school_policy.allow_self_enrollment', true)
+            .order('name');
+
+        if (error) {
+            this.logger.error(`Failed to fetch public tenants: ${error.message}`);
+            throw new InternalServerErrorException('Failed to fetch public schools');
+        }
+
+        return data.map(t => ({
+            id: t.id,
+            name: t.name
+        }));
     }
 }

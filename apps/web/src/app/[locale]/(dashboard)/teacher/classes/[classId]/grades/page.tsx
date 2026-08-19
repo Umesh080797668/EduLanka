@@ -25,7 +25,8 @@ export default function TeacherGradesPage() {
         const loadClassDetails = async () => {
             try {
                 const res = await fetch(`/api/v1/classes/${classId}`, {
-                    headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}`, 'x-tenant-id': localStorage.getItem('tenantId') || 'a1b2c3d4-0000-0000-0000-000000000001' }
+                    credentials: 'include',
+                    headers: {   }
                 });
                 if (res.ok) {
                     const json = await res.json();
@@ -45,7 +46,8 @@ export default function TeacherGradesPage() {
         const fetchMarks = async () => {
             try {
                 const res = await fetch(`/api/v1/student-marks/class/${classId}?term=${term}&year=${year}`, {
-                    headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+                    credentials: 'include',
+                    headers: {  }
                 });
                 if (res.ok) {
                     const data = await res.json();
@@ -78,11 +80,12 @@ export default function TeacherGradesPage() {
 
         try {
             const res = await fetch('/api/v1/student-marks', {
+                    credentials: 'include',
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${localStorage.getItem('token')}`,
-                    'x-tenant-id': localStorage.getItem('tenantId') || 'a1b2c3d4-0000-0000-0000-000000000001'
+                    
+                    
                 },
                 body: JSON.stringify({
                     studentId,

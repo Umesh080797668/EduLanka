@@ -12,7 +12,9 @@ import {
     Patch,
     Param,
     ParseUUIDPipe,
+    Res,
 } from '@nestjs/common';
+import { FastifyReply } from 'fastify';
 import {
     ApiTags,
     ApiOperation,
@@ -46,9 +48,16 @@ export class AuthController {
     @HttpCode(HttpStatus.OK)
     @ApiOperation({ summary: 'Authenticate and receive a JWT access + refresh token pair' })
     @ApiOkResponse({ description: 'Token pair issued successfully' })
-    login(@Body() dto: LoginDto) {
+    async login(@Body() dto: LoginDto, @Res({ passthrough: true }) res: FastifyReply) {
         const targetIdentifier = dto.identifier || dto.email || '';
-        return this.authService.login(targetIdentifier, dto.password);
+        const tokens = await this.authService.login(targetIdentifier, dto.password);
+
+        res.header('Set-Cookie', [
+            `token=${tokens.accessToken}; HttpOnly; Secure; SameSite=Lax; Path=/`,
+            `refreshToken=${tokens.refreshToken}; HttpOnly; Secure; SameSite=Lax; Path=/`
+        ]);
+
+        return tokens;
     }
 
     // ── POST /auth/signup ───────────────────────────────────────────────────────
@@ -60,8 +69,15 @@ export class AuthController {
     @ApiBearerAuth()
     @ApiOperation({ summary: 'Create a new user within a tenant (SCHOOL_ADMIN / SUPER_ADMIN only)' })
     @ApiCreatedResponse({ description: 'User created and token pair issued' })
-    signup(@Body() dto: SignupDto, @CurrentUser() caller: JwtPayload) {
-        return this.authService.signup(dto, caller);
+    async signup(@Body() dto: SignupDto, @CurrentUser() caller: JwtPayload, @Res({ passthrough: true }) res: FastifyReply) {
+        const tokens = await this.authService.signup(dto, caller);
+
+        res.header('Set-Cookie', [
+            `token=${tokens.accessToken}; HttpOnly; Secure; SameSite=Lax; Path=/`,
+            `refreshToken=${tokens.refreshToken}; HttpOnly; Secure; SameSite=Lax; Path=/`
+        ]);
+
+        return tokens;
     }
 
     // ── POST /auth/self-register ───────────────────────────────────────────────
@@ -70,8 +86,15 @@ export class AuthController {
     @HttpCode(HttpStatus.CREATED)
     @ApiOperation({ summary: 'Create a new user if tenant allows self-enrollment (public)' })
     @ApiCreatedResponse({ description: 'User created and token pair issued' })
-    selfRegister(@Body() dto: SignupDto) {
-        return this.authService.selfRegister(dto);
+    async selfRegister(@Body() dto: SignupDto, @Res({ passthrough: true }) res: FastifyReply) {
+        const tokens = await this.authService.selfRegister(dto);
+
+        res.header('Set-Cookie', [
+            `token=${tokens.accessToken}; HttpOnly; Secure; SameSite=Lax; Path=/`,
+            `refreshToken=${tokens.refreshToken}; HttpOnly; Secure; SameSite=Lax; Path=/`
+        ]);
+
+        return tokens;
     }
 
     // ── POST /auth/forgot-password ─────────────────────────────────────────────
@@ -100,8 +123,15 @@ export class AuthController {
     @HttpCode(HttpStatus.OK)
     @ApiOperation({ summary: 'Rotate the refresh token and receive a new token pair' })
     @ApiOkResponse({ description: 'New token pair issued' })
-    refresh(@Body() dto: RefreshTokenDto) {
-        return this.authService.refreshTokens(dto.refreshToken);
+    async refresh(@Body() dto: RefreshTokenDto, @Res({ passthrough: true }) res: FastifyReply) {
+        const tokens = await this.authService.refreshTokens(dto.refreshToken);
+
+        res.header('Set-Cookie', [
+            `token=${tokens.accessToken}; HttpOnly; Secure; SameSite=Lax; Path=/`,
+            `refreshToken=${tokens.refreshToken}; HttpOnly; Secure; SameSite=Lax; Path=/`
+        ]);
+
+        return tokens;
     }
 
     // ── POST /auth/logout ──────────────────────────────────────────────────────
@@ -152,5 +182,14 @@ export class AuthController {
         @CurrentUser() user: JwtPayload
     ) {
         return this.authService.updateInquiryStatus(id, dto, user);
+    }
+
+    // ── GET /auth/tenants ──────────────────────────────────────────────────────
+    @Get('tenants')
+    @Version('1')
+    @ApiOperation({ summary: 'List public active tenants that allow self-registration' })
+    @ApiOkResponse({ description: 'Array of tenant records' })
+    getPublicTenants() {
+        return this.authService.getPublicTenants();
     }
 }

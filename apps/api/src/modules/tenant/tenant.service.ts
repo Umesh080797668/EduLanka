@@ -16,6 +16,7 @@ import {
 
 import { SupabaseService } from '../supabase/supabase.service';
 import type { CreateTenantDto } from './tenant.controller';
+import { AuditLogsService } from '../audit-logs/audit-logs.service';
 
 /** Shape returned from public.tenants Supabase query */
 interface TenantRow {
@@ -44,7 +45,10 @@ export class TenantService {
     private tenantCache = new Map<string, { tenant: Tenant, expiresAt: number }>();
     private CACHE_TTL_MS = 5 * 60 * 1000;
 
-    constructor(private readonly supabase: SupabaseService) { }
+    constructor(
+        private readonly supabase: SupabaseService,
+        private readonly auditLogs: AuditLogsService
+    ) { }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
 
@@ -114,6 +118,16 @@ export class TenantService {
             .from('tenants')
             .update({ status: TenantStatus.ACTIVE })
             .eq('id', inserted.id);
+
+        await this.auditLogs.logAction({
+            tenantId: inserted.id,
+            actorId: caller.sub,
+            actorRole: caller.role,
+            action: 'TENANT_PROVISIONED',
+            entityType: 'TENANT',
+            entityId: inserted.id,
+            newValues: { status: TenantStatus.ACTIVE, plan: inserted.plan }
+        });
 
         this.logger.log(`Created tenant "${dto.slug}" (${inserted.id}) in unified public schema.`);
         return this.rowToTenant({ ...inserted, status: TenantStatus.ACTIVE } as TenantRow);
@@ -237,6 +251,16 @@ export class TenantService {
                 .eq('tenant_id', id)
                 .eq('status', 'PENDING');
         }
+
+        await this.auditLogs.logAction({
+            tenantId: id,
+            actorId: caller.sub,
+            actorRole: caller.role,
+            action: 'TENANT_STATUS_CHANGED',
+            entityType: 'TENANT',
+            entityId: id,
+            newValues: { status: dto.status }
+        });
 
         return this.rowToTenant(data as TenantRow);
     }

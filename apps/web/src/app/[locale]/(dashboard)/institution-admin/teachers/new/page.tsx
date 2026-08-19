@@ -24,11 +24,12 @@ export default function NewTeacherPage() {
             const tempPassword = Math.random().toString(36).slice(-8) + Math.random().toString(36).slice(-4).toUpperCase() + '!';
 
             const res = await fetch('/api/v1/teachers', {
+                    credentials: 'include',
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${localStorage.getItem('token')}`,
-                    'x-tenant-id': localStorage.getItem('tenantId') || 'a1b2c3d4-0000-0000-0000-000000000001'
+                    
+                    
                 },
                 body: JSON.stringify({
                     email,

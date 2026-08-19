@@ -4,8 +4,10 @@ import { motion } from 'framer-motion';
 import { Server, Activity, BookOpenCheck } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { DashboardCardsSkeleton } from '@/components/ui/Skeleton';
+import { useTranslations } from 'next-intl';
 
 export default function SystemAdminDashboard() {
+    const t = useTranslations('SystemAdminDashboard');
     const [stats, setStats] = useState<any>(null);
     const [tutorialStats, setTutorialStats] = useState<any>(null);
     const [loading, setLoading] = useState(true);
@@ -14,13 +16,15 @@ export default function SystemAdminDashboard() {
         const fetchStats = async () => {
             try {
                 const headers = {
-                    'Authorization': `Bearer ${localStorage.getItem('token')}`,
-                    'x-tenant-id': localStorage.getItem('tenantId') || 'a1b2c3d4-0000-0000-0000-000000000001'
+                    
+                    
                 };
 
                 const [res, tutRes] = await Promise.all([
-                    fetch('/api/v1/tenants/stats', { headers }),
-                    fetch('/api/v1/system-admin/tutorials/stats', { headers })
+                    fetch('/api/v1/tenants/stats', {
+                    credentials: 'include', headers }),
+                    fetch('/api/v1/system-admin/tutorials/stats', {
+                    credentials: 'include', headers })
                 ]);
 
                 if (res.ok) {
@@ -72,10 +76,10 @@ export default function SystemAdminDashboard() {
                     <div>
                         <div className="flex items-center gap-3 mb-2">
                             <Server className="w-8 h-8 text-slate-400" />
-                            <h2 className="text-3xl font-bold tracking-tight">System Administration</h2>
+                            <h2 className="text-3xl font-bold tracking-tight">{t('title')}</h2>
                         </div>
                         <p className="text-slate-300 max-w-lg mb-6">
-                            Global oversight of platform health across all tenants.
+                            {t('subtitle')}
                         </p>
                     </div>
                 </div>
@@ -91,10 +95,10 @@ export default function SystemAdminDashboard() {
                     <div className="w-12 h-12 bg-purple-50 rounded-xl mb-4 flex items-center justify-center text-purple-600 group-hover:scale-110 transition-transform">
                         <Activity className="w-6 h-6" />
                     </div>
-                    <p className="text-slate-500 text-sm font-medium mb-1">System Status</p>
+                    <p className="text-slate-500 text-sm font-medium mb-1">{t('systemStatus')}</p>
                     <div className="flex items-center gap-2">
                         <div className={`w-2.5 h-2.5 rounded-full animate-pulse ${stats?.status === 'Healthy' ? 'bg-emerald-500' : 'bg-amber-500'}`}></div>
-                        <h4 className={`text-lg font-bold ${stats?.status === 'Healthy' ? 'text-emerald-600' : 'text-amber-600'}`}>{stats?.status === 'Healthy' ? 'Healthy' : 'Active'}</h4>
+                        <h4 className={`text-lg font-bold ${stats?.status === 'Healthy' ? 'text-emerald-600' : 'text-amber-600'}`}>{stats?.status === 'Healthy' ? t('healthy') : t('active')}</h4>
                     </div>
                 </motion.div>
 
@@ -104,20 +108,20 @@ export default function SystemAdminDashboard() {
                         <div className="w-12 h-12 bg-orange-50 rounded-xl mb-4 flex items-center justify-center text-orange-600 group-hover:scale-110 transition-transform">
                             <BookOpenCheck className="w-6 h-6" />
                         </div>
-                        <p className="text-slate-500 text-sm font-medium mb-1">Overall Tutorial Completions</p>
+                        <p className="text-slate-500 text-sm font-medium mb-1">{t('overallCompletions')}</p>
                         <div className="flex items-center gap-4">
                             <div className="flex flex-col">
                                 <span className="text-2xl font-bold text-slate-800">
                                     {Object.values(tutorialStats).reduce((sum: number, s: any) => sum + s.completed, 0) as number}
                                 </span>
-                                <span className="text-xs text-slate-400">Completed</span>
+                                <span className="text-xs text-slate-400">{t('completed')}</span>
                             </div>
                             <div className="w-px h-8 bg-slate-200"></div>
                             <div className="flex flex-col">
                                 <span className="text-2xl font-bold text-slate-800">
                                     {Object.values(tutorialStats).reduce((sum: number, s: any) => sum + s.skipped, 0) as number}
                                 </span>
-                                <span className="text-xs text-slate-400">Skipped</span>
+                                <span className="text-xs text-slate-400">{t('skipped')}</span>
                             </div>
                         </div>
                     </motion.div>
@@ -133,11 +137,11 @@ export default function SystemAdminDashboard() {
                 <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between">
                     <h3 className="font-bold text-lg text-slate-800 flex items-center gap-2">
                         <Activity className="w-5 h-5 text-slate-500" />
-                        System Health Overview
+                        {t('healthOverview')}
                     </h3>
                 </div>
                 <div className="divide-y divide-slate-100 p-4">
-                    <p className="text-slate-500">Review overall platform health and metrics.</p>
+                    <p className="text-slate-500">{t('healthDesc')}</p>
                 </div>
             </motion.div>
 
@@ -150,16 +154,16 @@ export default function SystemAdminDashboard() {
                 <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between">
                     <h3 className="font-bold text-lg text-slate-800 flex items-center gap-2">
                         <BookOpenCheck className="w-5 h-5 text-orange-500" />
-                        Platform Adoption & Training Analytics
+                        {t('adoptionAnalytics')}
                     </h3>
                 </div>
                 <div className="p-6">
                     {!tutorialStats || Object.keys(tutorialStats).length === 0 ? (
-                        <div className="text-center text-slate-500 py-4">No tutorial data available.</div>
+                        <div className="text-center text-slate-500 py-4">{t('noData')}</div>
                     ) : (
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                             <div className="text-sm text-slate-500 italic max-w-sm mb-4">
-                                Platform adoption and training analytics moved from School Admins.
+                                {t('analyticsMoved')}
                             </div>
                             {Object.values(tutorialStats).map((tut: any, idx: number) => {
                                 const completionPercentage = tut.eligible > 0 ? Math.round((tut.completed / tut.eligible) * 100) : 0;
@@ -167,7 +171,7 @@ export default function SystemAdminDashboard() {
                                     <div key={idx} className="bg-slate-50 rounded-xl p-4 border border-slate-200 shadow-sm hover:shadow-md transition-shadow">
                                         <div className="flex justify-between items-start mb-3">
                                             <div>
-                                                <h4 className="font-bold text-slate-800 capitalize leading-tight">{tut.role?.toLowerCase().replace('_', ' ') || 'Global'}</h4>
+                                                <h4 className="font-bold text-slate-800 capitalize leading-tight">{tut.role?.toLowerCase().replace('_', ' ') || t('global')}</h4>
                                             </div>
                                             <span className="text-sm font-black text-orange-700 bg-orange-100 px-2 py-1 rounded-md">{completionPercentage}%</span>
                                         </div>
@@ -177,9 +181,9 @@ export default function SystemAdminDashboard() {
                                         </div>
 
                                         <div className="flex justify-between text-xs font-semibold">
-                                            <span className="text-orange-600">{tut.completed} completed</span>
-                                            <span className="text-slate-500 text-[10px]">{tut.eligible} eligible</span>
-                                            <span className="text-slate-400">{tut.skipped} skipped</span>
+                                            <span className="text-orange-600">{tut.completed} {t('completedLower')}</span>
+                                            <span className="text-slate-500 text-[10px]">{tut.eligible} {t('eligibleLower')}</span>
+                                            <span className="text-slate-400">{tut.skipped} {t('skippedLower')}</span>
                                         </div>
                                     </div>
                                 )

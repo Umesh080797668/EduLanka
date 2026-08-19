@@ -22,6 +22,7 @@ export default function LoginPage() {
 
         try {
             const res = await fetch('/api/v1/auth/login', {
+                    credentials: 'include',
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
@@ -37,9 +38,7 @@ export default function LoginPage() {
                 const role = user?.role || 'STUDENT'; // Fallback role if undefined
 
                 // Save to local storage for the rest of the app to consume
-                localStorage.setItem('token', access_token);
-                localStorage.setItem('tenantId', user.tenantId);
-                localStorage.setItem('role', role);
+                                                localStorage.setItem('role', role);
 
                 // Initial route resolution based on role
                 let route = `/${role.toLowerCase()}`;
@@ -161,6 +160,13 @@ export default function LoginPage() {
                                 <span>{loading ? t('authenticating') : t('signIn')}</span>
                             </button>
                         </form>
+
+                        <div className="mt-8 text-center text-sm font-medium text-slate-400">
+                            Don't have an account?{' '}
+                            <Link href="/signup" className="text-indigo-400 hover:text-indigo-300 font-bold transition-colors">
+                                Sign up here
+                            </Link>
+                        </div>
                     </div>
                 </div>
             </motion.div>

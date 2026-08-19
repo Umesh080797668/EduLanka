@@ -16,7 +16,7 @@ export class ReportCardsService {
 
     async generateReportCard(studentId: string, term: number, year: number, caller: JwtPayload): Promise<Buffer> {
         const tenant = await this.tenantService.findOneById(caller.tenantId, caller);
-        const db = this.supabase.getTenantClient(tenant.slug);
+        const db = this.supabase.getTenantClient(tenant.id);
 
         // Security check
         if (caller.role === UserRole.STUDENT) {

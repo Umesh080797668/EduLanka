@@ -24,9 +24,10 @@ export default function ParentDashboard() {
             try {
                 // In a real scenario, this would fetch /parents/me and their linked children
                 const res = await fetch('/api/v1/parents/me', {
+                    credentials: 'include',
                     headers: {
                         'Authorization': `Bearer ${localStorage.getItem('token')}`,
-                        'x-tenant-id': localStorage.getItem('tenantId') || ''
+                        ''
                     }
                 });
                 if (res.ok) {

@@ -25,8 +25,7 @@ export default function Header() {
 
     useEffect(() => {
         const fetchUser = async () => {
-            const token = localStorage.getItem('token');
-            const tenantId = localStorage.getItem('tenantId') || 'a1b2c3d4-0000-0000-0000-000000000001';
+
             const role = localStorage.getItem('role') || 'USER';
             setUserRole(role.replace('_', ' '));
 
@@ -35,7 +34,8 @@ export default function Header() {
                 // Both /users/me and /parents/me work, but only if they have the right headers
                 const uri = role === 'PARENT' ? '/api/v1/parents/me' : '/api/v1/users/me';
                 const res = await fetch(uri, {
-                    headers: { 'Authorization': `Bearer ${token}`, 'x-tenant-id': tenantId }
+                    credentials: 'include',
+                    headers: {  }
                 });
                 if (res.ok) {
                     const json = await res.json();

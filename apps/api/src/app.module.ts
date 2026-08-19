@@ -24,6 +24,7 @@ import { StudentMarksModule } from './modules/student-marks/student-marks.module
 import { ReportCardsModule } from './modules/report-cards/report-cards.module';
 import { TutorialsModule } from './modules/tutorials/tutorials.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
+import { AuditLogsModule } from './modules/audit-logs/audit-logs.module';
 
 @Module({
     imports: [
@@ -97,6 +98,7 @@ import { NotificationsModule } from './modules/notifications/notifications.modul
         ReportCardsModule,
         TutorialsModule,
         NotificationsModule,
+        AuditLogsModule,
     ],
     providers: [
         {

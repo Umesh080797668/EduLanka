@@ -29,10 +29,14 @@ export class SchoolPolicyService {
 
 
     async getPolicy(caller: JwtPayload) {
-        const slug = caller.tenantId;
-        const db = this.supabase.getTenantClient(slug);
+        const tenantId = caller.tenantId;
 
-        const { data, error } = await db.from('school_policy').select('*').limit(1).maybeSingle();
+        const { data, error } = await this.supabase.adminClient
+            .from('school_policy')
+            .select('*')
+            .eq('tenant_id', tenantId)
+            .limit(1)
+            .maybeSingle();
         if (error) throw new InternalServerErrorException('Failed to fetch school policy');
         if (!data) throw new NotFoundException('School policy not initialised. Re-provision this tenant.');
         return data;
@@ -40,8 +44,7 @@ export class SchoolPolicyService {
 
     async updatePolicy(dto: UpdatePolicyDto, caller: JwtPayload) {
         this.guardAdmin(caller);
-        const slug = caller.tenantId;
-        const db = this.supabase.getTenantClient(slug);
+        const tenantId = caller.tenantId;
 
         // Build update payload (snake_case for Supabase)
         const updatePayload: Record<string, unknown> = {};
@@ -54,7 +57,7 @@ export class SchoolPolicyService {
                 const { data: tenantData } = await this.supabase.adminClient
                     .from('tenants')
                     .select('sms_approved')
-                    .eq('id', slug)
+                    .eq('id', tenantId)
                     .maybeSingle();
 
                 if (!tenantData?.sms_approved) {
@@ -70,10 +73,15 @@ export class SchoolPolicyService {
         if (dto.schoolHoursEnd !== undefined) updatePayload.school_hours_end = dto.schoolHoursEnd;
         if (dto.supportedMediums !== undefined) updatePayload.supported_mediums = dto.supportedMediums;
 
-        const { data: policyRow } = await db.from('school_policy').select('id').limit(1).maybeSingle();
+        const { data: policyRow } = await this.supabase.adminClient
+            .from('school_policy')
+            .select('id')
+            .eq('tenant_id', tenantId)
+            .limit(1)
+            .maybeSingle();
         if (!policyRow) throw new NotFoundException('School policy not found');
 
-        const { data, error } = await db
+        const { data, error } = await this.supabase.adminClient
             .from('school_policy')
             .update(updatePayload)
             .eq('id', policyRow.id)

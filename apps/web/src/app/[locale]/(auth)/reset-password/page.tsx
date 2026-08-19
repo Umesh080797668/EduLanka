@@ -9,7 +9,7 @@ import { useTranslations } from 'next-intl';
 export default function ResetPasswordPage() {
     const t = useTranslations('ResetPassword');
     const [email, setEmail] = useState('');
-    const [tenantId, setTenantId] = useState('a1b2c3d4-0000-0000-0000-000000000001');
+    const [tenantId, setTenantId] = useState();
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [success, setSuccess] = useState(false);

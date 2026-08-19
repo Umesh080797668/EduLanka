@@ -17,9 +17,10 @@ export default function TeacherClassesPage() {
                 // First get the teacher's profile ID from the generic endpoint or use the user's ID
                 // Since this system maps the classes by the user_id of the teacher under class_teachers
                 const userRes = await fetch('/api/v1/users/me', {
+                    credentials: 'include',
                     headers: {
                         'Authorization': `Bearer ${localStorage.getItem('token')}`,
-                        'x-tenant-id': localStorage.getItem('tenantId') || ''
+                        ''
                     }
                 });
 
@@ -27,9 +28,10 @@ export default function TeacherClassesPage() {
                     const user = await userRes.json();
 
                     const res = await fetch(`/api/v1/classes?teacherId=${user.data?.id}`, {
+                    credentials: 'include',
                         headers: {
                             'Authorization': `Bearer ${localStorage.getItem('token')}`,
-                            'x-tenant-id': localStorage.getItem('tenantId') || ''
+                            ''
                         }
                     });
 

@@ -19,11 +19,12 @@ export default function InstitutionAdminDashboard() {
         const fetchStats = async () => {
             try {
                 const headers = {
-                    'Authorization': `Bearer ${localStorage.getItem('token')}`,
-                    'x-tenant-id': localStorage.getItem('tenantId') || 'a1b2c3d4-0000-0000-0000-000000000001'
+                    
+                    
                 };
 
                 const res = await fetch('/api/v1/tenants/stats', {
+                    credentials: 'include',
                     headers,
                     cache: 'no-store'
                 });

@@ -6,8 +6,10 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Building2, Search, Loader2, CheckCircle2, XCircle, ShieldCheck, Smartphone, Settings2, MoreVertical } from 'lucide-react';
 import { useSearchParams } from 'next/navigation';
 import { TenantStatus } from '@edu-lanka/shared-types';
+import { useTranslations } from 'next-intl';
 
 export default function SystemAdminTenantsPage() {
+    const t = useTranslations('SystemAdminTenants');
     const searchParams = useSearchParams();
     const [tenants, setTenants] = useState<any[]>([]);
     const [searchQuery, setSearchQuery] = useState(searchParams?.get('query') || '');
@@ -110,9 +112,9 @@ export default function SystemAdminTenantsPage() {
                     <div>
                         <h1 className="text-2xl font-bold tracking-tight text-slate-900 flex items-center gap-3">
                             <Building2 className="w-6 h-6 text-indigo-600" />
-                            Global Tenants Network
+                            {t('title')}
                         </h1>
-                        <p className="text-slate-500 mt-1">Cross-infrastructure organizational control panel.</p>
+                        <p className="text-slate-500 mt-1">{t('subtitle')}</p>
                     </div>
                     <div className="relative max-w-sm w-full">
                         <Search className="w-5 h-5 absolute left-3 top-2.5 text-slate-400" />
@@ -120,7 +122,7 @@ export default function SystemAdminTenantsPage() {
                             type="text"
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
-                            placeholder="Search by school name, slug, or contact email..."
+                            placeholder={t('search')}
                             className="w-full bg-slate-50 border border-slate-200 rounded-lg pl-10 pr-4 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all"
                         />
                     </div>
@@ -144,21 +146,20 @@ export default function SystemAdminTenantsPage() {
                                 className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6"
                             >
                                 <h3 className="text-xl font-bold text-slate-900 mb-2">
-                                    {tenantToConfirm.status === TenantStatus.ACTIVE ? 'Suspend Tenant?' : 'Reactivate Tenant?'}
+                                    {tenantToConfirm.status === TenantStatus.ACTIVE ? t('suspendConfirm') : t('reactivateConfirm')}
                                 </h3>
 
                                 {activeStep === 1 && (
                                     <>
                                         <p className="text-slate-500 text-sm mb-6">
-                                            Are you sure you want to {tenantToConfirm.status === TenantStatus.ACTIVE ? 'suspend' : 'reactivate'} <strong className="text-slate-700">{tenantToConfirm.name}</strong>?
-                                            {tenantToConfirm.status === TenantStatus.ACTIVE ? ' All users inside this school will lose access to the portal immediately.' : ' The school operations will resume.'}
+                                            {tenantToConfirm.status === TenantStatus.ACTIVE ? t('areYouSureSuspend') : t('areYouSureReactivate')} <strong className="text-slate-700">{tenantToConfirm.name}</strong>
                                         </p>
                                         <div className="flex gap-3 justify-end">
                                             <button
                                                 onClick={() => setTenantToConfirm(null)}
                                                 className="px-4 py-2 hover:bg-slate-100 text-slate-700 rounded-lg font-medium transition-colors"
                                             >
-                                                Cancel
+                                                {t('cancel')}
                                             </button>
                                             <button
                                                 onClick={() => {
@@ -170,7 +171,7 @@ export default function SystemAdminTenantsPage() {
                                                 }}
                                                 className={`px-4 py-2 text-white rounded-lg font-medium transition-colors flex items-center gap-2 ${tenantToConfirm.status === TenantStatus.ACTIVE ? 'bg-rose-600 hover:bg-rose-700' : 'bg-emerald-600 hover:bg-emerald-700'}`}
                                             >
-                                                {tenantToConfirm.status === TenantStatus.ACTIVE ? 'Proceed to Suspend' : 'Yes, Reactivate'}
+                                                {tenantToConfirm.status === TenantStatus.ACTIVE ? t('confirmSuspend') : t('confirmReactivate')}
                                             </button>
                                         </div>
                                     </>
@@ -179,7 +180,7 @@ export default function SystemAdminTenantsPage() {
                                 {activeStep === 2 && (
                                     <>
                                         <p className="text-slate-500 text-sm mb-4">
-                                            Please provide a reason for suspension (optional). This will be shown to users when they try to log in.
+                                            {t('reasonLabel')}
                                         </p>
                                         <textarea
                                             rows={3}
@@ -229,11 +230,11 @@ export default function SystemAdminTenantsPage() {
                     <table className="w-full text-left border-collapse bg-white min-w-[800px]">
                         <thead>
                             <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 text-xs uppercase tracking-wider font-semibold">
-                                <th className="px-6 py-4">Tenant Identity</th>
-                                <th className="px-6 py-4">Status & Configuration</th>
-                                <th className="px-6 py-4">Subscription Plan</th>
-                                <th className="px-6 py-4">School Type</th>
-                                <th className="px-6 py-4 text-right">Actions</th>
+                                <th className="px-6 py-4">{t('tenant')}</th>
+                                <th className="px-6 py-4">{t('status')}</th>
+                                <th className="px-6 py-4">{t('plan')}</th>
+                                <th className="px-6 py-4">{t('type')}</th>
+                                <th className="px-6 py-4 text-right">{t('actions')}</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
@@ -242,7 +243,7 @@ export default function SystemAdminTenantsPage() {
                                     <td colSpan={5} className="px-6 py-12 text-center text-slate-500">
                                         <div className="flex flex-col items-center justify-center gap-3">
                                             <Building2 className="w-10 h-10 text-slate-300" />
-                                            <p>{searchQuery ? 'No tenants matching search.' : 'No tenants deployed yet.'}</p>
+                                            <p>{t('noTenants')}</p>
                                         </div>
                                     </td>
                                 </tr>
@@ -305,7 +306,7 @@ export default function SystemAdminTenantsPage() {
                                                 ) : (
                                                     <Smartphone className="w-3.5 h-3.5" />
                                                 )}
-                                                {tnt.smsApproved ? 'Disable SMS' : 'Enable SMS'}
+                                                {tnt.smsApproved ? t('smsDisable') : t('smsEnable')}
                                             </button>
 
                                             <div className="relative">
@@ -330,7 +331,7 @@ export default function SystemAdminTenantsPage() {
                                                                 className="absolute right-0 top-full mt-1 w-48 bg-white border border-slate-200 rounded-xl shadow-lg z-40 overflow-hidden flex flex-col"
                                                             >
                                                                 <button onClick={() => { setActiveDropdown(null); handleActionClick(tnt); }} className={`px-4 py-3 text-sm text-left hover:bg-slate-50 font-medium ${tnt.status === TenantStatus.ACTIVE ? 'text-rose-600' : 'text-emerald-600'}`}>
-                                                                    {tnt.status === TenantStatus.ACTIVE ? 'Suspend Tenant' : 'Reactivate Tenant'}
+                                                                    {tnt.status === TenantStatus.ACTIVE ? t('suspend') : t('reactivate')}
                                                                 </button>
                                                             </motion.div>
                                                         </>

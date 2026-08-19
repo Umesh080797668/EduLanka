@@ -16,9 +16,10 @@ export default function StudentDashboard() {
         const init = async () => {
             try {
                 const res = await fetch('/api/v1/students/me', {
+                    credentials: 'include',
                     headers: {
-                        'Authorization': `Bearer ${localStorage.getItem('token')}`,
-                        'x-tenant-id': localStorage.getItem('tenantId') || 'a1b2c3d4-0000-0000-0000-000000000001'
+                        
+                        
                     }
                 });
                 if (res.ok) {

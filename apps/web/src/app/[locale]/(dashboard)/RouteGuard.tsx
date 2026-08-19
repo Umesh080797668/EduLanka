@@ -13,8 +13,7 @@ export default function RouteGuard({ children }: { children: React.ReactNode }) 
         let mounted = true;
         Promise.resolve().then(() => {
             if (!mounted) return;
-            const token = localStorage.getItem('token');
-            const role = localStorage.getItem('role')?.toUpperCase();
+                        const role = localStorage.getItem('role')?.toUpperCase();
 
             if (!token || !role) {
                 router.replace('/login');

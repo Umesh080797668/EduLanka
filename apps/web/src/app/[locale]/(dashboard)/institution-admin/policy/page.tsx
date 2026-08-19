@@ -25,7 +25,7 @@ export default function SchoolPolicyPage() {
         const load = async () => {
             const opts: RequestOpts = { token: localStorage.getItem('token') || '', tenantId: localStorage.getItem('tenantId') || '' };
             try {
-                const tenantId = localStorage.getItem('tenantId') || '';
+                 || '';
                 const [policyData, tenantData] = await Promise.all([
                     fetchPolicy(opts),
                     fetchTenant(tenantId, opts)

@@ -1,6 +1,6 @@
 # EduLanka SaaS Platform — Phased Architecture & Roadmap Blueprint
 
-> **Revision note:** This blueprint has been updated to reflect two changes made against the original design: (1) the database moved from schema-per-tenant to a single shared Supabase schema with `tenant_id` + Row-Level Security (see §4a), and (2) pricing moved from a flat Free/Pro monthly fee to a per-active-student billing model across four tiers (see §7). Sections below are marked "Revised" where they diverge from the original spec.
+> **Revision note:** This blueprint has been updated to reflect changes made against the original design: (1) the database moved from schema-per-tenant to a single shared Supabase schema with `tenant_id` + Row-Level Security (see §4a); (2) pricing moved from a flat Free/Pro monthly fee to a per-active-student billing model, then revised again to a hybrid model combining a fixed Base Platform Fee with a Per-Active-Student Fee and explicit hard resource quotas (see §7); and (3) the portal/role list was corrected to include all 8 portal types — Student, Parent, Teacher, School Admin, Zonal Office, **Provincial Office**, MoE, and System Admin — the Provincial Office Portal was previously missing from §2 and §5 despite the Provincial Education Dept already appearing in the org hierarchy (§1). Sections below are marked "Revised" where they diverge from the original spec.
 
 ## 1. System Vision & Sri Lankan Educational Taxonomy
 
@@ -23,7 +23,7 @@ The long-term vision includes an **AI & Predictive Analytics Engine** — a Qwen
 
 ## 2. Cross-Cutting Requirement: In-App Tutorials for Every Frontend
 
-Every frontend surface — Next.js web dashboards (Student, Parent, Teacher, School Admin, Zonal Office, MoE, and System Admin portals) and the Flutter mobile app — must ship with a built-in tutorial/walkthrough system covering every feature available to that role at that point in the rollout. This is not a Phase 6 polish item; it is delivered incrementally alongside each phase, so a feature never ships without its accompanying tutorial.
+Every frontend surface — Next.js web dashboards (Student, Parent, Teacher, School Admin, Zonal Office, Provincial Office, MoE, and System Admin portals — all 8 portal types) and the Flutter mobile app — must ship with a built-in tutorial/walkthrough system covering every feature available to that role at that point in the rollout. This is not a Phase 6 polish item; it is delivered incrementally alongside each phase, so a feature never ships without its accompanying tutorial.
 
 **Design principles:**
 - **Role-scoped, not generic.** A Student never sees the Teacher's grading tutorial; a Parent never sees Admin SMS-campaign steps. Each role's onboarding only covers what that role can actually do.
@@ -188,9 +188,10 @@ The full vision spans roughly six independently hard products: a multi-tenant sc
 - Ministry Data Warehouse: nightly ETL from supabase into ClickHouse (OLAP) for Provincial/Zonal/MoE hierarchical dashboards (Province ➔ District ➔ Zone ➔ School ➔ Grade ➔ Subject).
 - Interactive Digital Report Cards and gamification badges (upgrade from Phase 1's static PDFs).
 - **Zonal Office Portal:** Audit workflows for local schools within a specific zone, zone-level analytics reporting.
+- **Provincial Office Portal:** Province-level dashboard rolling up its constituent zones (Province ➔ Zone ➔ School), provincial policy monitoring, and cross-zone comparative analytics — sits between Zonal and MoE in the reporting hierarchy.
 - **MoE Portal:** Universal emergency notices, national analytics review, country-wide policy monitoring.
 - **System Admin (Platform Owner):** Handoff of hierarchical dashboards to MoE; focuses on national-scale ClickHouse (OLAP) performance scaling and infrastructure reliability.
-- **Full tutorial coverage completed** across every role including the new Zonal/MoE hierarchical dashboard, Smart Timetable Generator (with a dedicated "how constraints work" explainer, given how easily timetabling tools lose admin trust), and the National Resource Marketplace publishing flow.
+- **Full tutorial coverage completed** across every role including the new Zonal/Provincial/MoE hierarchical dashboards, Smart Timetable Generator (with a dedicated "how constraints work" explainer, given how easily timetabling tools lose admin trust), and the National Resource Marketplace publishing flow.
 
 **Tech introduced:** Google OR-Tools, ClickHouse, Prometheus/Grafana/OpenTelemetry/Sentry for national-scale observability.
 
@@ -207,6 +208,7 @@ The full vision spans roughly six independently hard products: a multi-tenant sc
 | **Teacher Portal** | Issue announcements, moderate chats, upload videos, track attendance, mark papers. | Early Warning System, Teacher Performance Analytics, Behaviour Analytics (Ph.5). |
 | **School Admin** | Manage accounts, broadcast notices, audit chats, run SMS campaigns. | Smart Timetable Generator, School AI Insights (Ph.6). |
 | **Zonal Office Portal** | *(not active until Ph.6)* | Zone-level dashboards, local school audits, zone-level analytics (Ph.6). |
+| **Provincial Office Portal** | *(not active until Ph.6)* | Province-level roll-up of zonal dashboards (District ➔ Zone aggregation), provincial policy monitoring, cross-zone comparative analytics (Ph.6). |
 | **MoE Portal** | *(not active until Ph.6)* | National aggregate dashboards, universal emergency notices, MoE oversight (Ph.6). |
 | **System Admin Portal** | Provision schools, monitor CDN/SMS quotas, upload global tutorials/papers (Ph.1-3). | Manage Vector DB, audit AI models, monitor LLM costs and national scale (Ph.4-6). |
 | **Resource Hub** | School-internal repository for blogs, videos, links, exam papers with marking schemes. | National Resource Marketplace (Ph.6). |
@@ -255,40 +257,50 @@ The diagram below represents the fully realized architecture; earlier phases imp
 └─────────────────────────────────────────────────────────────────────────────────┘
 ```
 
-## 7. Pricing Architecture — Revised: Per-Student Pricing (Replaces Flat Free/Pro)
+## 7. Pricing Architecture — Revised: Hybrid Base Fee + Per-Active-Student (Replaces Flat Per-Student Model)
 
-**This replaces the old flat LKR 0 / LKR 5,000-per-month Free/Pro model.** The old model had two problems in practice: (1) a flat monthly fee doesn't scale with a school's actual size — a 200-student school and a 2,000-student school paid the same LKR 5,000 on Pro, which undercharges large schools and overcharges small ones; and (2) the Free-tier's 250-student cap was never actually enforced at the database level once the schema-per-tenant cap trigger was lost in the Sprint 7 collapse (§4a), so it wasn't a real ceiling.
+**This replaces the previous flat per-student-only model** (a straight LKR/student rate with an awkward "minimum monthly spend" bolted on to protect revenue on small schools). That model had two problems in practice: (1) the minimum-spend floor created an ugly overlap where a small Starter-tier school effectively paid the minimum regardless of actual student count, making the jump from Community's cap feel like an arbitrary penalty rather than a proportional step; and (2) a pure per-student rate doesn't separately account for the fixed infrastructure cost of onboarding a school at all (shared schema overhead, baseline CDN, teacher/admin usage of ML analytics) versus the marginal cost of each additional student row.
 
-**Guiding rule: revenue is derived only from active student count.** Teachers, parents, and admin/staff accounts are never billed and never capped — a school is never discouraged from adding staff. What a school pays scales with how many *students* it actually enrolls and keeps active, billed monthly per **Active Student** (a student row with `is_active = true`, mirroring how the old cap trigger counted).
+**Guiding rule: revenue is derived only from active student count for the variable component, but every paid tier now also carries a small fixed institutional fee.** Teachers, parents, and admin/staff accounts are still never billed and never capped — a school is never discouraged from adding staff. A student is billed as **Active** when `is_active = true` on `public.students` (same definition as before).
 
-### 7a. Tiers
+### 7a. The Two-Part Fee
 
-| Tier | Price | Active Student Cap | What It Unlocks | Phase |
-|---|---|---|---|---|
-| **Community** (Free) | LKR 0 / student | Up to 100 active students | Enrollment, class assignment, grade entry, static PDF report cards, in-app/web notices only (no SMS), 500 MB shared document storage | 1 |
-| **Starter** | LKR 40 / student / month (min. LKR 3,000/mo) | Uncapped | Everything in Community, plus: full real-time chat (class groups, DMs), targeted notice scoping, Disaster Mode + 3 Twilio SMS/student/month included, offline mobile sync (7-day retention), embedded video links, 2 GB storage | 2 / 3 (partial) |
-| **Growth** | LKR 75 / student / month (min. LKR 8,000/mo) | Uncapped | Everything in Starter, plus: unlimited offline Flutter SQLite sync, direct video hosting/streaming with encrypted downloads, Paper Hub, fair-use unlimited Cloudinary storage, AI Academic Assistant (Qwen RAG tutoring, fair-use token quota per student) | 3 / 4 |
-| **Institutional** | LKR 110 / student / month, volume-negotiated above 1,000 students | Uncapped | Everything in Growth, plus: Early Warning System, Exam Prediction, Teacher Performance Analytics, Smart Timetable Generator, publishing to the National Resource Marketplace, Zonal/MoE hierarchical reporting where applicable | 5 / 6 |
+1. **Base Platform Fee (fixed, monthly).** A flat subscription by tier. Subsidizes fixed infrastructure that doesn't scale linearly with students — shared-schema maintenance, WebSocket infrastructure, baseline CDN — and covers unbilled teacher/admin usage of the Early Warning System and ML analytics. Sets a clear "software license" entry price for the school as an institution, separate from student capacity.
+2. **Per-Active-Student Fee (variable, monthly).** Scales proportionally with billable database rows. Because the Base Fee now covers fixed costs, the per-student rate itself can be set lower than under the old flat model, while remaining competitive for large 1AB/National schools and accessible to small Type 3 schools.
+3. **Hard resource quotas replace the old vague "fair-use" language.** Storage (Cloudinary) and AI compute (Qwen RAG token budget) are now explicit per-tier GB/token allowances rather than "fair use" — once a tenant hits its quota, uploads pause (storage) or the AI assistant pauses until next month / an add-on is purchased (AI tokens). This removes the open-ended cost exposure "fair-use unlimited" carried for a bootstrapped SaaS.
 
-**Volume discount (applies to Starter, Growth, Institutional):**
+### 7b. Tiers
+
+| Tier | Base Platform Fee (Monthly) | Active Student Fee | Hard Resource Quotas & Caps | What It Unlocks | Phase |
+|---|---|---|---|---|---|
+| **Community** (Free) | LKR 0 | LKR 0 | Hard cap of 75 active students (lowered from 100 to align with paid tiers); 500 MB shared storage | Enrollment, class assignment, grade entry, static PDF report cards, in-app/web notices only (no SMS) | 1 |
+| **Starter** | LKR 1,500 | LKR 20 / student | Uncapped students; 2 GB storage; 3 Twilio SMS/student/month included | Everything in Community, plus: full real-time chat (class groups, DMs), targeted notice scoping, Disaster Mode, offline mobile sync (7-day retention), embedded video links | 2 / 3 (partial) |
+| **Growth** | LKR 3,000 | LKR 40 / student | Uncapped students; 15 GB storage; 50,000 AI tokens/student/month | Everything in Starter, plus: unlimited offline Flutter SQLite sync, direct video hosting/streaming with encrypted downloads, Paper Hub, AI Academic Assistant (Qwen RAG tutoring) | 3 / 4 |
+| **Institutional** | LKR 5,000 | LKR 60 / student | Uncapped students; 50 GB storage; 100,000 AI tokens/student/month | Everything in Growth, plus: Early Warning System, Exam Prediction, Teacher Performance Analytics, Smart Timetable Generator, publishing to the National Resource Marketplace, Zonal/Provincial/MoE hierarchical reporting where applicable | 5 / 6 |
+
+**Example:** An 80-student school on Starter pays `LKR 1,500 + (80 × LKR 20) = LKR 3,100/month`. The cost is a direct, legible function of the school's size instead of the old flat-rate-plus-minimum-spend penalty.
+
+**Volume discount (applies to the *Active Student Fee* component only, on Starter, Growth, Institutional — the Base Platform Fee is never discounted):**
 
 | Active Students | Discount off listed per-student rate |
 |---|---|
 | 1 – 250 | 0% (listed rate) |
 | 251 – 1,000 | 10% |
 | 1,001 – 3,000 | 20% |
-| 3,000+ | Custom quote (zonal/national-scale deployments negotiate directly) |
+| 3,000+ | Custom quote (zonal/provincial/national-scale deployments negotiate directly) |
 
 **SMS is metered separately, on top of the tier price.** Twilio cost isn't proportional to student count the way seat-based features are — a quiet school and a school that blasts weekly Disaster Mode alerts consume very different SMS volume for the same student count. Each paid tier includes a small monthly SMS bundle per student (see table above); usage beyond the bundle is billed at cost-plus-margin per message, so heavy SMS use doesn't get cross-subsidized by light-SMS schools on the same tier.
 
-**Why per-student instead of flat-fee:** it directly ties EduLanka's revenue to the platform's actual Supabase/Cloudinary/compute cost driver — active student rows and their associated data (marks, attendance, chat history, offline sync payloads) scale per student, not per school. A small rural Type 3 school and a large Colombo 1AB national school now pay proportionally to their actual footprint and value received, rather than the old flat rate that made Pro a bad deal for small schools and an underpriced deal for large ones.
+**Why hybrid instead of pure per-student:** it ties EduLanka's revenue to *both* of the platform's real cost drivers — a fixed per-tenant infrastructure/support cost (Base Fee) and the marginal cost of active student rows and their associated data (marks, attendance, chat history, offline sync payloads, AI tokens — Active Student Fee). A small rural Type 3 school and a large Colombo 1AB national school both pay proportionally to their actual footprint and value received, and the awkward Community→Starter minimum-spend cliff is gone.
 
-### 7b. Billing Mechanics (Implementation Note)
+### 7c. Billing Mechanics (Implementation Note)
 
-- **Active student count is now cheap to compute.** Under the old schema-per-tenant model, metering meant running `SELECT count(*) FROM tenant_<slug>.students` once per tenant schema. Under the shared-schema model (§4a), it's a single query: `SELECT tenant_id, count(*) FROM public.students WHERE is_active = true GROUP BY tenant_id` — one pass across all tenants instead of N per-schema round-trips. This was a direct cost/operability win from the Sprint 7 migration, independent of the pricing redesign.
-- **A nightly billing job** (proposed: `BullMQ` cron in the NestJS API, or a Supabase Edge Function) should run this aggregate query, join against `public.tenants.plan` and a redesigned `public.plans` table (per-student rate + student cap replacing the old flat `price_lkr`), and write the computed monthly charge to a new `public.billing_snapshots` table for invoicing.
-- **The Community-tier 100-student cap needs a real enforcement trigger again** — this is the same gap flagged in §4a. It should be rewritten as a `BEFORE INSERT` trigger on `public.students` that counts `WHERE tenant_id = NEW.tenant_id AND is_active = true` against the tenant's plan cap (pulled from the redesigned `public.plans`), instead of the old `TG_TABLE_SCHEMA`-based version that no longer applies.
-- **`public.plans` needs new columns**: `price_per_student_lkr`, `student_cap` (nullable = uncapped), replacing the old single `price_lkr` + `max_students` pair, plus the volume-discount breakpoints (either as columns or a small `public.plan_volume_discounts` lookup table).
+- **Active student count is cheap to compute.** Under the shared-schema model (§4a), it's a single query: `SELECT tenant_id, count(*) FROM public.students WHERE is_active = true GROUP BY tenant_id` — one pass across all tenants instead of N per-schema round-trips.
+- **The nightly billing job runs as a `BullMQ` cron job inside the NestJS API** (decided over a Supabase Edge Function — see rationale below). It runs the aggregate query above, joins against `public.tenants.plan` and the redesigned `public.plans` table (base fee + per-student rate + quotas, replacing the old flat `price_lkr`), cross-references Twilio API usage for metered SMS overage, and writes the computed monthly charge to a new `public.billing_snapshots` table for invoicing.
+  - **Why NestJS/BullMQ over an Edge Function:** billing isn't just a database aggregation — the final invoice requires joining the student count against `public.plans`, cross-referencing the external Twilio API for metered SMS costs, and eventually pushing the payload to a local Sri Lankan payment gateway. NestJS is better equipped than a lightweight Edge Function for that external API orchestration, delayed retries, and failure states. It also integrates natively with the Phase 6 observability stack (Prometheus, Grafana, OpenTelemetry, Sentry), giving visibility into failed billing jobs and dead-letter queues that Edge Function timeouts are harder to trace in a multi-tenant invoicing pipeline.
+- **The Community-tier 75-student cap needs a real enforcement trigger** — this is the same gap flagged in §4a. It should be rewritten as a `BEFORE INSERT` trigger on `public.students` that counts `WHERE tenant_id = NEW.tenant_id AND is_active = true` against the tenant's plan cap (pulled from the redesigned `public.plans`), instead of the old `TG_TABLE_SCHEMA`-based version that no longer applies.
+- **`public.plans` needs new columns**: `base_fee_lkr`, `price_per_student_lkr`, `student_cap` (nullable = uncapped), `storage_quota_gb`, `ai_token_quota_per_student` — replacing the old single `price_lkr` + `max_students` pair — plus the volume-discount breakpoints (either as columns or a small `public.plan_volume_discounts` lookup table).
+- **Open question (unresolved):** whether to automate suspension of tenant access on a failed/unpaid invoice, or leave a grace period where admins retain data access while student accounts are temporarily locked out.
 
 ## 8. Technology Stack Specifications (by Phase)
 

@@ -47,7 +47,7 @@ jobs:
         run: pnpm turbo run typecheck
 
       - name: Test
-        run: pnpm turbo run test
+        run: pnpm turbo run test:cov
 
       - name: Seed Database
         run: cd apps/api && pnpm run seed:staging
