@@ -272,7 +272,7 @@ export class TenantService {
      * Toggles the global Disaster Mode flag on the given tenant.
      * Initiates SMS blasting using Twilio Gateway to all mapped Parents safely.
      */
-    async toggleDisasterMode(caller: JwtPayload): Promise<{ active: boolean }> {
+    async toggleDisasterMode(dto: { reason: string, resumeDate?: string }, caller: JwtPayload): Promise<{ active: boolean }> {
         if (caller.role !== UserRole.SCHOOL_ADMIN && caller.role !== UserRole.SUPER_ADMIN) {
             throw new ForbiddenException('Only Administrators can trigger System Outages (Disaster Mode).');
         }
@@ -289,10 +289,14 @@ export class TenantService {
 
         await this.supabase.adminClient
             .from('tenants')
-            .update({ disaster_mode: newStatus })
+            .update({
+                disaster_mode: newStatus,
+                disaster_reason: newStatus ? dto.reason : null,
+                disaster_resume_date: newStatus && dto.resumeDate ? dto.resumeDate : null
+            })
             .eq('id', caller.tenantId);
 
-        this.logger.warn(`Disaster Mode toggled to [${newStatus}] for ${tenant.name} !`);
+        this.logger.warn(`Disaster Mode toggled to [${newStatus}] for ${tenant.name} (${dto.reason})!`);
 
         // Broadcast Trigger 
         if (newStatus && tenant.plan !== 'COMMUNITY') {
@@ -308,7 +312,7 @@ export class TenantService {
                 if (parent.phone_number) {
                     this.smsService.sendSms(
                         parent.phone_number,
-                        `[🚨 ${tenant.name} EMERGENCY 🚨] School operations are suspended entirely due to an active Disaster Mode trigger. Please access the offline application portals for instructions immediately.`,
+                        `[🚨 ${tenant.name} EMERGENCY 🚨] Disaster Mode engaged due to ${dto.reason}. Expected resume: ${dto.resumeDate ? new Date(dto.resumeDate).toLocaleDateString() : 'Unknown'}. Please access offline portals now.`,
                         tenant.id,
                         undefined,
                         true // bypassQuota = true!
@@ -327,6 +331,8 @@ export class TenantService {
                 entityId: tenant.id,
                 newValues: {
                     disaster_mode: true,
+                    disaster_reason: dto.reason,
+                    disaster_resume_date: dto.resumeDate || null,
                     sms_dispatched: parentsTexted,
                     bypassed_quotas: true
                 }

@@ -9,6 +9,7 @@ import {
 import { Server, Socket } from 'socket.io';
 import { Logger, OnModuleInit } from '@nestjs/common';
 import { SupabaseService } from '../supabase/supabase.service';
+import { RedisService } from '../redis/redis.service';
 
 @WebSocketGateway({
   cors: {
@@ -23,7 +24,10 @@ export class NotificationsGateway implements OnGatewayConnection, OnGatewayDisco
   private readonly logger = new Logger(NotificationsGateway.name);
   private realtimeChannel: any;
 
-  constructor(private readonly supabaseService: SupabaseService) { }
+  constructor(
+    private readonly supabaseService: SupabaseService,
+    private readonly redisService: RedisService
+  ) { }
 
   onModuleInit() {
     this.realtimeChannel = this.supabaseService.adminClient.channel('system_notifications');
@@ -34,8 +38,9 @@ export class NotificationsGateway implements OnGatewayConnection, OnGatewayDisco
     });
   }
 
-  handleConnection(client: Socket) {
+  async handleConnection(client: Socket) {
     this.logger.log(`Client connected: ${client.id} (Transport: ${client.conn.transport.name})`);
+    await this.redisService.getClient().incr('metrics:ws:connections');
 
     // Send a welcome system notification immediately (Socket.io only)
     setTimeout(() => {
@@ -49,8 +54,9 @@ export class NotificationsGateway implements OnGatewayConnection, OnGatewayDisco
     }, 1000);
   }
 
-  handleDisconnect(client: Socket) {
+  async handleDisconnect(client: Socket) {
     this.logger.log(`Client disconnected: ${client.id}`);
+    await this.redisService.getClient().decr('metrics:ws:connections');
   }
 
   // Example of broadcasting a system notification from an admin

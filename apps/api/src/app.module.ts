@@ -30,6 +30,7 @@ import { UploadModule } from './modules/upload/upload.module';
 import { ChatModule } from './modules/chat/chat.module';
 import { NoticesModule } from './modules/notices/notices.module';
 import { SmsModule } from './modules/sms/sms.module';
+import { SystemAdminModule } from './modules/system-admin/system-admin.module';
 
 @Module({
     imports: [
@@ -121,6 +122,7 @@ import { SmsModule } from './modules/sms/sms.module';
         ChatModule,
         NoticesModule,
         SmsModule,
+        SystemAdminModule
     ],
     providers: [
         {

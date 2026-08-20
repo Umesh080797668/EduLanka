@@ -64,6 +64,16 @@ export class UpdateTenantStatusDto {
     deactivationReason?: string;
 }
 
+export class ToggleDisasterModeDto {
+    @IsString()
+    @IsNotEmpty()
+    reason!: string;
+
+    @IsString()
+    @IsOptional()
+    resumeDate?: string;
+}
+
 // ── Controller ────────────────────────────────────────────────────────────────
 
 @ApiTags('tenants')
@@ -150,7 +160,7 @@ export class TenantController {
     @HttpCode(HttpStatus.OK)
     @ApiOperation({ summary: 'Trigger Disaster Mode global alert protocol' })
     @ApiOkResponse({ description: 'Disaster Mode activated' })
-    toggleDisasterMode(@CurrentUser() user: JwtPayload) {
-        return this.tenantService.toggleDisasterMode(user);
+    toggleDisasterMode(@Body() dto: ToggleDisasterModeDto, @CurrentUser() user: JwtPayload) {
+        return this.tenantService.toggleDisasterMode(dto, user);
     }
 }

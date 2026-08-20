@@ -1,4 +1,4 @@
-import { Controller, Post, Get, Body, Req, UseGuards, Param } from '@nestjs/common';
+import { Controller, Post, Get, Body, Req, UseGuards, Param, Query } from '@nestjs/common';
 import { NoticesService } from './notices.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
@@ -17,8 +17,12 @@ export class NoticesController {
     }
 
     @Get()
-    async getNotices(@Req() req: any) {
-        return this.noticesService.getNotices(req.user.tenantId, req.user.id, req.user.role);
+    async getNotices(
+        @Req() req: any,
+        @Query('classId') classId?: string,
+        @Query('gradeId') gradeId?: string
+    ) {
+        return this.noticesService.getNotices(req.user.tenantId, req.user.id, req.user.role, classId, gradeId);
     }
 
     @Post('broadcast')

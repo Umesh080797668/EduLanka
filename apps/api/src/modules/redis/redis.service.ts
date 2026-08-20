@@ -20,6 +20,10 @@ export class RedisService {
         @Inject('REDIS_CLIENT') private readonly redis: Redis,
     ) { }
 
+    public getClient(): Redis {
+        return this.redis;
+    }
+
     /**
      * Store a refresh-token jti in Redis.
      * @param jti    - JWT ID (unique per token)

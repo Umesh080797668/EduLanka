@@ -1,8 +1,9 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import { Server, Activity, BookOpenCheck, RadioTower, Send } from 'lucide-react';
+import { Server, Activity, BookOpenCheck, RadioTower, Send, Users, Network } from 'lucide-react';
 import { toast } from 'sonner';
+import { useRealtimeTelemetry } from '@/hooks/useRealtimeTelemetry';
 import { useEffect, useState } from 'react';
 import { DashboardCardsSkeleton } from '@/components/ui/Skeleton';
 import { apiClient } from '@/lib/api-client';
@@ -10,20 +11,24 @@ import { useTranslations } from 'next-intl';
 
 export default function SystemAdminDashboard() {
     const t = useTranslations('SystemAdminDashboard');
+    const { activeUsers } = useRealtimeTelemetry();
     const [stats, setStats] = useState<any>(null);
     const [tutorialStats, setTutorialStats] = useState<any>(null);
+    const [observabilityStats, setObservabilityStats] = useState<any>(null);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
         const fetchStats = async () => {
             try {
-                const [res, tutRes] = await Promise.all([
+                const [res, tutRes, obsRes] = await Promise.all([
                     apiClient.get<any>('/tenants/stats'),
-                    apiClient.get<any>('/system-admin/tutorials/stats')
+                    apiClient.get<any>('/system-admin/tutorials/stats'),
+                    apiClient.get<any>('/system-admin/observability/metrics').catch(() => null)
                 ]);
 
                 setStats(res);
                 setTutorialStats(tutRes);
+                setObservabilityStats(obsRes);
             } catch (e) {
                 console.error(e);
             } finally {
@@ -115,6 +120,36 @@ export default function SystemAdminDashboard() {
                         </div>
                     </motion.div>
                 )}
+
+                {/* Supabase Presence Telemetry */}
+                <motion.div variants={itemVariants} className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex flex-col justify-between hover:shadow-md transition-shadow group">
+                    <div className="w-12 h-12 bg-blue-50 rounded-xl mb-4 flex items-center justify-center text-blue-600 group-hover:scale-110 transition-transform">
+                        <Users className="w-6 h-6" />
+                    </div>
+                    <p className="text-slate-500 text-sm font-medium mb-1">Supabase Realtime (Presence)</p>
+                    <div className="flex items-center gap-2">
+                        <div className="w-2.5 h-2.5 rounded-full animate-pulse bg-blue-500"></div>
+                        <h4 className="text-2xl font-bold text-slate-800">{activeUsers} <span className="text-sm font-normal text-slate-400">active instances</span></h4>
+                    </div>
+                </motion.div>
+
+                {/* NestJS Socket.IO Telemetry */}
+                <motion.div variants={itemVariants} className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex flex-col justify-between hover:shadow-md transition-shadow group">
+                    <div className="w-12 h-12 bg-green-50 rounded-xl mb-4 flex items-center justify-center text-green-600 group-hover:scale-110 transition-transform">
+                        <Network className="w-6 h-6" />
+                    </div>
+                    <p className="text-slate-500 text-sm font-medium mb-1">NestJS WebSockets (Redis Adapter)</p>
+                    <div className="flex items-center gap-2">
+                        {observabilityStats ? (
+                            <>
+                                <div className="w-2.5 h-2.5 rounded-full animate-pulse bg-green-500"></div>
+                                <h4 className="text-2xl font-bold text-slate-800">{observabilityStats.websockets?.active_connections || 0} <span className="text-sm font-normal text-slate-400">connected sockets</span></h4>
+                            </>
+                        ) : (
+                            <h4 className="text-lg font-bold text-slate-300">Offline</h4>
+                        )}
+                    </div>
+                </motion.div>
             </motion.div>
 
             <motion.div

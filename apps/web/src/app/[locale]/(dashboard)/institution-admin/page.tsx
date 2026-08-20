@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react';
 import { TutorialProvider } from '@/components/TutorialProvider';
 import { HelpButton } from '@/components/HelpButton';
 import { DashboardCardsSkeleton } from '@/components/ui/Skeleton';
+import { DisasterModeModal } from '@/components/DisasterModeModal';
 import { apiClient } from '@/lib/api-client';
 import { ShieldCheck, Users, Settings, Activity, Building, ChevronRight, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
@@ -14,7 +15,7 @@ import { useTranslations } from 'next-intl';
 export default function InstitutionAdminDashboard() {
     const t = useTranslations('InstitutionAdminDashboard');
     const [stats, setStats] = useState<any>(null);
-
+    const [isDisasterModalOpen, setDisasterModalOpen] = useState(false);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
@@ -31,17 +32,19 @@ export default function InstitutionAdminDashboard() {
         fetchStats();
     }, []);
 
-    const triggerDisasterMode = async () => {
+    const triggerDisasterMode = async (reason: string, resumeDate: string) => {
         try {
-            await apiClient.post('/tenants/disaster-mode', {});
+            await apiClient.post('/tenants/disaster-mode', { reason, resumeDate });
             toast.success('Disaster Mode protocol successfully engaged.', {
                 description: 'Emergency SMS Blasts are currently dispatching out to all recorded parent phones across the institution.',
             });
+            setDisasterModalOpen(false);
             setTimeout(() => window.location.reload(), 1500);
         } catch (e: any) {
             toast.error('Failed to trigger Disaster Mode', {
                 description: e?.response?.data?.message || 'Check tier quotas and system boundaries.',
             });
+            setDisasterModalOpen(false);
         }
     };
 
@@ -110,11 +113,7 @@ export default function InstitutionAdminDashboard() {
                                 <p className="text-sm text-red-300 max-w-xs mb-2">Triggers emergency Twilio SMS parent broadcasts and forces system offline-sync.</p>
                                 <button
                                     className="bg-red-500 hover:bg-red-600 text-white text-sm px-4 py-1.5 rounded font-semibold transition-all w-full"
-                                    onClick={() => {
-                                        if (confirm("Are you absolutely sure you want to engage Disaster Mode? This will SMS blast all parents and disrupt normal services!")) {
-                                            triggerDisasterMode();
-                                        }
-                                    }}
+                                    onClick={() => setDisasterModalOpen(true)}
                                 >
                                     ENGAGE PROTOCOL
                                 </button>
@@ -191,6 +190,12 @@ export default function InstitutionAdminDashboard() {
                 </motion.div>
 
                 <HelpButton />
+
+                <DisasterModeModal
+                    isOpen={isDisasterModalOpen}
+                    onClose={() => setDisasterModalOpen(false)}
+                    onConfirm={triggerDisasterMode}
+                />
             </div>
         </TutorialProvider>
     );

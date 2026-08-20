@@ -22,7 +22,7 @@ export class NoticesService {
 
         if (!tenant) throw new ForbiddenException('Tenant not found');
 
-        const { title, content_html, scope, target_group_id, priority, attachments, expires_at, send_sms } = request;
+        const { title, content_html, scope, target_grade, target_class_id, priority, attachments, expires_at, send_sms } = request;
 
         // Blueprint constraints for Free tier
         if (tenant.plan === 'COMMUNITY') {
@@ -43,7 +43,8 @@ export class NoticesService {
                 title,
                 content_html,
                 scope,
-                target_group_id,
+                target_grade: target_grade ? parseInt(target_grade) : null,
+                target_class_id: target_class_id || null,
                 priority,
                 attachments,
                 expires_at: expires_at || null
@@ -59,8 +60,11 @@ export class NoticesService {
         if (send_sms && tenant.plan !== 'COMMUNITY') {
             this.logger.log(`SMS globally queued for Notice ID ${data.id}`);
 
+            // System Admin overrides mapping
+            const forceBypass = request.bypass_quota === true;
+
             // Background Twilio broadcast via BullMQ Producer
-            this.smsService.sendSms('+15555555555', `[EduLanka] Urgent Notice: ${title}`, tenantId, data.id).catch(e => {
+            this.smsService.sendSms('+15555555555', `[EduLanka] Urgent Notice: ${title}`, tenantId, data.id, forceBypass).catch(e => {
                 this.logger.error(`SMS Dispatcher failure: ${e.message}`);
             });
         }
@@ -68,12 +72,21 @@ export class NoticesService {
         return data;
     }
 
-    async getNotices(tenantId: string, userId: string, _userRole: string) {
+    async getNotices(tenantId: string, userId: string, userRole: string, classId?: string, gradeId?: string) {
         const client = this.supabaseService.getTenantClient(tenantId);
 
         let query = client.from('notices').select('*, author:users(first_name, last_name, role)');
 
         query = query.or('expires_at.is.null,expires_at.gt.' + new Date().toISOString());
+
+        if (classId) {
+            query = query.eq('target_class_id', classId).eq('scope', 'CLASS_SPECIFIC');
+        } else if (gradeId) {
+            query = query.eq('target_grade', parseInt(gradeId)).eq('scope', 'GRADE_LEVEL');
+        } else if (userRole !== 'SCHOOL_ADMIN' && userRole !== 'SUPER_ADMIN') {
+            // General pull for non-admins limits strictly to School-wide bounds if class is omitted
+            query = query.in('scope', ['SCHOOL_WIDE', 'UNIVERSAL']);
+        }
 
         const { data, error } = await query.order('created_at', { ascending: false });
         if (error) {
@@ -115,7 +128,8 @@ export class NoticesService {
                 content: request.content,
                 priority: 'URGENT',
                 scope: 'SCHOOL_WIDE',
-                send_sms: request.send_sms
+                send_sms: request.send_sms,
+                bypass_quota: request.send_sms // Assuming send_sms globally maps directly to Disaster Overrides for Super Admins
             });
             dispatchCount++;
         }

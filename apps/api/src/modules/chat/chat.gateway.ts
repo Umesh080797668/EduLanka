@@ -3,6 +3,7 @@ import { Server, Socket } from 'socket.io';
 import { Logger } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ChatService } from './chat.service';
+import { RedisService } from '../redis/redis.service';
 
 @WebSocketGateway({ cors: { origin: '*' } })
 export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
@@ -12,7 +13,8 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   constructor(
     private readonly chatService: ChatService,
-    private readonly jwtService: JwtService
+    private readonly jwtService: JwtService,
+    private readonly redisService: RedisService
   ) { }
 
   async handleConnection(client: Socket) {
@@ -29,14 +31,16 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       await client.join(roomName);
 
       this.logger.log(`Client ${client.id} connected. Subscribed to ${roomName}`);
+      await this.redisService.getClient().incr('metrics:ws:connections');
     } catch (error) {
-      this.logger.warn(`Disconnecting unauthenticated client ${client.id}`);
+      this.logger.warn(`Disconnecting unauthenticated/cross-tenant client ${client.id}`);
       client.disconnect();
     }
   }
 
-  handleDisconnect(client: Socket) {
+  async handleDisconnect(client: Socket) {
     this.logger.log(`Client disconnected: ${client.id}`);
+    await this.redisService.getClient().decr('metrics:ws:connections');
   }
 
   @SubscribeMessage('send_message')

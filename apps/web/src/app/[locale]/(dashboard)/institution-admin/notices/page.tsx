@@ -31,7 +31,8 @@ export default function AdminNoticesPage() {
                 title,
                 content_html: content,
                 scope,
-                target_group_id: scope === 'SCHOOL_WIDE' ? null : targetGroupId,
+                target_grade: scope === 'GRADE_LEVEL' ? targetGroupId : null,
+                target_class_id: scope === 'CLASS_SPECIFIC' ? targetGroupId : null,
                 priority,
                 send_sms: sendSms
             })
