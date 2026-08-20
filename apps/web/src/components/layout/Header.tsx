@@ -9,6 +9,8 @@ import { useEffect, useState, useRef } from 'react';
 import { useTranslations } from 'next-intl';
 import { useSidebar } from './SidebarContext';
 import { io, Socket } from 'socket.io-client';
+import { createSupabaseBrowserClient } from '@/lib/supabase/client';
+import { toast } from 'sonner';
 
 export default function Header() {
     const pathname = usePathname();
@@ -51,40 +53,72 @@ export default function Header() {
         };
         fetchUser();
 
-        // ---------------- Socket.io Connection ----------------
-        // Hybrid Strategy: Starts with Polling, upgrades to WebSocket
+        // ---------------- Realtime Notifications ----------------
+        const notificationMethod = process.env.NEXT_PUBLIC_NOTIFICATION_METHOD || 'socket.io';
+        let cleanupFn = () => { };
+
         const apiUrl = process.env.NEXT_PUBLIC_API_URL || '';
 
         // Vercel serverless completely breaks Socket.io long-polling states resulting in 400s.
-        // Disable real-time sockets if deployed to Vercel to preserve UX.
-        if (apiUrl.includes('vercel.app')) {
-            console.log('[Notifications] Socket.io is disabled on Vercel Serverless deployments.');
-            return;
+        // Fallback to supabase if on vercel natively, or if env forces it.
+        if (notificationMethod === 'supabase' || apiUrl.includes('vercel.app')) {
+            console.log('[Notifications] Using Supabase Realtime for system broadcasts (Vercel-compatible mode)');
+            try {
+                const supabase = createSupabaseBrowserClient();
+                const channel = supabase.channel('system_notifications')
+                    .on(
+                        'broadcast',
+                        { event: 'system_notification' },
+                        (payload) => {
+                            // Supabase wraps broadcast data in `payload.payload`
+                            if (payload?.payload) {
+                                setNotifications(prev => [payload.payload, ...prev]);
+                                toast.info(payload.payload.title || 'New Notification', {
+                                    description: payload.payload.message,
+                                    duration: 5000,
+                                });
+                            }
+                        }
+                    )
+                    .subscribe((status) => {
+                        if (status === 'SUBSCRIBED') {
+                            console.log('[Notifications] Connected to Supabase real-time channel.');
+                        }
+                    });
+
+                cleanupFn = () => { supabase.removeChannel(channel); };
+            } catch (error) {
+                console.error('[Notifications] Failed to init Supabase client', error);
+            }
+        } else {
+            // Traditional Socket.IO Setup (Local, VPS, Docker environments)
+            const socket = io(apiUrl, {
+                transports: ['polling', 'websocket'],
+                autoConnect: true,
+            });
+
+            socket.on('connect', () => {
+                console.log(`[Notifications] Connected with ID: ${socket.id} via ${socket.io.engine.transport.name}`);
+
+                // Optionally monitor transport upgrades from polling to websocket
+                socket.io.engine.on('upgrade', (transport) => {
+                    console.log('[Notifications] Transport upgraded to', transport.name);
+                });
+            });
+
+            socket.on('system_notification', (data) => {
+                setNotifications(prev => [data, ...prev]);
+                toast.info(data.title || 'New Notification', {
+                    description: data.message,
+                    duration: 5000,
+                });
+            });
+
+            socketRef.current = socket;
+            cleanupFn = () => { socket.disconnect(); };
         }
 
-        const socket = io(apiUrl, {
-            transports: ['polling', 'websocket'],
-            autoConnect: true,
-        });
-
-        socket.on('connect', () => {
-            console.log(`[Notifications] Connected with ID: ${socket.id} via ${socket.io.engine.transport.name}`);
-
-            // Optionally monitor transport upgrades from polling to websocket
-            socket.io.engine.on('upgrade', (transport) => {
-                console.log('[Notifications] Transport upgraded to', transport.name);
-            });
-        });
-
-        socket.on('system_notification', (data) => {
-            setNotifications(prev => [data, ...prev]);
-        });
-
-        socketRef.current = socket;
-
-        return () => {
-            socket.disconnect();
-        };
+        return cleanupFn;
     }, [t]);
 
     // Determine title based on path

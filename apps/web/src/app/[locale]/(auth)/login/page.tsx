@@ -1,5 +1,7 @@
 'use client';
 import { authManager } from '@/lib/auth-store';
+import { apiClient } from '@/lib/api-client';
+import { toast } from 'sonner';
 
 import { useState } from 'react';
 import { useRouter } from '@/i18n/routing';
@@ -22,52 +24,44 @@ export default function LoginPage() {
         setError(null);
 
         try {
-            const res = await fetch('/api/v1/auth/login', {
-                credentials: 'include',
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ identifier, password })
-            });
+            const data = await apiClient.post<any>('/auth/login',
+                { identifier, password },
+                { skipGlobalToast: true }
+            );
 
-            if (res.ok) {
-                const json = await res.json();
+            // Assuming Sprint 2 auth payload returns tokens and user info
+            const { accessToken, user } = data;
+            const role = user?.role || 'STUDENT'; // Fallback role if undefined
 
-                // Assuming Sprint 2 auth payload returns tokens and user info
-                const { accessToken, user } = json.data;
-                const role = user?.role || 'STUDENT'; // Fallback role if undefined
+            // Save to local storage for the rest of the app to consume
+            authManager.setAuth(accessToken, user?.tenantId || '', role, user?.id || '');
+            localStorage.setItem('role', role);
 
-                // Save to local storage for the rest of the app to consume
-                authManager.setAuth(accessToken, user?.tenantId || '', role, user?.id || '');
-                localStorage.setItem('role', role);
+            // Initial route resolution based on role
+            let route = `/${role.toLowerCase()}`;
+            if (role === 'SCHOOL_ADMIN') route = '/institution-admin';
+            if (role === 'SUPER_ADMIN') route = '/system-admin';
 
-                // Initial route resolution based on role
-                let route = `/${role.toLowerCase()}`;
-                if (role === 'SCHOOL_ADMIN') route = '/institution-admin';
-                if (role === 'SUPER_ADMIN') route = '/system-admin';
-
-                // Redirect user
-                router.push(route);
-            } else {
-                const errorData = await res.json();
-                const backendMessage = errorData?.error?.message || errorData?.message;
-
-                if (backendMessage && backendMessage.startsWith('User account is deactivated|')) {
-                    try {
-                        const payloadStr = backendMessage.split('|')[1];
-                        const payload = JSON.parse(payloadStr);
-                        router.push(`/deactivated?role=${payload.role}&tenantId=${payload.tenantId}&userId=${payload.userId}&reason=${encodeURIComponent(payload.reason || '')}`);
-                    } catch {
-                        router.push(`/deactivated?role=STUDENT`);
-                    }
-                    return;
-                }
-
-                setError(backendMessage || t('invalidCreds'));
-            }
+            toast.success('Welcome back!', { description: 'Sign in successful.' });
+            router.push(route);
         } catch (err: any) {
-            setError(err.message || t('networkError'));
+            const backendMessage = err.message || t('networkError');
+
+            if (backendMessage.startsWith('User account is deactivated|')) {
+                try {
+                    const payloadStr = backendMessage.split('|')[1];
+                    const payload = JSON.parse(payloadStr);
+                    router.push(`/deactivated?role=${payload.role}&tenantId=${payload.tenantId}&userId=${payload.userId}&reason=${encodeURIComponent(payload.reason || '')}`);
+                } catch {
+                    router.push(`/deactivated?role=STUDENT`);
+                }
+                return;
+            }
+
+            setError(backendMessage);
+            toast.error(t('invalidCreds') || 'Sign In Failed', {
+                description: backendMessage
+            });
         } finally {
             setLoading(false);
         }

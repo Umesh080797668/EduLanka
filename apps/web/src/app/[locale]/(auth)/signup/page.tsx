@@ -1,5 +1,7 @@
 'use client';
 import { authManager } from '@/lib/auth-store';
+import { apiClient } from '@/lib/api-client';
+import { toast } from 'sonner';
 
 import { useState, useEffect } from 'react';
 import { useRouter } from '@/i18n/routing';
@@ -26,11 +28,9 @@ export default function SignupPage() {
     useEffect(() => {
         const fetchTenants = async () => {
             try {
-                const res = await fetch('/api/v1/auth/tenants');
-                if (res.ok) {
-                    const data = await res.json();
-                    setTenants(data.data || []);
-                }
+                // Utilizing apiClient internally resolves standard JSON envelopes.
+                const data = await apiClient.get<any[]>('/auth/tenants', { skipGlobalToast: true });
+                setTenants(data || []);
             } catch (err) {
                 console.error("Failed to load public tenants", err);
             } finally {
@@ -46,31 +46,31 @@ export default function SignupPage() {
         setError(null);
 
         try {
-            const res = await fetch('/api/v1/auth/self-register', {
-                credentials: 'include',
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ email, password, fullName, tenantId, role })
+            const data = await apiClient.post<any>('/auth/self-register',
+                { email, password, fullName, tenantId, role },
+                { skipGlobalToast: true }
+            );
+
+            const { accessToken, user } = data;
+            const savedRole = user?.role || role;
+
+            authManager.setAuth(accessToken, user?.tenantId || '', savedRole, user?.id || '');
+            localStorage.setItem('role', savedRole);
+
+            const route = `/${savedRole.toLowerCase()}`;
+            toast.success('Account Created', {
+                description: `Successfully enrolled as a ${savedRole.toLowerCase()}!`,
+                duration: 5000,
             });
+            router.push(route);
 
-            if (res.ok) {
-                const json = await res.json();
-                const { accessToken, user } = json.data;
-                const savedRole = user?.role || role;
-
-                authManager.setAuth(accessToken, user?.tenantId || '', savedRole, user?.id || '');
-                localStorage.setItem('role', savedRole);
-
-                const route = `/${savedRole.toLowerCase()}`;
-                router.push(route);
-            } else {
-                const errorData = await res.json();
-                setError(errorData?.error?.message || errorData?.message || "Registration failed");
-            }
         } catch (err: any) {
-            setError(err.message || 'Network Error');
+            const backendMessage = err.message || 'Network Error';
+            setError(backendMessage);
+            toast.error('Registration Failed', {
+                description: backendMessage,
+                duration: 5000,
+            });
         } finally {
             setLoading(false);
         }

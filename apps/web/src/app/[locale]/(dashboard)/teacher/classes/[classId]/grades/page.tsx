@@ -76,7 +76,7 @@ export default function TeacherGradesPage() {
                 term,
                 academicYear: year,
                 marks: currentMark
-            });
+            }, { skipGlobalToast: true });
 
             setMarks(prev => ({ ...prev, [studentId]: { ...prev[studentId], saving: false, saved: true } }));
             setTimeout(() => {
@@ -85,10 +85,14 @@ export default function TeacherGradesPage() {
                     return { ...prev, [studentId]: { ...prev[studentId], saved: false } };
                 });
             }, 2000);
-        } catch (e) {
+        } catch (e: any) {
             console.error(e);
             setMarks(prev => ({ ...prev, [studentId]: { ...prev[studentId], saving: false, saved: false } }));
-            alert(t('errorSaving'));
+            import('sonner').then(({ toast }) => {
+                toast.error(t('errorSaving') || 'Failed to save marks', {
+                    description: e.message || 'An error occurred during submission'
+                });
+            });
         }
     };
 

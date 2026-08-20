@@ -25,16 +25,23 @@ function DeactivatedContent() {
         if (!appealText.trim() || !tenantId || !userId) return;
         setStatus('loading');
         try {
-            await apiClient.post('/auth/inquiries', {
-                tenantId,
-                userId,
-                role,
-                message: appealText.trim()
-            });
+            await apiClient.post('/auth/inquiries',
+                { tenantId, userId, role, message: appealText.trim() },
+                { skipGlobalToast: true }
+            );
             setStatus('success');
+            import('sonner').then(({ toast }) => {
+                toast.success('Inquiry Forwarded', {
+                    description: 'Your appeal has been safely sent to an administrator.'
+                });
+            });
         } catch (err: any) {
             setStatus('error');
-            setErrorMsg(err.message || 'Failed to submit inquiry');
+            const msg = err.message || 'Failed to submit inquiry';
+            setErrorMsg(msg);
+            import('sonner').then(({ toast }) => {
+                toast.error('Inquiry Submission Failed', { description: msg });
+            });
         }
     };
 

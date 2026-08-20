@@ -21,6 +21,7 @@ export const metadata: Metadata = {
 
 import { NextIntlClientProvider } from 'next-intl';
 import { getMessages } from 'next-intl/server';
+import { Toaster } from 'sonner';
 
 export default async function RootLayout({
     children,
@@ -34,6 +35,7 @@ export default async function RootLayout({
             <body className={`${inter.variable} ${geistMono.variable} antialiased`}>
                 <NextIntlClientProvider messages={messages}>
                     {children}
+                    <Toaster richColors position="top-right" expand={true} />
                 </NextIntlClientProvider>
             </body>
         </html>

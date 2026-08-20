@@ -5,6 +5,7 @@ import { motion } from 'framer-motion';
 import { Loader2, AlertCircle, KeyRound, CheckCircle2 } from 'lucide-react';
 import { Link } from '@/i18n/routing';
 import { useTranslations } from 'next-intl';
+import { apiClient } from '@/lib/api-client';
 
 export default function ResetPasswordPage() {
     const t = useTranslations('ResetPassword');
@@ -20,23 +21,26 @@ export default function ResetPasswordPage() {
         setError(null);
 
         try {
-            const res = await fetch('/api/v1/auth/forgot-password', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'x-tenant-id': tenantId
-                },
-                body: JSON.stringify({ email })
-            });
+            await apiClient.post('/auth/forgot-password',
+                { email },
+                {
+                    headers: { 'x-tenant-id': tenantId },
+                    skipGlobalToast: true
+                }
+            );
 
-            if (res.ok) {
-                setSuccess(true);
-            } else {
-                const errorData = await res.json();
-                setError(errorData.message || t('failedReq'));
-            }
+            setSuccess(true);
+            import('sonner').then(({ toast }) => {
+                toast.success('Reset Link Sent', {
+                    description: `Check ${email} for password reset instructions.`
+                });
+            });
         } catch (err: any) {
-            setError(err.message || t('networkError'));
+            const msg = err.message || t('networkError');
+            setError(msg);
+            import('sonner').then(({ toast }) => {
+                toast.error('Could not reset password', { description: msg });
+            });
         } finally {
             setLoading(false);
         }

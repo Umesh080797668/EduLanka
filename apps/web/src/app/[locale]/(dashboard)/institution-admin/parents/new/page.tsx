@@ -32,10 +32,20 @@ export default function NewParentPage() {
             };
             if (phoneNumber) payload.phoneNumber = phoneNumber;
 
-            await apiClient.post<any>('/parents', payload);
+            await apiClient.post<any>('/parents', payload, { skipGlobalToast: true });
+
+            import('sonner').then(({ toast }) => {
+                toast.success(t('accountProvisioned') || 'Account Provisioned', {
+                    description: t('profileCreated') || 'The parent profile was created successfully.'
+                });
+            });
             setSuccessData({ email, tempPassword });
         } catch (err: any) {
-            setError(err.message || 'Error executing request.');
+            const msg = err.message || 'Error executing request.';
+            setError(msg);
+            import('sonner').then(({ toast }) => {
+                toast.error('Provisioning Failed', { description: msg });
+            });
         } finally {
             setLoading(false);
         }

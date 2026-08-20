@@ -51,7 +51,7 @@ The full vision spans roughly six independently hard products: a multi-tenant sc
 |---|---|---|
 | **Phase 1 — Foundation** | Core school management, auth, tenant model, static report cards | Can a single school run its daily admin on this? |
 | **Phase 2 — Communication** | Real-time chat, notices, Twilio SMS, Disaster Mode | Can the school communicate with parents reliably, even offline? |
-| **Phase 3 — Content & Mobile** | Flutter app, offline sync, video/resource hub, Paper Hub | Can students/teachers use this without constant connectivity? |
+| **Phase 3 — Content & Mobile** | Flutter app, offline sync, video/resource hub, Paper Hub, Prisma ORM (Super Admin Analytics) | Can students/teachers use this without constant connectivity? |
 | **Phase 4 — Intelligence Foundations** | Meilisearch, Vector DB, Qwen Academic Assistant (RAG) | Can students get grounded, non-hallucinated AI tutoring? |
 | **Phase 5 — Predictive Layer** | Early Warning System, Exam Prediction, Smart Recommendations | Now that we have a year of real data, can we predict outcomes? |
 | **Phase 6 — Scale & Optimization** | Smart Timetabling, National Resource Marketplace, Ministry analytics | Can this run nationally across zones/provinces with MoE-level reporting? |
@@ -126,7 +126,8 @@ The full vision spans roughly six independently hard products: a multi-tenant sc
 - Media Asset Hub via Cloudinary: HLS adaptive-bitrate video, encrypted offline video downloads to local storage.
 - Paper Hub: exam paper PDFs paired with official marking schemes for split-screen practice.
 - Sync engine: reconciles offline-completed work when connectivity returns (built directly on the Disaster Mode groundwork from Phase 2).
-- **System Admin:** Global CDN (Cloudinary) storage monitoring, managing mobile app release syncs, and uploading national past papers to the central Paper Hub.
+- Prisma ORM Pipeline: Deployed specifically as a background microservice for Super Admin aggregation queries, maintaining strict separation from core RLS transactional paths.
+- **System Admin:** Global CDN (Cloudinary) storage monitoring, managing mobile app release syncs, integrating global Prisma aggregations, and uploading national past papers to the central Paper Hub.
 - **Mobile-native tutorial system** launched: bundled, offline-capable walkthroughs for the Flutter app covering offline homework, video downloads, and the Paper Hub, so onboarding works even with no connectivity.
 
 **Explicitly deferred:** National Resource Marketplace (school-internal resource sharing only in this phase), AI assistant, gamification badges.
@@ -306,7 +307,7 @@ The diagram below represents the fully realized architecture; earlier phases imp
 
 - **Phase 1:** Next.js 16+ (App Router, Turbopack, RSC, Tailwind CSS), NestJS REST APIs, Supabase (shared schema, `tenant_id` + RLS — revised from schema-per-tenant in Sprint 7, see §4a), Redis (sessions).
 - **Phase 2:** NestJS WebSockets (chat gateway), Twilio Programmable Messaging API (alphanumeric sender IDs, UTF-8), Redis (WebSocket state, SMS queues).
-- **Phase 3:** Flutter (Dart), SQLite (sqflite) for offline storage, Cloudinary (HLS video transcoding, encrypted offline downloads).
+- **Phase 3:** Flutter (Dart), SQLite (sqflite) for offline storage, Prisma ORM (for server-side Super Admin microservices), Cloudinary (HLS video transcoding, encrypted offline downloads).
 - **Phase 4:** Python (FastAPI) AI engine, Meilisearch, dedicated Vector Database (Pinecone / Qdrant / Milvus), Qwen LLM.
 - **Phase 5:** Scikit-learn / XGBoost for Early Warning and Exam Prediction models, served alongside the FastAPI AI engine.
 - **Phase 6:** Google OR-Tools (Smart Timetable Generator), ClickHouse (Ministry Data Warehouse / OLAP), Prometheus, Grafana, OpenTelemetry, Sentry (national-scale observability).

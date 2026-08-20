@@ -10,6 +10,7 @@ const API_BASE_URL = typeof window !== 'undefined'
 interface RequestOptions extends RequestInit {
     token?: string;
     tenantId?: string;
+    skipGlobalToast?: boolean;
 }
 
 /**
@@ -20,7 +21,7 @@ async function apiFetch<T>(
     path: string,
     options: RequestOptions = {},
 ): Promise<T> {
-    const { token, tenantId, headers: extraHeaders, ...rest } = options;
+    const { token, tenantId, headers: extraHeaders, skipGlobalToast, ...rest } = options;
 
     let finalToken = token;
     let finalTenantId = tenantId;
@@ -54,13 +55,37 @@ async function apiFetch<T>(
     let json: ApiResponse<T>;
     try {
         const text = await response.text();
-        json = text ? JSON.parse(text) as ApiResponse<T> : { success: response.ok, data: null as any };
+        json = text ? JSON.parse(text) : { success: response.ok, data: null as any };
     } catch {
         json = { success: response.ok, data: null as any };
     }
 
     if (!response.ok || !json.success) {
-        throw new Error(json.error?.message ?? `API error: ${response.status}`);
+        // Enterprise Error Mapping
+        let title = 'Request Failed';
+        let description = 'An unexpected system error occurred. Please try again or contact support.';
+
+        if (response.status === 400) {
+            title = 'Validation Error';
+            description = json.error?.message || 'Please check your inputs and try again.';
+        } else if (response.status === 401 || response.status === 403) {
+            title = 'Access Denied';
+            description = json.error?.message || 'You do not have the required permissions.';
+        } else if (response.status === 404) {
+            title = 'Not Found';
+            description = 'The requested resource could not be found.';
+        } else if (json.error?.message) {
+            description = json.error.message;
+        }
+
+        // Only fire the global toast if not skipped by the page-level logic
+        if (typeof window !== 'undefined' && !skipGlobalToast) {
+            import('sonner').then(({ toast }) => {
+                toast.error(title, { description });
+            });
+        }
+
+        throw new Error(json.error?.message ?? `HTTP ${response.status}: ${title}`);
     }
 
     return json.data as T;

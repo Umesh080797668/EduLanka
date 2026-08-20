@@ -75,7 +75,7 @@ Each phase introduces new NestJS modules / services:
 | Phase | Additions |
 |---|---|
 | 2 | `modules/chat` (WebSocket gateway), `modules/notices`, `modules/sms` |
-| 3 | Flutter app, `modules/media` (Cloudinary), `modules/sync` |
+| 3 | Flutter app, Prisma ORM for Super Admin microservice, `modules/media` (Cloudinary), `modules/sms` |
 | 4 | Separate `apps/ai-engine` (Python/FastAPI), Meilisearch, Vector DB |
 | 5 | ML models served by ai-engine |
 | 6 | `apps/analytics` (ClickHouse ETL), Google OR-Tools timetabling service |

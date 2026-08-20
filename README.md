@@ -94,7 +94,7 @@ curl http://localhost/api/v1/health
 | **Sprint 0** | Monorepo, infrastructure, CI | ✅ Done |
 | **Phase 1** | Core school management, auth, report cards | 🔜 Next |
 | **Phase 2** | Chat, notices, Twilio SMS, Disaster Mode | ⏳ Planned |
-| **Phase 3** | Flutter app, offline sync, media hub | ⏳ Planned |
+| **Phase 3** | Flutter app, Prisma ORM (Super Admin Analytics), offline sync | ⏳ Planned |
 | **Phase 4** | Qwen RAG AI academic assistant | ⏳ Planned |
 | **Phase 5** | Early Warning System, exam predictions | ⏳ Planned |
 | **Phase 6** | Timetabling, MoE analytics, marketplace | ⏳ Planned |
