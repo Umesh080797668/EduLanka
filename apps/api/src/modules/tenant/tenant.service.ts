@@ -303,13 +303,32 @@ export class TenantService {
                 .eq('role', 'PARENT')
                 .not('phone_number', 'is', null);
 
+            let parentsTexted = 0;
             parents?.forEach(parent => {
                 if (parent.phone_number) {
                     this.smsService.sendSms(
                         parent.phone_number,
                         `[🚨 ${tenant.name} EMERGENCY 🚨] School operations are suspended entirely due to an active Disaster Mode trigger. Please access the offline application portals for instructions immediately.`,
-                        tenant.id
+                        tenant.id,
+                        undefined,
+                        true // bypassQuota = true!
                     ).catch(e => this.logger.error(`Disaster Blast failure: ${e.message}`));
+                    parentsTexted++;
+                }
+            });
+
+            // Enhanced Audit Log Dispatch
+            await this.auditLogs.logAction({
+                tenantId: tenant.id,
+                actorId: caller.sub,
+                actorRole: caller.role,
+                action: 'DISASTER_MODE_ENGAGED',
+                entityType: 'TENANT',
+                entityId: tenant.id,
+                newValues: {
+                    disaster_mode: true,
+                    sms_dispatched: parentsTexted,
+                    bypassed_quotas: true
                 }
             });
         }

@@ -1,7 +1,8 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import { Server, Activity, BookOpenCheck } from 'lucide-react';
+import { Server, Activity, BookOpenCheck, RadioTower, Send } from 'lucide-react';
+import { toast } from 'sonner';
 import { useEffect, useState } from 'react';
 import { DashboardCardsSkeleton } from '@/components/ui/Skeleton';
 import { apiClient } from '@/lib/api-client';
@@ -178,6 +179,72 @@ export default function SystemAdminDashboard() {
                             })}
                         </div>
                     )}
+                </div>
+            </motion.div>
+            <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.6 }}
+                className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden mb-6"
+            >
+                <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between bg-blue-50">
+                    <h3 className="font-bold text-lg text-slate-800 flex items-center gap-2">
+                        <RadioTower className="w-5 h-5 text-blue-600" />
+                        Global Maintenance Broadcast
+                    </h3>
+                </div>
+                <div className="p-6">
+                    <form
+                        onSubmit={async (e) => {
+                            e.preventDefault();
+                            const formData = new FormData(e.currentTarget);
+                            const title = formData.get('title') as string;
+                            const content = formData.get('content') as string;
+                            const send_sms = formData.get('send_sms') === 'on';
+
+                            try {
+                                setLoading(true);
+                                const res = await apiClient.post<any>('/notices/broadcast', { title, content, send_sms });
+                                toast.success(`Broadcast Dispatched Successfully!`, { description: `Successfully injected notices redundantly into ${res.dispatches} active Tenants universally.` });
+                                (e.target as HTMLFormElement).reset();
+                            } catch (err: any) {
+                                toast.error('Global Broadcast Failure', { description: err.message });
+                            } finally {
+                                setLoading(false);
+                            }
+                        }}
+                        className="space-y-4 max-w-2xl"
+                    >
+                        <div>
+                            <label className="block text-sm font-semibold text-slate-700 mb-1">Alert Title</label>
+                            <input
+                                name="title"
+                                required
+                                placeholder="e.g. Scheduled Infrastructure Maintenance"
+                                className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-shadow"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-semibold text-slate-700 mb-1">Message Content</label>
+                            <textarea
+                                name="content"
+                                required
+                                rows={4}
+                                placeholder="Provide comprehensive operational details spanning all tenants..."
+                                className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-shadow"
+                            ></textarea>
+                        </div>
+                        <div className="flex items-center gap-2 mt-4 mb-2 p-3 bg-red-50 rounded-lg border border-red-100">
+                            <input type="checkbox" id="send_sms" name="send_sms" className="rounded text-red-600 focus:ring-red-500 w-4 h-4 cursor-pointer" />
+                            <label htmlFor="send_sms" className="text-sm font-semibold text-red-800 cursor-pointer select-none">
+                                Disaster Override: Echo broadcast to offline users natively via Twilio Gateway (Bypasses active Quotas blockades unconditionally)
+                            </label>
+                        </div>
+                        <button type="submit" disabled={loading} className="flex items-center gap-2 px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold transition-colors disabled:opacity-50">
+                            <Send className="w-4 h-4" />
+                            Dispatch Universal Broadcast
+                        </button>
+                    </form>
                 </div>
             </motion.div>
         </div>

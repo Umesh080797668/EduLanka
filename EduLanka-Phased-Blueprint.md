@@ -1,6 +1,6 @@
 # EduLanka SaaS Platform — Phased Architecture & Roadmap Blueprint
 
-> **Revision note:** This blueprint has been updated to reflect changes made against the original design: (1) the database moved from schema-per-tenant to a single shared Supabase schema with `tenant_id` + Row-Level Security (see §4a); (2) pricing moved from a flat Free/Pro monthly fee to a per-active-student billing model, then revised again to a hybrid model combining a fixed Base Platform Fee with a Per-Active-Student Fee and explicit hard resource quotas (see §7); and (3) the portal/role list was corrected to include all 8 portal types — Student, Parent, Teacher, School Admin, Zonal Office, **Provincial Office**, MoE, and System Admin — the Provincial Office Portal was previously missing from §2 and §5 despite the Provincial Education Dept already appearing in the org hierarchy (§1). Sections below are marked "Revised" where they diverge from the original spec.
+> **Revision note:** This blueprint has been updated to reflect changes made against the original design: (1) the database moved from schema-per-tenant to a single shared Supabase schema with `tenant_id` + Row-Level Security (see §4a); (2) pricing moved from a flat Free/Pro monthly fee to a per-active-student billing model, then revised again to a hybrid model combining a fixed Base Platform Fee with a Per-Active-Student Fee and explicit hard resource quotas (see §7); (3) the portal/role list was corrected to include all 8 portal types — Student, Parent, Teacher, School Admin, Zonal Office, **Provincial Office**, MoE, and System Admin — the Provincial Office Portal was previously missing from §2 and §5 despite the Provincial Education Dept already appearing in the org hierarchy (§1); and (4) **Disaster Mode was clarified and disambiguated from System Admin's platform-maintenance notices** — Disaster Mode is specifically the natural-disaster / sudden-school-closure emergency feature (floods, cyclones, landslides, MoE-declared closures), never platform downtime — and a natural-disaster feature thread was added phase-by-phase from Phase 2 through Phase 6 (closure taxonomy → offline readiness pack → grounded disaster FAQ → predictive closure alerts → national coordination dashboard). Sections below are marked "Revised" where they diverge from the original spec.
 
 ## 1. System Vision & Sri Lankan Educational Taxonomy
 
@@ -107,9 +107,10 @@ The full vision spans roughly six independently hard products: a multi-tenant sc
 - Real-Time Chat Gateway (WebSockets via NestJS): auto-provisioned class groups (e.g., Grade 9-A).
 - Targeted notice scoping: Universal (MoE-ready but MoE role deferred to Phase 6), School-Wide, Grade-Level, Class-Specific.
 - Twilio SMS integration: alphanumeric sender IDs, UTF-8 Unicode support.
-- **Disaster Mode**: Principal/Admin-triggered Twilio SMS blast to all parents; forces offline-sync posture in preparation for the Phase 3 mobile app.
-- **System Admin:** Global SMS quota monitoring, WebSocket gateway observability, and broadcasting platform-wide maintenance notices.
-- **Tutorials added** for chat (how to message/moderate), notice scoping, and — critically — a dedicated Disaster Mode walkthrough for Admins/Principals ("what happens when I trigger this") and a parent-facing explainer of what a Disaster Mode SMS means.
+- **Disaster Mode** *(natural-disaster / sudden-closure emergency communication — floods, cyclones, landslides, or other MoE-declared closures; explicitly **not** a platform-maintenance feature)*: Principal/Admin-triggered Twilio SMS blast to all parents. The trigger record captures a **closure reason taxonomy** (Flood, Cyclone, Landslide, Civil/Public Health, Other) and an **expected closure duration**, and forces offline-sync posture in preparation for the Phase 3 mobile app. This taxonomy is stored specifically so Phase 5's Disaster Impact Prediction and Phase 6's National Disaster Coordination Dashboard have real historical data to build on.
+- **System Maintenance Notices** *(platform downtime/upgrade announcements — deliberately separate from Disaster Mode, so a school outage message can never be confused with an actual emergency closure alert)*: System Admin-triggered, platform-wide banner/notice broadcast to all tenants ahead of scheduled maintenance or during an incident.
+- **System Admin:** Global SMS quota monitoring, WebSocket gateway observability, and managing System Maintenance Notices above.
+- **Tutorials added** for chat (how to message/moderate), notice scoping, and — critically — a dedicated Disaster Mode walkthrough for Admins/Principals ("what happens when I trigger this, and how to pick the right closure reason") and a parent-facing explainer of what a Disaster Mode SMS means.
 
 **Why this phase, not later:** Disaster Mode and SMS are low-AI-dependency, high-local-relevance features that differentiate EduLanka from generic school SaaS immediately — good for early school acquisition before AI capability exists.
 
@@ -126,6 +127,7 @@ The full vision spans roughly six independently hard products: a multi-tenant sc
 - Media Asset Hub via Cloudinary: HLS adaptive-bitrate video, encrypted offline video downloads to local storage.
 - Paper Hub: exam paper PDFs paired with official marking schemes for split-screen practice.
 - Sync engine: reconciles offline-completed work when connectivity returns (built directly on the Disaster Mode groundwork from Phase 2).
+- **Offline Disaster-Readiness Pack**: when a school's Phase 2 Disaster Mode is active, the Flutter app auto-caches, fully offline: emergency contacts, nearest shelter/relocation info, and the closure reason/expected duration set by the Admin — plus the student's last 7 days of homework/resources, so learning continuity doesn't stop just because connectivity does. This is the concrete natural-disaster payoff of the Phase 2 groundwork, not a generic offline mode.
 - Prisma ORM Pipeline: Deployed specifically as a background microservice for Super Admin aggregation queries, maintaining strict separation from core RLS transactional paths.
 - **System Admin:** Global CDN (Cloudinary) storage monitoring, managing mobile app release syncs, integrating global Prisma aggregations, and uploading national past papers to the central Paper Hub.
 - **Mobile-native tutorial system** launched: bundled, offline-capable walkthroughs for the Flutter app covering offline homework, video downloads, and the Paper Hub, so onboarding works even with no connectivity.
@@ -145,6 +147,7 @@ The full vision spans roughly six independently hard products: a multi-tenant sc
 - Dedicated Vector Database (Pinecone/Qdrant/Milvus) for semantic similarity search over chunked curriculum documents.
 - Retriever layer: combines, ranks, and injects retrieved context.
 - Qwen LLM integration via Python/FastAPI: answers generated strictly from retrieved context, not open-ended generation.
+- **Disaster FAQ Assistant** (grounded RAG use case): while a school's Disaster Mode is active, the Academic Assistant is additionally scoped to answer parent/student questions strictly from official MoE/Zonal closure circulars indexed for that event — a factual, rumor-resistant information channel during an actual emergency, still refusing to answer anything outside that grounded circular context.
 - **System Admin:** Indexing national curriculum documents into the Vector DB, monitoring RAG pipeline health, and auditing LLM API token costs.
 - **Assistant onboarding tutorial**: a short first-run walkthrough teaching students what the Academic Assistant can and can't do (curriculum-grounded only, not general-purpose chat), plus example prompts.
 
@@ -169,13 +172,14 @@ The full vision spans roughly six independently hard products: a multi-tenant sc
 - Teacher-facing intervention alerts (e.g., probability-of-failing notifications).
 - Exam Prediction: G.C.E. O/L, A/L, and Grade 5 Scholarship projections from historical term-test trajectories.
 - Smart Recommendation Engine: on poor module performance, auto-curates resources from the internal Resource Hub (marketplace-wide recommendations wait for Phase 6).
+- **Disaster Impact Prediction**: correlates external weather/flood data (Department of Meteorology / Disaster Management Centre feeds) with the Phase 2 closure-reason history and attendance drop patterns to proactively flag schools likely to need a closure — an early alert to School Admins and Zonal Offices *before* conditions force a reactive Disaster Mode trigger, not just after.
 - Teacher Performance Analytics & Behaviour Analytics, and Parent Engagement Score.
 - **System Admin:** Auditing predictive model accuracy, tuning baseline risk-score thresholds, and monitoring ML compute infrastructure.
 - **Tutorials for interpreting predictive data**: teachers get a walkthrough on reading risk scores and intervention alerts responsibly (what the score means, what it doesn't mean); admins get one for Teacher Performance Analytics.
 
 **Why this phase, not earlier:** This is the phase most dependent on prior phases actually being used — models trained on thin or synthetic data produce unreliable, potentially harmful predictions (e.g., wrongly flagging a student as high-risk). Sequencing it after a real data collection period is a deliberate risk-reduction choice, not a nice-to-have.
 
-**Tech introduced:** Scikit-learn, XGBoost, ML serving infrastructure alongside the FastAPI AI engine.
+**Tech introduced:** Scikit-learn, XGBoost, ML serving infrastructure alongside the FastAPI AI engine, external weather/disaster-data API integration (Dept. of Meteorology / Disaster Management Centre) for Disaster Impact Prediction.
 
 ---
 
@@ -191,10 +195,11 @@ The full vision spans roughly six independently hard products: a multi-tenant sc
 - **Zonal Office Portal:** Audit workflows for local schools within a specific zone, zone-level analytics reporting.
 - **Provincial Office Portal:** Province-level dashboard rolling up its constituent zones (Province ➔ Zone ➔ School), provincial policy monitoring, and cross-zone comparative analytics — sits between Zonal and MoE in the reporting hierarchy.
 - **MoE Portal:** Universal emergency notices, national analytics review, country-wide policy monitoring.
+- **National Disaster Coordination Dashboard** (MoE/Provincial/Zonal): a real-time national map of every school currently in Disaster Mode, aggregated by the Phase 2 closure-reason taxonomy and cross-referenced with Phase 5's predictive alerts, so Provincial/Zonal offices and the MoE see both active closures and at-risk schools in one view. Integrates with the National Disaster Management Centre (NDMC) for coordinated response and resource allocation — the culmination of the natural-disaster feature thread started in Phase 2.
 - **System Admin (Platform Owner):** Handoff of hierarchical dashboards to MoE; focuses on national-scale ClickHouse (OLAP) performance scaling and infrastructure reliability.
 - **Full tutorial coverage completed** across every role including the new Zonal/Provincial/MoE hierarchical dashboards, Smart Timetable Generator (with a dedicated "how constraints work" explainer, given how easily timetabling tools lose admin trust), and the National Resource Marketplace publishing flow.
 
-**Tech introduced:** Google OR-Tools, ClickHouse, Prometheus/Grafana/OpenTelemetry/Sentry for national-scale observability.
+**Tech introduced:** Google OR-Tools, ClickHouse, Prometheus/Grafana/OpenTelemetry/Sentry for national-scale observability, National Disaster Management Centre (NDMC) API integration.
 
 ---
 
@@ -309,8 +314,8 @@ The diagram below represents the fully realized architecture; earlier phases imp
 - **Phase 2:** NestJS WebSockets (chat gateway), Twilio Programmable Messaging API (alphanumeric sender IDs, UTF-8), Redis (WebSocket state, SMS queues).
 - **Phase 3:** Flutter (Dart), SQLite (sqflite) for offline storage, Prisma ORM (for server-side Super Admin microservices), Cloudinary (HLS video transcoding, encrypted offline downloads).
 - **Phase 4:** Python (FastAPI) AI engine, Meilisearch, dedicated Vector Database (Pinecone / Qdrant / Milvus), Qwen LLM.
-- **Phase 5:** Scikit-learn / XGBoost for Early Warning and Exam Prediction models, served alongside the FastAPI AI engine.
-- **Phase 6:** Google OR-Tools (Smart Timetable Generator), ClickHouse (Ministry Data Warehouse / OLAP), Prometheus, Grafana, OpenTelemetry, Sentry (national-scale observability).
+- **Phase 5:** Scikit-learn / XGBoost for Early Warning and Exam Prediction models, served alongside the FastAPI AI engine; external weather/disaster-data API (Dept. of Meteorology / Disaster Management Centre) for Disaster Impact Prediction.
+- **Phase 6:** Google OR-Tools (Smart Timetable Generator), ClickHouse (Ministry Data Warehouse / OLAP), Prometheus, Grafana, OpenTelemetry, Sentry (national-scale observability), National Disaster Management Centre (NDMC) API integration for the National Disaster Coordination Dashboard.
 - **Cross-cutting (all phases):** tour/coach-mark libraries (e.g., driver.js / Shepherd.js / react-joyride for web, tutorial_coach_mark or a custom overlay for Flutter), a central structured tutorial-content store (screen → steps → copy → media, translatable into Sinhala/Tamil/English), and bundled offline tutorial assets for mobile.
 
 

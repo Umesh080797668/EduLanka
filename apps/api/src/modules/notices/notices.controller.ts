@@ -21,6 +21,14 @@ export class NoticesController {
         return this.noticesService.getNotices(req.user.tenantId, req.user.id, req.user.role);
     }
 
+    @Post('broadcast')
+    async dispatchBroadcast(@Req() req: any, @Body() request: any) {
+        if (req.user.role !== 'SUPER_ADMIN') {
+            throw new Error('Strictly System Administrator privilege isolated.'); // Hard abort cleanly
+        }
+        return this.noticesService.broadcastGlobalNotice(req.user.id, request);
+    }
+
     @Post(':id/read')
     async markAsRead(@Req() req: any, @Param('id') id: string) {
         return this.noticesService.markAsRead(req.user.tenantId, id, req.user.id);

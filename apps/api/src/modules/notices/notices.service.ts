@@ -96,4 +96,30 @@ export class NoticesService {
 
         return { success: true };
     }
+
+    async broadcastGlobalNotice(authorId: string, request: any) {
+        if (!request || !request.title) throw new Error('Invalid Broadcast Payload');
+
+        const db = this.supabaseService.adminClient;
+        const { data: tenants } = await db.from('tenants').select('id, plan, status').eq('status', 'ACTIVE');
+
+        if (!tenants) return { dispatches: 0 };
+
+        this.logger.warn(`GLOBAL BROADCAST INITIATED across ${tenants.length} instances.`);
+        let dispatchCount = 0;
+
+        for (const tenant of tenants) {
+            // System overrides tenant blockages dynamically
+            await this.createNotice(tenant.id, authorId, {
+                title: request.title,
+                content: request.content,
+                priority: 'URGENT',
+                scope: 'SCHOOL_WIDE',
+                send_sms: request.send_sms
+            });
+            dispatchCount++;
+        }
+
+        return { success: true, dispatches: dispatchCount };
+    }
 }
