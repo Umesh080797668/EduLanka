@@ -11,17 +11,19 @@ import { useTranslations } from 'next-intl';
 
 export default function StudentDashboard() {
     const t = useTranslations('StudentDashboard');
-    const [studentName, setStudentName] = useState('...');
+    const [studentInfo, setStudentInfo] = useState<{ name: string, className: string, admission: string } | null>(null);
 
     useEffect(() => {
         const init = async () => {
             try {
                 const data = await apiClient.get<any>('/students/me');
-                setStudentName(data?.users?.full_name || 'Student');
+                setStudentInfo({
+                    name: data?.users?.full_name || 'Student',
+                    className: data?.classes ? `${data.classes.grade}-${data.classes.name}` : 'Unassigned',
+                    admission: data?.admission_no || ''
+                });
             } catch (e) {
                 console.error(e);
-            } finally {
-                setStudentName('Student');
             }
         };
         init();
@@ -38,9 +40,9 @@ export default function StudentDashboard() {
                     <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 pointer-events-none"></div>
 
                     <div className="relative z-10">
-                        <h2 className="text-3xl font-bold tracking-tight mb-2">{t('welcomeBack')} {studentName}{t('greetingEmoji')}</h2>
+                        <h2 className="text-3xl font-bold tracking-tight mb-2">{t('welcomeBack')} {studentInfo?.name || '...'}{t('greetingEmoji')}</h2>
                         <p className="text-indigo-100 max-w-lg mb-6">
-                            {t('dashboardSubtitle')}
+                            {studentInfo ? `Class: ${studentInfo.className} | Admission No: ${studentInfo.admission}` : t('dashboardSubtitle')}
                         </p>
 
                         <div className="flex flex-wrap gap-4">

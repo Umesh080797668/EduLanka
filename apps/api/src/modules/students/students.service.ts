@@ -137,7 +137,7 @@ export class StudentsService {
         const slug = caller.tenantId;
         const db = this.supabase.getTenantClient(slug);
 
-        const { data: student } = await db.from('students').select('*').eq('user_id', caller.sub).maybeSingle();
+        const { data: student } = await db.from('students').select('*, users(full_name, email, avatar_url), classes(name, grade)').eq('user_id', caller.sub).maybeSingle();
         if (!student) throw new NotFoundException('Student profile not found');
 
         return student;

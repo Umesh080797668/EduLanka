@@ -3,7 +3,7 @@ import type { JwtPayload } from '@edu-lanka/shared-types';
 import { UserRole } from '@edu-lanka/shared-types';
 import { SupabaseService } from '../supabase/supabase.service';
 import { TenantService } from '../tenant/tenant.service';
-import * as PDFDocument from 'pdfkit';
+
 
 @Injectable()
 export class ReportCardsService {
@@ -53,7 +53,8 @@ export class ReportCardsService {
 
         return new Promise((resolve, reject) => {
             try {
-                const doc = new (PDFDocument as any)({ margin: 50 });
+                const PDFDoc = require('pdfkit');
+                const doc = new PDFDoc({ margin: 50 });
                 const buffers: Buffer[] = [];
 
                 doc.on('data', (buf: Buffer) => buffers.push(buf));
