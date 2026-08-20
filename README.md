@@ -10,9 +10,9 @@
 
 | Layer | Technology |
 |---|---|
-| Web Frontend | Next.js 15+ (App Router, Turbopack, Tailwind v4) |
+| Web Frontend | Next.js 16+ (App Router, Turbopack, Tailwind v4) |
 | API Backend | NestJS 10 + Fastify |
-| Database | Supabase (PostgreSQL 15, schema-per-tenant) |
+| Database | Supabase (Multi-tenant) |
 | Cache / Sessions | Redis 7 |
 | API Gateway | Nginx 1.27 (rate limiting, proxy) |
 | Monorepo | pnpm workspaces + Turborepo |
@@ -92,8 +92,8 @@ curl http://localhost/api/v1/health
 | Phase | Focus | Status |
 |---|---|---|
 | **Sprint 0** | Monorepo, infrastructure, CI | ✅ Done |
-| **Phase 1** | Core school management, auth, report cards | 🔜 Next |
-| **Phase 2** | Chat, notices, Twilio SMS, Disaster Mode | ⏳ Planned |
+| **Phase 1** | Core school management, auth, report cards | ✅ Done |
+| **Phase 2** | Chat, notices, Twilio SMS, Disaster Mode | 🔜 Next |
 | **Phase 3** | Flutter app, Prisma ORM (Super Admin Analytics), offline sync | ⏳ Planned |
 | **Phase 4** | Qwen RAG AI academic assistant | ⏳ Planned |
 | **Phase 5** | Early Warning System, exam predictions | ⏳ Planned |
