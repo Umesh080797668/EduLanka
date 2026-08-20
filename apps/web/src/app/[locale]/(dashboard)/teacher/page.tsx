@@ -1,7 +1,7 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import { BookOpen, Users, LogIn, LineChart, FileEdit } from 'lucide-react';
+import { BookOpen, Users, LineChart, FileEdit } from 'lucide-react';
 import { Link } from '@/i18n/routing';
 import { useEffect, useState } from 'react';
 import { TutorialProvider } from '@/components/TutorialProvider';
@@ -11,9 +11,16 @@ import { useTranslations } from 'next-intl';
 
 export default function TeacherDashboard() {
     const t = useTranslations('TeacherDashboard');
+    const getCurrentTerm = () => {
+        const month = new Date().getMonth() + 1;
+        if (month >= 1 && month <= 4) return 1;
+        if (month >= 5 && month <= 8) return 2;
+        return 3;
+    };
+    const currentTerm = getCurrentTerm();
+
     const [teacherName, setTeacherName] = useState('...');
-    const [stats, setStats] = useState({ totalStudents: 0, activeClasses: 0 });
-    const [scheduleClasses, setScheduleClasses] = useState<any[]>([]);
+    const [stats, setStats] = useState({ totalStudents: 0, activeClasses: 0, gradingProgress: 0 });
 
     useEffect(() => {
         const init = async () => {
@@ -26,17 +33,23 @@ export default function TeacherDashboard() {
                     if (classesData) {
                         let students = 0;
                         classesData.forEach(c => { students += (c.students?.length || 0); });
-                        setStats({ totalStudents: students, activeClasses: classesData.length });
 
-                        const schedule = classesData.map(c => {
-                            const assign = c.class_teachers?.find((ct: any) => ct.teachers?.user_id === user.id);
-                            return {
-                                class: `Grade ${c.grades?.level}-${c.section}`,
-                                subject: assign?.subject || 'Class Teacher',
-                                time: 'Scheduled Class'
-                            };
+                        let totalMarksCount = 0;
+
+                        const marksPromises = classesData.map(async c => {
+                            try {
+                                return await apiClient.get<any[]>(`/student-marks/class/${c.id}?term=${currentTerm}`);
+                            } catch (error) {
+                                return [];
+                            }
                         });
-                        setScheduleClasses(schedule);
+                        const results = await Promise.all(marksPromises);
+                        results.forEach(mList => {
+                            if (mList) totalMarksCount += mList.length;
+                        });
+
+                        const progress = students > 0 ? Math.round((totalMarksCount / students) * 100) : 0;
+                        setStats({ totalStudents: students, activeClasses: classesData.length, gradingProgress: progress });
                     }
                 }
             } catch (e) {
@@ -71,7 +84,7 @@ export default function TeacherDashboard() {
                         <div>
                             <h2 className="text-3xl font-bold tracking-tight mb-2">{t('greeting')} {teacherName}</h2>
                             <p className="text-sky-200 max-w-lg mb-4">
-                                {t('dashboardSubtitle')}
+                                {t('dashboardSubtitle', { count: stats.activeClasses, term: t(`term${currentTerm}`) })}
                             </p>
                             <div className="flex gap-4">
                                 <Link href="/teacher/classes" id="nav-classes">
@@ -89,7 +102,7 @@ export default function TeacherDashboard() {
                     variants={containerVariants}
                     initial="hidden"
                     animate="show"
-                    className="grid grid-cols-1 md:grid-cols-4 gap-4"
+                    className="grid grid-cols-1 md:grid-cols-3 gap-4"
                 >
                     <motion.div variants={itemVariants} className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 flex flex-col justify-between hover:shadow-md transition-shadow">
                         <div className="w-10 h-10 bg-indigo-50 rounded-xl mb-4 flex items-center justify-center text-indigo-600">
@@ -112,54 +125,16 @@ export default function TeacherDashboard() {
                             <FileEdit className="w-5 h-5" />
                         </div>
                         <p className="text-slate-500 text-sm font-medium mb-1">{t('gradingProgress')}</p>
-                        <h4 className="text-2xl font-bold text-slate-800">0%</h4>
-                    </motion.div>
-
-                    <motion.div variants={itemVariants} className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 flex flex-col justify-between hover:shadow-md transition-shadow">
-                        <div className="w-10 h-10 bg-amber-50 rounded-xl mb-4 flex items-center justify-center text-amber-600">
-                            <LogIn className="w-5 h-5" />
-                        </div>
-                        <p className="text-slate-500 text-sm font-medium mb-1">{t('attendanceToday')}</p>
-                        <h4 className="text-2xl font-bold text-slate-800">N/A</h4>
+                        <h4 className="text-2xl font-bold text-slate-800">{stats.gradingProgress}%</h4>
                     </motion.div>
                 </motion.div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
                     <motion.div
-                        initial={{ opacity: 0, x: -20 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ delay: 0.3 }}
-                        className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100"
-                    >
-                        <div className="flex items-center justify-between mb-6">
-                            <h3 className="font-bold text-lg text-slate-800 flex items-center gap-2">
-                                <BookOpen className="w-5 h-5 text-indigo-500" />
-                                {t('mySchedule')}
-                            </h3>
-                        </div>
-
-                        <div className="space-y-4">
-                            {scheduleClasses.length === 0 ? (
-                                <div className="p-4 text-center text-slate-500 border border-slate-100 rounded-xl">No classes assigned</div>
-                            ) : scheduleClasses.map((sch, i) => (
-                                <div key={i} className="flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-xl border border-slate-100 hover:border-indigo-100 hover:bg-slate-50 transition-colors">
-                                    <div className="flex flex-col">
-                                        <span className="font-semibold text-slate-800">{sch.subject}</span>
-                                        <span className="text-sm text-slate-500">{sch.time}</span>
-                                    </div>
-                                    <span className="mt-2 sm:mt-0 font-medium text-sm bg-indigo-50 text-indigo-700 px-3 py-1 rounded-full">
-                                        {sch.class}
-                                    </span>
-                                </div>
-                            ))}
-                        </div>
-                    </motion.div>
-
-                    <motion.div
                         initial={{ opacity: 0, x: 20 }}
                         animate={{ opacity: 1, x: 0 }}
                         transition={{ delay: 0.4 }}
-                        className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100"
+                        className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 lg:col-span-2"
                     >
                         <div className="flex items-center justify-between mb-6">
                             <h3 className="font-bold text-lg text-slate-800 flex items-center gap-2">
@@ -168,21 +143,13 @@ export default function TeacherDashboard() {
                             </h3>
                         </div>
 
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 gap-4">
                             <Link href="/teacher/classes" className="bg-slate-50 p-6 rounded-xl flex flex-col items-center text-center hover:bg-slate-100 transition-colors border border-slate-100 group">
                                 <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center text-indigo-600 mb-3 shadow-sm group-hover:scale-110 transition-transform">
                                     <FileEdit className="w-6 h-6" />
                                 </div>
                                 <span className="font-semibold text-slate-700">{t('enterGrades')}</span>
                             </Link>
-
-                            <div className="bg-slate-50 p-6 rounded-xl flex flex-col items-center text-center opacity-70 cursor-not-allowed border border-slate-100 relative overflow-hidden">
-                                <div className="absolute top-2 right-2 bg-slate-200 text-slate-500 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase">{t('term2')}</div>
-                                <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center text-emerald-600 mb-3 shadow-sm grayscale">
-                                    <LogIn className="w-6 h-6" />
-                                </div>
-                                <span className="font-semibold text-slate-500">{t('takeAttendance')}</span>
-                            </div>
                         </div>
                     </motion.div>
                 </div>

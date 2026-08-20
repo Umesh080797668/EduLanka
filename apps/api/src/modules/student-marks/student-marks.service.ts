@@ -27,24 +27,22 @@ export class StudentMarksService {
         const slug = caller.tenantId;
         const db = this.supabase.getTenantClient(slug);
 
-        let teacherId = null;
         if (caller.role === UserRole.TEACHER) {
             const { data: teacher } = await db.from('teachers').select('id').eq('user_id', caller.sub).maybeSingle();
             if (!teacher) throw new NotFoundException('Teacher profile not found');
-            teacherId = teacher.id;
         }
 
         const { data, error } = await db
             .from('student_marks')
             .upsert({
+                tenant_id: slug,
                 student_id: dto.studentId,
                 class_id: dto.classId,
                 subject: dto.subject,
-                term: dto.term,
-                academic_year: dto.academicYear,
+                term: String(dto.term),
                 marks: dto.marks,
-                teacher_id: teacherId
-            }, { onConflict: 'student_id, subject, term, academic_year' })
+                total_score: dto.marks
+            }, { onConflict: 'tenant_id, student_id, term, subject' })
             .select()
             .single();
 
@@ -55,7 +53,7 @@ export class StudentMarksService {
         return data;
     }
 
-    async getMarksByClass(classId: string, term: number, year: number, caller: JwtPayload) {
+    async getMarksByClass(classId: string, term: number, caller: JwtPayload) {
         if (caller.role === UserRole.STUDENT || caller.role === UserRole.PARENT) {
             throw new ForbiddenException('Not allowed to view full class marks');
         }
@@ -67,8 +65,7 @@ export class StudentMarksService {
             .from('student_marks')
             .select('*, students(admission_no)')
             .eq('class_id', classId)
-            .eq('term', term)
-            .eq('academic_year', year);
+            .eq('term', String(term));
 
         if (error) {
             this.logger.error(`Failed to fetch marks: ${error.message}`);
@@ -97,7 +94,6 @@ export class StudentMarksService {
             .from('student_marks')
             .select('*')
             .eq('student_id', studentId)
-            .order('academic_year', { ascending: false })
             .order('term', { ascending: false });
 
         if (error) {

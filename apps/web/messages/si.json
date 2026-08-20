@@ -126,7 +126,9 @@
     },
     "TeacherDashboard": {
         "greeting": "සුබ උදෑසනක්,",
-        "dashboardSubtitle": "ඔබට අද පන්ති 3 ක් ඇත. 1 වන වාරය සඳහා ලකුණු ඇතුළත් කිරීම දැනට විවෘතව පවතී.",
+        "dashboardSubtitle": "ඔබට අද පන්ති {count} ක් ඇත. {term} සඳහා ලකුණු ඇතුළත් කිරීම දැනට විවෘතව පවතී.",
+        "term1": "1 වන වාරය",
+        "term3": "3 වන වාරය",
         "viewAssignedClasses": "පවරා ඇති පන්ති බලන්න",
         "totalStudents": "මුළු සිසුන් ගණන",
         "activeClasses": "සක්‍රීය පන්ති",

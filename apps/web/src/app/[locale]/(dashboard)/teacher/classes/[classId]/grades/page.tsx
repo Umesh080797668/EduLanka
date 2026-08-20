@@ -43,7 +43,8 @@ export default function TeacherGradesPage() {
                 const marksData = await apiClient.get<any>(`/student-marks/class/${classId}?term=${term}&year=${year}`);
                 const newMarks: Record<string, any> = {};
                 marksData?.forEach((m: any) => {
-                    newMarks[m.student_id] = { value: m.marks, saving: false, saved: true };
+                    const val = m.total_score !== null && m.total_score !== undefined ? m.total_score : (typeof m.marks === 'number' ? m.marks : '');
+                    newMarks[m.student_id] = { value: val, saving: false, saved: true };
                 });
                 setMarks(prev => ({ ...prev, ...newMarks }));
             } catch (e) {

@@ -126,7 +126,10 @@
   },
   "TeacherDashboard": {
     "greeting": "Good morning,",
-    "dashboardSubtitle": "You have 3 classes today. Grade entry for Term 1 is currently open.",
+    "dashboardSubtitle": "You have {count} classes today. Grade entry for {term} is currently open.",
+    "term1": "Term 1",
+    "term2": "Term 2",
+    "term3": "Term 3",
     "viewAssignedClasses": "View assigned classes",
     "totalStudents": "Total Students",
     "activeClasses": "Active Classes",
@@ -135,8 +138,7 @@
     "mySchedule": "My Schedule Today",
     "quickActions": "Quick Actions",
     "enterGrades": "Enter Grades",
-    "takeAttendance": "Take Attendance",
-    "term2": "Term 2"
+    "takeAttendance": "Take Attendance"
   },
   "TeacherClasses": {
     "myAssignedClasses": "My Assigned Classes",

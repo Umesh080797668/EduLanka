@@ -12,8 +12,8 @@ describe('StudentMarksService', () => {
     let mockDb: any;
 
     beforeEach(async () => {
-        jest.spyOn(Logger.prototype, 'error').mockImplementation(() => {});
-        jest.spyOn(Logger.prototype, 'debug').mockImplementation(() => {});
+        jest.spyOn(Logger.prototype, 'error').mockImplementation(() => { });
+        jest.spyOn(Logger.prototype, 'debug').mockImplementation(() => { });
         mockDb = {
             from: jest.fn().mockReturnThis(),
             select: jest.fn().mockReturnThis(),
@@ -69,7 +69,7 @@ describe('StudentMarksService', () => {
             const result = await service.upsertMark(markDto, teacherCaller);
             expect(result).toBeDefined();
             expect(mockDb.upsert).toHaveBeenCalledWith(
-                expect.objectContaining({ teacher_id: 'db-teacher-id' }),
+                expect.objectContaining({ tenant_id: 'tenant-1' }),
                 expect.any(Object)
             );
         });
@@ -80,7 +80,7 @@ describe('StudentMarksService', () => {
             const result = await service.upsertMark(markDto, adminCaller);
             expect(result).toBeDefined();
             expect(mockDb.upsert).toHaveBeenCalledWith(
-                expect.objectContaining({ teacher_id: null }),
+                expect.objectContaining({ tenant_id: 'tenant-1' }),
                 expect.any(Object)
             );
         });
@@ -96,13 +96,13 @@ describe('StudentMarksService', () => {
         const adminCaller = { sub: 'admin-id', role: UserRole.SCHOOL_ADMIN, tenantId: 'tenant-1' } as any;
 
         it('should throw ForbiddenException for students or parents', async () => {
-            await expect(service.getMarksByClass('class-1', 1, 2026, studentCaller))
+            await expect(service.getMarksByClass('class-1', 1, studentCaller))
                 .rejects.toThrow(ForbiddenException);
         });
 
         it('should fetch marks for authorized caller', async () => {
             mockDb.then.mockImplementationOnce((resolve: any) => resolve({ data: [{ id: 'mark-1' }], error: null }));
-            const result = await service.getMarksByClass('class-1', 1, 2026, adminCaller);
+            const result = await service.getMarksByClass('class-1', 1, adminCaller);
             expect(result).toHaveLength(1);
         });
     });

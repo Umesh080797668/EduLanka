@@ -27,10 +27,9 @@ export class StudentMarksController {
     async getMarksByClass(
         @Param('classId', ParseUUIDPipe) classId: string,
         @Query('term', ParseIntPipe) term: number,
-        @Query('year', ParseIntPipe) year: number,
         @CurrentUser() caller: JwtPayload
     ) {
-        return this.studentMarksService.getMarksByClass(classId, term, year, caller);
+        return this.studentMarksService.getMarksByClass(classId, term, caller);
     }
 
     @Get('student/:studentId')
