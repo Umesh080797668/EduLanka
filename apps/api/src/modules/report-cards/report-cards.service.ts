@@ -20,11 +20,9 @@ export class ReportCardsService {
 
         // Security check
         if (caller.role === UserRole.STUDENT) {
-            const { data: stu } = await db.from('students').select('users!inner(user_id)').eq('id', studentId).maybeSingle();
-            const userRef = (stu as any)?.users;
-            const actualSub = Array.isArray(userRef) ? userRef[0]?.user_id : userRef?.user_id;
+            const { data: stu } = await db.from('students').select('user_id').eq('id', studentId).maybeSingle();
 
-            if (actualSub !== caller.sub) {
+            if (stu?.user_id !== caller.sub) {
                 throw new ForbiddenException('Not allowed to access others report cards');
             }
         } else if (caller.role === UserRole.PARENT) {
@@ -38,8 +36,7 @@ export class ReportCardsService {
             .from('student_marks')
             .select('*')
             .eq('student_id', studentId)
-            .eq('term', term)
-            .eq('academic_year', year);
+            .eq('term', String(term));
 
         if (marksError) {
             this.logger.error(`Error gathering marks: ${marksError.message}`, marksError);
