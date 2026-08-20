@@ -58,6 +58,20 @@ export class ClassesService {
             this.logger.error(`Failed to create class: ${error.message}`);
             throw new InternalServerErrorException('Failed to create class');
         }
+
+        // Auto-provision class chat conversation (Phase 2, Sprint 1)
+        const { error: chatError } = await db.from('chat_conversations').insert({
+            tenant_id: slug,
+            type: 'CLASS',
+            class_id: data.id,
+            name: `Grade ${gradeConfig.level}-${dto.section}`
+        });
+
+        if (chatError) {
+            this.logger.error(`Failed to auto-provision chat conversation for class ${data.id}: ${chatError.message}`);
+            // Non-blocking error, class created successfully
+        }
+
         return data;
     }
 

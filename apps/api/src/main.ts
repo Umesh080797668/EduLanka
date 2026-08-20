@@ -13,6 +13,7 @@ import { AppModule } from './app.module';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { TransformInterceptor } from "./common/interceptors/transform.interceptor";
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
+import { RedisIoAdapter } from './common/adapters/redis-io.adapter';
 
 async function bootstrap(): Promise<void> {
     const logger = new Logger('Bootstrap');
@@ -61,6 +62,11 @@ async function bootstrap(): Promise<void> {
             },
         }),
     );
+
+    // ── WebSockets ────────────────────────────────────────────────────────────
+    const redisIoAdapter = new RedisIoAdapter(app);
+    await redisIoAdapter.connectToRedis();
+    app.useWebSocketAdapter(redisIoAdapter);
 
     // ── Swagger (dev/staging only) ────────────────────────────────────────────
     if (nodeEnv !== 'production') {
