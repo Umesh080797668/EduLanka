@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { CheckCircle2, ChevronDown, ChevronLeft, Loader2, Save, FileEdit, Users } from 'lucide-react';
-import Link from 'next/link';
+import { Link } from '@/i18n/routing';
 import { TutorialProvider } from '@/components/TutorialProvider';
 import { HelpButton } from '@/components/HelpButton';
 import { apiClient } from '@/lib/api-client';

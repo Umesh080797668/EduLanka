@@ -5,7 +5,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from '@/i18n/routing';
 import { motion } from 'framer-motion';
 import { Loader2, AlertCircle, Building2, UserCircle2, ArrowRight, ArrowLeft, Mail, Lock, User } from 'lucide-react';
-import Link from 'next/link';
+import { Link } from '@/i18n/routing';
 
 export default function SignupPage() {
     const router = useRouter();

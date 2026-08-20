@@ -2,7 +2,7 @@
 
 import { motion } from 'framer-motion';
 import { ShieldAlert, ArrowLeft, MessageSquare, Send, CheckCircle2, Loader2, Info } from 'lucide-react';
-import Link from 'next/link';
+import { Link } from '@/i18n/routing';
 import { useSearchParams } from 'next/navigation';
 import { Suspense, useState } from 'react';
 import { apiClient } from '@/lib/api-client';

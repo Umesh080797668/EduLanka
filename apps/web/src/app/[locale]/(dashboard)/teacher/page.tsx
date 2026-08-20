@@ -2,7 +2,7 @@
 
 import { motion } from 'framer-motion';
 import { BookOpen, Users, LogIn, LineChart, FileEdit } from 'lucide-react';
-import Link from 'next/link';
+import { Link } from '@/i18n/routing';
 import { useEffect, useState } from 'react';
 import { TutorialProvider } from '@/components/TutorialProvider';
 import { HelpButton } from '@/components/HelpButton';
