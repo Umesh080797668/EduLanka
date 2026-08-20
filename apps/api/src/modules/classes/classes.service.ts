@@ -186,7 +186,10 @@ export class ClassesService {
             .eq('class_id', classId)
             .eq('teacher_id', teacherId);
 
-        if (error) throw new InternalServerErrorException('Failed to remove teacher from class');
+        if (error) {
+            this.logger.error(`Failed to remove teacher from class: ${error.message}`, error);
+            throw new InternalServerErrorException('Failed to remove teacher from class');
+        }
         return { message: 'Teacher removed from class' };
     }
 }

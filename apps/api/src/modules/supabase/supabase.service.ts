@@ -62,7 +62,7 @@ export class SupabaseService implements OnModuleInit {
                         const tableStr = String(table);
 
                         // If the table is literally `tenants` or global registry, don't partition it!
-                        if (tableStr === 'tenants' || tableStr === 'plans' || tableStr === 'platform_admins' || tableStr === 'tutorials') {
+                        if (tableStr === 'tenants' || tableStr === 'plans' || tableStr === 'platform_admins' || tableStr === 'tutorials' || tableStr === 'class_teachers') {
                             return queryBuilder;
                         }
 
