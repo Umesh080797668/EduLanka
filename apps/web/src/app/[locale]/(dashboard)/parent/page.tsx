@@ -4,6 +4,7 @@ import { motion } from 'framer-motion';
 import { Users, GraduationCap, ChevronRight } from 'lucide-react';
 import { Link } from '@/i18n/routing';
 import { useEffect, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { TutorialProvider } from '@/components/TutorialProvider';
 import { HelpButton } from '@/components/HelpButton';
 import { apiClient } from '@/lib/api-client';
@@ -11,6 +12,8 @@ import { useTranslations } from 'next-intl';
 
 export default function ParentDashboard() {
     const t = useTranslations('ParentDashboard');
+    const searchParams = useSearchParams();
+    const query = searchParams.get('query') || '';
     const [parentName, setParentName] = useState('...');
     const [childrenData, setChildrenData] = useState<any[]>([]);
 
@@ -23,7 +26,7 @@ export default function ParentDashboard() {
     useEffect(() => {
         const init = async () => {
             try {
-                // In a real scenario, this would fetch /parents/me and their linked children
+                // Fetch /parents/me and their linked children
                 const data = await apiClient.get<any>('/parents/me');
 
                 setParentName(data?.users?.full_name || 'Parent');
@@ -34,13 +37,14 @@ export default function ParentDashboard() {
                 }
             } catch (e) {
                 console.error(e);
-            } finally {
-                setParentName('Parent');
-                setChildrenData(FALLBACK_CHILDREN);
             }
         };
         init();
     }, []);
+
+    const filteredChildren = childrenData.filter((child) =>
+        child.name?.toLowerCase().includes(query.toLowerCase()) || false
+    );
 
     const containerVariants = {
         hidden: { opacity: 0 },
@@ -83,7 +87,7 @@ export default function ParentDashboard() {
                     animate="show"
                     className="grid grid-cols-1 md:grid-cols-2 gap-6"
                 >
-                    {childrenData.map((child, idx) => (
+                    {filteredChildren.map((child, idx) => (
                         <motion.div
                             key={idx}
                             variants={itemVariants}

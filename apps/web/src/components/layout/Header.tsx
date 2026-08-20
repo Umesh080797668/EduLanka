@@ -110,6 +110,8 @@ export default function Header() {
                     router.push(`/teacher/classes?query=${queryUri}`);
                 } else if (userRole === 'STUDENT') {
                     router.push(`/student/grades?query=${queryUri}`);
+                } else if (userRole === 'PARENT') {
+                    router.push(`/parent?query=${queryUri}`);
                 }
             } else if (searchQuery === '') {
                 // If they clear the search, push back to base dir
@@ -117,6 +119,7 @@ export default function Header() {
                 if (userRole === 'SCHOOL ADMIN') router.push(`/institution-admin/students`);
                 if (userRole === 'TEACHER') router.push(`/teacher/classes`);
                 if (userRole === 'STUDENT') router.push(`/student/grades`);
+                if (userRole === 'PARENT') router.push(`/parent`);
             }
             setIsTyping(false);
         }, 400);
@@ -137,6 +140,8 @@ export default function Header() {
                     router.push(`/teacher/classes?query=${queryUri}`);
                 } else if (userRole === 'STUDENT') {
                     router.push(`/student/grades?query=${queryUri}`);
+                } else if (userRole === 'PARENT') {
+                    router.push(`/parent?query=${queryUri}`);
                 }
             }
         }
