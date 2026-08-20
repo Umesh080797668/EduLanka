@@ -24,7 +24,8 @@
     "inquiries": "Account Inquiries",
     "auditLogs": "Audit Logs",
     "chat": "Chat Messages",
-    "notices": "Notices"
+    "notices": "Notices",
+    "smsGateway": "SMS Gateway"
   },
   "Header": {
     "searchPlaceholder": "Search...",

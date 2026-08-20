@@ -28,7 +28,7 @@ async function bootstrap() {
                     id: rootTenantId,
                     name: 'System Administration',
                     slug: tenantSlug,
-                    plan: TenantPlan.FREE,
+                    plan: TenantPlan.COMMUNITY,
                     status: TenantStatus.ACTIVE,
                     school_type: 'TYPE_1AB' as any,
                     contact_email: 'admin@edulanka.lk',

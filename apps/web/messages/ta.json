@@ -24,7 +24,8 @@
     "inquiries": "கணக்கு விசாரணைகள்",
     "auditLogs": "தணிக்கை பதிவுகள்",
     "chat": "அரட்டை செய்திகள்",
-    "notices": "அறிவிப்புகள்"
+    "notices": "அறிவிப்புகள்",
+    "smsGateway": "SMS நுழைவாயில்"
   },
   "Header": {
     "searchPlaceholder": "தேடுக...",

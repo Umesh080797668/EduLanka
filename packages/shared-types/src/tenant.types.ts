@@ -4,8 +4,10 @@
 
 /** Subscription tier — maps to the Free / Pro pricing model. */
 export enum TenantPlan {
-    FREE = 'FREE',
-    PRO = 'PRO',
+    COMMUNITY = 'COMMUNITY',
+    STARTER = 'STARTER',
+    GROWTH = 'GROWTH',
+    INSTITUTIONAL = 'INSTITUTIONAL',
 }
 
 /** Lifecycle status of a tenant (school). */

@@ -27,7 +27,7 @@ async function bootstrap() {
                     id: pilotTenantId,
                     name: 'Staging Pilot School',
                     slug: tenantSlug,
-                    plan: TenantPlan.PRO,
+                    plan: TenantPlan.INSTITUTIONAL,
                     status: TenantStatus.ACTIVE,
                     school_type: 'TYPE_2' as any,
                     contact_email: 'pilot@edulanka.lk',

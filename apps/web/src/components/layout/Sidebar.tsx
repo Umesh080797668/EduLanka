@@ -55,6 +55,7 @@ const NAV_ITEMS = {
     ],
     SUPER_ADMIN: [
         { nameKey: 'dashboard', href: '/system-admin', icon: Server },
+        { nameKey: 'smsGateway', href: '/system-admin/sms', icon: MessageSquare },
         { nameKey: 'tenants', href: '/system-admin/tenants', icon: Building2 },
         { nameKey: 'users', href: '/system-admin/users', icon: Users },
         { nameKey: 'inquiries', href: '/system-admin/inquiries', icon: MessageSquare },

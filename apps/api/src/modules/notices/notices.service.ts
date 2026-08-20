@@ -59,8 +59,8 @@ export class NoticesService {
         if (send_sms && tenant.plan !== 'COMMUNITY') {
             this.logger.log(`SMS globally queued for Notice ID ${data.id}`);
 
-            // Background Twilio broadcast simulation
-            this.smsService.sendSms('+15555555555', `[EduLanka] Urgent Notice: ${title}`).catch(e => {
+            // Background Twilio broadcast via BullMQ Producer
+            this.smsService.sendSms('+15555555555', `[EduLanka] Urgent Notice: ${title}`, tenantId, data.id).catch(e => {
                 this.logger.error(`SMS Dispatcher failure: ${e.message}`);
             });
         }

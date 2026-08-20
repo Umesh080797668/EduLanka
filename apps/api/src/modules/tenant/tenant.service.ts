@@ -98,11 +98,11 @@ export class TenantService {
             .insert({
                 name: dto.name,
                 slug: dto.slug,
-                plan: dto.plan ?? TenantPlan.FREE,
+                plan: dto.plan ?? TenantPlan.COMMUNITY,
                 status: TenantStatus.PROVISIONING,
                 school_type: dto.schoolType,
                 contact_email: dto.contactEmail,
-                sms_approved: dto.plan === TenantPlan.PRO ? true : false,
+                sms_approved: dto.plan === TenantPlan.INSTITUTIONAL ? true : false,
             })
             .select()
             .single();
@@ -307,7 +307,8 @@ export class TenantService {
                 if (parent.phone_number) {
                     this.smsService.sendSms(
                         parent.phone_number,
-                        `[🚨 ${tenant.name} EMERGENCY 🚨] School operations are suspended entirely due to an active Disaster Mode trigger. Please access the offline application portals for instructions immediately.`
+                        `[🚨 ${tenant.name} EMERGENCY 🚨] School operations are suspended entirely due to an active Disaster Mode trigger. Please access the offline application portals for instructions immediately.`,
+                        tenant.id
                     ).catch(e => this.logger.error(`Disaster Blast failure: ${e.message}`));
                 }
             });

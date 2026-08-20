@@ -116,7 +116,7 @@ describe('TenantService', () => {
         slug: 'test-school',
         schoolType: SchoolType.TYPE_2,
         contactEmail: 'admin@test.lk',
-        plan: TenantPlan.FREE,
+        plan: TenantPlan.COMMUNITY,
     };
 
     // ── create() ──────────────────────────────────────────────────────────────

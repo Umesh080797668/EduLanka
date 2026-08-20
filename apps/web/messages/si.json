@@ -24,7 +24,8 @@
     "inquiries": "ගිණුම් විමසීම්",
     "auditLogs": "විගණන ලොග",
     "chat": "චැට් පණිවිඩ",
-    "notices": "දැනුම්දීම්"
+    "notices": "දැනුම්දීම්",
+    "smsGateway": "SMS ද්වාරය"
   },
   "Header": {
     "searchPlaceholder": "සොයන්න...",

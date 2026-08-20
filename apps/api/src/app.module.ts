@@ -4,6 +4,7 @@ import * as Joi from 'joi';
 
 import { configuration } from './config/configuration';
 import { APP_GUARD } from '@nestjs/core';
+import { BullModule } from '@nestjs/bullmq';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { ThrottlerStorageRedisService } from '@nest-lab/throttler-storage-redis';
 import { TenantContextMiddleware } from './common/middleware/tenant-context.middleware';
@@ -65,6 +66,19 @@ import { SmsModule } from './modules/sms/sms.module';
         // ── Infrastructure ────────────────────────────────────────────────────
         SupabaseModule,     // @Global — available across the entire app
         RedisModule,        // @Global — ioredis client + RedisService
+
+        BullModule.forRootAsync({
+            inject: [ConfigService],
+            useFactory: (config: ConfigService) => {
+                const IORedis = require('ioredis');
+                return {
+                    connection: new IORedis(
+                        config.get<string>('redis.url') ||
+                        `redis://${config.get<string>('redis.password') ? `:${config.get<string>('redis.password')}@` : ''}${config.get<string>('redis.host')}:${config.get<number>('redis.port')}`
+                    ),
+                };
+            },
+        }),
 
         ThrottlerModule.forRootAsync({
             inject: [ConfigService],
