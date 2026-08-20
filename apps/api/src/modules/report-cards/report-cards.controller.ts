@@ -26,11 +26,9 @@ export class ReportCardsController {
         const buffer = await this.reportCardsService.generateReportCard(studentId, term, year, caller);
 
         // We serve the generated PDF
-        res.set({
-            'Content-Type': 'application/pdf',
-            'Content-Disposition': `attachment; filename="report-card-${studentId}-term${term}-${year}.pdf"`,
-            'Content-Length': buffer.length,
-        });
+        res.header('Content-Type', 'application/pdf');
+        res.header('Content-Disposition', `attachment; filename="report-card-${studentId}-term${term}-${year}.pdf"`);
+        res.header('Content-Length', buffer.length.toString());
 
         res.send(buffer);
     }
