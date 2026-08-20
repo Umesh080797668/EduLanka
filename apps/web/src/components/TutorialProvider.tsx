@@ -115,7 +115,11 @@ export const TutorialProvider: React.FC<TutorialProviderProps> = ({
                         }, 1000);
                     }
                 }
-            } catch (err) {
+            } catch (err: any) {
+                if (err?.message && (err.message.includes('No active tutorial found') || err.message.includes('Not Found'))) {
+                    // silently ignore 404s for tutorials that are not seeded
+                    return;
+                }
                 console.error('Failed to load tutorial:', err);
             }
         };

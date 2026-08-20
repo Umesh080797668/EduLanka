@@ -1,13 +1,13 @@
-import { IsUUID, IsNumber, IsString, Min, Max, IsInt } from 'class-validator';
+import { IsNumber, IsString, Min, Max, IsInt } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class CreateMarkDto {
     @ApiProperty({ description: 'ID of the student' })
-    @IsUUID()
+    @IsString()
     studentId: string;
 
     @ApiProperty({ description: 'Class ID the mark belongs to' })
-    @IsUUID()
+    @IsString()
     classId: string;
 
     @ApiProperty({ description: 'Subject area or name' })

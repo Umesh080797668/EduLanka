@@ -197,3 +197,37 @@ VALUES
     ('a0000000-0000-0000-0000-000000000010', 2, '#nav-tenants', 'Manage Tenants', NULL, NULL, 'From here you can provision new schools and assign their subscription plans.', NULL, NULL),
     ('a0000000-0000-0000-0000-000000000010', 3, '#nav-infrastructure', 'System Health', NULL, NULL, 'Monitor the global health of the Nginx gateways, API servers, and Database.', NULL, NULL)
 ON CONFLICT DO NOTHING;
+
+
+-- 1. Insert the Tutorial Definition for the 'classes' screen
+INSERT INTO public.tutorials (id, role, screen_id)
+VALUES
+    ('a0000000-0000-0000-0000-000000000011', 'TEACHER', 'classes')
+ON CONFLICT (role, screen_id) DO NOTHING;
+
+-- 2. Insert the Tutorial Steps for the localized walkthrough
+INSERT INTO public.tutorial_steps (tutorial_id, step_order, target_element, title_en, title_si, title_ta, content_en, content_si, content_ta)
+VALUES
+    (
+        'a0000000-0000-0000-0000-000000000011', 
+        1, 
+        NULL, -- Center tooltip since there isn't a specific nav target
+        'My Assigned Classes', 
+        'මට පවරා ඇති පන්ති', 
+        'எனக்கு ஒதுக்கப்பட்ட வகுப்புகள்', 
+        'Here you can view all the classes currently assigned to you for this academic year.', 
+        'මෙම අධ්‍යයන වර්ෂය සඳහා ඔබට පවරා ඇති සියලුම පන්ති මෙහිදී ඔබට නැරඹිය හැක.', 
+        'இந்த கல்வியாண்டில் உங்களுக்கு ஒதுக்கப்பட்ட அனைத்து வகுப்புகளையும் இங்கே காணலாம்.'
+    ),
+    (
+        'a0000000-0000-0000-0000-000000000011', 
+        2, 
+        '.text-indigo-600.bg-indigo-50', -- Targets the "Enter Grades" button specifically
+        'Enter Student Grades', 
+        'සිසුන්ගේ ලකුණු ඇතුළත් කරන්න', 
+        'மாணவர் மதிப்பெண்களை உள்ளிடுக', 
+        'Click this action button to open the Gradebook and submit terminal scores for the students in this class.', 
+        'ශ්‍රේණි පොත විවෘත කිරීමට සහ මෙම පන්තියේ සිසුන් සඳහා වාර ලකුණු ඉදිරිපත් කිරීමට මෙම බොත්තම ක්ලික් කරන්න.', 
+        'உங்கள் வகுப்பில் உள்ள மாணவர்களுக்கான இறுதி மதிப்பெண்களைச் சமர்ப்பிக்க இந்த பட்டனை அழுத்தவும்.'
+    )
+ON CONFLICT DO NOTHING;
