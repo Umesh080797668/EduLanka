@@ -12,16 +12,35 @@ import { useTranslations } from 'next-intl';
 export default function TeacherDashboard() {
     const t = useTranslations('TeacherDashboard');
     const [teacherName, setTeacherName] = useState('...');
+    const [stats, setStats] = useState({ totalStudents: 0, activeClasses: 0 });
+    const [scheduleClasses, setScheduleClasses] = useState<any[]>([]);
 
     useEffect(() => {
         const init = async () => {
             try {
-                // In a real scenario, this fetches /teachers/me
-                const data = await apiClient.get<any>('/users/me');
-                setTeacherName(data?.full_name || 'Teacher');
+                const user = await apiClient.get<any>('/users/me');
+                setTeacherName(user?.full_name || 'Teacher');
+
+                if (user?.id) {
+                    const classesData = await apiClient.get<any[]>(`/classes?teacherId=${user.id}`);
+                    if (classesData) {
+                        let students = 0;
+                        classesData.forEach(c => { students += (c.students?.length || 0); });
+                        setStats({ totalStudents: students, activeClasses: classesData.length });
+
+                        const schedule = classesData.map(c => {
+                            const assign = c.class_teachers?.find((ct: any) => ct.teachers?.user_id === user.id);
+                            return {
+                                class: `Grade ${c.grades?.level}-${c.section}`,
+                                subject: assign?.subject || 'Class Teacher',
+                                time: 'Scheduled Class'
+                            };
+                        });
+                        setScheduleClasses(schedule);
+                    }
+                }
             } catch (e) {
                 console.error(e);
-            } finally {
                 setTeacherName('Teacher');
             }
         };
@@ -77,7 +96,7 @@ export default function TeacherDashboard() {
                             <Users className="w-5 h-5" />
                         </div>
                         <p className="text-slate-500 text-sm font-medium mb-1">{t('totalStudents')}</p>
-                        <h4 className="text-2xl font-bold text-slate-800">142</h4>
+                        <h4 className="text-2xl font-bold text-slate-800">{stats.totalStudents}</h4>
                     </motion.div>
 
                     <motion.div variants={itemVariants} className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 flex flex-col justify-between hover:shadow-md transition-shadow">
@@ -85,7 +104,7 @@ export default function TeacherDashboard() {
                             <BookOpen className="w-5 h-5" />
                         </div>
                         <p className="text-slate-500 text-sm font-medium mb-1">{t('activeClasses')}</p>
-                        <h4 className="text-2xl font-bold text-slate-800">4</h4>
+                        <h4 className="text-2xl font-bold text-slate-800">{stats.activeClasses}</h4>
                     </motion.div>
 
                     <motion.div variants={itemVariants} className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 flex flex-col justify-between hover:shadow-md transition-shadow">
@@ -93,7 +112,7 @@ export default function TeacherDashboard() {
                             <FileEdit className="w-5 h-5" />
                         </div>
                         <p className="text-slate-500 text-sm font-medium mb-1">{t('gradingProgress')}</p>
-                        <h4 className="text-2xl font-bold text-slate-800">75%</h4>
+                        <h4 className="text-2xl font-bold text-slate-800">0%</h4>
                     </motion.div>
 
                     <motion.div variants={itemVariants} className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 flex flex-col justify-between hover:shadow-md transition-shadow">
@@ -101,7 +120,7 @@ export default function TeacherDashboard() {
                             <LogIn className="w-5 h-5" />
                         </div>
                         <p className="text-slate-500 text-sm font-medium mb-1">{t('attendanceToday')}</p>
-                        <h4 className="text-2xl font-bold text-slate-800">92%</h4>
+                        <h4 className="text-2xl font-bold text-slate-800">N/A</h4>
                     </motion.div>
                 </motion.div>
 
@@ -120,11 +139,9 @@ export default function TeacherDashboard() {
                         </div>
 
                         <div className="space-y-4">
-                            {[
-                                { time: '08:00 AM - 08:40 AM', class: 'Grade 10-A', subject: 'Mathematics' },
-                                { time: '09:20 AM - 10:00 AM', class: 'Grade 11-B', subject: 'Physics' },
-                                { time: '11:00 AM - 11:40 AM', class: 'Grade 10-C', subject: 'Mathematics' }
-                            ].map((sch, i) => (
+                            {scheduleClasses.length === 0 ? (
+                                <div className="p-4 text-center text-slate-500 border border-slate-100 rounded-xl">No classes assigned</div>
+                            ) : scheduleClasses.map((sch, i) => (
                                 <div key={i} className="flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-xl border border-slate-100 hover:border-indigo-100 hover:bg-slate-50 transition-colors">
                                     <div className="flex flex-col">
                                         <span className="font-semibold text-slate-800">{sch.subject}</span>

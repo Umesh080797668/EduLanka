@@ -105,12 +105,15 @@ export default function Header() {
                 if (userRole === 'SUPER ADMIN') {
                     router.push(`/system-admin/users?query=${queryUri}`);
                 } else if (userRole === 'SCHOOL ADMIN') {
-                    router.push(`/institution-admin/users?query=${queryUri}`);
+                    router.push(`/institution-admin/students?query=${queryUri}`);
+                } else if (userRole === 'TEACHER') {
+                    router.push(`/teacher/classes?query=${queryUri}`);
                 }
             } else if (searchQuery === '') {
                 // If they clear the search, push back to base dir
                 if (userRole === 'SUPER ADMIN') router.push(`/system-admin/users`);
-                if (userRole === 'SCHOOL ADMIN') router.push(`/institution-admin/users`);
+                if (userRole === 'SCHOOL ADMIN') router.push(`/institution-admin/students`);
+                if (userRole === 'TEACHER') router.push(`/teacher/classes`);
             }
             setIsTyping(false);
         }, 400);
@@ -126,7 +129,9 @@ export default function Header() {
                 if (userRole === 'SUPER ADMIN') {
                     router.push(`/system-admin/users?query=${queryUri}`);
                 } else if (userRole === 'SCHOOL ADMIN') {
-                    router.push(`/institution-admin/users?query=${queryUri}`);
+                    router.push(`/institution-admin/students?query=${queryUri}`);
+                } else if (userRole === 'TEACHER') {
+                    router.push(`/teacher/classes?query=${queryUri}`);
                 }
             }
         }

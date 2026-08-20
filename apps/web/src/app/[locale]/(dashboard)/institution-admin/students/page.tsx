@@ -6,12 +6,15 @@ import { Link } from '@/i18n/routing';
 import { fetchStudents, deactivateStudent, RequestOpts } from '@/lib/api/school';
 import type { StudentProfile } from '@edu-lanka/shared-types';
 import { useTranslations } from 'next-intl';
+import { useSearchParams } from 'next/navigation';
 import { PageSkeleton } from '@/components/ui/Skeleton';
 import MultiStepModal from '@/components/ui/MultiStepModal';
 import { Trash2 } from 'lucide-react';
 
 export default function StudentsPage() {
     const t = useTranslations('InstitutionAdminStudents');
+    const searchParams = useSearchParams();
+    const query = searchParams?.get('query')?.toLowerCase() || '';
     const [students, setStudents] = useState<StudentProfile[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -32,6 +35,13 @@ export default function StudentsPage() {
             .catch((err) => setError(err.message))
             .finally(() => setLoading(false));
     }, []);
+
+    const filteredStudents = students.filter(s =>
+        !query ||
+        s.users?.full_name?.toLowerCase().includes(query) ||
+        s.users?.email?.toLowerCase().includes(query) ||
+        s.admission_no?.toLowerCase().includes(query)
+    );
 
     return (
         <div>
@@ -58,9 +68,9 @@ export default function StudentsPage() {
                 <div style={{ padding: '1rem', background: '#fee2e2', color: '#b91c1c', borderRadius: '6px' }}>
                     {error}
                 </div>
-            ) : students.length === 0 ? (
+            ) : filteredStudents.length === 0 ? (
                 <div style={{ padding: '3rem', textAlign: 'center', background: 'white', borderRadius: '8px', border: '1px solid #e5e7eb' }}>
-                    <p style={{ color: '#6b7280', marginBottom: '1rem' }}>{t('noStudents')}</p>
+                    <p style={{ color: '#6b7280', marginBottom: '1rem' }}>{query ? `No students found matching "${query}"` : t('noStudents')}</p>
                 </div>
             ) : (
                 <div style={{ background: 'white', borderRadius: '8px', border: '1px solid #e5e7eb', overflow: 'hidden' }}>
@@ -75,7 +85,7 @@ export default function StudentsPage() {
                             </tr>
                         </thead>
                         <tbody>
-                            {students.map((student) => (
+                            {filteredStudents.map((student) => (
                                 <tr key={student.id} style={{ borderBottom: '1px solid #e5e7eb' }}>
                                     <td style={{ padding: '0.75rem 1rem' }}>{student.admission_no}</td>
                                     <td style={{ padding: '0.75rem 1rem' }}>

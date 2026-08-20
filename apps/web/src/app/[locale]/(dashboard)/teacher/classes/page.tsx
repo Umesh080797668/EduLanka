@@ -6,9 +6,12 @@ import { Link } from '@/i18n/routing';
 import { useEffect, useState } from 'react';
 import { apiClient } from '@/lib/api-client';
 import { useTranslations } from 'next-intl';
+import { useSearchParams } from 'next/navigation';
 
 export default function TeacherClassesPage() {
     const t = useTranslations('TeacherClasses');
+    const searchParams = useSearchParams();
+    const query = searchParams?.get('query')?.toLowerCase() || '';
     const [classes, setClasses] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
 
@@ -43,6 +46,13 @@ export default function TeacherClassesPage() {
         show: { opacity: 1, y: 0, transition: { duration: 0.3 } }
     };
 
+    const filteredClasses = classes.filter(cls =>
+        !query ||
+        cls.section?.toLowerCase().includes(query) ||
+        cls.grades?.level?.toString().includes(query) ||
+        cls.year?.toString().includes(query)
+    );
+
     return (
         <div className="max-w-5xl mx-auto space-y-6">
             <div className="flex flex-col md:flex-row justify-between mb-8">
@@ -62,8 +72,8 @@ export default function TeacherClassesPage() {
             ) : classes.length === 0 ? (
                 <div className="bg-slate-50 rounded-2xl p-12 text-center border border-slate-200">
                     <BookOpen className="w-12 h-12 text-slate-300 mx-auto mb-4" />
-                    <h3 className="text-lg font-bold text-slate-700">{t('noClassesAssigned')}</h3>
-                    <p className="text-slate-500 mt-2">{t('notAssignedYet')}</p>
+                    <h3 className="text-lg font-bold text-slate-700">{query ? `No classes found matching "${query}"` : t('noClassesAssigned')}</h3>
+                    <p className="text-slate-500 mt-2">{query ? '' : t('notAssignedYet')}</p>
                 </div>
             ) : (
                 <motion.div
@@ -72,7 +82,7 @@ export default function TeacherClassesPage() {
                     animate="show"
                     className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
                 >
-                    {classes.map((cls) => (
+                    {filteredClasses.map((cls) => (
                         <motion.div key={cls.id} variants={itemVariants} className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden hover:shadow-md hover:border-indigo-200 transition-all group">
                             <div className="p-6">
                                 <div className="w-12 h-12 bg-indigo-50 text-indigo-600 rounded-xl flex items-center justify-center mb-4">
