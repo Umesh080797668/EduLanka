@@ -30,7 +30,7 @@ export default function ParentGradesPage() {
             try {
                 const marksData = await apiClient.get<any>(`/student-marks/student/${studentId}`);
                 if (marksData) {
-                    setMarks(marksData.filter((m: any) => m.term === term && m.academic_year === year));
+                    setMarks(marksData.filter((m: any) => String(m.term) === String(term)));
                 }
             } catch (e) {
                 console.error(t('failedToLoad'), e);
