@@ -1,7 +1,7 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import { BookOpen, Calendar, Clock, Trophy, FileText, Activity } from 'lucide-react';
+import { Calendar, FileText } from 'lucide-react';
 import { Link } from '@/i18n/routing';
 import { useEffect, useState } from 'react';
 import { TutorialProvider } from '@/components/TutorialProvider';
@@ -26,26 +26,6 @@ export default function StudentDashboard() {
         };
         init();
     }, []);
-
-    // Mock data for UI presentation
-    const recentActivity = [
-        { title: t('mathHomework'), time: t('twoHoursAgo'), icon: BookOpen, color: 'text-indigo-500', bg: 'bg-indigo-100' },
-        { title: t('scienceLab'), time: t('yesterday'), icon: Trophy, color: 'text-emerald-500', bg: 'bg-emerald-100' },
-        { title: t('upcomingHistory'), time: t('inThreeDays'), icon: Calendar, color: 'text-rose-500', bg: 'bg-rose-100' },
-    ];
-
-    const containerVariants = {
-        hidden: { opacity: 0 },
-        show: {
-            opacity: 1,
-            transition: { staggerChildren: 0.1 }
-        }
-    };
-
-    const itemVariants: any = {
-        hidden: { opacity: 0, y: 20 },
-        show: { opacity: 1, y: 0, transition: { ease: 'easeOut', duration: 0.3 } }
-    };
 
     return (
         <TutorialProvider role="STUDENT" screenId="dashboard">
@@ -74,78 +54,10 @@ export default function StudentDashboard() {
                     </div>
                 </motion.div>
 
-                <motion.div
-                    variants={containerVariants}
-                    initial="hidden"
-                    animate="show"
-                    className="grid grid-cols-1 md:grid-cols-3 gap-6"
-                >
-                    {/* Stats Cards */}
-                    <motion.div variants={itemVariants} className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 flex items-center gap-5 hover:shadow-md transition-shadow">
-                        <div className="w-14 h-14 rounded-full bg-emerald-100 flex items-center justify-center flex-shrink-0 text-emerald-600">
-                            <Activity className="w-7 h-7" />
-                        </div>
-                        <div>
-                            <p className="text-sm font-medium text-slate-500 mb-1">{t('currentGpa')}</p>
-                            <h3 className="text-2xl font-bold text-slate-800">3.8</h3>
-                        </div>
-                    </motion.div>
-
-                    <motion.div variants={itemVariants} className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 flex items-center gap-5 hover:shadow-md transition-shadow">
-                        <div className="w-14 h-14 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0 text-blue-600">
-                            <Clock className="w-7 h-7" />
-                        </div>
-                        <div>
-                            <p className="text-sm font-medium text-slate-500 mb-1">{t('attendance')}</p>
-                            <h3 className="text-2xl font-bold text-slate-800">96.5%</h3>
-                        </div>
-                    </motion.div>
-
-                    <motion.div variants={itemVariants} className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 flex items-center gap-5 hover:shadow-md transition-shadow">
-                        <div className="w-14 h-14 rounded-full bg-purple-100 flex items-center justify-center flex-shrink-0 text-purple-600">
-                            <BookOpen className="w-7 h-7" />
-                        </div>
-                        <div>
-                            <p className="text-sm font-medium text-slate-500 mb-1">{t('assignmentsDone')}</p>
-                            <h3 className="text-2xl font-bold text-slate-800">12 / 15</h3>
-                        </div>
-                    </motion.div>
-                </motion.div>
-
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-8">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-8">
                     <motion.div
                         initial={{ opacity: 0, x: -20 }}
                         animate={{ opacity: 1, x: 0, transition: { delay: 0.3 } }}
-                        className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6"
-                    >
-                        <div className="flex items-center justify-between mb-6">
-                            <h3 className="text-lg font-bold text-slate-800">{t('recentActivity')}</h3>
-                            <button className="text-sm font-medium text-indigo-600 hover:text-indigo-700">{t('viewAll')}</button>
-                        </div>
-
-                        <div className="space-y-6">
-                            {recentActivity.map((item, idx) => (
-                                <div key={idx} className="flex gap-4 group">
-                                    <div className="relative pt-1">
-                                        <div className={`w-10 h-10 rounded-full ${item.bg} ${item.color} flex items-center justify-center shrink-0`}>
-                                            <item.icon className="w-5 h-5" />
-                                        </div>
-                                        {idx !== recentActivity.length - 1 && (
-                                            <div className="absolute top-11 left-1/2 -translate-x-1/2 w-0.5 h-full bg-slate-100 group-hover:bg-slate-200 transition-colors"></div>
-                                        )}
-                                    </div>
-                                    <div className="pt-2 pb-4">
-                                        <h4 className="text-sm font-semibold text-slate-800">{item.title}</h4>
-                                        <p className="text-xs text-slate-500 mt-1">{item.time}</p>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    </motion.div>
-
-                    <motion.div
-                        initial={{ opacity: 0, x: 20 }}
-                        animate={{ opacity: 1, x: 0, transition: { delay: 0.4 } }}
                         className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 flex flex-col"
                     >
                         <div className="flex items-center justify-between mb-6">

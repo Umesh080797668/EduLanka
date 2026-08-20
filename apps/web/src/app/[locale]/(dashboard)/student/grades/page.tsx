@@ -9,8 +9,13 @@ import { apiClient } from '@/lib/api-client';
 import { authManager } from '@/lib/auth-store';
 import { useTranslations } from 'next-intl';
 
+import { useSearchParams } from 'next/navigation';
+
 export default function StudentGradesPage() {
     const t = useTranslations('StudentGrades');
+    const searchParams = useSearchParams();
+    const query = searchParams.get('query')?.toLowerCase() || '';
+
     const [studentId, setStudentId] = useState<string | null>(null);
     const [marks, setMarks] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
@@ -35,9 +40,9 @@ export default function StudentGradesPage() {
             setLoading(false);
         };
         init();
-    }, []);
+    }, [t]);
 
-    // Load marks when term/year/studentId change
+    // Load marks when term/studentId change
     useEffect(() => {
         const fetchMarks = async () => {
             if (!studentId) return;
@@ -45,7 +50,11 @@ export default function StudentGradesPage() {
             try {
                 const marksData = await apiClient.get<any>(`/student-marks/student/${studentId}`);
                 if (marksData) {
-                    setMarks(marksData.filter((m: any) => m.term === term && m.academic_year === year));
+                    setMarks(marksData.filter((m: any) => {
+                        const termMatch = String(m.term) === String(term);
+                        if (!query) return termMatch;
+                        return termMatch && (m.subject || '').toLowerCase().includes(query);
+                    }));
                 }
             } catch (e) {
                 console.error(t('failedToLoad'), e);
@@ -54,7 +63,7 @@ export default function StudentGradesPage() {
             }
         };
         fetchMarks();
-    }, [studentId, term, year]);
+    }, [studentId, term, query, t]);
 
     const handleDownload = async () => {
         if (!studentId) return;
