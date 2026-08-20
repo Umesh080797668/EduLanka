@@ -22,7 +22,8 @@
     "grades": "Grades & Reports",
     "signOut": "Sign Out",
     "inquiries": "Account Inquiries",
-    "auditLogs": "Audit Logs"
+    "auditLogs": "Audit Logs",
+    "chat": "Chat Messages"
   },
   "Header": {
     "searchPlaceholder": "Search...",
@@ -591,5 +592,23 @@
     "actions": "Actions",
     "resolve": "Resolve",
     "reject": "Reject"
+  },
+  "Chat": {
+    "conversations": "Conversations",
+    "selectConversationToStart": "Select a conversation to start messaging.",
+    "noConversations": "No active conversations found.",
+    "untitled": "Untitled Chat",
+    "classGroup": "Class Group",
+    "directMessage": "Direct Message",
+    "conversationThread": "Conversation Thread",
+    "loading": "Loading chat context...",
+    "pinnedMessage": "Pinned",
+    "typeAMessage": "Type a message...",
+    "send": "Send"
+  },
+  "Moderation": {
+    "pin": "Pin Message",
+    "unpin": "Unpin",
+    "muteUser": "Mute User"
   }
 }

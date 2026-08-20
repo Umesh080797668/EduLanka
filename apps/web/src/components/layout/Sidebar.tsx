@@ -29,13 +29,16 @@ const NAV_ITEMS = {
     STUDENT: [
         { nameKey: 'dashboard', href: '/student', icon: LayoutDashboard },
         { nameKey: 'gradesReports', href: '/student/grades', icon: GraduationCap },
+        { nameKey: 'chat', href: '/chat', icon: MessageSquare },
     ],
     PARENT: [
         { nameKey: 'dashboard', href: '/parent', icon: LayoutDashboard },
+        { nameKey: 'chat', href: '/chat', icon: MessageSquare },
     ],
     TEACHER: [
         { nameKey: 'dashboard', href: '/teacher', icon: LayoutDashboard },
         { nameKey: 'classesGrades', href: '/teacher/classes', icon: BookOpen },
+        { nameKey: 'chat', href: '/chat', icon: MessageSquare },
     ],
     SCHOOL_ADMIN: [
         { nameKey: 'dashboard', href: '/institution-admin', icon: LayoutDashboard },
@@ -46,6 +49,7 @@ const NAV_ITEMS = {
         { nameKey: 'parents', href: '/institution-admin/parents', icon: UserCheck },
         { nameKey: 'policy', href: '/institution-admin/policy', icon: Settings },
         { nameKey: 'inquiries', href: '/institution-admin/inquiries', icon: MessageSquare },
+        { nameKey: 'chat', href: '/chat', icon: MessageSquare },
     ],
     SUPER_ADMIN: [
         { nameKey: 'dashboard', href: '/system-admin', icon: Server },
