@@ -9,6 +9,7 @@ import { TutorialProvider } from '@/components/TutorialProvider';
 import { HelpButton } from '@/components/HelpButton';
 import { apiClient } from '@/lib/api-client';
 import { useTranslations } from 'next-intl';
+import NoticeFeed from '@/components/notices/NoticeFeed';
 
 export default function ParentDashboard() {
     const t = useTranslations('ParentDashboard');
@@ -116,6 +117,18 @@ export default function ParentDashboard() {
                         </motion.div>
                     ))}
                 </motion.div>
+
+                <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0, transition: { delay: 0.4 } }}
+                    className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 mt-6"
+                >
+                    <h3 className="text-lg font-bold text-slate-800 mb-6 font-sans">Latest Notices</h3>
+                    <div className="max-h-[400px] overflow-y-auto pr-2">
+                        <NoticeFeed />
+                    </div>
+                </motion.div>
+
                 <HelpButton />
             </div>
         </TutorialProvider>

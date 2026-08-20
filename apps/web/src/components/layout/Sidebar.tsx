@@ -17,7 +17,8 @@ import {
     UserCog,
     Baby,
     MessageSquare,
-    Shield
+    Shield,
+    Bell
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -42,6 +43,7 @@ const NAV_ITEMS = {
     ],
     SCHOOL_ADMIN: [
         { nameKey: 'dashboard', href: '/institution-admin', icon: LayoutDashboard },
+        { nameKey: 'notices', href: '/institution-admin/notices', icon: Bell },
         { nameKey: 'classes', href: '/institution-admin/classes', icon: BookOpen },
         { nameKey: 'grades', href: '/institution-admin/grades', icon: GraduationCap },
         { nameKey: 'students', href: '/institution-admin/students', icon: Baby },

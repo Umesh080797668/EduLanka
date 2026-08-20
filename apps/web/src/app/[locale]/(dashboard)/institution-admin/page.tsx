@@ -1,13 +1,14 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import { ShieldCheck, Users, Settings, Activity, Building, ChevronRight } from 'lucide-react';
 import { Link } from '@/i18n/routing';
 import { useEffect, useState } from 'react';
 import { TutorialProvider } from '@/components/TutorialProvider';
 import { HelpButton } from '@/components/HelpButton';
 import { DashboardCardsSkeleton } from '@/components/ui/Skeleton';
 import { apiClient } from '@/lib/api-client';
+import { ShieldCheck, Users, Settings, Activity, Building, ChevronRight, AlertTriangle } from 'lucide-react';
+import { toast } from 'sonner';
 import { useTranslations } from 'next-intl';
 
 export default function InstitutionAdminDashboard() {
@@ -29,6 +30,20 @@ export default function InstitutionAdminDashboard() {
         };
         fetchStats();
     }, []);
+
+    const triggerDisasterMode = async () => {
+        try {
+            await apiClient.post('/tenants/disaster-mode', {});
+            toast.success('Disaster Mode protocol successfully engaged.', {
+                description: 'Emergency SMS Blasts are currently dispatching out to all recorded parent phones across the institution.',
+            });
+            setTimeout(() => window.location.reload(), 1500);
+        } catch (e: any) {
+            toast.error('Failed to trigger Disaster Mode', {
+                description: e?.response?.data?.message || 'Check tier quotas and system boundaries.',
+            });
+        }
+    };
 
     const containerVariants = {
         hidden: { opacity: 0 },
@@ -82,6 +97,27 @@ export default function InstitutionAdminDashboard() {
                                         {t('schoolPolicies')}
                                     </button>
                                 </Link>
+                            </div>
+                        </div>
+
+                        {/* Disaster Mode Quick Action */}
+                        <div className="flex items-center gap-3 bg-red-900/40 p-4 rounded-xl border border-red-500/20 backdrop-blur-md">
+                            <div className="p-3 bg-red-500/20 rounded-lg shrink-0">
+                                <AlertTriangle className="w-8 h-8 text-red-400" />
+                            </div>
+                            <div className="pr-4">
+                                <h4 className="font-bold text-red-100 flex items-center gap-2">Disaster Mode</h4>
+                                <p className="text-sm text-red-300 max-w-xs mb-2">Triggers emergency Twilio SMS parent broadcasts and forces system offline-sync.</p>
+                                <button
+                                    className="bg-red-500 hover:bg-red-600 text-white text-sm px-4 py-1.5 rounded font-semibold transition-all w-full"
+                                    onClick={() => {
+                                        if (confirm("Are you absolutely sure you want to engage Disaster Mode? This will SMS blast all parents and disrupt normal services!")) {
+                                            triggerDisasterMode();
+                                        }
+                                    }}
+                                >
+                                    ENGAGE PROTOCOL
+                                </button>
                             </div>
                         </div>
                     </div>

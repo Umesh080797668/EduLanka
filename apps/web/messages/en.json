@@ -23,7 +23,8 @@
     "signOut": "Sign Out",
     "inquiries": "Account Inquiries",
     "auditLogs": "Audit Logs",
-    "chat": "Chat Messages"
+    "chat": "Chat Messages",
+    "notices": "Notices"
   },
   "Header": {
     "searchPlaceholder": "Search...",
@@ -610,5 +611,32 @@
     "pin": "Pin Message",
     "unpin": "Unpin",
     "muteUser": "Mute User"
+  },
+  "Notices": {
+    "noNotices": "No active notices found.",
+    "priority_LOW": "Low",
+    "priority_NORMAL": "Normal",
+    "priority_HIGH": "High",
+    "priority_URGENT": "Urgent",
+    "acknowledge": "Acknowledge",
+    "acknowledged": "Acknowledged",
+    "createNotice": "Create Notice",
+    "createNoticeDescription": "Publish critical updates safely.",
+    "title": "Notice Title",
+    "titlePlaceholder": "Enter notice title...",
+    "content": "Content (HTML Supported)",
+    "contentPlaceholder": "Write the notice details here...",
+    "scope": "Targeting Scope",
+    "scope_SCHOOL_WIDE": "School-Wide (Universal)",
+    "scope_GRADE_LEVEL": "Grade-Level Specific",
+    "scope_CLASS_SPECIFIC": "Class-Room Specific",
+    "priority": "Notice Priority",
+    "targetId": "Target Entity ID",
+    "targetIdPlaceholder": "Enter Grade or Class ID...",
+    "sendSmsPrompt": "Trigger SMS Broadcast",
+    "sendSmsDescription": "Dispatches Twilio SMS. (Starter+ Tier)",
+    "publishNotice": "Publish Notice",
+    "noticeCreatedSuccess": "Notice successfully published and targeted.",
+    "noticeCreateFailed": "Failed to publish notice. Check permissions or targeting."
   }
 }

@@ -8,6 +8,7 @@ import { TutorialProvider } from '@/components/TutorialProvider';
 import { HelpButton } from '@/components/HelpButton';
 import { apiClient } from '@/lib/api-client';
 import { useTranslations } from 'next-intl';
+import NoticeFeed from '@/components/notices/NoticeFeed';
 
 export default function StudentDashboard() {
     const t = useTranslations('StudentDashboard');
@@ -81,6 +82,17 @@ export default function StudentDashboard() {
                                 </div>
                                 <span className="font-semibold text-slate-500 text-sm">{t('timetable')}</span>
                             </div>
+                        </div>
+                    </motion.div>
+
+                    <motion.div
+                        initial={{ opacity: 0, x: 20 }}
+                        animate={{ opacity: 1, x: 0, transition: { delay: 0.5 } }}
+                        className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 flex flex-col h-full"
+                    >
+                        <h3 className="text-lg font-bold text-slate-800 mb-6 font-sans">Official Notices</h3>
+                        <div className="flex-1 overflow-y-auto max-h-[400px] pr-2">
+                            <NoticeFeed />
                         </div>
                     </motion.div>
                 </div>

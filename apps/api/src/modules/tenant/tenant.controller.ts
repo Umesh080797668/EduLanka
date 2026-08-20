@@ -140,4 +140,17 @@ export class TenantController {
     ) {
         return this.tenantService.updateStatus(id, dto, user);
     }
+
+    /**
+     * POST /api/v1/tenants/disaster-mode
+     * Toggle the Disaster Mode alert.
+     */
+    @Post('disaster-mode')
+    @Version('1')
+    @HttpCode(HttpStatus.OK)
+    @ApiOperation({ summary: 'Trigger Disaster Mode global alert protocol' })
+    @ApiOkResponse({ description: 'Disaster Mode activated' })
+    toggleDisasterMode(@CurrentUser() user: JwtPayload) {
+        return this.tenantService.toggleDisasterMode(user);
+    }
 }

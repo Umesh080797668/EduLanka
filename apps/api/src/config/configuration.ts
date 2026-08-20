@@ -26,6 +26,11 @@ export const configuration = () => ({
         expiresIn: process.env['JWT_EXPIRES_IN'] ?? '15m',
         refreshExpiresIn: process.env['JWT_REFRESH_EXPIRES_IN'] ?? '7d',
     },
+    twilio: {
+        accountSid: process.env['TWILIO_ACCOUNT_SID'] as string | undefined,
+        authToken: process.env['TWILIO_AUTH_TOKEN'] as string | undefined,
+        fromNumber: process.env['TWILIO_FROM_NUMBER'] as string | undefined,
+    },
 });
 
 export type AppConfiguration = ReturnType<typeof configuration>;

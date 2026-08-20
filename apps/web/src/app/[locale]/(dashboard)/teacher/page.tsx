@@ -8,6 +8,7 @@ import { TutorialProvider } from '@/components/TutorialProvider';
 import { HelpButton } from '@/components/HelpButton';
 import { apiClient } from '@/lib/api-client';
 import { useTranslations } from 'next-intl';
+import NoticeFeed from '@/components/notices/NoticeFeed';
 
 export default function TeacherDashboard() {
     const t = useTranslations('TeacherDashboard');
@@ -150,6 +151,17 @@ export default function TeacherDashboard() {
                                 </div>
                                 <span className="font-semibold text-slate-700">{t('enterGrades')}</span>
                             </Link>
+                        </div>
+                    </motion.div>
+
+                    <motion.div
+                        initial={{ opacity: 0, x: -20 }}
+                        animate={{ opacity: 1, x: 0, transition: { delay: 0.5 } }}
+                        className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 lg:col-span-2"
+                    >
+                        <h3 className="text-lg font-bold text-slate-800 mb-6 font-sans">Institution Notices</h3>
+                        <div className="max-h-[400px] overflow-y-auto pr-2">
+                            <NoticeFeed />
                         </div>
                     </motion.div>
                 </div>

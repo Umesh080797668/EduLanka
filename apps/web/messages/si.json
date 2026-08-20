@@ -23,7 +23,8 @@
     "signOut": "ඉවත් වන්න",
     "inquiries": "ගිණුම් විමසීම්",
     "auditLogs": "විගණන ලොග",
-    "chat": "චැට් පණිවිඩ"
+    "chat": "චැට් පණිවිඩ",
+    "notices": "දැනුම්දීම්"
   },
   "Header": {
     "searchPlaceholder": "සොයන්න...",
@@ -610,5 +611,32 @@
     "pin": "පණිවිඩය පින් කරන්න",
     "unpin": "අයින් කරන්න",
     "muteUser": "පරිශීලක නිහඬ කරන්න"
+  },
+  "Notices": {
+    "noNotices": "සක්‍රිය දැනුම්දීම් නොමැත.",
+    "priority_LOW": "අඩු",
+    "priority_NORMAL": "සාමාන්‍ය",
+    "priority_HIGH": "ඉහළ",
+    "priority_URGENT": "හදිසි",
+    "acknowledge": "පිළිගන්න",
+    "acknowledged": "පිළිගන්නා ලදී",
+    "createNotice": "නිවේදනයක් නිර්මාණය කරන්න",
+    "createNoticeDescription": "විවේචනාත්මක යාවත්කාලීන ආරක්ෂිතව පළ කරන්න.",
+    "title": "නිවේදනයේ මාතෘකාව",
+    "titlePlaceholder": "නිවේදනයේ මාතෘකාව ඇතුළත් කරන්න...",
+    "content": "අන්තර්ගතය",
+    "contentPlaceholder": "නිවේදනයේ විස්තර මෙහි ලියන්න...",
+    "scope": "ඉලක්ක කිරීමේ විෂය පථය",
+    "scope_SCHOOL_WIDE": "පාසල පුරා",
+    "scope_GRADE_LEVEL": "ශ්‍රේණි-මට්ටමේ නිශ්චිත",
+    "scope_CLASS_SPECIFIC": "පන්තියට නිශ්චිත",
+    "priority": "ප්‍රමුඛතාවය",
+    "targetId": "ඉලක්ක ආයතනයේ හැඳුනුම්පත",
+    "targetIdPlaceholder": "ශ්‍රේණි හෝ පන්ති හැඳුනුම්පත ඇතුළු කරන්න...",
+    "sendSmsPrompt": "SMS විකාශනය",
+    "sendSmsDescription": "SMS මගින් යවන්න.",
+    "publishNotice": "නිවේදනය පළ කරන්න",
+    "noticeCreatedSuccess": "නිවේදනය සාර්ථකව පළ කරන ලදී.",
+    "noticeCreateFailed": "නිවේදනය පළ කිරීමට අපොහොසත් විය."
   }
 }

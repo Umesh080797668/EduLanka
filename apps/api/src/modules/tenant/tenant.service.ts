@@ -17,6 +17,7 @@ import {
 import { SupabaseService } from '../supabase/supabase.service';
 import type { CreateTenantDto } from './tenant.controller';
 import { AuditLogsService } from '../audit-logs/audit-logs.service';
+import { SmsService } from '../sms/sms.service';
 
 /** Shape returned from public.tenants Supabase query */
 interface TenantRow {
@@ -47,7 +48,8 @@ export class TenantService {
 
     constructor(
         private readonly supabase: SupabaseService,
-        private readonly auditLogs: AuditLogsService
+        private readonly auditLogs: AuditLogsService,
+        private readonly smsService: SmsService
     ) { }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
@@ -263,5 +265,54 @@ export class TenantService {
         });
 
         return this.rowToTenant(data as TenantRow);
+    }
+
+    /**
+     * POST /api/v1/tenants/disaster-mode
+     * Toggles the global Disaster Mode flag on the given tenant.
+     * Initiates SMS blasting using Twilio Gateway to all mapped Parents safely.
+     */
+    async toggleDisasterMode(caller: JwtPayload): Promise<{ active: boolean }> {
+        if (caller.role !== UserRole.SCHOOL_ADMIN && caller.role !== UserRole.SUPER_ADMIN) {
+            throw new ForbiddenException('Only Administrators can trigger System Outages (Disaster Mode).');
+        }
+
+        const { data: tenant } = await this.supabase.adminClient
+            .from('tenants')
+            .select('id, name, plan, disaster_mode')
+            .eq('id', caller.tenantId)
+            .single();
+
+        if (!tenant) throw new NotFoundException('Tenant context unavailable.');
+
+        const newStatus = !tenant.disaster_mode;
+
+        await this.supabase.adminClient
+            .from('tenants')
+            .update({ disaster_mode: newStatus })
+            .eq('id', caller.tenantId);
+
+        this.logger.warn(`Disaster Mode toggled to [${newStatus}] for ${tenant.name} !`);
+
+        // Broadcast Trigger 
+        if (newStatus && tenant.plan !== 'COMMUNITY') {
+            // Find all parent contacts
+            const { data: parents } = await this.supabase.getTenantClient(tenant.id)
+                .from('users')
+                .select('phone_number')
+                .eq('role', 'PARENT')
+                .not('phone_number', 'is', null);
+
+            parents?.forEach(parent => {
+                if (parent.phone_number) {
+                    this.smsService.sendSms(
+                        parent.phone_number,
+                        `[🚨 ${tenant.name} EMERGENCY 🚨] School operations are suspended entirely due to an active Disaster Mode trigger. Please access the offline application portals for instructions immediately.`
+                    ).catch(e => this.logger.error(`Disaster Blast failure: ${e.message}`));
+                }
+            });
+        }
+
+        return { active: newStatus };
     }
 }

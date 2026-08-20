@@ -27,6 +27,8 @@ import { NotificationsModule } from './modules/notifications/notifications.modul
 import { AuditLogsModule } from './modules/audit-logs/audit-logs.module';
 import { UploadModule } from './modules/upload/upload.module';
 import { ChatModule } from './modules/chat/chat.module';
+import { NoticesModule } from './modules/notices/notices.module';
+import { SmsModule } from './modules/sms/sms.module';
 
 @Module({
     imports: [
@@ -103,6 +105,8 @@ import { ChatModule } from './modules/chat/chat.module';
         AuditLogsModule,
         UploadModule,
         ChatModule,
+        NoticesModule,
+        SmsModule,
     ],
     providers: [
         {
