@@ -43,8 +43,8 @@ importers:
         specifier: ^7.0.3
         version: 7.0.3
       '@fastify/formbody':
-        specifier: ^9.0.0
-        version: 9.0.0
+        specifier: ^7.4.0
+        version: 7.4.0
       '@fastify/helmet':
         specifier: ^11.1.1
         version: 11.1.1
@@ -726,9 +726,6 @@ packages:
 
   '@fastify/formbody@7.4.0':
     resolution: {integrity: sha512-H3C6h1GN56/SMrZS8N2vCT2cZr7mIHzBHzOBa5OPpjfB/D6FzP9mMpE02ZzrFX0ANeh0BAJdoXKOF2e7IbV+Og==}
-
-  '@fastify/formbody@9.0.0':
-    resolution: {integrity: sha512-T/af26CSrUARBCvsEmv+DJLPfZlrRKESzqironxP1j7qzuLyKcoZtj6MuTGShuKx1THXugoie2oFbUJxXfGFzA==}
 
   '@fastify/helmet@11.1.1':
     resolution: {integrity: sha512-pjJxjk6SLEimITWadtYIXt6wBMfFC1I6OQyH/jYVCqSAn36sgAIFjeNiibHtifjCd+e25442pObis3Rjtame6A==}
@@ -3313,9 +3310,6 @@ packages:
 
   fastify-plugin@4.5.1:
     resolution: {integrity: sha512-stRHYGeuqpEZTL1Ef0Ovr2ltazUT9g844X5z/zEBFLG8RYlpDiOCIG+ATvYEp+/zmc7sN29mcIMp8gvYplYPIQ==}
-
-  fastify-plugin@6.0.0:
-    resolution: {integrity: sha512-fZOty7z3O7vOliF6d8bHE3wiEh1KcNnKEQensSgTk9C1DvN6nRLS++XVd86v33Hw/8u9Un8A1zDrQ8ujcQDHEg==}
 
   fastify@4.28.1:
     resolution: {integrity: sha512-kFWUtpNr4i7t5vY2EJPCN2KgMVpuqfU4NjnJNCgiNB900oiDeYqaNDRcAfeBbOF5hGixixxcKnOU4KN9z6QncQ==}
@@ -6311,11 +6305,6 @@ snapshots:
       fast-querystring: 1.1.2
       fastify-plugin: 4.5.1
 
-  '@fastify/formbody@9.0.0':
-    dependencies:
-      fast-querystring: 1.1.2
-      fastify-plugin: 6.0.0
-
   '@fastify/helmet@11.1.1':
     dependencies:
       fastify-plugin: 4.5.1
@@ -9302,8 +9291,6 @@ snapshots:
   fast-uri@3.1.5: {}
 
   fastify-plugin@4.5.1: {}
-
-  fastify-plugin@6.0.0: {}
 
   fastify@4.28.1:
     dependencies:

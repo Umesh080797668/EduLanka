@@ -75,7 +75,8 @@ import { SystemAdminModule } from './modules/system-admin/system-admin.module';
                 return {
                     connection: new IORedis(
                         config.get<string>('redis.url') ||
-                        `redis://${config.get<string>('redis.password') ? `:${config.get<string>('redis.password')}@` : ''}${config.get<string>('redis.host')}:${config.get<number>('redis.port')}`
+                        `redis://${config.get<string>('redis.password') ? `:${config.get<string>('redis.password')}@` : ''}${config.get<string>('redis.host')}:${config.get<number>('redis.port')}`,
+                        { maxRetriesPerRequest: null }
                     ),
                 };
             },
