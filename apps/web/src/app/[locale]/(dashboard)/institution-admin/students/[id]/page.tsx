@@ -100,7 +100,7 @@ export default function StudentDetailPage() {
             const updated = await updateStudent(id, {
                 fullName: editForm.fullName,
                 phoneNumber: editForm.phoneNumber,
-                gender: editForm.gender,
+                gender: editForm.gender?.toUpperCase() || null,
                 dateOfBirth: editForm.dateOfBirth
             }, opts);
             setStudent(updated);

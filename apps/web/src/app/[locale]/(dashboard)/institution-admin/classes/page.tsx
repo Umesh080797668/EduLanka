@@ -14,8 +14,34 @@ export default function ClassesPage() {
     const t = useTranslations('InstitutionAdminClasses');
     const [classes, setClasses] = useState<ClassProfile[]>([]);
     const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
     const [classToDelete, setClassToDelete] = useState<ClassProfile | null>(null);
+    const [error, setError] = useState<string | null>(null);
+    const [classToEdit, setClassToEdit] = useState<ClassProfile | null>(null);
+    const [editForm, setEditForm] = useState({ year: new Date().getFullYear(), section: '' });
+    const [savingEdit, setSavingEdit] = useState(false);
+
+    const openEditModal = (cls: ClassProfile) => {
+        setEditForm({ year: cls.year, section: cls.section });
+        setClassToEdit(cls);
+    };
+
+    const handleEditSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!classToEdit) return;
+        setSavingEdit(true);
+        try {
+            const { updateClass } = await import('@/lib/api/school');
+            const opts: RequestOpts = { token: authManager.getToken() || '', tenantId: authManager.getTenantId() || '' };
+            const updated = await updateClass(classToEdit.id, editForm, opts);
+            setClasses(prev => prev.map(c => c.id === updated.id ? { ...c, ...updated } : c));
+            setClassToEdit(null);
+            setError(null);
+        } catch (err: any) {
+            setError(err.message);
+        } finally {
+            setSavingEdit(false);
+        }
+    };
 
     const handleDeleteConfirm = async () => {
         if (!classToDelete) return;
@@ -163,12 +189,12 @@ export default function ClassesPage() {
                                             </td>
                                             <td className="px-6 py-4 text-right">
                                                 <div className="flex items-center justify-end gap-2">
-                                                    <Link
-                                                        href={`/institution-admin/classes/${cls.id}?edit=true`}
+                                                    <button
+                                                        onClick={() => openEditModal(cls)}
                                                         className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-slate-50 text-slate-600 border border-slate-200 rounded-lg text-sm font-medium transition-all shadow-sm"
                                                     >
                                                         Edit
-                                                    </Link>
+                                                    </button>
                                                     <Link
                                                         href={`/institution-admin/classes/${cls.id}`}
                                                         className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-indigo-50 text-slate-600 hover:text-indigo-700 border border-slate-200 hover:border-indigo-300 rounded-lg text-sm font-medium transition-all shadow-sm"
@@ -214,6 +240,40 @@ export default function ClassesPage() {
                 ]}
                 onComplete={handleDeleteConfirm}
             />
+
+            {classToEdit && (
+                <div style={{ position: 'fixed', inset: 0, zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(15, 23, 42, 0.5)' }}>
+                    <div style={{ background: 'white', border: '1px solid #e5e7eb', borderRadius: '1rem', padding: '2rem', width: '100%', maxWidth: '24rem', boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)' }}>
+                        <h2 style={{ fontSize: '1.25rem', fontWeight: 600, color: '#111827', marginBottom: '1.5rem' }}>Edit Class</h2>
+                        <form onSubmit={handleEditSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                            <div>
+                                <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 500, color: '#374151', marginBottom: '0.5rem' }}>Academic Year</label>
+                                <input
+                                    type="number" required
+                                    value={editForm.year}
+                                    onChange={e => setEditForm(prev => ({ ...prev, year: parseInt(e.target.value) }))}
+                                    style={{ width: '100%', padding: '0.5rem', borderRadius: '0.5rem', border: '1px solid #d1d5db' }}
+                                />
+                            </div>
+                            <div>
+                                <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 500, color: '#374151', marginBottom: '0.5rem' }}>Section/Name (e.g. 10-A, 11-Bio)</label>
+                                <input
+                                    type="text" required
+                                    value={editForm.section}
+                                    onChange={e => setEditForm(prev => ({ ...prev, section: e.target.value }))}
+                                    style={{ width: '100%', padding: '0.5rem', borderRadius: '0.5rem', border: '1px solid #d1d5db' }}
+                                />
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '1rem' }}>
+                                <button type="button" onClick={() => setClassToEdit(null)} style={{ padding: '0.5rem 1rem', borderRadius: '0.5rem', border: 'none', background: '#f3f4f6', color: '#374151', fontWeight: 500, cursor: 'pointer' }}>Cancel</button>
+                                <button type="submit" disabled={savingEdit} style={{ padding: '0.5rem 1rem', borderRadius: '0.5rem', border: 'none', background: '#4f46e5', color: 'white', fontWeight: 500, cursor: 'pointer', opacity: savingEdit ? 0.7 : 1 }}>
+                                    {savingEdit ? 'Saving...' : 'Save Changes'}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
