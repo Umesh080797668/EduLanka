@@ -32,6 +32,12 @@ export class StudentMarksService {
             if (!teacher) throw new NotFoundException('Teacher profile not found');
         }
 
+        let letterGrade = 'W';
+        if (dto.marks >= 75) letterGrade = 'A';
+        else if (dto.marks >= 65) letterGrade = 'B';
+        else if (dto.marks >= 50) letterGrade = 'C';
+        else if (dto.marks >= 35) letterGrade = 'S';
+
         const { data, error } = await db
             .from('student_marks')
             .upsert({
@@ -41,7 +47,8 @@ export class StudentMarksService {
                 subject: dto.subject,
                 term: String(dto.term),
                 marks: dto.marks,
-                total_score: dto.marks
+                total_score: dto.marks,
+                grade: letterGrade
             }, { onConflict: 'tenant_id, student_id, term, subject' })
             .select()
             .single();

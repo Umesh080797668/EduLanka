@@ -46,7 +46,7 @@ export default function TeacherGradesPage() {
                     const val = m.total_score !== null && m.total_score !== undefined ? m.total_score : (typeof m.marks === 'number' ? m.marks : '');
                     newMarks[m.student_id] = { value: val, saving: false, saved: true };
                 });
-                setMarks(prev => ({ ...prev, ...newMarks }));
+                setMarks(newMarks);
             } catch (e) {
                 console.error(t('failedToFetchMarks'), e);
             }
