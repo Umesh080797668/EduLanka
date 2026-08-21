@@ -5,7 +5,7 @@ import { Roles } from '../../common/decorators/roles.decorator';
 import { UserRole } from '@edu-lanka/shared-types';
 import { RedisService } from '../redis/redis.service';
 
-@Controller('v1/system-admin/observability')
+@Controller('system-admin/observability')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class ObservabilityController {
     constructor(private readonly redisService: RedisService) { }

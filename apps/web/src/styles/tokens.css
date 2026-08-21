@@ -1,67 +1,583 @@
 /* =============================================================================
-   EduLanka Design System — Tailwind v4 CSS Design Tokens
-   Import this in app/globals.css
+   EduLanka Design System — Tailwind v4 design tokens
+   Imported by app/globals.css
+
+   Two layers:
+     1. RAW PALETTE  (:root / .dark)  — hue ramps + semantic role variables.
+        These are plain CSS custom properties, so they can be re-pointed at
+        runtime (dark mode, future per-tenant theming) without a rebuild.
+     2. @theme inline — maps the semantic roles onto Tailwind's utility
+        namespace so `bg-card`, `text-muted-foreground`, `border-border`, …
+        actually generate CSS. `inline` makes Tailwind emit `var(--card)`
+        directly in the utility, which is what lets .dark override work.
    ============================================================================= */
 
 @import "tailwindcss";
 
-@theme {
-  /* ── Brand colors ─────────────────────────────────────────────────────── */
-  --color-brand-50: oklch(0.97 0.02 250);
-  --color-brand-100: oklch(0.93 0.05 250);
-  --color-brand-200: oklch(0.86 0.10 250);
-  --color-brand-300: oklch(0.76 0.15 250);
-  --color-brand-400: oklch(0.64 0.20 250);
-  --color-brand-500: oklch(0.54 0.24 250);    /* primary */
-  --color-brand-600: oklch(0.45 0.22 250);
-  --color-brand-700: oklch(0.36 0.18 250);
-  --color-brand-800: oklch(0.27 0.14 250);
-  --color-brand-900: oklch(0.18 0.08 250);
-  --color-brand-950: oklch(0.11 0.05 250);
+/* Class-based dark mode (Tailwind v4 has no `darkMode` config option). */
+@custom-variant dark (&:is(.dark *));
 
-  /* ── Success / Warning / Danger ────────────────────────────────────────── */
-  --color-success-500: oklch(0.65 0.19 145);
-  --color-warning-500: oklch(0.78 0.18 80);
-  --color-danger-500: oklch(0.62 0.25 25);
+/* ─────────────────────────────────────────────────────────────────────────────
+   1. Raw palette
+   ──────────────────────────────────────────────────────────────────────────── */
+:root {
+    /* ── Brand ramp — "EduLanka Indigo" ──────────────────────────────────── */
+    --brand-50: oklch(0.971 0.014 268);
+    --brand-100: oklch(0.938 0.033 269);
+    --brand-200: oklch(0.885 0.062 270);
+    --brand-300: oklch(0.811 0.105 271);
+    --brand-400: oklch(0.713 0.149 273);
+    --brand-500: oklch(0.617 0.184 275);
+    --brand-600: oklch(0.541 0.199 277);
+    --brand-700: oklch(0.472 0.183 278);
+    --brand-800: oklch(0.396 0.148 279);
+    --brand-900: oklch(0.329 0.115 280);
+    --brand-950: oklch(0.221 0.078 281);
 
-  /* ── Neutral surface ────────────────────────────────────────────────────── */
-  --color-surface-0: oklch(1 0 0);            /* pure white */
-  --color-surface-1: oklch(0.99 0 0);
-  --color-surface-2: oklch(0.97 0 0);
-  --color-surface-3: oklch(0.94 0 0);
+    /* ── Neutral ramp — cool slate ───────────────────────────────────────── */
+    --neutral-0: oklch(1 0 0);
+    --neutral-50: oklch(0.984 0.003 248);
+    --neutral-100: oklch(0.968 0.007 248);
+    --neutral-200: oklch(0.929 0.013 256);
+    --neutral-300: oklch(0.869 0.020 253);
+    --neutral-400: oklch(0.704 0.031 257);
+    --neutral-500: oklch(0.554 0.036 257);
+    --neutral-600: oklch(0.446 0.037 257);
+    --neutral-700: oklch(0.372 0.036 260);
+    --neutral-800: oklch(0.279 0.036 260);
+    --neutral-900: oklch(0.208 0.036 265);
+    --neutral-950: oklch(0.139 0.030 265);
 
-  /* ── Typography ──────────────────────────────────────────────────────────── */
-  --font-sans: 'Inter', 'Geist', ui-sans-serif, system-ui, sans-serif;
-  --font-mono: 'Geist Mono', ui-monospace, monospace;
+    /* ── Status ramps ────────────────────────────────────────────────────── */
+    --success-50: oklch(0.979 0.021 166);
+    --success-100: oklch(0.950 0.052 163);
+    --success-500: oklch(0.696 0.152 163);
+    --success-600: oklch(0.596 0.132 163);
+    --success-700: oklch(0.508 0.111 166);
 
-  /* ── Spacing ─────────────────────────────────────────────────────────────── */
-  --spacing-page-x: 1.5rem;
+    --warning-50: oklch(0.987 0.022 95);
+    --warning-100: oklch(0.962 0.059 95);
+    --warning-500: oklch(0.769 0.163 70);
+    --warning-600: oklch(0.666 0.163 58);
+    --warning-700: oklch(0.555 0.145 49);
 
-  /* ── Radii ───────────────────────────────────────────────────────────────── */
-  --radius-card: 0.75rem;
-  --radius-input: 0.375rem;
+    --danger-50: oklch(0.971 0.013 18);
+    --danger-100: oklch(0.936 0.032 18);
+    --danger-500: oklch(0.637 0.208 25);
+    --danger-600: oklch(0.577 0.213 27);
+    --danger-700: oklch(0.505 0.191 27);
 
-  /* ── Shadow ──────────────────────────────────────────────────────────────── */
-  --shadow-card: 0 1px 3px 0 rgb(0 0 0 / 0.08), 0 1px 2px -1px rgb(0 0 0 / 0.08);
-  --shadow-dropdown: 0 4px 12px 0 rgb(0 0 0 / 0.12);
+    --info-50: oklch(0.977 0.014 236);
+    --info-100: oklch(0.951 0.026 237);
+    --info-500: oklch(0.685 0.148 238);
+    --info-600: oklch(0.588 0.153 242);
+    --info-700: oklch(0.500 0.134 243);
+
+    /* ── Semantic roles (light) ──────────────────────────────────────────── */
+    --background: var(--neutral-50);
+    --foreground: var(--neutral-900);
+
+    --card: var(--neutral-0);
+    --card-foreground: var(--neutral-900);
+
+    --popover: var(--neutral-0);
+    --popover-foreground: var(--neutral-900);
+
+    --primary: var(--brand-600);
+    --primary-hover: var(--brand-700);
+    --primary-foreground: var(--neutral-0);
+    --primary-subtle: var(--brand-50);
+    --primary-subtle-foreground: var(--brand-700);
+
+    --secondary: var(--neutral-100);
+    --secondary-foreground: var(--neutral-800);
+
+    --muted: var(--neutral-100);
+    --muted-foreground: var(--neutral-500);
+
+    --accent: var(--neutral-100);
+    --accent-foreground: var(--neutral-900);
+
+    --destructive: var(--danger-600);
+    --destructive-foreground: var(--neutral-0);
+    --destructive-subtle: var(--danger-50);
+    --destructive-subtle-foreground: var(--danger-700);
+
+    --success: var(--success-600);
+    --success-foreground: var(--neutral-0);
+    --success-subtle: var(--success-50);
+    --success-subtle-foreground: var(--success-700);
+
+    --warning: var(--warning-600);
+    --warning-foreground: var(--neutral-0);
+    --warning-subtle: var(--warning-50);
+    --warning-subtle-foreground: var(--warning-700);
+
+    --info: var(--info-600);
+    --info-foreground: var(--neutral-0);
+    --info-subtle: var(--info-50);
+    --info-subtle-foreground: var(--info-700);
+
+    --border: var(--neutral-200);
+    --border-strong: var(--neutral-300);
+    --input: var(--neutral-300);
+    --ring: var(--brand-500);
+
+    /* Sidebar is an intentionally dark, high-contrast surface in both themes. */
+    --sidebar: var(--neutral-950);
+    --sidebar-foreground: var(--neutral-300);
+    --sidebar-muted: var(--neutral-500);
+    --sidebar-border: oklch(1 0 0 / 8%);
+    --sidebar-accent: oklch(1 0 0 / 6%);
+    --sidebar-active: var(--brand-600);
+    --sidebar-active-foreground: var(--neutral-0);
+
+    /* Elevation — light theme uses soft, tight shadows. */
+    --shadow-color: 220 40% 20%;
 }
 
-/* ── Base layer ──────────────────────────────────────────────────────────── */
+.dark {
+    --background: var(--neutral-950);
+    --foreground: var(--neutral-100);
+
+    --card: var(--neutral-900);
+    --card-foreground: var(--neutral-100);
+
+    --popover: var(--neutral-900);
+    --popover-foreground: var(--neutral-100);
+
+    --primary: var(--brand-500);
+    --primary-hover: var(--brand-400);
+    --primary-foreground: var(--neutral-950);
+    --primary-subtle: oklch(0.617 0.184 275 / 16%);
+    --primary-subtle-foreground: var(--brand-200);
+
+    --secondary: var(--neutral-800);
+    --secondary-foreground: var(--neutral-100);
+
+    --muted: var(--neutral-800);
+    --muted-foreground: var(--neutral-400);
+
+    --accent: var(--neutral-800);
+    --accent-foreground: var(--neutral-100);
+
+    --destructive: var(--danger-500);
+    --destructive-foreground: var(--neutral-950);
+    --destructive-subtle: oklch(0.637 0.208 25 / 16%);
+    --destructive-subtle-foreground: oklch(0.842 0.093 20);
+
+    --success: var(--success-500);
+    --success-foreground: var(--neutral-950);
+    --success-subtle: oklch(0.696 0.152 163 / 16%);
+    --success-subtle-foreground: oklch(0.871 0.093 165);
+
+    --warning: var(--warning-500);
+    --warning-foreground: var(--neutral-950);
+    --warning-subtle: oklch(0.769 0.163 70 / 16%);
+    --warning-subtle-foreground: oklch(0.879 0.098 82);
+
+    --info: var(--info-500);
+    --info-foreground: var(--neutral-950);
+    --info-subtle: oklch(0.685 0.148 238 / 16%);
+    --info-subtle-foreground: oklch(0.859 0.072 232);
+
+    --border: oklch(1 0 0 / 10%);
+    --border-strong: oklch(1 0 0 / 18%);
+    --input: oklch(1 0 0 / 18%);
+    --ring: var(--brand-400);
+
+    --sidebar: oklch(0.161 0.028 265);
+    --sidebar-foreground: var(--neutral-300);
+    --sidebar-muted: var(--neutral-500);
+    --sidebar-border: oklch(1 0 0 / 8%);
+    --sidebar-accent: oklch(1 0 0 / 6%);
+    --sidebar-active: var(--brand-500);
+    --sidebar-active-foreground: var(--neutral-0);
+
+    --shadow-color: 220 60% 2%;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   2. Tailwind theme mapping
+   ──────────────────────────────────────────────────────────────────────────── */
+@theme inline {
+    /* Semantic colours — these are what components should use. */
+    --color-background: var(--background);
+    --color-foreground: var(--foreground);
+
+    --color-card: var(--card);
+    --color-card-foreground: var(--card-foreground);
+
+    --color-popover: var(--popover);
+    --color-popover-foreground: var(--popover-foreground);
+
+    --color-primary: var(--primary);
+    --color-primary-hover: var(--primary-hover);
+    --color-primary-foreground: var(--primary-foreground);
+    --color-primary-subtle: var(--primary-subtle);
+    --color-primary-subtle-foreground: var(--primary-subtle-foreground);
+
+    --color-secondary: var(--secondary);
+    --color-secondary-foreground: var(--secondary-foreground);
+
+    --color-muted: var(--muted);
+    --color-muted-foreground: var(--muted-foreground);
+
+    --color-accent: var(--accent);
+    --color-accent-foreground: var(--accent-foreground);
+
+    --color-destructive: var(--destructive);
+    --color-destructive-foreground: var(--destructive-foreground);
+    --color-destructive-subtle: var(--destructive-subtle);
+    --color-destructive-subtle-foreground: var(--destructive-subtle-foreground);
+
+    --color-success: var(--success);
+    --color-success-foreground: var(--success-foreground);
+    --color-success-subtle: var(--success-subtle);
+    --color-success-subtle-foreground: var(--success-subtle-foreground);
+
+    --color-warning: var(--warning);
+    --color-warning-foreground: var(--warning-foreground);
+    --color-warning-subtle: var(--warning-subtle);
+    --color-warning-subtle-foreground: var(--warning-subtle-foreground);
+
+    --color-info: var(--info);
+    --color-info-foreground: var(--info-foreground);
+    --color-info-subtle: var(--info-subtle);
+    --color-info-subtle-foreground: var(--info-subtle-foreground);
+
+    --color-border: var(--border);
+    --color-border-strong: var(--border-strong);
+    --color-input: var(--input);
+    --color-ring: var(--ring);
+
+    --color-sidebar: var(--sidebar);
+    --color-sidebar-foreground: var(--sidebar-foreground);
+    --color-sidebar-muted: var(--sidebar-muted);
+    --color-sidebar-border: var(--sidebar-border);
+    --color-sidebar-accent: var(--sidebar-accent);
+    --color-sidebar-active: var(--sidebar-active);
+    --color-sidebar-active-foreground: var(--sidebar-active-foreground);
+
+    /* Brand ramp stays available for gradients / illustrative accents. */
+    --color-brand-50: var(--brand-50);
+    --color-brand-100: var(--brand-100);
+    --color-brand-200: var(--brand-200);
+    --color-brand-300: var(--brand-300);
+    --color-brand-400: var(--brand-400);
+    --color-brand-500: var(--brand-500);
+    --color-brand-600: var(--brand-600);
+    --color-brand-700: var(--brand-700);
+    --color-brand-800: var(--brand-800);
+    --color-brand-900: var(--brand-900);
+    --color-brand-950: var(--brand-950);
+}
+
+@theme {
+    /* ── Typography ──────────────────────────────────────────────────────── */
+    /* No webfont is bundled yet, so lead with faces that are commonly present
+       and fall back through the platform UI stack. Sinhala/Tamil glyphs come
+       from the Noto faces, which ship with most Linux/Android systems. */
+    --font-sans: 'Inter', 'InterVariable', ui-sans-serif, system-ui, -apple-system,
+        'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'Noto Sans',
+        'Noto Sans Sinhala', 'Noto Sans Tamil', sans-serif;
+    --font-mono: ui-monospace, 'SF Mono', 'JetBrains Mono', 'Cascadia Mono',
+        Menlo, Consolas, monospace;
+
+    /* Tight display sizes for page/section headings. */
+    --text-display-sm: 1.75rem;
+    --text-display-sm--line-height: 2.125rem;
+    --text-display-sm--letter-spacing: -0.02em;
+    --text-display-sm--font-weight: 700;
+
+    --text-display-md: 2.125rem;
+    --text-display-md--line-height: 2.5rem;
+    --text-display-md--letter-spacing: -0.025em;
+    --text-display-md--font-weight: 700;
+
+    --text-display-lg: 2.75rem;
+    --text-display-lg--line-height: 3.125rem;
+    --text-display-lg--letter-spacing: -0.03em;
+    --text-display-lg--font-weight: 800;
+
+    /* ── Radii ───────────────────────────────────────────────────────────── */
+    --radius-card: 0.875rem;
+    --radius-input: 0.625rem;
+    --radius-pill: 9999px;
+
+    /* ── Elevation ───────────────────────────────────────────────────────── */
+    --shadow-xs: 0 1px 2px 0 hsl(var(--shadow-color) / 0.05);
+    --shadow-card: 0 1px 2px 0 hsl(var(--shadow-color) / 0.06),
+        0 1px 3px 0 hsl(var(--shadow-color) / 0.04);
+    --shadow-card-hover: 0 4px 12px -2px hsl(var(--shadow-color) / 0.1),
+        0 2px 4px -2px hsl(var(--shadow-color) / 0.06);
+    --shadow-dropdown: 0 10px 24px -6px hsl(var(--shadow-color) / 0.14),
+        0 4px 8px -4px hsl(var(--shadow-color) / 0.08);
+    --shadow-modal: 0 24px 48px -12px hsl(var(--shadow-color) / 0.24);
+
+    /* ── Layout ──────────────────────────────────────────────────────────── */
+    --spacing-page-x: 1.5rem;
+    --spacing-sidebar: 16rem;
+    --spacing-header: 4rem;
+
+    /* ── Motion ──────────────────────────────────────────────────────────── */
+    --ease-out-quint: cubic-bezier(0.22, 1, 0.36, 1);
+    --animate-shimmer: shimmer 1.6s ease-in-out infinite;
+    --animate-fade-in: fade-in 0.24s var(--ease-out-quint) both;
+    --animate-slide-up: slide-up 0.28s var(--ease-out-quint) both;
+}
+
+@keyframes shimmer {
+
+    0%,
+    100% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: 0.45;
+    }
+}
+
+@keyframes fade-in {
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
+}
+
+@keyframes slide-up {
+    from {
+        opacity: 0;
+        transform: translateY(8px);
+    }
+
+    to {
+        opacity: 1;
+        transform: none;
+    }
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   3. Base layer
+   ──────────────────────────────────────────────────────────────────────────── */
 @layer base {
-  *, *::before, *::after {
-    box-sizing: border-box;
-  }
 
-  html {
-    font-family: var(--font-sans);
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
-    scroll-behavior: smooth;
-  }
+    *,
+    *::before,
+    *::after {
+        box-sizing: border-box;
+    }
 
-  body {
-    background-color: var(--color-surface-1);
-    color: oklch(0.15 0 0);
-    line-height: 1.6;
-  }
+    html {
+        font-family: var(--font-sans);
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+        scroll-behavior: smooth;
+        /* Prevent iOS text inflation in landscape. */
+        text-size-adjust: 100%;
+    }
+
+    body {
+        background-color: var(--background);
+        color: var(--foreground);
+        line-height: 1.6;
+    }
+
+    /* Default every element's border colour to the theme border so
+       `border`/`border-b` alone reads correctly in both themes. */
+    *,
+    ::after,
+    ::before,
+    ::backdrop,
+    ::file-selector-button {
+        border-color: var(--border);
+    }
+
+    /* Consistent, visible focus ring across the whole product. */
+    :focus-visible {
+        outline: 2px solid var(--ring);
+        outline-offset: 2px;
+    }
+
+    /* Headings inherit the tighter display tracking. */
+    h1,
+    h2,
+    h3,
+    h4,
+    h5,
+    h6 {
+        letter-spacing: -0.015em;
+        text-wrap: balance;
+    }
+
+    /* Form controls should inherit typography rather than UA defaults. */
+    input,
+    textarea,
+    select,
+    button {
+        font: inherit;
+        color: inherit;
+    }
+
+    input::placeholder,
+    textarea::placeholder {
+        color: var(--muted-foreground);
+    }
+
+    /* Native date/time pickers are near-invisible on dark surfaces. */
+    .dark input[type='date']::-webkit-calendar-picker-indicator,
+    .dark input[type='time']::-webkit-calendar-picker-indicator,
+    .dark input[type='datetime-local']::-webkit-calendar-picker-indicator {
+        filter: invert(1) opacity(0.65);
+    }
+
+    /* Thin, theme-aware scrollbars. */
+    * {
+        scrollbar-width: thin;
+        scrollbar-color: var(--border-strong) transparent;
+    }
+
+    ::-webkit-scrollbar {
+        width: 10px;
+        height: 10px;
+    }
+
+    ::-webkit-scrollbar-track {
+        background: transparent;
+    }
+
+    ::-webkit-scrollbar-thumb {
+        background-color: var(--border-strong);
+        border: 3px solid transparent;
+        border-radius: 9999px;
+        background-clip: content-box;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+        background-color: var(--muted-foreground);
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+
+        *,
+        *::before,
+        *::after {
+            animation-duration: 0.01ms !important;
+            animation-iteration-count: 1 !important;
+            transition-duration: 0.01ms !important;
+            scroll-behavior: auto !important;
+        }
+    }
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   4. Utilities
+   ──────────────────────────────────────────────────────────────────────────── */
+
+/* Hide scrollbars where a custom affordance is provided instead. */
+@utility scrollbar-none {
+    scrollbar-width: none;
+
+    &::-webkit-scrollbar {
+        display: none;
+    }
+}
+
+/* Tabular figures for tables of marks, counts, currency. */
+@utility numeric {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: 'tnum' 1;
+}
+
+/* Full-bleed decorative gradient used on portal hero panels. */
+@utility hero-glow {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background:
+        radial-gradient(60% 120% at 85% -10%, oklch(1 0 0 / 0.16), transparent 60%),
+        radial-gradient(40% 100% at 10% 110%, oklch(1 0 0 / 0.1), transparent 60%);
+}
+
+/* ── driver.js tour popovers, themed ─────────────────────────────────────── */
+.driver-popover.edulanka-tour {
+    background-color: var(--popover);
+    color: var(--popover-foreground);
+    border-radius: var(--radius-card);
+    box-shadow: var(--shadow-modal);
+    border: 1px solid var(--border);
+    max-width: 22rem;
+}
+
+.driver-popover.edulanka-tour .driver-popover-title {
+    font-size: 1rem;
+    font-weight: 700;
+    letter-spacing: -0.015em;
+    color: var(--popover-foreground);
+}
+
+.driver-popover.edulanka-tour .driver-popover-description {
+    color: var(--muted-foreground);
+    font-size: 0.875rem;
+    line-height: 1.55;
+}
+
+.driver-popover.edulanka-tour .driver-popover-progress-text {
+    color: var(--muted-foreground);
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+.driver-popover.edulanka-tour .driver-popover-navigation-btns button {
+    background-color: var(--primary);
+    color: var(--primary-foreground);
+    border: none;
+    border-radius: var(--radius-input);
+    padding: 0.375rem 0.875rem;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    text-shadow: none;
+}
+
+.driver-popover.edulanka-tour .driver-popover-navigation-btns button:hover {
+    background-color: var(--primary-hover);
+}
+
+.driver-popover.edulanka-tour .driver-popover-navigation-btns button.driver-popover-prev-btn {
+    background-color: var(--secondary);
+    color: var(--secondary-foreground);
+}
+
+.driver-popover.edulanka-tour .driver-popover-arrow-side-left {
+    border-left-color: var(--popover);
+}
+
+.driver-popover.edulanka-tour .driver-popover-arrow-side-right {
+    border-right-color: var(--popover);
+}
+
+.driver-popover.edulanka-tour .driver-popover-arrow-side-top {
+    border-top-color: var(--popover);
+}
+
+.driver-popover.edulanka-tour .driver-popover-arrow-side-bottom {
+    border-bottom-color: var(--popover);
+}
+
+.driver-popover.edulanka-tour .driver-skip-btn {
+    background: none;
+    border: none;
+    color: var(--muted-foreground);
+    font-size: 0.8125rem;
+    font-weight: 600;
+    cursor: pointer;
+    padding: 0.375rem 0.5rem;
+}
+
+.driver-popover.edulanka-tour .driver-skip-btn:hover {
+    color: var(--foreground);
 }
