@@ -386,7 +386,23 @@
         "saveChanges": "Save changes",
         "homeroomTeacher": "Homeroom teacher",
         "deleteNamed": "This starts deletion of class {section}. Teachers and students will be unassigned.",
-        "sectionLabel": "Section / name"
+        "sectionLabel": "Section / name",
+        "classNotFound": "Class not found",
+        "detailTitle": "{grade} — Section {section}",
+        "detailSubtitle": "Academic year {year}",
+        "noMediumSet": "No medium set",
+        "teachersAssigned": "Teachers assigned",
+        "assignedTeachers": "Assigned teachers",
+        "assignTeacher": "Assign teacher",
+        "assignPanelTitle": "Assign a teacher to this class",
+        "selectTeacher": "Select a teacher…",
+        "assign": "Assign",
+        "noTeachersAssigned": "No teachers assigned yet",
+        "noTeachersAssignedDesc": "Assign a teacher to make this class visible in their portal.",
+        "teacherAssigned": "Teacher assigned",
+        "teacherRemoved": "Teacher removed",
+        "removeTeacher": "Remove from class",
+        "noTeachersAvailable": "Every teacher is already assigned"
     },
     "InstitutionAdminTeachers": {
         "title": "Teachers",
@@ -561,7 +577,9 @@
         "step1Confirm": "Yes, proceed",
         "step2Title": "Confirm deactivation",
         "step2Desc": "Please confirm once more. They will no longer be able to sign in to the portal.",
-        "step2Confirm": "Deactivate student"
+        "step2Confirm": "Deactivate student",
+        "editProfile": "Edit profile",
+        "avatarUpdated": "Profile picture updated"
     },
     "Dashboard": {
         "resolvingAccess": "Resolving dashboard access..."
@@ -829,5 +847,22 @@
         "phEmail": "name@school.edu.lk",
         "phMobile": "+94 77 123 4567",
         "phNic": "e.g. 198512345678"
+    },
+    "AccountStatus": {
+        "suspendAccount": "Suspend account",
+        "reactivateAccount": "Reactivate account",
+        "suspendTitle": "Suspend this account?",
+        "reactivateTitle": "Reactivate this account?",
+        "suspendQuestion": "Are you sure you want to suspend the account for {name}?",
+        "reactivateQuestion": "Are you sure you want to reactivate the account for {name}?",
+        "loseAccess": "They will lose access to the portal immediately.",
+        "regainAccess": "They will regain access to the portal immediately.",
+        "proceedToSuspend": "Continue",
+        "yesReactivate": "Yes, reactivate",
+        "reasonTitle": "Reason for suspension",
+        "reasonPrompt": "Optionally record a reason. It is shown to the account holder when they next try to sign in.",
+        "enterReason": "Enter a reason…",
+        "confirmSuspension": "Confirm suspension",
+        "statusUpdated": "Account status updated"
     }
 }

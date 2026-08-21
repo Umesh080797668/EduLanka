@@ -386,7 +386,23 @@
         "saveChanges": "වෙනස්කම් සුරකින්න",
         "homeroomTeacher": "ප්‍රධාන ගුරුවරයා",
         "deleteNamed": "මෙය {section} පන්තිය මැකීම ආරම්භ කරයි. ගුරුවරුන් සහ ශිෂ්‍යයන් නොපවරන ලද තත්ත්වයට පත් වේ.",
-        "sectionLabel": "අංශය / නම"
+        "sectionLabel": "අංශය / නම",
+        "classNotFound": "පන්තිය හමු නොවිණි",
+        "detailTitle": "{grade} — කොටස {section}",
+        "detailSubtitle": "අධ්‍යයන වර්ෂය {year}",
+        "noMediumSet": "මාධ්‍යය සකසා නැත",
+        "teachersAssigned": "පවරන ලද ගුරුවරු",
+        "assignedTeachers": "පවරන ලද ගුරුවරු",
+        "assignTeacher": "ගුරුවරයෙකු පවරන්න",
+        "assignPanelTitle": "මෙම පන්තියට ගුරුවරයෙකු පවරන්න",
+        "selectTeacher": "ගුරුවරයෙකු තෝරන්න…",
+        "assign": "පවරන්න",
+        "noTeachersAssigned": "තවම ගුරුවරු පවරා නැත",
+        "noTeachersAssignedDesc": "ගුරුවරයාගේ ද්වාරයේ මෙම පන්තිය පෙන්වීමට ඔහුට/ඇයට එය පවරන්න.",
+        "teacherAssigned": "ගුරුවරයා පවරන ලදී",
+        "teacherRemoved": "ගුරුවරයා ඉවත් කරන ලදී",
+        "removeTeacher": "පන්තියෙන් ඉවත් කරන්න",
+        "noTeachersAvailable": "සියලුම ගුරුවරු දැනටමත් පවරා ඇත"
     },
     "InstitutionAdminTeachers": {
         "title": "ගුරුවරුන්",
@@ -561,7 +577,9 @@
         "step1Confirm": "ඔව්, ඉදිරියට",
         "step2Title": "අක්‍රිය කිරීම තහවුරු කරන්න",
         "step2Desc": "තව වරක් තහවුරු කරන්න. ඔවුන්ට තවදුරටත් ද්වාරයට පිවිසිය නොහැක.",
-        "step2Confirm": "ශිෂ්‍යයා අක්‍රිය කරන්න"
+        "step2Confirm": "ශිෂ්‍යයා අක්‍රිය කරන්න",
+        "editProfile": "පැතිකඩ සංස්කරණය කරන්න",
+        "avatarUpdated": "පැතිකඩ ඡායාරූපය යාවත්කාලීන කළා"
     },
     "Dashboard": {
         "resolvingAccess": "ඩෑෂ්බෝඩ් ප්‍රවේශය තහවුරු කරමින්..."
@@ -829,5 +847,22 @@
         "phEmail": "name@school.edu.lk",
         "phMobile": "+94 77 123 4567",
         "phNic": "උදා: 198512345678"
+    },
+    "AccountStatus": {
+        "suspendAccount": "ගිණුම අත්හිටුවන්න",
+        "reactivateAccount": "ගිණුම නැවත සක්‍රීය කරන්න",
+        "suspendTitle": "මෙම ගිණුම අත්හිටුවන්නද?",
+        "reactivateTitle": "මෙම ගිණුම නැවත සක්‍රීය කරන්නද?",
+        "suspendQuestion": "{name} ගේ ගිණුම අත්හිටුවීමට ඔබට විශ්වාසද?",
+        "reactivateQuestion": "{name} ගේ ගිණුම නැවත සක්‍රීය කිරීමට ඔබට විශ්වාසද?",
+        "loseAccess": "ඔවුන්ට වහාම ද්වාරයට ප්‍රවේශය අහිමි වේ.",
+        "regainAccess": "ඔවුන්ට වහාම ද්වාරයට ප්‍රවේශය නැවත ලැබේ.",
+        "proceedToSuspend": "ඉදිරියට",
+        "yesReactivate": "ඔව්, නැවත සක්‍රීය කරන්න",
+        "reasonTitle": "අත්හිටුවීමේ හේතුව",
+        "reasonPrompt": "අවශ්‍ය නම් හේතුවක් සටහන් කරන්න. ඊළඟ වර පිවිසීමට උත්සාහ කරන විට එය ගිණුම් හිමියාට පෙන්වයි.",
+        "enterReason": "හේතුව ඇතුළත් කරන්න…",
+        "confirmSuspension": "අත්හිටුවීම තහවුරු කරන්න",
+        "statusUpdated": "ගිණුමේ තත්ත්වය යාවත්කාලීන කළා"
     }
 }
