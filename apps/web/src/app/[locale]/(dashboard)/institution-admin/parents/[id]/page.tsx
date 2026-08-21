@@ -1,28 +1,81 @@
 'use client';
-import { authManager } from '@/lib/auth-store';
 
-import { useState, useEffect, use } from 'react';
-import { useRouter } from '@/i18n/routing';
-import { fetchParent, fetchStudents, linkStudentToParent, unlinkStudentFromParent, updateParent, RequestOpts } from '@/lib/api/school';
+import { use, useEffect, useState } from 'react';
+import {
+    ChevronLeft,
+    Edit2,
+    Link2,
+    Link2Off,
+    Mail,
+    Phone,
+    Save,
+    ShieldCheck,
+    ShieldOff,
+    UserRound,
+    Users,
+} from 'lucide-react';
+import { motion } from 'framer-motion';
+import { useTranslations } from 'next-intl';
+import { toast } from 'sonner';
+
+import { Link } from '@/i18n/routing';
+import { authManager } from '@/lib/auth-store';
+import {
+    fetchParent,
+    fetchStudents,
+    linkStudentToParent,
+    RequestOpts,
+    unlinkStudentFromParent,
+    updateParent,
+} from '@/lib/api/school';
 import type { ParentProfile, StudentProfile } from '@edu-lanka/shared-types';
 import { ParentRelationship } from '@edu-lanka/shared-types';
-import { useTranslations } from 'next-intl';
+import { AccountStatusDialog } from '@/components/ui/AccountStatusDialog';
+import { Alert } from '@/components/ui/Alert';
+import { Avatar } from '@/components/ui/Avatar';
+import { Badge } from '@/components/ui/Badge';
+import { Button } from '@/components/ui/Button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
+import { ConfirmDialog } from '@/components/ui/Dialog';
+import { Field, Input, Select } from '@/components/ui/Form';
 import ImageUpload from '@/components/ui/ImageUpload';
+import { EmptyState } from '@/components/ui/Layout';
+import { PageSkeleton } from '@/components/ui/Skeleton';
 
-export default function ParentDetailPage({ params }: { params: Promise<{ id: string }> }) {
+/** Enum members are SCREAMING_SNAKE; render them as readable title case. */
+function titleCase(value: string): string {
+    return value
+        .split('_')
+        .map((part) => part.charAt(0) + part.slice(1).toLowerCase())
+        .join(' ');
+}
+
+export default function ParentDetailPage({
+    params,
+}: {
+    params: Promise<{ id: string }>;
+}) {
     const { id } = use(params);
     const t = useTranslations('InstitutionAdminParents');
-    const router = useRouter();
+    const tc = useTranslations('Common');
+    const ts = useTranslations('AccountStatus');
+
     const [parent, setParent] = useState<ParentProfile | null>(null);
     const [allStudents, setAllStudents] = useState<StudentProfile[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
 
     // Mapping state
     const [selectedStudentId, setSelectedStudentId] = useState('');
-    const [relationship, setRelationship] = useState<ParentRelationship>(ParentRelationship.FATHER);
-
-    const [loading, setLoading] = useState(true);
+    const [relationship, setRelationship] = useState<ParentRelationship>(
+        ParentRelationship.FATHER,
+    );
     const [mapping, setMapping] = useState(false);
-    const [error, setError] = useState<string | null>(null);
+    const [unlinkTarget, setUnlinkTarget] = useState<{
+        studentId: string;
+        name: string;
+    } | null>(null);
+    const [unlinking, setUnlinking] = useState(false);
 
     // Edit State
     const [isEditing, setIsEditing] = useState(false);
@@ -31,29 +84,28 @@ export default function ParentDetailPage({ params }: { params: Promise<{ id: str
         fullName: '',
         email: '',
         phoneNumber: '',
-        avatarUrl: ''
     });
 
     // Status Modal State
     const [showStatusModal, setShowStatusModal] = useState(false);
-    const [activeStep, setActiveStep] = useState<1 | 2>(1);
-    const [deactivationReason, setDeactivationReason] = useState('');
     const [actionLoading, setActionLoading] = useState(false);
 
+    const opts = (): RequestOpts => ({
+        token: authManager.getToken() || '',
+        tenantId: authManager.getTenantId() || '',
+    });
+
     const loadData = async () => {
-        setLoading(true);
         try {
-            const opts: RequestOpts = { token: authManager.getToken() || '', tenantId: authManager.getTenantId() || '' };
             const [parentData, studentsData] = await Promise.all([
-                fetchParent(id, opts),
-                fetchStudents(opts)
+                fetchParent(id, opts()),
+                fetchStudents(opts()),
             ]);
             setParent(parentData);
             setEditForm({
                 fullName: parentData.full_name,
                 email: parentData.email || '',
                 phoneNumber: parentData.phone_number || '',
-                avatarUrl: parentData.avatar_url || ''
             });
             setAllStudents(studentsData);
             setError(null);
@@ -66,51 +118,51 @@ export default function ParentDetailPage({ params }: { params: Promise<{ id: str
 
     useEffect(() => {
         Promise.resolve().then(() => loadData());
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [id]);
 
     const handleLink = async (e: React.FormEvent) => {
         e.preventDefault();
         setMapping(true);
         try {
-            const opts: RequestOpts = { token: authManager.getToken() || '', tenantId: authManager.getTenantId() || '' };
-            await linkStudentToParent(id, { studentId: selectedStudentId, relationship }, opts);
+            await linkStudentToParent(
+                id,
+                { studentId: selectedStudentId, relationship },
+                opts(),
+            );
             setSelectedStudentId('');
             await loadData();
+            toast.success(t('studentLinked'));
         } catch (err: any) {
-            setError(err.message);
+            toast.error(err.message || tc('somethingWentWrong'));
         } finally {
             setMapping(false);
         }
     };
 
-    const handleUnlink = async (studentId: string) => {
-        if (!confirm(t('unlinkConfirm'))) return;
+    const confirmUnlink = async () => {
+        if (!unlinkTarget) return;
+        setUnlinking(true);
         try {
-            const opts: RequestOpts = { token: authManager.getToken() || '', tenantId: authManager.getTenantId() || '' };
-            await unlinkStudentFromParent(id, studentId, opts);
+            await unlinkStudentFromParent(id, unlinkTarget.studentId, opts());
             await loadData();
+            toast.success(t('studentUnlinked'));
         } catch (err: any) {
-            setError(err.message);
+            toast.error(err.message || tc('somethingWentWrong'));
+        } finally {
+            setUnlinking(false);
+            setUnlinkTarget(null);
         }
     };
 
-    const confirmToggleStatus = async () => {
+    const handleAvatarUpload = async (url: string) => {
         if (!parent) return;
-
-        setActionLoading(true);
-        const opts: RequestOpts = { token: authManager.getToken() || '', tenantId: authManager.getTenantId() || '' };
         try {
-            const { setUserActive } = await import('@/lib/api/school');
-            await setUserActive(parent.id, !parent.is_active, opts, deactivationReason);
-
+            await updateParent(parent.id, { avatarUrl: url }, opts());
             await loadData();
-        } catch (e: any) {
-            setError(e.message || 'Failed to update user status');
-        } finally {
-            setActionLoading(false);
-            setShowStatusModal(false);
-            setDeactivationReason('');
-            setActiveStep(1);
+            toast.success(t('avatarUpdated'));
+        } catch (err: any) {
+            toast.error(err.message || tc('somethingWentWrong'));
         }
     };
 
@@ -118,294 +170,421 @@ export default function ParentDetailPage({ params }: { params: Promise<{ id: str
         if (!parent) return;
         setSavingEdit(true);
         try {
-            const opts: RequestOpts = { token: authManager.getToken() || '', tenantId: authManager.getTenantId() || '' };
-            await updateParent(parent.id, editForm, opts);
+            await updateParent(parent.id, editForm, opts());
             setIsEditing(false);
             await loadData();
+            toast.success(t('profileUpdated'));
         } catch (err: any) {
-            setError(err.message);
+            toast.error(err.message || tc('somethingWentWrong'));
         } finally {
             setSavingEdit(false);
         }
     };
 
-    if (loading) return <div style={{ padding: '2rem', textAlign: 'center' }}>{t('loadingParent')}</div>;
-    if (error && !parent) return <div style={{ padding: '2rem', color: 'red' }}>Error: {error}</div>;
-    if (!parent) return <div style={{ padding: '2rem' }}>{t('parentNotFound')}</div>;
+    const confirmToggleStatus = async (reason: string) => {
+        if (!parent) return;
 
-    const linkedStudentIds = parent.parents?.map(pc => pc.student_id) || [];
-    const availableStudents = allStudents.filter(s => !linkedStudentIds.includes(s.id));
+        setActionLoading(true);
+        try {
+            const { setUserActive } = await import('@/lib/api/school');
+            await setUserActive(parent.id, !parent.is_active, opts(), reason);
+            await loadData();
+            toast.success(ts('statusUpdated'));
+        } catch (e: any) {
+            setError(e.message || tc('somethingWentWrong'));
+        } finally {
+            setActionLoading(false);
+            setShowStatusModal(false);
+        }
+    };
 
+    if (loading) return <PageSkeleton rows={4} cols={2} />;
+
+    if (!parent) {
+        return (
+            <div className="mx-auto max-w-2xl">
+                <EmptyState
+                    tone="danger"
+                    icon={<UserRound />}
+                    title={error || t('parentNotFound')}
+                    action={
+                        <Link
+                            href="/institution-admin/parents"
+                            className="inline-flex items-center gap-1.5 text-sm font-semibold text-primary hover:underline"
+                        >
+                            <ChevronLeft className="size-4" />
+                            {t('backParents')}
+                        </Link>
+                    }
+                />
+            </div>
+        );
+    }
+
+    const children = parent.parents ?? [];
+    const linkedStudentIds = children.map((pc) => pc.student_id);
+    const availableStudents = allStudents.filter(
+        (student) => !linkedStudentIds.includes(student.id),
+    );
     const isActive = parent.is_active;
 
     return (
-        <div style={{ maxWidth: '900px', margin: '0 auto' }}>
-            <div style={{ marginBottom: '2rem' }}>
-                <button
-                    onClick={() => router.back()}
-                    style={{ background: 'none', border: 'none', color: '#6b7280', cursor: 'pointer', marginBottom: '1rem', font: 'inherit' }}
-                >
-                    &larr; {t('backParents')}
-                </button>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                    <div style={{ display: 'flex', gap: '1.5rem', alignItems: 'center' }}>
-                        {isEditing ? (
-                            <ImageUpload
-                                currentImageUrl={editForm.avatarUrl}
-                                onUploadSuccess={(url) => setEditForm({ ...editForm, avatarUrl: url })}
-                                onError={(err) => alert(err)}
-                                size={64}
-                            />
-                        ) : (
-                            <div
-                                style={{ width: 64, height: 64, borderRadius: '50%', background: parent.avatar_url ? `url(${parent.avatar_url}) center/cover` : '#e5e7eb', flexShrink: 0 }}
-                            />
-                        )}
+        <div className="mx-auto max-w-5xl space-y-6">
+            <Link
+                href="/institution-admin/parents"
+                className="inline-flex items-center gap-1.5 rounded-input text-sm font-medium text-muted-foreground transition-colors hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+            >
+                <ChevronLeft className="size-3.5" />
+                {t('backParents')}
+            </Link>
 
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
-                            {isEditing ? (
-                                <input
-                                    type="text" required
-                                    value={editForm.fullName}
-                                    onChange={e => setEditForm({ ...editForm, fullName: e.target.value })}
-                                    style={{ padding: '0.25rem 0.5rem', borderRadius: '4px', border: '1px solid #d1d5db', fontSize: '1.3rem', fontWeight: 600 }}
-                                />
-                            ) : (
-                                <h1 style={{ fontSize: '1.8rem', fontWeight: 600, color: '#111827', display: 'flex', alignItems: 'center', gap: '1rem', margin: 0 }}>
-                                    {parent.full_name}
-                                    <span style={{
-                                        padding: '0.25rem 0.6rem',
-                                        borderRadius: '9999px',
-                                        fontSize: '0.8rem',
-                                        fontWeight: 500,
-                                        background: isActive ? '#dcfce7' : '#fee2e2',
-                                        color: isActive ? '#166534' : '#991b1b',
-                                        border: `1px solid ${isActive ? '#bbf7d0' : '#fecaca'}`
-                                    }}>
-                                        {isActive ? t('active') : t('inactive')}
-                                    </span>
-                                </h1>
-                            )}
-
-                            {isEditing ? (
-                                <div style={{ display: 'flex', gap: '0.5rem' }}>
-                                    <input
-                                        type="tel"
-                                        placeholder="Phone"
-                                        value={editForm.phoneNumber}
-                                        onChange={e => setEditForm({ ...editForm, phoneNumber: e.target.value })}
-                                        style={{ padding: '0.25rem 0.5rem', borderRadius: '4px', border: '1px solid #d1d5db', fontSize: '0.875rem' }}
-                                    />
-                                    <input
-                                        type="email"
-                                        placeholder="Email"
-                                        value={editForm.email}
-                                        onChange={e => setEditForm({ ...editForm, email: e.target.value })}
-                                        style={{ padding: '0.25rem 0.5rem', borderRadius: '4px', border: '1px solid #d1d5db', fontSize: '0.875rem' }}
-                                    />
-                                </div>
-                            ) : (
-                                <p style={{ color: '#4b5563', margin: 0 }}>
-                                    {t('contact')}: {parent.phone_number || parent.email || t('unregistered')}
-                                </p>
-                            )}
-                        </div>
-                    </div>
-
-                    <div style={{ display: 'flex', gap: '0.5rem' }}>
-                        {isEditing ? (
-                            <>
-                                <button
-                                    onClick={() => setIsEditing(false)}
-                                    style={{ padding: '0.5rem 1rem', borderRadius: '6px', fontSize: '0.875rem', fontWeight: 500, cursor: 'pointer', background: 'white', border: '1px solid #d1d5db', color: '#374151' }}
-                                >
-                                    Cancel
-                                </button>
-                                <button
-                                    onClick={handleSaveEdit}
-                                    disabled={savingEdit}
-                                    style={{ padding: '0.5rem 1rem', borderRadius: '6px', fontSize: '0.875rem', fontWeight: 500, cursor: 'pointer', background: 'var(--color-brand-600)', border: 'none', color: 'white', opacity: savingEdit ? 0.7 : 1 }}
-                                >
-                                    {savingEdit ? 'Saving...' : 'Save'}
-                                </button>
-                            </>
-                        ) : (
-                            <button
-                                onClick={() => setIsEditing(true)}
-                                style={{
-                                    padding: '0.5rem 1rem',
-                                    borderRadius: '6px',
-                                    fontSize: '0.875rem',
-                                    fontWeight: 500,
-                                    cursor: 'pointer',
-                                    background: 'white',
-                                    border: '1px solid #d1d5db',
-                                    color: '#374151'
-                                }}
-                            >
-                                Edit Profile
-                            </button>
-                        )}
-
-                        <button
-                            onClick={() => {
-                                setDeactivationReason('');
-                                setActiveStep(1);
-                                setShowStatusModal(true);
-                            }}
-                            style={{
-                                padding: '0.5rem 1rem',
-                                borderRadius: '6px',
-                                fontSize: '0.875rem',
-                                fontWeight: 500,
-                                cursor: 'pointer',
-                                background: 'white',
-                                border: `1px solid ${isActive ? '#fca5a5' : '#86efac'}`,
-                                color: isActive ? '#dc2626' : '#16a34a'
-                            }}
-                        >
-                            {isActive ? 'Suspend Account' : 'Reactivate Account'}
-                        </button>
-                    </div>
-                </div>
-                {error && <div style={{ marginTop: '1rem', padding: '1rem', background: '#fee2e2', color: '#b91c1c', borderRadius: '6px' }}>{error}</div>}
-            </div>
-
-            {showStatusModal && (
-                <div style={{ position: 'fixed', inset: 0, zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(15, 23, 42, 0.5)' }}>
-                    <div style={{ background: 'white', borderRadius: '1rem', boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)', maxWidth: '28rem', width: '100%', padding: '1.5rem' }}>
-                        <h3 style={{ fontSize: '1.25rem', fontWeight: 700, color: '#0f172a', marginBottom: '0.5rem' }}>
-                            {isActive ? 'Suspend Parent?' : 'Reactivate Parent?'}
-                        </h3>
-
-                        {activeStep === 1 && (
-                            <>
-                                <p style={{ color: '#64748b', fontSize: '0.875rem', marginBottom: '1.5rem' }}>
-                                    Are you sure you want to {isActive ? 'suspend' : 'reactivate'} the account for <strong>{parent.full_name}</strong>?
-                                    {isActive ? ' They will lose access to the portal immediately.' : ' They will regain portal access.'}
-                                </p>
-                                <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end' }}>
-                                    <button onClick={() => setShowStatusModal(false)} style={{ padding: '0.5rem 1rem', borderRadius: '0.5rem', background: '#f1f5f9', color: '#475569', fontWeight: 500, border: 'none', cursor: 'pointer' }}>
-                                        Cancel
-                                    </button>
-                                    <button
-                                        onClick={() => isActive ? setActiveStep(2) : confirmToggleStatus()}
-                                        style={{ padding: '0.5rem 1rem', borderRadius: '0.5rem', background: isActive ? '#e11d48' : '#059669', color: 'white', fontWeight: 500, border: 'none', cursor: 'pointer' }}
-                                    >
-                                        {isActive ? 'Proceed to Suspend' : 'Yes, Reactivate'}
-                                    </button>
-                                </div>
-                            </>
-                        )}
-
-                        {activeStep === 2 && (
-                            <>
-                                <p style={{ color: '#64748b', fontSize: '0.875rem', marginBottom: '1rem' }}>
-                                    Please provide a reason for suspension (optional). This will be shown to the parent when they try to log in.
-                                </p>
-                                <textarea
-                                    rows={3}
-                                    placeholder="Enter reason..."
-                                    value={deactivationReason}
-                                    onChange={(e) => setDeactivationReason(e.target.value)}
-                                    style={{ width: '100%', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '0.5rem', padding: '0.75rem', fontSize: '0.875rem', marginBottom: '1.5rem', resize: 'none' }}
-                                />
-                                <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end' }}>
-                                    <button onClick={() => setActiveStep(1)} disabled={actionLoading} style={{ padding: '0.5rem 1rem', borderRadius: '0.5rem', background: '#f1f5f9', color: '#475569', fontWeight: 500, border: 'none', cursor: 'pointer' }}>
-                                        Back
-                                    </button>
-                                    <button
-                                        onClick={confirmToggleStatus}
-                                        disabled={actionLoading}
-                                        style={{ padding: '0.5rem 1rem', borderRadius: '0.5rem', background: '#e11d48', color: 'white', fontWeight: 500, border: 'none', cursor: 'pointer', opacity: actionLoading ? 0.7 : 1 }}
-                                    >
-                                        {actionLoading ? 'Saving...' : 'Confirm Suspension'}
-                                    </button>
-                                </div>
-                            </>
-                        )}
-                    </div>
-                </div>
+            {error && (
+                <Alert tone="danger" onDismiss={() => setError(null)}>
+                    {error}
+                </Alert>
             )}
 
-            <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '2rem' }}>
-                {/* Linked Children List */}
-                <div style={{ background: 'white', borderRadius: '8px', border: '1px solid #e5e7eb', padding: '1.5rem' }}>
-                    <h2 style={{ fontSize: '1.2rem', fontWeight: 600, marginBottom: '1.5rem' }}>{t('mappedChildren')}</h2>
+            {/* ── Identity ──────────────────────────────────────────────────── */}
+            <Card>
+                <CardContent className="flex flex-col gap-5 pt-6 sm:flex-row sm:items-center">
+                    <ImageUpload
+                        currentImageUrl={parent.avatar_url}
+                        onUploadSuccess={handleAvatarUpload}
+                        onError={(err) => toast.error(err)}
+                        size={72}
+                        className="shrink-0"
+                    />
+                    <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-2.5">
+                            <h1 className="truncate text-xl font-bold tracking-tight text-foreground">
+                                {parent.full_name}
+                            </h1>
+                            <Badge tone={isActive ? 'success' : 'danger'} dot>
+                                {isActive ? t('active') : t('inactive')}
+                            </Badge>
+                        </div>
+                        <p className="mt-1 truncate text-sm text-muted-foreground">
+                            {t('contact')}:{' '}
+                            {parent.phone_number || parent.email || t('unregistered')}
+                        </p>
+                    </div>
 
-                    {!parent.parents || parent.parents.length === 0 ? (
-                        <p style={{ color: '#6b7280', padding: '2rem 0', textAlign: 'center' }}>{t('noStudentsMapped')}</p>
-                    ) : (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                            {parent.parents.map((pc: any) => (
-                                <div key={pc.student_id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1rem', border: '1px solid #f3f4f6', borderRadius: '6px' }}>
-                                    <div>
-                                        <div style={{ fontWeight: 500, color: '#111827' }}>{pc.students?.users?.full_name}</div>
-                                        <div style={{ fontSize: '0.85rem', color: '#6b7280', marginTop: '0.25rem' }}>
-                                            {t('admissionNo')}: {pc.students?.admission_no} &bull; {t('relationship')}: {pc.relationship}
-                                        </div>
-                                    </div>
-                                    <button
-                                        onClick={() => handleUnlink(pc.student_id)}
-                                        style={{ background: 'white', color: '#ef4444', border: '1px solid #fee2e2', padding: '0.5rem 1rem', borderRadius: '4px', cursor: 'pointer', fontWeight: 500 }}
+                    <Button
+                        variant="outline"
+                        onClick={() => setShowStatusModal(true)}
+                        leadingIcon={isActive ? <ShieldOff /> : <ShieldCheck />}
+                        className={isActive ? 'text-destructive' : 'text-success'}
+                    >
+                        {isActive ? ts('suspendAccount') : ts('reactivateAccount')}
+                    </Button>
+                </CardContent>
+            </Card>
+
+            <div className="grid gap-6 lg:grid-cols-3">
+                {/* ── Linked children ───────────────────────────────────────── */}
+                <Card className="lg:col-span-2">
+                    <CardHeader className="flex-row items-center justify-between gap-3">
+                        <CardTitle as="h2">{t('mappedChildren')}</CardTitle>
+                        <Badge tone="neutral" variant="outline" size="sm">
+                            {children.length}
+                        </Badge>
+                    </CardHeader>
+                    <CardContent>
+                        {children.length === 0 ? (
+                            <EmptyState
+                                size="sm"
+                                icon={<Users />}
+                                title={t('noStudentsMapped')}
+                                description={t('noStudentsMappedDesc')}
+                            />
+                        ) : (
+                            <ul className="space-y-2.5">
+                                {children.map((pc: any, idx: number) => (
+                                    <motion.li
+                                        key={pc.student_id}
+                                        initial={{ opacity: 0, y: 8 }}
+                                        animate={{
+                                            opacity: 1,
+                                            y: 0,
+                                            transition: {
+                                                delay: Math.min(idx * 0.04, 0.3),
+                                            },
+                                        }}
+                                        className="flex items-center justify-between gap-3 rounded-card border border-border bg-muted/40 px-4 py-3"
                                     >
-                                        {t('unlink')}
-                                    </button>
-                                </div>
-                            ))}
-                        </div>
-                    )}
-                </div>
+                                        <div className="flex min-w-0 items-center gap-3">
+                                            <Avatar
+                                                name={pc.students?.users?.full_name}
+                                                src={pc.students?.users?.avatar_url}
+                                                size="sm"
+                                            />
+                                            <div className="min-w-0">
+                                                <div className="truncate text-sm font-semibold text-foreground">
+                                                    {pc.students?.users?.full_name}
+                                                </div>
+                                                <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+                                                    <span className="numeric">
+                                                        {t('admissionNo')}:{' '}
+                                                        {pc.students?.admission_no}
+                                                    </span>
+                                                    <span aria-hidden>&middot;</span>
+                                                    <span>
+                                                        {titleCase(
+                                                            pc.relationship ?? '',
+                                                        )}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        </div>
 
-                {/* Link child form */}
-                <div style={{ background: '#f9fafb', borderRadius: '8px', border: '1px solid #e5e7eb', padding: '1.5rem', height: 'fit-content' }}>
-                    <h3 style={{ fontSize: '1.1rem', fontWeight: 600, marginBottom: '1rem' }}>{t('linkStudent')}</h3>
-                    <form onSubmit={handleLink} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                        <div>
-                            <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 500, color: '#374151', marginBottom: '0.5rem' }}>{t('selectStudent')}</label>
-                            <select
-                                required
-                                value={selectedStudentId}
-                                onChange={(e) => setSelectedStudentId(e.target.value)}
-                                style={{ width: '100%', padding: '0.5rem', borderRadius: '4px', border: '1px solid #d1d5db' }}
-                            >
-                                <option value="" disabled>{t('chooseStudent')}</option>
-                                {availableStudents.map(s => (
-                                    <option key={s.id} value={s.id}>{s.users?.full_name} ({s.admission_no})</option>
+                                        <Button
+                                            variant="ghost"
+                                            size="icon-sm"
+                                            aria-label={t('unlink')}
+                                            title={t('unlink')}
+                                            className="text-destructive"
+                                            onClick={() =>
+                                                setUnlinkTarget({
+                                                    studentId: pc.student_id,
+                                                    name:
+                                                        pc.students?.users?.full_name ??
+                                                        '',
+                                                })
+                                            }
+                                        >
+                                            <Link2Off className="size-4" />
+                                        </Button>
+                                    </motion.li>
                                 ))}
-                            </select>
-                        </div>
-                        <div>
-                            <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 500, color: '#374151', marginBottom: '0.5rem' }}>{t('relationshipContext')}</label>
-                            <select
-                                value={relationship}
-                                onChange={(e) => setRelationship(e.target.value as ParentRelationship)}
-                                style={{ width: '100%', padding: '0.5rem', borderRadius: '4px', border: '1px solid #d1d5db' }}
-                            >
-                                {Object.values(ParentRelationship).map(r => (
-                                    <option key={r} value={r}>{r}</option>
-                                ))}
-                            </select>
-                        </div>
-                        <button
-                            type="submit"
-                            disabled={!selectedStudentId || mapping}
-                            style={{
-                                marginTop: '0.5rem',
-                                background: !selectedStudentId || mapping ? '#9ca3af' : 'var(--color-brand-600)',
-                                color: 'white',
-                                padding: '0.75rem',
-                                borderRadius: '4px',
-                                border: 'none',
-                                fontWeight: 500,
-                                cursor: !selectedStudentId || mapping ? 'not-allowed' : 'pointer'
-                            }}
-                        >
-                            {mapping ? t('linking') : t('mapStudent')}
-                        </button>
-                    </form>
+                            </ul>
+                        )}
+                    </CardContent>
+                </Card>
+
+                <div className="space-y-6">
+                    {/* ── Contact details ───────────────────────────────────── */}
+                    <Card>
+                        <CardHeader className="flex-row items-center justify-between gap-3">
+                            <CardTitle as="h2">{t('contactDetails')}</CardTitle>
+                            {!isEditing ? (
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => setIsEditing(true)}
+                                    leadingIcon={<Edit2 />}
+                                >
+                                    {t('editProfile')}
+                                </Button>
+                            ) : (
+                                <div className="flex gap-2">
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => setIsEditing(false)}
+                                        disabled={savingEdit}
+                                    >
+                                        {tc('cancel')}
+                                    </Button>
+                                    <Button
+                                        size="sm"
+                                        onClick={handleSaveEdit}
+                                        loading={savingEdit}
+                                        leadingIcon={<Save />}
+                                    >
+                                        {tc('save')}
+                                    </Button>
+                                </div>
+                            )}
+                        </CardHeader>
+                        <CardContent>
+                            {!isEditing ? (
+                                <dl className="divide-y divide-border text-sm">
+                                    {[
+                                        {
+                                            icon: <Mail className="size-3.5" />,
+                                            label: t('emailAddress'),
+                                            value: parent.email || t('na'),
+                                        },
+                                        {
+                                            icon: <Phone className="size-3.5" />,
+                                            label: t('mobileNumber'),
+                                            value: parent.phone_number || t('na'),
+                                        },
+                                    ].map(({ icon, label, value }) => (
+                                        <div
+                                            key={label}
+                                            className="flex items-center justify-between gap-4 py-2.5"
+                                        >
+                                            <dt className="flex items-center gap-2 text-muted-foreground">
+                                                {icon}
+                                                {label}
+                                            </dt>
+                                            <dd className="truncate font-medium text-foreground">
+                                                {value}
+                                            </dd>
+                                        </div>
+                                    ))}
+                                </dl>
+                            ) : (
+                                <div className="space-y-4">
+                                    <Field
+                                        label={t('fullName')}
+                                        htmlFor="parent-edit-name"
+                                    >
+                                        <Input
+                                            id="parent-edit-name"
+                                            inputSize="sm"
+                                            value={editForm.fullName}
+                                            onChange={(e) =>
+                                                setEditForm({
+                                                    ...editForm,
+                                                    fullName: e.target.value,
+                                                })
+                                            }
+                                        />
+                                    </Field>
+                                    <Field
+                                        label={t('emailAddress')}
+                                        htmlFor="parent-edit-email"
+                                    >
+                                        <Input
+                                            id="parent-edit-email"
+                                            type="email"
+                                            inputSize="sm"
+                                            leadingIcon={<Mail />}
+                                            value={editForm.email}
+                                            onChange={(e) =>
+                                                setEditForm({
+                                                    ...editForm,
+                                                    email: e.target.value,
+                                                })
+                                            }
+                                        />
+                                    </Field>
+                                    <Field
+                                        label={t('mobileNumber')}
+                                        htmlFor="parent-edit-phone"
+                                    >
+                                        <Input
+                                            id="parent-edit-phone"
+                                            type="tel"
+                                            inputSize="sm"
+                                            leadingIcon={<Phone />}
+                                            value={editForm.phoneNumber}
+                                            onChange={(e) =>
+                                                setEditForm({
+                                                    ...editForm,
+                                                    phoneNumber: e.target.value,
+                                                })
+                                            }
+                                        />
+                                    </Field>
+                                </div>
+                            )}
+                        </CardContent>
+                    </Card>
+
+                    {/* ── Link a student ────────────────────────────────────── */}
+                    <Card>
+                        <CardHeader>
+                            <CardTitle as="h2">{t('linkStudent')}</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            {availableStudents.length === 0 ? (
+                                <p className="text-sm text-muted-foreground">
+                                    {t('noStudentsAvailable')}
+                                </p>
+                            ) : (
+                                <form onSubmit={handleLink} className="space-y-4">
+                                    <Field
+                                        label={t('selectStudent')}
+                                        htmlFor="link-student"
+                                    >
+                                        <Select
+                                            id="link-student"
+                                            required
+                                            selectSize="sm"
+                                            value={selectedStudentId}
+                                            onChange={(e) =>
+                                                setSelectedStudentId(e.target.value)
+                                            }
+                                        >
+                                            <option value="" disabled>
+                                                {t('chooseStudent')}
+                                            </option>
+                                            {availableStudents.map((student) => (
+                                                <option
+                                                    key={student.id}
+                                                    value={student.id}
+                                                >
+                                                    {student.users?.full_name} (
+                                                    {student.admission_no})
+                                                </option>
+                                            ))}
+                                        </Select>
+                                    </Field>
+
+                                    <Field
+                                        label={t('relationshipContext')}
+                                        htmlFor="link-relationship"
+                                    >
+                                        <Select
+                                            id="link-relationship"
+                                            selectSize="sm"
+                                            value={relationship}
+                                            onChange={(e) =>
+                                                setRelationship(
+                                                    e.target
+                                                        .value as ParentRelationship,
+                                                )
+                                            }
+                                        >
+                                            {Object.values(ParentRelationship).map(
+                                                (value) => (
+                                                    <option key={value} value={value}>
+                                                        {titleCase(value)}
+                                                    </option>
+                                                ),
+                                            )}
+                                        </Select>
+                                    </Field>
+
+                                    <Button
+                                        type="submit"
+                                        block
+                                        loading={mapping}
+                                        disabled={!selectedStudentId}
+                                        leadingIcon={<Link2 />}
+                                    >
+                                        {mapping ? t('linking') : t('mapStudent')}
+                                    </Button>
+                                </form>
+                            )}
+                        </CardContent>
+                    </Card>
                 </div>
             </div>
+
+            <ConfirmDialog
+                open={!!unlinkTarget}
+                onClose={() => setUnlinkTarget(null)}
+                onConfirm={confirmUnlink}
+                title={t('unlinkTitle')}
+                description={t('unlinkConfirm')}
+                confirmLabel={t('unlink')}
+                cancelLabel={t('cancel')}
+                loading={unlinking}
+                icon={<Link2Off />}
+            />
+
+            <AccountStatusDialog
+                open={showStatusModal}
+                onClose={() => setShowStatusModal(false)}
+                isActive={isActive}
+                name={parent.full_name}
+                loading={actionLoading}
+                onConfirm={confirmToggleStatus}
+            />
         </div>
     );
 }

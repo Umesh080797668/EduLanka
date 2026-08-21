@@ -452,7 +452,11 @@
         "edit": "සංස්කරණය",
         "deactivateTeacher": "ගුරුවරයා අක්‍රිය කරන්න",
         "noMatches": "තවම ගුරුවරුන් නොමැත",
-        "status": "තත්ත්වය"
+        "status": "තත්ත්වය",
+        "editProfile": "පැතිකඩ සංස්කරණය",
+        "profileUpdated": "පැතිකඩ සාර්ථකව යාවත්කාලීන කරන ලදී",
+        "avatarUpdated": "පැතිකඩ ඡායාරූපය යාවත්කාලීන කරන ලදී",
+        "subjectCount": "විෂය {count}"
     },
     "InstitutionAdminParents": {
         "title": "දෙමාපියන් සහ භාරකරුවන්",
@@ -505,7 +509,15 @@
         "inactive": "අක්‍රීය",
         "edit": "සංස්කරණය",
         "deactivateParent": "මාපියා අක්‍රිය කරන්න",
-        "status": "තත්ත්වය"
+        "status": "තත්ත්වය",
+        "editProfile": "පැතිකඩ සංස්කරණය",
+        "profileUpdated": "පැතිකඩ සාර්ථකව යාවත්කාලීන කරන ලදී",
+        "avatarUpdated": "පැතිකඩ ඡායාරූපය යාවත්කාලීන කරන ලදී",
+        "studentLinked": "සිසුවා මෙම භාරකරු සමඟ සම්බන්ධ කරන ලදී",
+        "studentUnlinked": "සිසු සම්බන්ධතාවය ඉවත් කරන ලදී",
+        "noStudentsAvailable": "සියලුම සිසුන් දැනටමත් සම්බන්ධ කර ඇත",
+        "noStudentsMappedDesc": "මෙම භාරකරුට සිසුවාගේ වාර්තා වෙත ප්‍රවේශය ලබා දීම සඳහා පහතින් සිසුවෙකු සම්බන්ධ කරන්න.",
+        "unlinkTitle": "සිසු සම්බන්ධතාවය ඉවත් කරන්නද?"
     },
     "InstitutionAdminStudents": {
         "title": "සිසුන්",

@@ -452,7 +452,11 @@
         "edit": "Edit",
         "deactivateTeacher": "Deactivate teacher",
         "noMatches": "No teachers yet",
-        "status": "Status"
+        "status": "Status",
+        "editProfile": "Edit Profile",
+        "profileUpdated": "Profile updated successfully",
+        "avatarUpdated": "Profile photo updated",
+        "subjectCount": "{count} subjects"
     },
     "InstitutionAdminParents": {
         "title": "Parents & Guardians",
@@ -505,7 +509,15 @@
         "inactive": "Inactive",
         "edit": "Edit",
         "deactivateParent": "Deactivate parent",
-        "status": "Status"
+        "status": "Status",
+        "editProfile": "Edit Profile",
+        "profileUpdated": "Profile updated successfully",
+        "avatarUpdated": "Profile photo updated",
+        "studentLinked": "Student linked to this guardian",
+        "studentUnlinked": "Student unlinked",
+        "noStudentsAvailable": "All students are already linked",
+        "noStudentsMappedDesc": "Link a student below to give this guardian access to their records.",
+        "unlinkTitle": "Unlink student?"
     },
     "InstitutionAdminStudents": {
         "title": "Students",
