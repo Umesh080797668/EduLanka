@@ -773,7 +773,17 @@
         "noMessagesDesc": "Send the first message to start this thread.",
         "sendFailed": "Message could not be sent",
         "delivered": "Delivered",
-        "read": "Read"
+        "read": "Read",
+        "loadFailed": "Couldn't load conversations",
+        "you": "You",
+        "muted": "Muted",
+        "loadOlder": "Load earlier messages",
+        "members": "Members",
+        "viewMembers": "View members",
+        "noMembers": "No members yet",
+        "moderator": "Moderator",
+        "member": "Member",
+        "connDisconnected": "Offline — messages will still send"
     },
     "Moderation": {
         "pin": "Pin Message",

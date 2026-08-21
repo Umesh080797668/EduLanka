@@ -78,6 +78,21 @@ export class ChatController {
         );
     }
 
+    /**
+     * People the caller may start a thread with. Role-scoped in the service:
+     * students and guardians see staff only, teachers additionally see the
+     * families of the classes they teach.
+     */
+    @Get('directory')
+    async directory(@Req() req: any, @Query('search') search?: string) {
+        return this.chatService.listDirectory(
+            req.user.tenantId,
+            this.callerId(req),
+            req.user.role,
+            search,
+        );
+    }
+
     @Get('conversations/:id/participants')
     async listParticipants(@Req() req: any, @Param('id') conversationId: string) {
         return this.chatService.listParticipants(
@@ -91,6 +106,29 @@ export class ChatController {
     // =========================================================================
     // Writes
     // =========================================================================
+
+    /** Opens the existing one-to-one thread, or starts it on first contact. */
+    @Post('conversations/direct')
+    async startDirect(@Req() req: any, @Body() body: { userId: string }) {
+        return this.chatService.startDirectConversation(
+            req.user.tenantId,
+            this.callerId(req),
+            req.user.role,
+            body.userId,
+        );
+    }
+
+    /** Staff-only: an ad-hoc group thread with a hand-picked roster. */
+    @Post('conversations/group')
+    async createGroup(@Req() req: any, @Body() body: { name: string; memberIds: string[] }) {
+        return this.chatService.createGroupConversation(
+            req.user.tenantId,
+            this.callerId(req),
+            req.user.role,
+            body.name,
+            body.memberIds,
+        );
+    }
 
     @Post('messages')
     async sendMessage(@Req() req: any, @Body() body: { conversationId: string, content: string }) {
