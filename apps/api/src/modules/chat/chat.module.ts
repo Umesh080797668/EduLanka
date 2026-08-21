@@ -8,6 +8,8 @@ import { SupabaseModule } from '../supabase/supabase.module';
 @Module({
   imports: [SupabaseModule, JwtModule.register({})],
   providers: [ChatService, ChatGateway],
-  controllers: [ChatController]
+  controllers: [ChatController],
+  // ClassesModule keeps class group rosters in sync through ChatService.
+  exports: [ChatService]
 })
 export class ChatModule { }

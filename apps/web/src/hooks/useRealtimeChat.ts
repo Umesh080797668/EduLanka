@@ -1,8 +1,7 @@
-import { useEffect, useState, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { io, Socket } from 'socket.io-client';
 
 import { apiClient } from '@/lib/api-client';
-import { authManager } from '@/lib/auth-store';
 import { createSupabaseBrowserClient } from '@/lib/supabase/client';
 
 export type Message = {
@@ -11,9 +10,23 @@ export type Message = {
     sender_id: string;
     content: string;
     created_at: string;
-    is_pinned: boolean;
-    chat_read_receipts?: any[];
+    is_pinned?: boolean;
+    sender_name?: string | null;
+    sender_role?: string | null;
+    sender_avatar_url?: string | null;
+    read_by?: string[];
+    is_read?: boolean;
 };
+
+export type ConnectionStatus = 'connecting' | 'socket' | 'supabase' | 'disconnected';
+
+interface MessagePage {
+    conversationId: string;
+    messages: Message[];
+    hasMore: boolean;
+}
+
+const PAGE_SIZE = 50;
 
 /**
  * socket.io treats a path in the URL as a namespace, so the gateway — which is
@@ -28,22 +41,44 @@ function socketOrigin(): string {
     }
 }
 
-export function useRealtimeChat(tenantId: string, conversationId: string) {
+/** Insert-or-merge by id: the socket echo and the POST reply race each other. */
+function upsert(list: Message[], next: Message): Message[] {
+    const index = list.findIndex((m) => m.id === next.id);
+    if (index === -1) return [...list, next];
+    const merged = list.slice();
+    merged[index] = { ...list[index], ...next } as Message;
+    return merged;
+}
+
+/**
+ * Live view of one conversation.
+ *
+ * History comes from the cookie-authenticated REST API rather than a direct
+ * Postgres read, so it works for every role without a Supabase session. The
+ * socket is used purely as an inbound transport; sending goes over HTTP so a
+ * refusal (muted, not a participant) surfaces as a real error.
+ *
+ * Callers should key the component by `conversationId` — this hook does not
+ * reset itself when the id changes.
+ */
+export function useRealtimeChat(conversationId: string) {
     const [messages, setMessages] = useState<Message[]>([]);
-    const [connectionStatus, setConnectionStatus] = useState<
-        'connecting' | 'socket' | 'supabase' | 'disconnected'
-    >('connecting');
+    const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>('connecting');
+    const [loadingHistory, setLoadingHistory] = useState(true);
+    const [historyError, setHistoryError] = useState<string | null>(null);
+    const [hasMore, setHasMore] = useState(false);
+    const [loadingOlder, setLoadingOlder] = useState(false);
+
     const socketRef = useRef<Socket | null>(null);
+    const channelRef = useRef<any>(null);
     const supabase = createSupabaseBrowserClient();
-    const supabaseChannelRef = useRef<any>(null);
 
     useEffect(() => {
         let isMounted = true;
 
-        const setupSupabaseFallback = () => {
-            if (supabaseChannelRef.current) return; // Already running
-
-            const channel = supabase
+        const engageSupabaseFallback = () => {
+            if (channelRef.current) return; // already running
+            channelRef.current = supabase
                 .channel(`chat_${conversationId}`)
                 .on(
                     'postgres_changes',
@@ -54,51 +89,42 @@ export function useRealtimeChat(tenantId: string, conversationId: string) {
                         filter: `conversation_id=eq.${conversationId}`,
                     },
                     (payload) => {
-                        if (isMounted) {
-                            setMessages((prev) => {
-                                if (prev.find((m) => m.id === payload.new.id)) return prev;
-                                return [...prev, payload.new as Message];
-                            });
-                        }
+                        if (isMounted) setMessages((prev) => upsert(prev, payload.new as Message));
                     },
                 )
-                .subscribe((status) => {
-                    if (status === 'SUBSCRIBED' && isMounted) {
-                        setConnectionStatus('supabase');
-                    }
+                .subscribe((status: string) => {
+                    if (status === 'SUBSCRIBED' && isMounted) setConnectionStatus('supabase');
                 });
-            supabaseChannelRef.current = channel;
         };
 
-        const initializeChat = async () => {
-            // 1. Historical messages. Read directly from Postgres when a Supabase
-            //    session exists; a missing session is not fatal to live delivery.
+        const start = async () => {
             try {
-                const { data: initialMessages } = await supabase
-                    .from('chat_messages')
-                    .select('*, chat_read_receipts(id, user_id)')
-                    .eq('conversation_id', conversationId)
-                    .order('created_at', { ascending: true })
-                    .limit(50);
-
-                if (isMounted && initialMessages) setMessages(initialMessages);
-            } catch {
-                // History is best-effort — realtime still works without it.
+                const page = await apiClient.get<MessagePage>(
+                    `/chat/conversations/${conversationId}/messages?limit=${PAGE_SIZE}`,
+                    { skipGlobalToast: true },
+                );
+                if (isMounted) {
+                    setMessages(page?.messages ?? []);
+                    setHasMore(!!page?.hasMore);
+                }
+            } catch (err: any) {
+                if (isMounted) setHistoryError(err?.message ?? null);
+            } finally {
+                if (isMounted) setLoadingHistory(false);
             }
 
-            // 2. Primary driver: Socket.io. The gateway verifies the handshake
-            //    token against JWT_SECRET, so it must be the NestJS session
-            //    token — a Supabase access_token fails signature checks.
-            const token = authManager.getToken();
-            if (!token) {
-                if (isMounted) setConnectionStatus('disconnected');
-                return;
-            }
-
+            // The gateway verifies the handshake against JWT_SECRET, and the
+            // session cookie is httpOnly and cross-origin to it. `auth` as a
+            // function runs before every attempt, so reconnects re-ticket too.
             const socket = io(socketOrigin(), {
-                auth: { token },
+                auth: (cb: (data: Record<string, unknown>) => void) => {
+                    apiClient
+                        .get<{ token: string }>('/chat/socket-ticket', { skipGlobalToast: true })
+                        .then((ticket) => cb({ token: ticket?.token ?? '' }))
+                        .catch(() => cb({}));
+                },
                 transports: ['websocket'],
-                reconnectionAttempts: 3, // Fail over to Supabase if the VPS WebSocket layer fails
+                reconnectionAttempts: 3, // then fall back to Supabase Realtime
             });
             socketRef.current = socket;
 
@@ -107,12 +133,8 @@ export function useRealtimeChat(tenantId: string, conversationId: string) {
             });
 
             socket.on('new_message', (msg: Message) => {
-                if (msg.conversation_id === conversationId && isMounted) {
-                    setMessages((prev) => {
-                        // Prevent duplicates if the REST request returned quickly
-                        if (prev.find((m) => m.id === msg.id)) return prev;
-                        return [...prev, msg];
-                    });
+                if (msg?.conversation_id === conversationId && isMounted) {
+                    setMessages((prev) => upsert(prev, msg));
                 }
             });
 
@@ -121,42 +143,82 @@ export function useRealtimeChat(tenantId: string, conversationId: string) {
             });
 
             socket.on('connect_error', () => {
-                // Dual driver fallback strategy: engage Supabase Realtime
-                if (isMounted) {
-                    setConnectionStatus('supabase');
-                    setupSupabaseFallback();
-                }
+                engageSupabaseFallback();
+            });
+
+            socket.io.on('reconnect_failed', () => {
+                // Neither driver came up; sending still works over HTTP.
+                if (isMounted && !channelRef.current) setConnectionStatus('disconnected');
             });
         };
 
-        initializeChat();
+        start();
 
         return () => {
             isMounted = false;
-            if (socketRef.current) socketRef.current.disconnect();
-            if (supabaseChannelRef.current) supabase.removeChannel(supabaseChannelRef.current);
+            socketRef.current?.disconnect();
+            socketRef.current = null;
+            if (channelRef.current) {
+                supabase.removeChannel(channelRef.current);
+                channelRef.current = null;
+            }
         };
-    }, [tenantId, conversationId, supabase]);
+    }, [conversationId, supabase]);
 
-    const sendMessage = async (content: string) => {
-        if (connectionStatus === 'socket' && socketRef.current) {
-            socketRef.current.emit('send_message', { conversationId, content });
-            return;
+    const oldestAt = messages.length > 0 ? messages[0]!.created_at : null;
+
+    /** Walk one page further back from the oldest message currently held. */
+    const loadOlder = useCallback(async () => {
+        if (!oldestAt) return;
+        setLoadingOlder(true);
+        try {
+            const page = await apiClient.get<MessagePage>(
+                `/chat/conversations/${conversationId}/messages?limit=${PAGE_SIZE}&before=${encodeURIComponent(oldestAt)}`,
+                { skipGlobalToast: true },
+            );
+            const older = page?.messages ?? [];
+            if (older.length > 0) {
+                setMessages((prev) => {
+                    const seen = new Set(prev.map((m) => m.id));
+                    return [...older.filter((m) => !seen.has(m.id)), ...prev];
+                });
+            }
+            setHasMore(!!page?.hasMore);
+        } finally {
+            setLoadingOlder(false);
         }
+    }, [conversationId, oldestAt]);
 
-        // Fallback REST endpoint. Goes through apiClient so it uses cookie auth
-        // and throws on failure, letting the composer surface an error.
-        const msg = await apiClient.post<Message>(
-            '/chat/messages',
-            { conversationId, content },
-            { skipGlobalToast: true },
+    const sendMessage = useCallback(
+        async (content: string) => {
+            const msg = await apiClient.post<Message>(
+                '/chat/messages',
+                { conversationId, content },
+                { skipGlobalToast: true },
+            );
+            // The gateway echoes this to everyone including us, but appending the
+            // server's copy immediately keeps the composer feeling instant.
+            if (msg?.id) setMessages((prev) => upsert(prev, msg));
+        },
+        [conversationId],
+    );
+
+    /** Reflect a successful pin/unpin without refetching the page. */
+    const setPinned = useCallback((messageId: string, isPinned: boolean) => {
+        setMessages((prev) =>
+            prev.map((m) => (m.id === messageId ? { ...m, is_pinned: isPinned } : m)),
         );
+    }, []);
 
-        // No socket echo on this path, so append the server's copy ourselves.
-        if (msg?.id) {
-            setMessages((prev) => (prev.find((m) => m.id === msg.id) ? prev : [...prev, msg]));
-        }
+    return {
+        messages,
+        connectionStatus,
+        sendMessage,
+        loadingHistory,
+        historyError,
+        hasMore,
+        loadingOlder,
+        loadOlder,
+        setPinned,
     };
-
-    return { messages, connectionStatus, sendMessage };
 }

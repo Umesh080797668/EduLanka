@@ -8,7 +8,9 @@ import { useTranslations } from 'next-intl';
 
 import { cn } from '@/lib/cn';
 import { apiClient } from '@/lib/api-client';
+import { sanitizeNoticeHtml } from '@/lib/sanitize-html';
 import { Alert } from '@/components/ui/Alert';
+import { Avatar } from '@/components/ui/Avatar';
 import { Badge, type BadgeTone } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { EmptyState } from '@/components/ui/Layout';
@@ -119,23 +121,37 @@ export default function NoticeFeed() {
                             </Badge>
                         </header>
 
-                        {/* Notice bodies are authored as HTML by school staff. */}
+                        {/*
+                          * Notice bodies are authored as HTML by school staff. The API
+                          * scrubs them on write; this second pass covers rows stored
+                          * before that existed and any future write path that forgets.
+                          */}
                         <div
                             className="text-[15px] leading-relaxed text-muted-foreground [&_a]:text-primary [&_a]:underline [&_li]:ml-4 [&_li]:list-disc [&_p]:mb-2"
-                            dangerouslySetInnerHTML={{ __html: notice.content_html }}
+                            dangerouslySetInnerHTML={{
+                                __html: sanitizeNoticeHtml(notice.content_html),
+                            }}
                         />
 
                         <footer className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-border pt-3.5">
-                            <div className="min-w-0">
-                                <p className="numeric text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
-                                    {new Date(notice.created_at).toLocaleDateString()}
-                                </p>
-                                {(notice.author?.first_name || notice.author?.last_name) && (
-                                    <p className="mt-0.5 truncate text-xs font-semibold text-foreground">
-                                        {t('postedBy')} {notice.author?.first_name}{' '}
-                                        {notice.author?.last_name}
-                                    </p>
+                            <div className="flex min-w-0 items-center gap-2.5">
+                                {notice.author?.full_name && (
+                                    <Avatar
+                                        size="sm"
+                                        name={notice.author.full_name}
+                                        src={notice.author.avatar_url || undefined}
+                                    />
                                 )}
+                                <div className="min-w-0">
+                                    <p className="numeric text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                                        {new Date(notice.created_at).toLocaleDateString()}
+                                    </p>
+                                    {notice.author?.full_name && (
+                                        <p className="mt-0.5 truncate text-xs font-semibold text-foreground">
+                                            {t('postedBy')} {notice.author.full_name}
+                                        </p>
+                                    )}
+                                </div>
                             </div>
 
                             {notice.is_read ? (

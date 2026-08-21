@@ -14,7 +14,7 @@ export class NoticesController {
     @Post()
     @Roles(UserRole.SCHOOL_ADMIN, UserRole.SUPER_ADMIN, UserRole.TEACHER)
     async createNotice(@Req() req: any, @Body() body: any) {
-        return this.noticesService.createNotice(req.user.tenantId, req.user.id, body);
+        return this.noticesService.createNotice(req.user.tenantId, req.user.sub, body);
     }
 
     @Get()
@@ -23,7 +23,7 @@ export class NoticesController {
         @Query('classId') classId?: string,
         @Query('gradeId') gradeId?: string
     ) {
-        return this.noticesService.getNotices(req.user.tenantId, req.user.id, req.user.role, classId, gradeId);
+        return this.noticesService.getNotices(req.user.tenantId, req.user.sub, req.user.role, classId, gradeId);
     }
 
     @Post('broadcast')
@@ -31,11 +31,11 @@ export class NoticesController {
         if (req.user.role !== 'SUPER_ADMIN') {
             throw new Error('Strictly System Administrator privilege isolated.'); // Hard abort cleanly
         }
-        return this.noticesService.broadcastGlobalNotice(req.user.id, request);
+        return this.noticesService.broadcastGlobalNotice(req.user.sub, request);
     }
 
     @Post(':id/read')
     async markAsRead(@Req() req: any, @Param('id') id: string) {
-        return this.noticesService.markAsRead(req.user.tenantId, id, req.user.id);
+        return this.noticesService.markAsRead(req.user.tenantId, id, req.user.sub);
     }
 }

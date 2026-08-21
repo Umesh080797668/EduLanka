@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/Button';
 import { EmptyState } from '@/components/ui/Layout';
 import ConversationList from './ConversationList';
 import MessageThread from './MessageThread';
+import type { Conversation } from './types';
 
 /**
  * Two-pane messaging shell. On phones the panes swap: the list fills the screen
@@ -15,40 +16,41 @@ import MessageThread from './MessageThread';
  */
 export default function ChatContainer() {
     const t = useTranslations('Chat');
-    const [selectedId, setSelectedId] = React.useState<string | null>(null);
+    const [selected, setSelected] = React.useState<Conversation | null>(null);
 
     return (
         <div className="flex h-full min-h-0 w-full overflow-hidden border-t border-border bg-background">
             {/* ── Conversations ─────────────────────────────────────────────── */}
             <aside
-                className={`${selectedId ? 'hidden' : 'flex'} w-full shrink-0 flex-col border-r border-border bg-card md:flex md:w-80`}
+                className={`${selected ? 'hidden' : 'flex'} w-full shrink-0 flex-col border-r border-border bg-card md:flex md:w-80`}
             >
                 <div className="shrink-0 border-b border-border px-4 py-3.5">
                     <h1 className="text-base font-bold tracking-tight text-foreground">
                         {t('conversations')}
                     </h1>
                 </div>
-                <ConversationList selectedId={selectedId} onSelect={setSelectedId} />
+                <ConversationList selectedId={selected?.id ?? null} onSelect={setSelected} />
             </aside>
 
             {/* ── Thread ────────────────────────────────────────────────────── */}
             <main
-                className={`${selectedId ? 'flex' : 'hidden'} min-w-0 flex-1 flex-col md:flex`}
+                className={`${selected ? 'flex' : 'hidden'} min-w-0 flex-1 flex-col md:flex`}
             >
-                {selectedId ? (
+                {selected ? (
                     <>
                         <div className="shrink-0 border-b border-border bg-card px-3 py-2 md:hidden">
                             <Button
                                 variant="ghost"
                                 size="sm"
                                 leadingIcon={<ChevronLeft />}
-                                onClick={() => setSelectedId(null)}
+                                onClick={() => setSelected(null)}
                             >
                                 {t('backToList')}
                             </Button>
                         </div>
                         <div className="min-h-0 flex-1">
-                            <MessageThread conversationId={selectedId} />
+                            {/* Keyed so switching threads starts the hook clean. */}
+                            <MessageThread key={selected.id} conversation={selected} />
                         </div>
                     </>
                 ) : (

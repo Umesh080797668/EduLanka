@@ -26,6 +26,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       const payload = await this.jwtService.verifyAsync(token, { secret: process.env.JWT_SECRET });
       client.data.tenantId = payload.tenantId;
       client.data.userId = payload.sub || payload.userId;
+      client.data.role = payload.role;
 
       const roomName = `tenant_${client.data.tenantId}`;
       await client.join(roomName);
@@ -43,18 +44,28 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     await this.redisService.getClient().decr('metrics:ws:connections');
   }
 
+  /**
+   * Push a stored message to a tenant's connected clients. Exposed so the HTTP
+   * send path reaches the same audience as a gateway-originated send.
+   */
+  broadcastMessage(tenantId: string, message: any): void {
+    if (!this.server || !message) return;
+    this.server.to(`tenant_${tenantId}`).emit('new_message', message);
+  }
+
   @SubscribeMessage('send_message')
   async handleSendMessage(@ConnectedSocket() client: Socket, @MessageBody() payload: any) {
-    const { tenantId, userId } = client.data;
+    const { tenantId, userId, role } = client.data;
     if (!tenantId || !userId) return;
 
     try {
       // Primary Driver flow: Validate, Save to Supabase, then Broadcast to connected workers via Redis pub/sub.
-      const savedMessage = await this.chatService.saveMessage(tenantId, payload.conversationId, userId, payload.content);
+      const savedMessage = await this.chatService.saveMessage(tenantId, payload.conversationId, userId, payload.content, role);
 
-      this.server.to(`tenant_${tenantId}`).emit('new_message', savedMessage);
+      this.broadcastMessage(tenantId, savedMessage);
     } catch (e: any) {
       this.logger.error(`Error sending message: ${e.message}`, e);
+      client.emit('send_error', { conversationId: payload?.conversationId, message: e.message });
     }
   }
 }

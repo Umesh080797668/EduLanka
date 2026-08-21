@@ -12,6 +12,7 @@ import {
 import type { JwtPayload } from '@edu-lanka/shared-types';
 import { UserRole } from '@edu-lanka/shared-types';
 import { SupabaseService } from '../supabase/supabase.service';
+import { ChatService } from '../chat/chat.service';
 import { CreateClassDto, UpdateClassDto, AssignTeacherDto } from './dto/class.dto';
 
 @Injectable()
@@ -20,7 +21,20 @@ export class ClassesService {
 
     constructor(
         private readonly supabase: SupabaseService,
+        private readonly chat: ChatService,
     ) { }
+
+    /**
+     * Keep the class group chat roster in step with staffing changes. Never
+     * fatal — chat is a companion to the class, not a precondition for it.
+     */
+    private async syncClassGroup(tenantId: string, classId: string): Promise<void> {
+        try {
+            await this.chat.syncClassParticipants(tenantId, classId);
+        } catch (err: any) {
+            this.logger.warn(`Class group sync skipped for ${classId}: ${err?.message}`);
+        }
+    }
 
     private guardAdmin(caller: JwtPayload): void {
         if (caller.role !== UserRole.SCHOOL_ADMIN && caller.role !== UserRole.SUPER_ADMIN) {
@@ -70,6 +84,9 @@ export class ClassesService {
         if (chatError) {
             this.logger.error(`Failed to auto-provision chat conversation for class ${data.id}: ${chatError.message}`);
             // Non-blocking error, class created successfully
+        } else {
+            // A brand-new class has no roll yet, but it may already have staff.
+            await this.syncClassGroup(slug, data.id);
         }
 
         return data;
@@ -186,6 +203,7 @@ export class ClassesService {
             this.logger.error(`Failed to assign teacher: ${error.message}`);
             throw new InternalServerErrorException('Failed to assign teacher');
         }
+        await this.syncClassGroup(slug, classId);
         return data;
     }
 
@@ -204,6 +222,7 @@ export class ClassesService {
             this.logger.error(`Failed to remove teacher from class: ${error.message}`, error);
             throw new InternalServerErrorException('Failed to remove teacher from class');
         }
+        await this.syncClassGroup(slug, classId);
         return { message: 'Teacher removed from class' };
     }
 }

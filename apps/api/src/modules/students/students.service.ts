@@ -12,6 +12,7 @@ import {
 import type { JwtPayload } from '@edu-lanka/shared-types';
 import { UserRole } from '@edu-lanka/shared-types';
 import { SupabaseService } from '../supabase/supabase.service';
+import { ChatService } from '../chat/chat.service';
 import { CreateStudentDto, UpdateStudentDto, AssignClassDto } from './dto/student.dto';
 
 @Injectable()
@@ -20,6 +21,7 @@ export class StudentsService {
 
     constructor(
         private readonly supabase: SupabaseService,
+        private readonly chat: ChatService,
     ) { }
 
     private guardAdmin(caller: JwtPayload): void {
@@ -123,6 +125,7 @@ export class StudentsService {
             }
 
             this.logger.log(`Enrolled student ${admissionNo} for tenant ${slug}`);
+            if (studentRow.class_id) await this.syncClassGroup(slug, studentRow.class_id);
             studentRow.users = { full_name: userRow.full_name, email: userRow.email, phone_number: userRow.phone_number };
             return studentRow;
         } catch (err) {
@@ -265,7 +268,21 @@ export class StudentsService {
             throw new InternalServerErrorException('Failed to assign class');
         }
         if (!data) throw new NotFoundException(`Student ${id} not found`);
+        await this.syncClassGroup(slug, dto.classId);
         return data;
+    }
+
+    /**
+     * Keep the class group chat roster in step with the roll. Never fatal — a
+     * failed sync must not roll back an enrolment or a class transfer.
+     */
+    private async syncClassGroup(tenantId: string, classId?: string | null): Promise<void> {
+        if (!classId) return;
+        try {
+            await this.chat.syncClassParticipants(tenantId, classId);
+        } catch (err: any) {
+            this.logger.warn(`Class group sync skipped for ${classId}: ${err?.message}`);
+        }
     }
 
     async deactivate(id: string, caller: JwtPayload) {
