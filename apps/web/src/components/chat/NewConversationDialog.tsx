@@ -43,6 +43,7 @@ export default function NewConversationDialog({
     onCreated,
 }: NewConversationDialogProps) {
     const t = useTranslations('Chat');
+    const tc = useTranslations('Common');
     const [mode, setMode] = React.useState<Mode>('direct');
     const [directory, setDirectory] = React.useState<DirectoryEntry[] | null>(null);
     const [query, setQuery] = React.useState('');
@@ -146,7 +147,7 @@ export default function NewConversationDialog({
                 mode === 'group' ? (
                     <>
                         <Button variant="ghost" onClick={close}>
-                            {t('cancel')}
+                            {tc('cancel')}
                         </Button>
                         <Button
                             leadingIcon={<Users />}

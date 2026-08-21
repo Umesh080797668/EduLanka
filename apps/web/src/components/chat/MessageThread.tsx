@@ -108,7 +108,8 @@ export default function MessageThread({ conversation }: { conversation: Conversa
 
     const conn = CONNECTION[connectionStatus];
     const title = conversation.name || t('untitled');
-    const isGroup = conversation.type === 'CLASS';
+    // Class rosters and ad-hoc groups both read as group threads.
+    const isGroup = conversation.type !== 'DIRECT';
 
     return (
         <div className="flex h-full min-h-0 flex-col bg-background">

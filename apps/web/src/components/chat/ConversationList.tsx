@@ -28,9 +28,15 @@ function timeLabel(iso: string): string {
 interface ConversationListProps {
     selectedId: string | null;
     onSelect: (conversation: Conversation) => void;
+    /** Change this to force an immediate re-pull (e.g. after creating a thread). */
+    refreshToken?: number;
 }
 
-export default function ConversationList({ selectedId, onSelect }: ConversationListProps) {
+export default function ConversationList({
+    selectedId,
+    onSelect,
+    refreshToken = 0,
+}: ConversationListProps) {
     const t = useTranslations('Chat');
     const [conversations, setConversations] = React.useState<Conversation[]>([]);
     const [loading, setLoading] = React.useState(true);
@@ -63,7 +69,7 @@ export default function ConversationList({ selectedId, onSelect }: ConversationL
             isMounted = false;
             clearInterval(timer);
         };
-    }, []);
+    }, [refreshToken]);
 
     const handleSelect = (conversation: Conversation) => {
         setOpened((prev) => (prev.includes(conversation.id) ? prev : [...prev, conversation.id]));
@@ -107,7 +113,7 @@ export default function ConversationList({ selectedId, onSelect }: ConversationL
     return (
         <ul className="scrollbar-none flex flex-1 flex-col gap-0.5 overflow-y-auto p-2">
             {conversations.map((conv) => {
-                const isClass = conv.type === 'CLASS';
+                const isGroup = conv.type !== 'DIRECT';
                 const name = conv.name || t('untitled');
                 const active = selectedId === conv.id;
                 const unread = opened.includes(conv.id) ? 0 : conv.unread_count ?? 0;
@@ -116,6 +122,12 @@ export default function ConversationList({ selectedId, onSelect }: ConversationL
                 const preview = conv.last_message
                     ? `${conv.last_message.sender_id === me ? `${t('you')}: ` : ''}${conv.last_message.content}`
                     : null;
+                const kind =
+                    conv.type === 'CLASS'
+                        ? t('classGroup')
+                        : conv.type === 'GROUP'
+                          ? t('groupChat')
+                          : t('directMessage');
 
                 return (
                     <li key={conv.id}>
@@ -131,7 +143,7 @@ export default function ConversationList({ selectedId, onSelect }: ConversationL
                                     : 'text-foreground hover:bg-muted',
                             )}
                         >
-                            {isClass ? (
+                            {isGroup ? (
                                 <span className="grid size-9 shrink-0 place-items-center rounded-full bg-muted text-muted-foreground">
                                     <Users className="size-4" aria-hidden />
                                 </span>
@@ -160,8 +172,7 @@ export default function ConversationList({ selectedId, onSelect }: ConversationL
                                                 : 'text-muted-foreground',
                                         )}
                                     >
-                                        {preview ??
-                                            (isClass ? t('classGroup') : t('directMessage'))}
+                                        {preview ?? kind}
                                     </span>
 
                                     {muted && (
