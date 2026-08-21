@@ -1,17 +1,35 @@
 'use client';
-import { authManager } from '@/lib/auth-store';
 
-import { useState, useEffect } from 'react';
-import { Link } from '@/i18n/routing';
-import { fetchParents, deactivateParent, RequestOpts } from '@/lib/api/school';
-import type { ParentProfile } from '@edu-lanka/shared-types';
+import { useEffect, useState } from 'react';
+import { motion } from 'framer-motion';
+import { Pencil, Trash2, UserPlus, Users2 } from 'lucide-react';
 import { useTranslations } from 'next-intl';
-import { PageSkeleton } from '@/components/ui/Skeleton';
+
+import { Link } from '@/i18n/routing';
+import { authManager } from '@/lib/auth-store';
+import { deactivateParent, fetchParents, RequestOpts } from '@/lib/api/school';
+import type { ParentProfile } from '@edu-lanka/shared-types';
+import { Alert } from '@/components/ui/Alert';
+import { Avatar } from '@/components/ui/Avatar';
+import { Badge } from '@/components/ui/Badge';
+import { Button, buttonClass } from '@/components/ui/Button';
+import { EmptyState, PageHeader } from '@/components/ui/Layout';
 import MultiStepModal from '@/components/ui/MultiStepModal';
-import { Trash2 } from 'lucide-react';
+import { PageSkeleton } from '@/components/ui/Skeleton';
+import {
+    Table,
+    TableWrap,
+    TBody,
+    TD,
+    TH,
+    THead,
+    TR,
+} from '@/components/ui/Table';
 
 export default function ParentsPage() {
     const t = useTranslations('InstitutionAdminParents');
+    const tc = useTranslations('Common');
+    const tf = useTranslations('Confirm');
     const [parents, setParents] = useState<ParentProfile[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -19,122 +37,203 @@ export default function ParentsPage() {
 
     const handleDeleteConfirm = async () => {
         if (!parentToDelete) return;
-        const opts: RequestOpts = { token: authManager.getToken() || '', tenantId: authManager.getTenantId() || '' };
+        const opts: RequestOpts = {
+            token: authManager.getToken() || '',
+            tenantId: authManager.getTenantId() || '',
+        };
         await deactivateParent(parentToDelete.id, opts);
-        setParents(prev => prev.map(p => p.id === parentToDelete.id ? { ...p, is_active: false } : p));
+        setParents((prev) =>
+            prev.map((p) =>
+                p.id === parentToDelete.id ? { ...p, is_active: false } : p,
+            ),
+        );
     };
 
     useEffect(() => {
-        const opts: RequestOpts = { token: authManager.getToken() || '', tenantId: authManager.getTenantId() || '' };
+        const opts: RequestOpts = {
+            token: authManager.getToken() || '',
+            tenantId: authManager.getTenantId() || '',
+        };
         fetchParents(opts)
-            .then((data) => {
-                setParents(data);
-            })
+            .then(setParents)
             .catch((err) => setError(err.message))
             .finally(() => setLoading(false));
     }, []);
 
     return (
-        <div>
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
-                <h1 style={{ fontSize: '1.5rem', fontWeight: 600 }}>{t('title')}</h1>
-                <Link
-                    href="/institution-admin/parents/new"
-                    className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl transition-colors shadow-sm text-sm"
-                >
-                    {t('addParent')}
-                </Link>
-            </div>
+        <div className="mx-auto max-w-6xl">
+            <PageHeader
+                icon={<Users2 />}
+                title={t('title')}
+                badge={
+                    !loading && parents.length > 0 ? (
+                        <Badge tone="primary" dot>
+                            {parents.length}
+                        </Badge>
+                    ) : undefined
+                }
+                actions={
+                    <Link
+                        href="/institution-admin/parents/new"
+                        className={buttonClass({ variant: 'primary' })}
+                    >
+                        <UserPlus className="size-4" />
+                        {t('addParent')}
+                    </Link>
+                }
+            />
 
             {loading ? (
-                <PageSkeleton />
+                <PageSkeleton rows={6} cols={4} />
             ) : error ? (
-                <div style={{ padding: '1rem', background: '#fee2e2', color: '#b91c1c', borderRadius: '6px' }}>
+                <Alert tone="danger" title={tc('loadFailed')}>
                     {error}
-                </div>
+                </Alert>
             ) : parents.length === 0 ? (
-                <div style={{ padding: '3rem', textAlign: 'center', background: 'white', borderRadius: '8px', border: '1px solid #e5e7eb' }}>
-                    <p style={{ color: '#6b7280', marginBottom: '1rem' }}>{t('noParents')}</p>
-                </div>
+                <EmptyState
+                    icon={<Users2 />}
+                    title={t('noParents')}
+                    action={
+                        <Link
+                            href="/institution-admin/parents/new"
+                            className={buttonClass({ variant: 'primary' })}
+                        >
+                            <UserPlus className="size-4" />
+                            {t('addParent')}
+                        </Link>
+                    }
+                />
             ) : (
-                <div style={{ background: 'white', borderRadius: '8px', border: '1px solid #e5e7eb', overflow: 'hidden' }}>
-                    <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
-                        <thead style={{ background: '#f9fafb', borderBottom: '1px solid #e5e7eb' }}>
-                            <tr>
-                                <th style={{ padding: '0.75rem 1rem', fontWeight: 500, color: '#374151' }}>{t('parentName')}</th>
-                                <th style={{ padding: '0.75rem 1rem', fontWeight: 500, color: '#374151' }}>{t('contact')}</th>
-                                <th style={{ padding: '0.75rem 1rem', fontWeight: 500, color: '#374151' }}>{t('childrenLinked')}</th>
-                                <th style={{ padding: '0.75rem 1rem', fontWeight: 500, color: '#374151', textAlign: 'right' }}>{t('actions')}</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {parents.map((parent) => (
-                                <tr key={parent.id} style={{ borderBottom: '1px solid #e5e7eb' }}>
-                                    <td style={{ padding: '0.75rem 1rem' }}>
-                                        <div style={{ fontWeight: 500 }}>{parent.full_name}</div>
-                                    </td>
-                                    <td style={{ padding: '0.75rem 1rem' }}>
-                                        <div style={{ color: '#4b5563' }}>{parent.phone_number || parent.email || t('na')}</div>
-                                    </td>
-                                    <td style={{ padding: '0.75rem 1rem' }}>
-                                        <span style={{
-                                            background: parent.parents && parent.parents.length > 0 ? '#d1fae5' : '#f3f4f6',
-                                            color: parent.parents && parent.parents.length > 0 ? '#065f46' : '#6b7280',
-                                            padding: '0.2rem 0.6rem',
-                                            borderRadius: '999px',
-                                            fontSize: '0.8rem',
-                                            fontWeight: 500
-                                        }}>
-                                            {parent.parents?.length || 0} {t('children')}
-                                        </span>
-                                    </td>
-                                    <td style={{ padding: '0.75rem 1rem', textAlign: 'right' }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '0.5rem' }}>
-                                            <Link
-                                                href={`/institution-admin/parents/${parent.id}?edit=true`}
-                                                style={{ color: 'var(--color-brand-600)', textDecoration: 'none', fontWeight: 500, marginRight: '0.5rem' }}
+                <TableWrap>
+                    <Table>
+                        <THead>
+                            <TR>
+                                <TH>{t('parentName')}</TH>
+                                <TH>{t('contact')}</TH>
+                                <TH className="w-40">{t('childrenLinked')}</TH>
+                                <TH className="w-28">{t('status')}</TH>
+                                <TH align="right" className="w-44">
+                                    {t('actions')}
+                                </TH>
+                            </TR>
+                        </THead>
+                        <TBody>
+                            {parents.map((parent, idx) => {
+                                const linked = parent.parents?.length || 0;
+                                return (
+                                    <motion.tr
+                                        key={parent.id}
+                                        initial={{ opacity: 0, y: 8 }}
+                                        animate={{
+                                            opacity: 1,
+                                            y: 0,
+                                            transition: {
+                                                delay: Math.min(idx * 0.03, 0.3),
+                                            },
+                                        }}
+                                        className="transition-colors hover:bg-accent/60"
+                                    >
+                                        <TD>
+                                            <div className="flex items-center gap-3">
+                                                <Avatar
+                                                    name={parent.full_name}
+                                                    size="sm"
+                                                />
+                                                <span className="font-medium text-foreground">
+                                                    {parent.full_name}
+                                                </span>
+                                            </div>
+                                        </TD>
+                                        <TD className="text-muted-foreground">
+                                            {parent.phone_number ||
+                                                parent.email ||
+                                                t('na')}
+                                        </TD>
+                                        <TD>
+                                            <Badge
+                                                tone={linked > 0 ? 'success' : 'neutral'}
                                             >
-                                                Edit
-                                            </Link>
-                                            <Link
-                                                href={`/institution-admin/parents/${parent.id}`}
-                                                style={{ color: 'var(--color-brand-600)', textDecoration: 'none', fontWeight: 500 }}
+                                                {linked} {t('children')}
+                                            </Badge>
+                                        </TD>
+                                        <TD>
+                                            <Badge
+                                                tone={
+                                                    parent.is_active
+                                                        ? 'success'
+                                                        : 'danger'
+                                                }
+                                                dot
                                             >
-                                                {t('viewMap')} &rarr;
-                                            </Link>
-                                            <button
-                                                onClick={() => setParentToDelete(parent)}
-                                                style={{ padding: '0.35rem', border: 'none', background: '#fee2e2', borderRadius: '4px', cursor: 'pointer', color: '#b91c1c' }}
-                                                title="Deactivate Parent"
-                                            >
-                                                <Trash2 style={{ width: '1rem', height: '1rem' }} />
-                                            </button>
-                                        </div>
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
+                                                {parent.is_active
+                                                    ? t('active')
+                                                    : t('inactive')}
+                                            </Badge>
+                                        </TD>
+                                        <TD align="right">
+                                            <div className="flex items-center justify-end gap-1">
+                                                <Link
+                                                    href={`/institution-admin/parents/${parent.id}?edit=true`}
+                                                    aria-label={t('edit')}
+                                                    title={t('edit')}
+                                                    className={buttonClass({
+                                                        variant: 'ghost',
+                                                        size: 'icon-sm',
+                                                    })}
+                                                >
+                                                    <Pencil className="size-4" />
+                                                </Link>
+                                                <Link
+                                                    href={`/institution-admin/parents/${parent.id}`}
+                                                    className={buttonClass({
+                                                        variant: 'outline',
+                                                        size: 'sm',
+                                                    })}
+                                                >
+                                                    {t('viewMap')}
+                                                </Link>
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon-sm"
+                                                    aria-label={t('deactivateParent')}
+                                                    title={t('deactivateParent')}
+                                                    disabled={!parent.is_active}
+                                                    onClick={() =>
+                                                        setParentToDelete(parent)
+                                                    }
+                                                    className="text-destructive"
+                                                >
+                                                    <Trash2 className="size-4" />
+                                                </Button>
+                                            </div>
+                                        </TD>
+                                    </motion.tr>
+                                );
+                            })}
+                        </TBody>
+                    </Table>
+                </TableWrap>
             )}
 
             <MultiStepModal
                 isOpen={!!parentToDelete}
                 onClose={() => setParentToDelete(null)}
-                title="Deactivate Parent"
+                title={t('deactivateParent')}
                 steps={[
                     {
-                        title: 'Are you absolutely sure?',
-                        description: `This action will initiate the deactivation process for this parent. Their access will be revoked but historical data will be preserved.`,
-                        confirmText: 'Yes, proceed',
-                        isDestructive: true
+                        title: tf('sureTitle'),
+                        description: tf('deactivateNamed', {
+                            name: parentToDelete?.full_name ?? '',
+                        }),
+                        confirmText: tf('proceed'),
+                        isDestructive: true,
                     },
                     {
-                        title: 'Confirm Deactivation',
-                        description: 'Please confirm once more. They will no longer be able to log in to the portal.',
-                        confirmText: 'Deactivate Parent',
-                        isDestructive: true
-                    }
+                        title: tf('deactivateTitle'),
+                        description: tf('deactivateDesc'),
+                        confirmText: t('deactivateParent'),
+                        isDestructive: true,
+                    },
                 ]}
                 onComplete={handleDeleteConfirm}
             />

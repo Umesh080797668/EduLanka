@@ -1,31 +1,62 @@
 'use client';
-import { authManager } from '@/lib/auth-store';
 
-import { useState, useEffect } from 'react';
-import { Link } from '@/i18n/routing';
-import { fetchTeachers, deactivateTeacher, RequestOpts } from '@/lib/api/school';
-import type { TeacherProfile } from '@edu-lanka/shared-types';
+import { useEffect, useState } from 'react';
+import { motion } from 'framer-motion';
+import { Eye, Pencil, Trash2, UserPlus, Users } from 'lucide-react';
 import { useTranslations } from 'next-intl';
-import { PageSkeleton } from '@/components/ui/Skeleton';
+
+import { Link } from '@/i18n/routing';
+import { authManager } from '@/lib/auth-store';
+import { deactivateTeacher, fetchTeachers, RequestOpts } from '@/lib/api/school';
+import type { TeacherProfile } from '@edu-lanka/shared-types';
+import { Alert } from '@/components/ui/Alert';
+import { Badge } from '@/components/ui/Badge';
+import { Button, buttonClass } from '@/components/ui/Button';
+import { EmptyState, PageHeader } from '@/components/ui/Layout';
 import MultiStepModal from '@/components/ui/MultiStepModal';
-import { Trash2 } from 'lucide-react';
+import { PageSkeleton } from '@/components/ui/Skeleton';
+import {
+    Table,
+    TableWrap,
+    TBody,
+    TD,
+    TH,
+    THead,
+    TR,
+} from '@/components/ui/Table';
 
 export default function TeachersPage() {
     const t = useTranslations('InstitutionAdminTeachers');
+    const tc = useTranslations('Common');
+    const tf = useTranslations('Confirm');
     const [teachers, setTeachers] = useState<TeacherProfile[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-    const [teacherToDelete, setTeacherToDelete] = useState<TeacherProfile | null>(null);
+    const [teacherToDelete, setTeacherToDelete] = useState<TeacherProfile | null>(
+        null,
+    );
 
     const handleDeleteConfirm = async () => {
         if (!teacherToDelete) return;
-        const opts: RequestOpts = { token: authManager.getToken() || '', tenantId: authManager.getTenantId() || '' };
+        const opts: RequestOpts = {
+            token: authManager.getToken() || '',
+            tenantId: authManager.getTenantId() || '',
+        };
         await deactivateTeacher(teacherToDelete.id, opts);
-        setTeachers(prev => prev.map(t => t.id === teacherToDelete.id ? { ...t, users: { ...t.users!, is_active: false } } : t));
+        setTeachers((prev) =>
+            prev.map((item) =>
+                item.id === teacherToDelete.id
+                    ? { ...item, users: { ...item.users!, is_active: false } }
+                    : item,
+            ),
+        );
     };
 
     useEffect(() => {
-        const opts: RequestOpts = { token: authManager.getToken() || '', tenantId: authManager.getTenantId() || '' };
+        const opts: RequestOpts = {
+            token: authManager.getToken() || '',
+            tenantId: authManager.getTenantId() || '',
+        };
         fetchTeachers(opts)
             .then(setTeachers)
             .catch((err) => setError(err.message))
@@ -33,114 +64,189 @@ export default function TeachersPage() {
     }, []);
 
     return (
-        <div>
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
-                <h1 style={{ fontSize: '1.5rem', fontWeight: 600 }}>{t('title')}</h1>
-                <Link
-                    href="/institution-admin/teachers/new" // NOTE: Form page placeholder
-                    style={{
-                        background: 'var(--color-brand-600)',
-                        color: 'white',
-                        padding: '0.5rem 1rem',
-                        borderRadius: '6px',
-                        textDecoration: 'none',
-                        fontWeight: 500,
-                    }}
-                >
-                    {t('addTeacher')}
-                </Link>
-            </div>
+        <div className="mx-auto max-w-6xl">
+            <PageHeader
+                icon={<Users />}
+                title={t('title')}
+                badge={
+                    !loading && teachers.length > 0 ? (
+                        <Badge tone="primary" dot>
+                            {teachers.length}
+                        </Badge>
+                    ) : undefined
+                }
+                actions={
+                    <Link
+                        href="/institution-admin/teachers/new"
+                        className={buttonClass({ variant: 'primary' })}
+                    >
+                        <UserPlus className="size-4" />
+                        {t('addTeacher')}
+                    </Link>
+                }
+            />
 
             {loading ? (
-                <PageSkeleton />
+                <PageSkeleton rows={6} cols={4} />
             ) : error ? (
-                <div style={{ padding: '1rem', background: '#fee2e2', color: '#b91c1c', borderRadius: '6px' }}>
+                <Alert tone="danger" title={tc('loadFailed')}>
                     {error}
-                </div>
+                </Alert>
             ) : teachers.length === 0 ? (
-                <div style={{ padding: '3rem', textAlign: 'center', background: 'white', borderRadius: '8px', border: '1px solid #e5e7eb' }}>
-                    <p style={{ color: '#6b7280', marginBottom: '1rem' }}>{t('noTeachers')}</p>
-                </div>
+                <EmptyState
+                    icon={<Users />}
+                    title={t('noTeachers')}
+                    action={
+                        <Link
+                            href="/institution-admin/teachers/new"
+                            className={buttonClass({ variant: 'primary' })}
+                        >
+                            <UserPlus className="size-4" />
+                            {t('addTeacher')}
+                        </Link>
+                    }
+                />
             ) : (
-                <div style={{ background: 'white', borderRadius: '8px', border: '1px solid #e5e7eb', overflow: 'hidden' }}>
-                    <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
-                        <thead style={{ background: '#f9fafb', borderBottom: '1px solid #e5e7eb' }}>
-                            <tr>
-                                <th style={{ padding: '0.75rem 1rem', fontWeight: 500, color: '#374151' }}>{t('empNo')}</th>
-                                <th style={{ padding: '0.75rem 1rem', fontWeight: 500, color: '#374151' }}>{t('name')}</th>
-                                <th style={{ padding: '0.75rem 1rem', fontWeight: 500, color: '#374151' }}>{t('subjects')}</th>
-                                <th style={{ padding: '0.75rem 1rem', fontWeight: 500, color: '#374151', textAlign: 'right' }}>{t('actions')}</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {teachers.map((teacher) => (
-                                <tr key={teacher.id} style={{ borderBottom: '1px solid #e5e7eb' }}>
-                                    <td style={{ padding: '0.75rem 1rem' }}>{teacher.employee_no}</td>
-                                    <td style={{ padding: '0.75rem 1rem' }}>
-                                        <div style={{ fontWeight: 500 }}>{teacher.users?.full_name}</div>
-                                        <div style={{ fontSize: '0.85rem', color: '#6b7280' }}>{teacher.users?.email}</div>
-                                    </td>
-                                    <td style={{ padding: '0.75rem 1rem' }}>
-                                        <div style={{ display: 'flex', gap: '0.25rem', flexWrap: 'wrap' }}>
-                                            {teacher.subject_areas.slice(0, 3).map((sub, i) => (
-                                                <span key={i} style={{ background: '#f3f4f6', padding: '0.125rem 0.375rem', borderRadius: '4px', fontSize: '0.75rem' }}>
-                                                    {sub.replace('_', ' ')}
-                                                </span>
-                                            ))}
+                <TableWrap>
+                    <Table>
+                        <THead>
+                            <TR>
+                                <TH className="w-36">{t('empNo')}</TH>
+                                <TH>{t('name')}</TH>
+                                <TH>{t('subjects')}</TH>
+                                <TH className="w-28">{t('status')}</TH>
+                                <TH align="right" className="w-44">
+                                    {t('actions')}
+                                </TH>
+                            </TR>
+                        </THead>
+                        <TBody>
+                            {teachers.map((teacher, idx) => (
+                                <motion.tr
+                                    key={teacher.id}
+                                    initial={{ opacity: 0, y: 8 }}
+                                    animate={{
+                                        opacity: 1,
+                                        y: 0,
+                                        transition: { delay: Math.min(idx * 0.03, 0.3) },
+                                    }}
+                                    className="transition-colors hover:bg-accent/60"
+                                >
+                                    <TD numeric className="text-muted-foreground">
+                                        {teacher.employee_no}
+                                    </TD>
+                                    <TD>
+                                        <div className="font-medium text-foreground">
+                                            {teacher.users?.full_name}
+                                        </div>
+                                        <div className="text-xs text-muted-foreground">
+                                            {teacher.users?.email}
+                                        </div>
+                                    </TD>
+                                    <TD>
+                                        <div className="flex flex-wrap items-center gap-1">
+                                            {teacher.subject_areas
+                                                .slice(0, 3)
+                                                .map((sub, i) => (
+                                                    <Badge
+                                                        key={i}
+                                                        tone="neutral"
+                                                        variant="outline"
+                                                    >
+                                                        {sub.replace('_', ' ')}
+                                                    </Badge>
+                                                ))}
                                             {teacher.subject_areas.length > 3 && (
-                                                <span style={{ fontSize: '0.75rem', color: '#6b7280', alignSelf: 'center' }}>
+                                                <span className="text-xs text-muted-foreground">
                                                     +{teacher.subject_areas.length - 3}
                                                 </span>
                                             )}
+                                            {teacher.subject_areas.length === 0 && (
+                                                <span className="text-sm italic text-muted-foreground">
+                                                    {t('noSubjects')}
+                                                </span>
+                                            )}
                                         </div>
-                                    </td>
-                                    <td style={{ padding: '0.75rem 1rem', textAlign: 'right' }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '0.5rem' }}>
+                                    </TD>
+                                    <TD>
+                                        <Badge
+                                            tone={
+                                                teacher.users?.is_active
+                                                    ? 'success'
+                                                    : 'danger'
+                                            }
+                                            dot
+                                        >
+                                            {teacher.users?.is_active
+                                                ? t('active')
+                                                : t('inactive')}
+                                        </Badge>
+                                    </TD>
+                                    <TD align="right">
+                                        <div className="flex items-center justify-end gap-1">
                                             <Link
                                                 href={`/institution-admin/teachers/${teacher.id}?edit=true`}
-                                                style={{ color: 'var(--color-brand-600)', textDecoration: 'none', fontWeight: 500, marginRight: '0.5rem' }}
+                                                aria-label={t('edit')}
+                                                title={t('edit')}
+                                                className={buttonClass({
+                                                    variant: 'ghost',
+                                                    size: 'icon-sm',
+                                                })}
                                             >
-                                                Edit
+                                                <Pencil className="size-4" />
                                             </Link>
                                             <Link
                                                 href={`/institution-admin/teachers/${teacher.id}`}
-                                                style={{ color: 'var(--color-brand-600)', textDecoration: 'none', fontWeight: 500 }}
+                                                aria-label={t('view')}
+                                                title={t('view')}
+                                                className={buttonClass({
+                                                    variant: 'ghost',
+                                                    size: 'icon-sm',
+                                                })}
                                             >
-                                                View &rarr;
+                                                <Eye className="size-4" />
                                             </Link>
-                                            <button
-                                                onClick={() => setTeacherToDelete(teacher)}
-                                                style={{ padding: '0.35rem', border: 'none', background: '#fee2e2', borderRadius: '4px', cursor: 'pointer', color: '#b91c1c' }}
-                                                title="Deactivate Teacher"
+                                            <Button
+                                                variant="ghost"
+                                                size="icon-sm"
+                                                aria-label={t('deactivateTeacher')}
+                                                title={t('deactivateTeacher')}
+                                                disabled={!teacher.users?.is_active}
+                                                onClick={() =>
+                                                    setTeacherToDelete(teacher)
+                                                }
+                                                className="text-destructive"
                                             >
-                                                <Trash2 style={{ width: '1rem', height: '1rem' }} />
-                                            </button>
+                                                <Trash2 className="size-4" />
+                                            </Button>
                                         </div>
-                                    </td>
-                                </tr>
+                                    </TD>
+                                </motion.tr>
                             ))}
-                        </tbody>
-                    </table>
-                </div>
+                        </TBody>
+                    </Table>
+                </TableWrap>
             )}
 
             <MultiStepModal
                 isOpen={!!teacherToDelete}
                 onClose={() => setTeacherToDelete(null)}
-                title="Deactivate Teacher"
+                title={t('deactivateTeacher')}
                 steps={[
                     {
-                        title: 'Are you absolutely sure?',
-                        description: `This action will initiate the deactivation process for ${teacherToDelete?.users?.full_name}. Their access will be revoked but historical data will be preserved.`,
-                        confirmText: 'Yes, proceed',
-                        isDestructive: true
+                        title: tf('sureTitle'),
+                        description: tf('deactivateNamed', {
+                            name: teacherToDelete?.users?.full_name ?? '',
+                        }),
+                        confirmText: tf('proceed'),
+                        isDestructive: true,
                     },
                     {
-                        title: 'Confirm Deactivation',
-                        description: 'Please confirm once more. They will no longer be able to log in to the portal.',
-                        confirmText: 'Deactivate Teacher',
-                        isDestructive: true
-                    }
+                        title: tf('deactivateTitle'),
+                        description: tf('deactivateDesc'),
+                        confirmText: t('deactivateTeacher'),
+                        isDestructive: true,
+                    },
                 ]}
                 onComplete={handleDeleteConfirm}
             />

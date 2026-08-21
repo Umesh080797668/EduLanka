@@ -1,78 +1,110 @@
 'use client';
-import { authManager } from '@/lib/auth-store';
 
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
+import { motion } from 'framer-motion';
+import { Layers } from 'lucide-react';
+import { useTranslations } from 'next-intl';
+
+import { authManager } from '@/lib/auth-store';
 import { fetchGrades, RequestOpts } from '@/lib/api/school';
 import type { GradeProfile } from '@edu-lanka/shared-types';
-import { useTranslations } from 'next-intl';
+import { Alert } from '@/components/ui/Alert';
+import { Badge } from '@/components/ui/Badge';
+import { EmptyState, PageHeader } from '@/components/ui/Layout';
 import { PageSkeleton } from '@/components/ui/Skeleton';
+import {
+    Table,
+    TableWrap,
+    TBody,
+    TD,
+    TH,
+    THead,
+    TR,
+} from '@/components/ui/Table';
 
 export default function GradesPage() {
     const t = useTranslations('InstitutionAdminGrades');
+    const tc = useTranslations('Common');
     const [grades, setGrades] = useState<GradeProfile[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
-    const loadData = async () => {
-        setLoading(true);
-        try {
-            const opts: RequestOpts = { token: authManager.getToken() || '', tenantId: authManager.getTenantId() || '' };
-            const data = await fetchGrades(opts);
-            setGrades(data);
-        } catch (err: any) {
-            setError(err.message);
-        } finally {
-            setLoading(false);
-        }
-    };
-
     useEffect(() => {
-        Promise.resolve().then(() => loadData());
+        const loadData = async () => {
+            setLoading(true);
+            try {
+                const opts: RequestOpts = {
+                    token: authManager.getToken() || '',
+                    tenantId: authManager.getTenantId() || '',
+                };
+                const data = await fetchGrades(opts);
+                setGrades(data);
+            } catch (err: any) {
+                setError(err.message);
+            } finally {
+                setLoading(false);
+            }
+        };
+        loadData();
     }, []);
 
-
-
     return (
-        <div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-                <h1 style={{ fontSize: '1.5rem', fontWeight: 600 }}>{t('title')}</h1>
-            </div>
+        <div className="mx-auto max-w-4xl">
+            <PageHeader
+                icon={<Layers />}
+                title={t('title')}
+                description={t('description')}
+                badge={
+                    !loading && grades.length > 0 ? (
+                        <Badge tone="primary" dot>
+                            {grades.length}
+                        </Badge>
+                    ) : undefined
+                }
+            />
 
             {loading ? (
-                <PageSkeleton />
+                <PageSkeleton rows={8} cols={2} />
             ) : error ? (
-                <div style={{ padding: '1rem', background: '#fee2e2', color: '#b91c1c', borderRadius: '6px' }}>
+                <Alert tone="danger" title={tc('loadFailed')}>
                     {error}
-                </div>
+                </Alert>
             ) : grades.length === 0 ? (
-                <div style={{ padding: '3rem', textAlign: 'center', background: 'white', borderRadius: '8px', border: '1px solid #e5e7eb' }}>
-                    <p style={{ color: '#6b7280', marginBottom: '1rem' }}>{t('noGrades')}</p>
-                </div>
+                <EmptyState icon={<Layers />} title={t('noGrades')} />
             ) : (
-                <div style={{ background: 'white', borderRadius: '8px', border: '1px solid #e5e7eb', overflow: 'hidden' }}>
-                    <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
-                        <thead style={{ background: '#f9fafb', borderBottom: '1px solid #e5e7eb' }}>
-                            <tr>
-                                <th style={{ padding: '0.75rem 1rem', fontWeight: 500, color: '#374151' }}>{t('levelContext')}</th>
-                                <th style={{ padding: '0.75rem 1rem', fontWeight: 500, color: '#374151' }}>Label</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {grades.map((grade: any) => (
-                                <tr key={grade.id} style={{ borderBottom: '1px solid #e5e7eb' }}>
-                                    <td style={{ padding: '0.75rem 1rem' }}>
-                                        <div style={{ fontWeight: 500 }}>{t('level')} {grade.level}</div>
-                                    </td>
-                                    <td style={{ padding: '0.75rem 1rem' }}>
-                                        <span style={{ background: '#f3f4f6', padding: '0.2rem 0.6rem', borderRadius: '4px', fontSize: '0.85rem', fontWeight: 500 }}>
+                <TableWrap>
+                    <Table>
+                        <THead>
+                            <TR>
+                                <TH>{t('levelContext')}</TH>
+                                <TH>{t('labelColumn')}</TH>
+                            </TR>
+                        </THead>
+                        <TBody>
+                            {grades.map((grade: any, idx) => (
+                                <motion.tr
+                                    key={grade.id}
+                                    initial={{ opacity: 0, y: 8 }}
+                                    animate={{
+                                        opacity: 1,
+                                        y: 0,
+                                        transition: { delay: Math.min(idx * 0.03, 0.3) },
+                                    }}
+                                    className="transition-colors hover:bg-accent/60"
+                                >
+                                    <TD className="font-medium">
+                                        {t('level')} {grade.level}
+                                    </TD>
+                                    <TD>
+                                        <Badge tone="neutral" variant="outline">
                                             {grade.label}
-                                        </span>
-                                    </td>
-                                </tr>
+                                        </Badge>
+                                    </TD>
+                                </motion.tr>
                             ))}
-                        </tbody>
-                    </table>
-                </div>
+                        </TBody>
+                    </Table>
+                </TableWrap>
             )}
         </div>
     );

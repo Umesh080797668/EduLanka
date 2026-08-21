@@ -1,6 +1,12 @@
-import React, { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { AlertTriangle, X } from 'lucide-react';
+'use client';
+
+import { useState } from 'react';
+import { AlertTriangle } from 'lucide-react';
+import { useTranslations } from 'next-intl';
+
+import { Button } from '@/components/ui/Button';
+import { ConfirmDialog, Dialog } from '@/components/ui/Dialog';
+import { Field, Input, Select } from '@/components/ui/Form';
 
 interface DisasterModeModalProps {
     isOpen: boolean;
@@ -8,87 +14,88 @@ interface DisasterModeModalProps {
     onConfirm: (reason: string, resumeDate: string) => void;
 }
 
-export function DisasterModeModal({ isOpen, onClose, onConfirm }: DisasterModeModalProps) {
+export function DisasterModeModal({
+    isOpen,
+    onClose,
+    onConfirm,
+}: DisasterModeModalProps) {
+    const t = useTranslations('DisasterMode');
+    const tc = useTranslations('Common');
     const [reason, setReason] = useState('Flood');
     const [resumeDate, setResumeDate] = useState('');
-
-    if (!isOpen) return null;
+    const [confirming, setConfirming] = useState(false);
 
     return (
-        <AnimatePresence>
-            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
-                <motion.div
-                    initial={{ opacity: 0, scale: 0.95 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0, scale: 0.95 }}
-                    className="bg-white rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl relative"
-                >
-                    <button
-                        onClick={onClose}
-                        className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 transition-colors"
+        <>
+            <Dialog
+                open={isOpen}
+                onClose={onClose}
+                tone="danger"
+                icon={<AlertTriangle />}
+                title={t('title')}
+                description={t('subtitle')}
+                footer={
+                    <Button
+                        variant="destructive"
+                        block
+                        leadingIcon={<AlertTriangle />}
+                        onClick={() => setConfirming(true)}
                     >
-                        <X className="w-5 h-5" />
-                    </button>
+                        {t('initiate')}
+                    </Button>
+                }
+            >
+                <div className="space-y-5">
+                    <Field
+                        label={t('reasonLabel')}
+                        hint={t('reasonHint')}
+                        htmlFor="disaster-reason"
+                        required
+                    >
+                        <Select
+                            id="disaster-reason"
+                            value={reason}
+                            onChange={(e) => setReason(e.target.value)}
+                        >
+                            <option value="Flood">{t('flood')}</option>
+                            <option value="Cyclone">{t('cyclone')}</option>
+                            <option value="Landslide">{t('landslide')}</option>
+                            <option value="Civil/Public Health">
+                                {t('publicHealth')}
+                            </option>
+                            <option value="Other">{t('other')}</option>
+                        </Select>
+                    </Field>
 
-                    <div className="bg-red-50 p-6 border-b border-red-100 flex items-start gap-4">
-                        <div className="p-3 bg-red-100 text-red-600 rounded-xl shrink-0">
-                            <AlertTriangle className="w-8 h-8" />
-                        </div>
-                        <div>
-                            <h2 className="text-xl font-bold text-red-900">Engage Disaster Protocol</h2>
-                            <p className="text-red-700/80 text-sm mt-1">
-                                This will instantly suspend platform operations and broadcast overriding SMS messages out to all registered Parents.
-                            </p>
-                        </div>
-                    </div>
+                    <Field
+                        label={t('resumeLabel')}
+                        hint={t('resumeHint')}
+                        htmlFor="disaster-resume"
+                    >
+                        <Input
+                            id="disaster-resume"
+                            type="date"
+                            value={resumeDate}
+                            onChange={(e) => setResumeDate(e.target.value)}
+                        />
+                    </Field>
+                </div>
+            </Dialog>
 
-                    <div className="p-6 space-y-5">
-                        <div>
-                            <label className="block text-sm font-semibold text-slate-700 mb-1">
-                                Closure Reason (Taxonomy)
-                            </label>
-                            <select
-                                className="w-full bg-slate-50 border border-slate-200 rounded-lg px-4 py-2.5 text-slate-700 focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500"
-                                value={reason}
-                                onChange={(e) => setReason(e.target.value)}
-                            >
-                                <option value="Flood">Flood</option>
-                                <option value="Cyclone">Cyclone</option>
-                                <option value="Landslide">Landslide</option>
-                                <option value="Civil/Public Health">Civil/Public Health</option>
-                                <option value="Other">Other</option>
-                            </select>
-                            <p className="text-xs text-slate-500 mt-1">This classification drives the Phase 5 Predictive Engine Analytics.</p>
-                        </div>
-
-                        <div>
-                            <label className="block text-sm font-semibold text-slate-700 mb-1">
-                                Expected Resume Date (Optional)
-                            </label>
-                            <input
-                                type="date"
-                                className="w-full bg-slate-50 border border-slate-200 rounded-lg px-4 py-2.5 text-slate-700 focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500"
-                                value={resumeDate}
-                                onChange={(e) => setResumeDate(e.target.value)}
-                            />
-                        </div>
-
-                        <div className="pt-2">
-                            <button
-                                onClick={() => {
-                                    if (confirm("FINAL WARNING: Are you absolutely certain you want to blast Emergency SMS messages system-wide?")) {
-                                        onConfirm(reason, resumeDate);
-                                    }
-                                }}
-                                className="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-3 rounded-lg shadow-sm shadow-red-500/20 transition-all flex items-center justify-center gap-2"
-                            >
-                                <AlertTriangle className="w-5 h-5" />
-                                Initiate Lockdown & Notify Parents
-                            </button>
-                        </div>
-                    </div>
-                </motion.div>
-            </div>
-        </AnimatePresence>
+            {/* Second gate — this broadcast cannot be recalled. */}
+            <ConfirmDialog
+                open={confirming}
+                onClose={() => setConfirming(false)}
+                onConfirm={() => {
+                    setConfirming(false);
+                    onConfirm(reason, resumeDate);
+                }}
+                icon={<AlertTriangle />}
+                title={t('confirmTitle')}
+                description={t('confirmBody')}
+                confirmLabel={t('confirmYes')}
+                cancelLabel={tc('cancel')}
+            />
+        </>
     );
 }

@@ -1,150 +1,203 @@
 'use client';
-import { authManager } from '@/lib/auth-store';
 
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
+import { Check, Inbox, X } from 'lucide-react';
 import { useTranslations } from 'next-intl';
-import { fetchInquiries, updateInquiryStatus, RequestOpts } from '@/lib/api/school';
-import { Loader2, Check, X } from 'lucide-react';
+
+import { authManager } from '@/lib/auth-store';
+import {
+    fetchInquiries,
+    RequestOpts,
+    updateInquiryStatus,
+} from '@/lib/api/school';
+import { Alert } from '@/components/ui/Alert';
+import { Badge } from '@/components/ui/Badge';
+import { Button } from '@/components/ui/Button';
+import { EmptyState, PageHeader } from '@/components/ui/Layout';
+import { PageSkeleton } from '@/components/ui/Skeleton';
+import {
+    Table,
+    TableWrap,
+    TBody,
+    TD,
+    TH,
+    THead,
+    TR,
+} from '@/components/ui/Table';
 
 export default function InquiriesPage() {
     const t = useTranslations('Inquiries');
+    const tx = useTranslations('InquiriesExtras');
+    const tc = useTranslations('Common');
     const [inquiries, setInquiries] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [actionLoading, setActionLoading] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
 
-    const safeFetch = () => {
-        const opts: RequestOpts = {
-            token: authManager.getToken() || '',
-            tenantId: authManager.getTenantId() || ''
-        };
-        return fetchInquiries(opts)
-            .then(data => setInquiries(data))
-            .catch(err => setError(err.message))
+    const opts = (): RequestOpts => ({
+        token: authManager.getToken() || '',
+        tenantId: authManager.getTenantId() || '',
+    });
+
+    const safeFetch = () =>
+        fetchInquiries(opts())
+            .then(setInquiries)
+            .catch((err) => setError(err.message))
             .finally(() => setLoading(false));
-    };
 
     useEffect(() => {
         safeFetch();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
-    const handleUpdateStatus = async (id: string, newStatus: 'RESOLVED' | 'REJECTED') => {
+    const handleUpdateStatus = async (
+        id: string,
+        newStatus: 'RESOLVED' | 'REJECTED',
+    ) => {
         setActionLoading(id);
-        const opts: RequestOpts = {
-            token: authManager.getToken() || '',
-            tenantId: authManager.getTenantId() || ''
-        };
         try {
-            await updateInquiryStatus(id, newStatus, opts);
+            await updateInquiryStatus(id, newStatus, opts());
             await safeFetch();
         } catch (err: any) {
-            setError(err.message || 'Failed to update status');
+            setError(err.message || tc('somethingWentWrong'));
         } finally {
             setActionLoading(null);
         }
     };
 
-    if (loading) return <div style={{ padding: '2rem', textAlign: 'center' }}>Loading...</div>;
-    if (error) return <div style={{ padding: '2rem', color: '#b91c1c' }}>Error: {error}</div>;
-
     return (
-        <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '1rem' }}>
-            <div style={{ marginBottom: '2rem' }}>
-                <h1 style={{ fontSize: '1.8rem', fontWeight: 600, color: '#111827' }}>
-                    {t('title')}
-                </h1>
-                <p style={{ color: '#4b5563', marginTop: '0.25rem' }}>
-                    {t('description')}
-                </p>
-            </div>
+        <div className="mx-auto max-w-6xl">
+            <PageHeader
+                icon={<Inbox />}
+                title={t('title')}
+                description={t('description')}
+                badge={
+                    !loading && inquiries.length > 0 ? (
+                        <Badge tone="primary" dot>
+                            {inquiries.length}
+                        </Badge>
+                    ) : undefined
+                }
+            />
 
-            <div style={{ background: 'white', borderRadius: '8px', border: '1px solid #e5e7eb', overflow: 'hidden' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
-                    <thead>
-                        <tr style={{ background: '#f9fafb', borderBottom: '1px solid #e5e7eb' }}>
-                            <th style={{ padding: '1rem', fontSize: '0.875rem', fontWeight: 600, color: '#374151' }}>{t('user')}</th>
-                            <th style={{ padding: '1rem', fontSize: '0.875rem', fontWeight: 600, color: '#374151' }}>{t('email')}</th>
-                            <th style={{ padding: '1rem', fontSize: '0.875rem', fontWeight: 600, color: '#374151' }}>{t('role')}</th>
-                            <th style={{ padding: '1rem', fontSize: '0.875rem', fontWeight: 600, color: '#374151', width: '30%' }}>{t('message')}</th>
-                            <th style={{ padding: '1rem', fontSize: '0.875rem', fontWeight: 600, color: '#374151' }}>{t('status')}</th>
-                            <th style={{ padding: '1rem', fontSize: '0.875rem', fontWeight: 600, color: '#374151' }}>{t('date')}</th>
-                            <th style={{ padding: '1rem', fontSize: '0.875rem', fontWeight: 600, color: '#374151', textAlign: 'right' }}>Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {inquiries.length > 0 ? inquiries.map((inq) => (
-                            <tr key={inq.id} style={{ borderBottom: '1px solid #e5e7eb' }}>
-                                <td style={{ padding: '1rem', fontSize: '0.875rem', fontWeight: 500 }}>
-                                    {inq.users?.full_name || 'N/A'}
-                                    {inq.tenants?.name && (
-                                        <div style={{ fontSize: '0.75rem', color: '#6b7280', marginTop: '0.1rem' }}>
-                                            School: {inq.tenants.name}
+            {error && (
+                <Alert
+                    tone="danger"
+                    title={tx('loadingError')}
+                    className="mb-6"
+                    onDismiss={() => setError(null)}
+                >
+                    {error}
+                </Alert>
+            )}
+
+            {loading ? (
+                <PageSkeleton rows={6} cols={5} />
+            ) : inquiries.length === 0 ? (
+                <EmptyState icon={<Inbox />} title={t('empty')} />
+            ) : (
+                <TableWrap>
+                    <Table>
+                        <THead>
+                            <TR>
+                                <TH>{t('user')}</TH>
+                                <TH>{t('email')}</TH>
+                                <TH className="w-32">{t('role')}</TH>
+                                <TH className="w-[30%]">{t('message')}</TH>
+                                <TH className="w-32">{t('status')}</TH>
+                                <TH className="w-28">{t('date')}</TH>
+                                <TH align="right" className="w-28">
+                                    {tx('actions')}
+                                </TH>
+                            </TR>
+                        </THead>
+                        <TBody>
+                            {inquiries.map((inq) => (
+                                <TR key={inq.id}>
+                                    <TD>
+                                        <div className="font-medium text-foreground">
+                                            {inq.users?.full_name || '—'}
                                         </div>
-                                    )}
-                                </td>
-                                <td style={{ padding: '1rem', fontSize: '0.875rem', color: '#4b5563' }}>{inq.users?.email || 'N/A'}</td>
-                                <td style={{ padding: '1rem', fontSize: '0.875rem', color: '#4b5563' }}>
-                                    <span style={{ padding: '0.2rem 0.5rem', background: '#f3f4f6', borderRadius: '4px', fontSize: '0.75rem' }}>
-                                        {inq.role}
-                                    </span>
-                                </td>
-                                <td style={{ padding: '1rem', fontSize: '0.875rem', color: '#374151', whiteSpace: 'pre-wrap', wordBreak: 'break-word', maxWidth: '300px' }}>
-                                    {inq.message}
-                                </td>
-                                <td style={{ padding: '1rem', fontSize: '0.875rem' }}>
-                                    <span style={{
-                                        padding: '0.25rem 0.5rem',
-                                        borderRadius: '9999px',
-                                        fontSize: '0.75rem',
-                                        fontWeight: 500,
-                                        background: inq.status === 'PENDING' ? '#fef3c7' : '#dcfce7',
-                                        color: inq.status === 'PENDING' ? '#b45309' : '#166534'
-                                    }}>
-                                        {inq.status}
-                                    </span>
-                                </td>
-                                <td style={{ padding: '1rem', fontSize: '0.875rem', color: '#6b7280' }}>
-                                    {new Date(inq.created_at).toLocaleDateString()}
-                                </td>
-                                <td style={{ padding: '1rem', textAlign: 'right' }}>
-                                    {inq.status === 'PENDING' && (
-                                        <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
-                                            <button
-                                                disabled={actionLoading === inq.id}
-                                                onClick={() => handleUpdateStatus(inq.id, 'RESOLVED')}
-                                                style={{
-                                                    padding: '0.4rem', background: '#dcfce7', color: '#166534',
-                                                    borderRadius: '6px', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', opacity: actionLoading === inq.id ? 0.5 : 1
-                                                }}
-                                                title="Resolve"
-                                            >
-                                                {actionLoading === inq.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
-                                            </button>
-                                            <button
-                                                disabled={actionLoading === inq.id}
-                                                onClick={() => handleUpdateStatus(inq.id, 'REJECTED')}
-                                                style={{
-                                                    padding: '0.4rem', background: '#fee2e2', color: '#991b1b',
-                                                    borderRadius: '6px', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', opacity: actionLoading === inq.id ? 0.5 : 1
-                                                }}
-                                                title="Reject"
-                                            >
-                                                {actionLoading === inq.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <X className="w-4 h-4" />}
-                                            </button>
-                                        </div>
-                                    )}
-                                </td>
-                            </tr>
-                        )) : (
-                            <tr>
-                                <td colSpan={6} style={{ padding: '3rem 1rem', textAlign: 'center', color: '#6b7280' }}>
-                                    {t('empty')}
-                                </td>
-                            </tr>
-                        )}
-                    </tbody>
-                </table>
-            </div>
+                                        {inq.tenants?.name && (
+                                            <div className="text-xs text-muted-foreground">
+                                                {tx('school')}: {inq.tenants.name}
+                                            </div>
+                                        )}
+                                    </TD>
+                                    <TD className="text-muted-foreground">
+                                        {inq.users?.email || '—'}
+                                    </TD>
+                                    <TD>
+                                        <Badge tone="neutral" variant="outline">
+                                            {inq.role}
+                                        </Badge>
+                                    </TD>
+                                    <TD className="whitespace-pre-wrap break-words text-foreground">
+                                        {inq.message}
+                                    </TD>
+                                    <TD>
+                                        <Badge
+                                            tone={
+                                                inq.status === 'PENDING'
+                                                    ? 'warning'
+                                                    : inq.status === 'REJECTED'
+                                                        ? 'danger'
+                                                        : 'success'
+                                            }
+                                            dot
+                                        >
+                                            {inq.status}
+                                        </Badge>
+                                    </TD>
+                                    <TD className="numeric text-muted-foreground">
+                                        {new Date(
+                                            inq.created_at,
+                                        ).toLocaleDateString()}
+                                    </TD>
+                                    <TD align="right">
+                                        {inq.status === 'PENDING' && (
+                                            <div className="flex items-center justify-end gap-1">
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon-sm"
+                                                    aria-label={tx('resolve')}
+                                                    title={tx('resolve')}
+                                                    loading={actionLoading === inq.id}
+                                                    onClick={() =>
+                                                        handleUpdateStatus(
+                                                            inq.id,
+                                                            'RESOLVED',
+                                                        )
+                                                    }
+                                                    className="text-success"
+                                                >
+                                                    <Check className="size-4" />
+                                                </Button>
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon-sm"
+                                                    aria-label={tx('reject')}
+                                                    title={tx('reject')}
+                                                    disabled={actionLoading === inq.id}
+                                                    onClick={() =>
+                                                        handleUpdateStatus(
+                                                            inq.id,
+                                                            'REJECTED',
+                                                        )
+                                                    }
+                                                    className="text-destructive"
+                                                >
+                                                    <X className="size-4" />
+                                                </Button>
+                                            </div>
+                                        )}
+                                    </TD>
+                                </TR>
+                            ))}
+                        </TBody>
+                    </Table>
+                </TableWrap>
+            )}
         </div>
     );
 }

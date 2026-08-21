@@ -1,16 +1,41 @@
 'use client';
 
-import { motion } from 'framer-motion';
-import { Link } from '@/i18n/routing';
 import { useEffect, useState } from 'react';
-import { TutorialProvider } from '@/components/TutorialProvider';
-import { HelpButton } from '@/components/HelpButton';
-import { DashboardCardsSkeleton } from '@/components/ui/Skeleton';
-import { DisasterModeModal } from '@/components/DisasterModeModal';
-import { apiClient } from '@/lib/api-client';
-import { ShieldCheck, Users, Settings, Activity, Building, ChevronRight, AlertTriangle } from 'lucide-react';
-import { toast } from 'sonner';
+import { motion } from 'framer-motion';
+import {
+    Activity,
+    AlertTriangle,
+    Building,
+    ChevronRight,
+    Settings,
+    ShieldCheck,
+    Users,
+} from 'lucide-react';
 import { useTranslations } from 'next-intl';
+import { toast } from 'sonner';
+
+import { Link } from '@/i18n/routing';
+import { apiClient } from '@/lib/api-client';
+import { DisasterModeModal } from '@/components/DisasterModeModal';
+import { HelpButton } from '@/components/HelpButton';
+import { TutorialProvider } from '@/components/TutorialProvider';
+import {
+    Card,
+    CardHeader,
+    CardTitle,
+} from '@/components/ui/Card';
+import { DashboardCardsSkeleton } from '@/components/ui/Skeleton';
+import { StatCard } from '@/components/ui/Stat';
+
+const containerVariants = {
+    hidden: { opacity: 0 },
+    show: { opacity: 1, transition: { staggerChildren: 0.08 } },
+};
+
+const itemVariants: any = {
+    hidden: { opacity: 0, y: 15 },
+    show: { opacity: 1, y: 0, transition: { duration: 0.3 } },
+};
 
 export default function InstitutionAdminDashboard() {
     const t = useTranslations('InstitutionAdminDashboard');
@@ -35,32 +60,22 @@ export default function InstitutionAdminDashboard() {
     const triggerDisasterMode = async (reason: string, resumeDate: string) => {
         try {
             await apiClient.post('/tenants/disaster-mode', { reason, resumeDate });
-            toast.success('Disaster Mode protocol successfully engaged.', {
-                description: 'Emergency SMS Blasts are currently dispatching out to all recorded parent phones across the institution.',
+            toast.success(t('disasterSuccess'), {
+                description: t('disasterSuccessDesc'),
             });
             setDisasterModalOpen(false);
             setTimeout(() => window.location.reload(), 1500);
         } catch (e: any) {
-            toast.error('Failed to trigger Disaster Mode', {
-                description: e?.response?.data?.message || 'Check tier quotas and system boundaries.',
+            toast.error(t('disasterFailed'), {
+                description: e?.response?.data?.message || t('disasterFailedDesc'),
             });
             setDisasterModalOpen(false);
         }
     };
 
-    const containerVariants = {
-        hidden: { opacity: 0 },
-        show: { opacity: 1, transition: { staggerChildren: 0.1 } }
-    };
-
-    const itemVariants: any = {
-        hidden: { opacity: 0, y: 15 },
-        show: { opacity: 1, y: 0, transition: { duration: 0.3 } }
-    };
-
     if (loading) {
         return (
-            <div className="max-w-6xl mx-auto space-y-6">
+            <div className="mx-auto max-w-6xl space-y-6">
                 <DashboardCardsSkeleton />
             </div>
         );
@@ -68,125 +83,157 @@ export default function InstitutionAdminDashboard() {
 
     return (
         <TutorialProvider role="SCHOOL_ADMIN" screenId="dashboard">
-            <div className="max-w-6xl mx-auto space-y-6">
-                <motion.div
-                    initial={{ opacity: 0, y: -20 }}
+            <div className="mx-auto max-w-6xl space-y-6">
+                {/* ── Hero ──────────────────────────────────────────────────── */}
+                <motion.section
+                    initial={{ opacity: 0, y: -12 }}
                     animate={{ opacity: 1, y: 0 }}
-                    className="bg-indigo-950 rounded-2xl p-8 text-white shadow-lg relative overflow-hidden"
+                    transition={{ duration: 0.3 }}
+                    className="relative isolate overflow-hidden rounded-card bg-gradient-to-br from-brand-800 to-brand-950 p-6 text-white shadow-card sm:p-8"
                     id="nav-dashboard"
                 >
-                    <div className="absolute top-0 right-0 w-80 h-80 bg-indigo-500 rounded-full blur-3xl -translate-y-1/2 translate-x-1/3 opacity-30 pointer-events-none"></div>
-                    <div className="absolute bottom-0 left-10 w-40 h-40 bg-purple-500 rounded-full blur-3xl translate-y-1/2 opacity-20 pointer-events-none"></div>
+                    <div
+                        aria-hidden
+                        className="pointer-events-none absolute -right-20 -top-32 size-80 rounded-full bg-brand-400/25 blur-3xl"
+                    />
+                    <div
+                        aria-hidden
+                        className="pointer-events-none absolute -bottom-24 left-10 size-48 rounded-full bg-white/10 blur-3xl"
+                    />
 
-                    <div className="relative z-10 flex flex-col md:flex-row items-start justify-between gap-6">
+                    <div className="relative grid gap-6 lg:grid-cols-[1fr_auto]">
                         <div>
-                            <div className="flex items-center gap-3 mb-2">
-                                <ShieldCheck className="w-8 h-8 text-indigo-400" />
-                                <h2 className="text-3xl font-bold tracking-tight">{t('schoolAdmin')}</h2>
+                            <div className="flex items-center gap-3">
+                                <ShieldCheck className="size-7 text-brand-300" />
+                                <h1 className="text-display-sm text-white">
+                                    {t('schoolAdmin')}
+                                </h1>
                             </div>
-                            <p className="text-indigo-200 max-w-lg mb-6">
+                            <p className="mt-2 max-w-lg text-sm leading-relaxed text-white/75">
                                 {t('dashboardSubtitle')}
                             </p>
-                            <div className="flex gap-4">
-                                <Link href="/institution-admin/students" id="nav-users">
-                                    <button className="bg-white text-indigo-950 px-5 py-2.5 rounded-lg font-semibold hover:bg-indigo-50 transition-colors shadow-sm flex items-center gap-2">
-                                        <Users className="w-4 h-4" />
-                                        {t('manageUsers')}
-                                    </button>
+
+                            <div className="mt-6 flex flex-wrap gap-3">
+                                <Link
+                                    id="nav-users"
+                                    href="/institution-admin/students"
+                                    className="inline-flex h-10 items-center gap-2 rounded-input bg-white px-4 text-sm font-semibold text-brand-900 shadow-sm transition-colors hover:bg-white/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+                                >
+                                    <Users className="size-4" />
+                                    {t('manageUsers')}
                                 </Link>
-                                <Link href="/institution-admin/policy" id="nav-policies">
-                                    <button className="bg-indigo-900 border border-indigo-700 text-white px-5 py-2.5 rounded-lg font-semibold hover:bg-indigo-800 transition-colors flex items-center gap-2">
-                                        <Settings className="w-4 h-4" />
-                                        {t('schoolPolicies')}
-                                    </button>
+                                <Link
+                                    id="nav-policies"
+                                    href="/institution-admin/policy"
+                                    className="inline-flex h-10 items-center gap-2 rounded-input border border-white/25 bg-white/10 px-4 text-sm font-semibold text-white backdrop-blur-sm transition-colors hover:bg-white/20 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+                                >
+                                    <Settings className="size-4" />
+                                    {t('schoolPolicies')}
                                 </Link>
                             </div>
                         </div>
 
-                        {/* Disaster Mode Quick Action */}
-                        <div className="flex items-center gap-3 bg-red-900/40 p-4 rounded-xl border border-red-500/20 backdrop-blur-md">
-                            <div className="p-3 bg-red-500/20 rounded-lg shrink-0">
-                                <AlertTriangle className="w-8 h-8 text-red-400" />
-                            </div>
-                            <div className="pr-4">
-                                <h4 className="font-bold text-red-100 flex items-center gap-2">Disaster Mode</h4>
-                                <p className="text-sm text-red-300 max-w-xs mb-2">Triggers emergency Twilio SMS parent broadcasts and forces system offline-sync.</p>
+                        {/* Emergency protocol — deliberately visually separated. */}
+                        <div className="flex max-w-sm gap-4 rounded-card border border-danger/30 bg-danger/15 p-4 backdrop-blur-md">
+                            <span className="grid size-11 shrink-0 place-items-center rounded-input bg-danger/25 text-danger-200">
+                                <AlertTriangle className="size-6" />
+                            </span>
+                            <div>
+                                <h2 className="text-sm font-semibold text-white">
+                                    {t('disasterModeTitle')}
+                                </h2>
+                                <p className="mt-1 text-xs leading-relaxed text-white/70">
+                                    {t('disasterModeDesc')}
+                                </p>
                                 <button
-                                    className="bg-red-500 hover:bg-red-600 text-white text-sm px-4 py-1.5 rounded font-semibold transition-all w-full"
+                                    type="button"
                                     onClick={() => setDisasterModalOpen(true)}
+                                    className="mt-3 inline-flex h-8 w-full items-center justify-center rounded-input bg-danger-600 px-3 text-xs font-semibold uppercase tracking-wide text-white transition-colors hover:bg-danger-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
                                 >
-                                    ENGAGE PROTOCOL
+                                    {t('engageProtocol')}
                                 </button>
                             </div>
                         </div>
                     </div>
-                </motion.div>
+                </motion.section>
 
+                {/* ── Stats ─────────────────────────────────────────────────── */}
                 <motion.div
                     variants={containerVariants}
                     initial="hidden"
                     animate="show"
-                    className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"
+                    className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3"
                 >
-                    <motion.div variants={itemVariants} className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex flex-col justify-between hover:shadow-md transition-shadow group">
-                        <div className="w-12 h-12 bg-blue-50 rounded-xl mb-4 flex items-center justify-center text-blue-600 group-hover:scale-110 transition-transform">
-                            <Users className="w-6 h-6" />
-                        </div>
-                        <p className="text-slate-500 text-sm font-medium mb-1">{t('totalActiveUsers')}</p>
-                        <h4 className="text-3xl font-bold text-slate-800">
-                            {stats?.users || 0}
-                        </h4>
+                    <motion.div variants={itemVariants}>
+                        <StatCard
+                            label={t('totalActiveUsers')}
+                            value={stats?.users ?? 0}
+                            icon={<Users />}
+                            tone="info"
+                        />
                     </motion.div>
-
-                    <motion.div variants={itemVariants} className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex flex-col justify-between hover:shadow-md transition-shadow group">
-                        <div className="w-12 h-12 bg-emerald-50 rounded-xl mb-4 flex items-center justify-center text-emerald-600 group-hover:scale-110 transition-transform">
-                            <Building className="w-6 h-6" />
-                        </div>
-                        <p className="text-slate-500 text-sm font-medium mb-1">{t('classesEnrolled')}</p>
-                        <h4 className="text-3xl font-bold text-slate-800">
-                            {stats?.classes || 0}
-                        </h4>
+                    <motion.div variants={itemVariants}>
+                        <StatCard
+                            label={t('classesEnrolled')}
+                            value={stats?.classes ?? 0}
+                            icon={<Building />}
+                            tone="success"
+                        />
                     </motion.div>
                 </motion.div>
 
+                {/* ── Administration links ──────────────────────────────────── */}
                 <motion.div
-                    initial={{ opacity: 0, y: 20 }}
+                    initial={{ opacity: 0, y: 12 }}
                     animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.4 }}
-                    className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden"
+                    transition={{ delay: 0.3 }}
                 >
-                    <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between">
-                        <h3 className="font-bold text-lg text-slate-800 flex items-center gap-2">
-                            <Activity className="w-5 h-5 text-indigo-500" />
-                            {t('institutionAdministration')}
-                        </h3>
-                    </div>
-                    <div className="divide-y divide-slate-100">
-                        <Link href="/institution-admin/students" className="flex items-center justify-between p-4 hover:bg-slate-50 transition-colors group">
-                            <div className="flex items-center gap-4">
-                                <div className="w-10 h-10 bg-slate-100 rounded-lg flex items-center justify-center text-slate-600 group-hover:bg-indigo-50 group-hover:text-indigo-600 transition-colors">
-                                    <Users className="w-5 h-5" />
-                                </div>
-                                <div>
-                                    <h4 className="font-semibold text-slate-800 group-hover:text-indigo-600 transition-colors">{t('userDirectory')}</h4>
-                                    <p className="text-sm text-slate-500">{t('userDirectoryDesc')}</p>
-                                </div>
-                            </div>
-                            <ChevronRight className="w-5 h-5 text-slate-400 group-hover:text-indigo-600 transition-colors" />
-                        </Link>
-                        <Link href="/institution-admin/policy" className="flex items-center justify-between p-4 hover:bg-slate-50 transition-colors group">
-                            <div className="flex items-center gap-4">
-                                <div className="w-10 h-10 bg-slate-100 rounded-lg flex items-center justify-center text-slate-600 group-hover:bg-indigo-50 group-hover:text-indigo-600 transition-colors">
-                                    <Settings className="w-5 h-5" />
-                                </div>
-                                <div>
-                                    <h4 className="font-semibold text-slate-800 group-hover:text-indigo-600 transition-colors">{t('schoolPoliciesTitle')}</h4>
-                                    <p className="text-sm text-slate-500">{t('schoolPoliciesDesc')}</p>
-                                </div>
-                            </div>
-                            <ChevronRight className="w-5 h-5 text-slate-400 group-hover:text-indigo-600 transition-colors" />
-                        </Link>
-                    </div>
+                    <Card flush>
+                        <CardHeader>
+                            <CardTitle className="flex items-center gap-2">
+                                <Activity className="size-4 text-muted-foreground" />
+                                {t('institutionAdministration')}
+                            </CardTitle>
+                        </CardHeader>
+
+                        <div className="divide-y divide-border border-t border-border">
+                            {[
+                                {
+                                    href: '/institution-admin/students',
+                                    icon: <Users className="size-5" />,
+                                    title: t('userDirectory'),
+                                    desc: t('userDirectoryDesc'),
+                                },
+                                {
+                                    href: '/institution-admin/policy',
+                                    icon: <Settings className="size-5" />,
+                                    title: t('schoolPoliciesTitle'),
+                                    desc: t('schoolPoliciesDesc'),
+                                },
+                            ].map((row) => (
+                                <Link
+                                    key={row.href}
+                                    href={row.href}
+                                    className="group flex items-center justify-between gap-4 px-5 py-4 transition-colors hover:bg-accent focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring sm:px-6"
+                                >
+                                    <div className="flex min-w-0 items-center gap-4">
+                                        <span className="grid size-10 shrink-0 place-items-center rounded-input bg-muted text-muted-foreground transition-colors group-hover:bg-primary-subtle group-hover:text-primary">
+                                            {row.icon}
+                                        </span>
+                                        <div className="min-w-0">
+                                            <h3 className="truncate font-semibold text-foreground transition-colors group-hover:text-primary">
+                                                {row.title}
+                                            </h3>
+                                            <p className="truncate text-sm text-muted-foreground">
+                                                {row.desc}
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <ChevronRight className="size-5 shrink-0 text-muted-foreground transition-colors group-hover:text-primary" />
+                                </Link>
+                            ))}
+                        </div>
+                    </Card>
                 </motion.div>
 
                 <HelpButton />

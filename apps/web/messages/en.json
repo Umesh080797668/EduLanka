@@ -281,7 +281,14 @@
         "schoolPoliciesDesc": "Configure global academic settings, languages, and features.",
         "tutorialAnalytics": "Platform Adoption & Training",
         "noTutorials": "No active tutorials available for tracking.",
-        "eligible": "Eligible"
+        "eligible": "Eligible",
+        "disasterModeTitle": "Disaster mode",
+        "disasterModeDesc": "Triggers emergency SMS broadcasts to all recorded parent numbers and forces offline sync.",
+        "engageProtocol": "Engage protocol",
+        "disasterSuccess": "Disaster mode protocol engaged",
+        "disasterSuccessDesc": "Emergency SMS messages are dispatching to every recorded parent number in the institution.",
+        "disasterFailed": "Could not engage disaster mode",
+        "disasterFailedDesc": "Check tier quotas and system boundaries."
     },
     "InstitutionAdminUsers": {
         "userManagement": "Users Management",
@@ -324,7 +331,10 @@
         "smsNotifications": "SMS Notifications",
         "smsNotificationsDesc": "Enable automated SMS for attendance and emergency alerts.",
         "saving": "Saving Policy...",
-        "saveConfig": "Save Global Configuration"
+        "saveConfig": "Save Global Configuration",
+        "systemLocked": "System locked",
+        "smsBlocked": "Blocked by the system administrator. Upgrade the plan to unlock SMS features.",
+        "mediumsHint": "Select every medium of instruction this school offers."
     },
     "InstitutionAdminGrades": {
         "title": "Curriculum Grades Matrix",
@@ -335,7 +345,9 @@
         "statusToggle": "Status Toggle",
         "level": "Level",
         "deactivate": "Deactivate",
-        "reactivate": "Reactivate"
+        "reactivate": "Reactivate",
+        "labelColumn": "Label",
+        "description": "Curriculum grade levels available to this institution."
     },
     "InstitutionAdminClasses": {
         "title": "Classes",
@@ -362,7 +374,19 @@
         "sinhalaMed": "Sinhala Medium",
         "tamilMed": "Tamil Medium",
         "academicYear": "Academic Year",
-        "sectionHint": "e.g. A, B, Science 1"
+        "sectionHint": "e.g. A, B, Science 1",
+        "description": "Manage and organise your school's classes and teacher assignments.",
+        "classLabel": "Class",
+        "gradeShort": "Grade",
+        "medium": "Medium",
+        "actions": "Actions",
+        "edit": "Edit",
+        "deleteClass": "Delete class",
+        "editClass": "Edit class",
+        "saveChanges": "Save changes",
+        "homeroomTeacher": "Homeroom teacher",
+        "deleteNamed": "This starts deletion of class {section}. Teachers and students will be unassigned.",
+        "sectionLabel": "Section / name"
     },
     "InstitutionAdminTeachers": {
         "title": "Teachers",
@@ -408,7 +432,11 @@
         "subjectAreas": "Subject Areas",
         "noSubjects": "No subject areas defined.",
         "assignedClasses": "Assigned Classes",
-        "phase2Manage": "(Phase 2: Manage class assignments here. Go to Classes to manage.)"
+        "phase2Manage": "(Phase 2: Manage class assignments here. Go to Classes to manage.)",
+        "edit": "Edit",
+        "deactivateTeacher": "Deactivate teacher",
+        "noMatches": "No teachers yet",
+        "status": "Status"
     },
     "InstitutionAdminParents": {
         "title": "Parents & Guardians",
@@ -458,7 +486,10 @@
         "mapStudent": "+ Map Student Record",
         "unlinkConfirm": "Are you sure you want to decouple this student from this parent?",
         "active": "Active",
-        "inactive": "Inactive"
+        "inactive": "Inactive",
+        "edit": "Edit",
+        "deactivateParent": "Deactivate parent",
+        "status": "Status"
     },
     "InstitutionAdminStudents": {
         "title": "Students",
@@ -519,7 +550,18 @@
         "technology": "Technology",
         "cancel": "Cancel",
         "enrolling": "Enrolling...",
-        "enrollStudentBtn": "Enroll Student"
+        "enrollStudentBtn": "Enroll Student",
+        "noMatches": "No students match your search",
+        "noMatchesDesc": "Try a different name, email, or admission number.",
+        "gradeShort": "Grade",
+        "edit": "Edit",
+        "deactivate": "Deactivate student",
+        "step1Title": "Are you absolutely sure?",
+        "step1Desc": "This starts deactivation for {name}. Their access is revoked, but historical records are preserved.",
+        "step1Confirm": "Yes, proceed",
+        "step2Title": "Confirm deactivation",
+        "step2Desc": "Please confirm once more. They will no longer be able to sign in to the portal.",
+        "step2Confirm": "Deactivate student"
     },
     "Dashboard": {
         "resolvingAccess": "Resolving dashboard access..."
@@ -730,7 +772,8 @@
         "openMenu": "Open navigation",
         "closeMenu": "Close navigation",
         "loadFailed": "Could not load this data.",
-        "tryAgain": "Try again"
+        "tryAgain": "Try again",
+        "somethingWentWrong": "Something went wrong"
     },
     "Deactivated": {
         "title": "Account suspended",
@@ -748,5 +791,31 @@
         "inquiryForwardedDesc": "Your appeal has been sent to an administrator.",
         "inquiryFailed": "Inquiry submission failed",
         "failedDefault": "Failed to submit inquiry."
+    },
+    "DisasterMode": {
+        "title": "Engage disaster protocol",
+        "subtitle": "This suspends platform operations immediately and broadcasts overriding SMS messages to every registered parent.",
+        "reasonLabel": "Closure reason",
+        "reasonHint": "This classification drives predictive engine analytics.",
+        "flood": "Flood",
+        "cyclone": "Cyclone",
+        "landslide": "Landslide",
+        "publicHealth": "Civil / public health",
+        "other": "Other",
+        "resumeLabel": "Expected resume date",
+        "resumeHint": "Optional. Shown to parents in the broadcast.",
+        "initiate": "Initiate lockdown & notify parents",
+        "confirmTitle": "Final warning",
+        "confirmBody": "Emergency SMS messages will be blasted system-wide and cannot be recalled. Are you absolutely certain?",
+        "confirmYes": "Yes, broadcast now"
+    },
+    "Confirm": {
+        "sureTitle": "Are you absolutely sure?",
+        "proceed": "Yes, proceed",
+        "deactivateNamed": "This starts deactivation for {name}. Their access is revoked, but historical records are preserved.",
+        "deactivateTitle": "Confirm deactivation",
+        "deactivateDesc": "Please confirm once more. They will no longer be able to sign in to the portal.",
+        "deleteTitle": "Confirm deletion",
+        "deleteDesc": "Please confirm once more. This cannot be undone."
     }
 }

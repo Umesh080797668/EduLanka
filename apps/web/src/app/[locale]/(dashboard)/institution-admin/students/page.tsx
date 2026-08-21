@@ -1,159 +1,261 @@
 'use client';
-import { authManager } from '@/lib/auth-store';
 
-import { useState, useEffect } from 'react';
-import { Link } from '@/i18n/routing';
-import { fetchStudents, deactivateStudent, RequestOpts } from '@/lib/api/school';
-import type { StudentProfile } from '@edu-lanka/shared-types';
-import { useTranslations } from 'next-intl';
+import { useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { PageSkeleton } from '@/components/ui/Skeleton';
+import { motion } from 'framer-motion';
+import { Eye, GraduationCap, Pencil, Trash2, UserPlus, Users } from 'lucide-react';
+import { useTranslations } from 'next-intl';
+
+import { Link } from '@/i18n/routing';
+import { authManager } from '@/lib/auth-store';
+import { deactivateStudent, fetchStudents, RequestOpts } from '@/lib/api/school';
+import type { StudentProfile } from '@edu-lanka/shared-types';
+import { Alert } from '@/components/ui/Alert';
+import { Badge } from '@/components/ui/Badge';
+import { buttonClass, Button } from '@/components/ui/Button';
+import { EmptyState, PageHeader } from '@/components/ui/Layout';
 import MultiStepModal from '@/components/ui/MultiStepModal';
-import { Trash2 } from 'lucide-react';
+import { PageSkeleton } from '@/components/ui/Skeleton';
+import {
+    Table,
+    TableWrap,
+    TBody,
+    TD,
+    TDEmpty,
+    TH,
+    THead,
+    TR,
+} from '@/components/ui/Table';
 
 export default function StudentsPage() {
     const t = useTranslations('InstitutionAdminStudents');
+    const tc = useTranslations('Common');
     const searchParams = useSearchParams();
     const query = searchParams?.get('query')?.toLowerCase() || '';
+
     const [students, setStudents] = useState<StudentProfile[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-    const [studentToDelete, setStudentToDelete] = useState<StudentProfile | null>(null);
+    const [studentToDelete, setStudentToDelete] = useState<StudentProfile | null>(
+        null,
+    );
 
     const handleDeleteConfirm = async () => {
         if (!studentToDelete) return;
-        const opts: RequestOpts = { token: authManager.getToken() || '', tenantId: authManager.getTenantId() || '' };
+        const opts: RequestOpts = {
+            token: authManager.getToken() || '',
+            tenantId: authManager.getTenantId() || '',
+        };
         await deactivateStudent(studentToDelete.id, opts);
-        setStudents(prev => prev.map(s => s.id === studentToDelete.id ? { ...s, users: { ...s.users!, is_active: false } } : s));
+        setStudents((prev) =>
+            prev.map((s) =>
+                s.id === studentToDelete.id
+                    ? { ...s, users: { ...s.users!, is_active: false } }
+                    : s,
+            ),
+        );
     };
 
     useEffect(() => {
-        // TODO (Phase 1): Retrieve auth token & tenantId from context/session
-        const opts: RequestOpts = { token: authManager.getToken() || '', tenantId: authManager.getTenantId() || '' };
+        const opts: RequestOpts = {
+            token: authManager.getToken() || '',
+            tenantId: authManager.getTenantId() || '',
+        };
         fetchStudents(opts)
             .then(setStudents)
             .catch((err) => setError(err.message))
             .finally(() => setLoading(false));
     }, []);
 
-    const filteredStudents = students.filter(s =>
-        !query ||
-        s.users?.full_name?.toLowerCase().includes(query) ||
-        s.users?.email?.toLowerCase().includes(query) ||
-        s.admission_no?.toLowerCase().includes(query)
+    const filteredStudents = students.filter(
+        (s) =>
+            !query ||
+            s.users?.full_name?.toLowerCase().includes(query) ||
+            s.users?.email?.toLowerCase().includes(query) ||
+            s.admission_no?.toLowerCase().includes(query),
     );
 
     return (
-        <div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-                <h1 style={{ fontSize: '1.5rem', fontWeight: 600 }}>{t('title')}</h1>
-                <Link
-                    href="/institution-admin/students/new"
-                    style={{
-                        background: 'var(--color-brand-600)',
-                        color: 'white',
-                        padding: '0.5rem 1rem',
-                        borderRadius: '6px',
-                        textDecoration: 'none',
-                        fontWeight: 500,
-                    }}
-                >
-                    {t('enrollStudent')}
-                </Link>
-            </div>
+        <div className="mx-auto max-w-6xl">
+            <PageHeader
+                icon={<GraduationCap />}
+                title={t('title')}
+                badge={
+                    !loading && students.length > 0 ? (
+                        <Badge tone="primary" dot>
+                            {students.length}
+                        </Badge>
+                    ) : undefined
+                }
+                actions={
+                    <Link
+                        href="/institution-admin/students/new"
+                        className={buttonClass({ variant: 'primary' })}
+                    >
+                        <UserPlus className="size-4" />
+                        {t('enrollStudent')}
+                    </Link>
+                }
+            />
 
             {loading ? (
-                <PageSkeleton />
+                <PageSkeleton rows={6} cols={5} />
             ) : error ? (
-                <div style={{ padding: '1rem', background: '#fee2e2', color: '#b91c1c', borderRadius: '6px' }}>
+                <Alert tone="danger" title={tc('loadFailed')}>
                     {error}
-                </div>
+                </Alert>
             ) : filteredStudents.length === 0 ? (
-                <div style={{ padding: '3rem', textAlign: 'center', background: 'white', borderRadius: '8px', border: '1px solid #e5e7eb' }}>
-                    <p style={{ color: '#6b7280', marginBottom: '1rem' }}>{query ? `No students found matching "${query}"` : t('noStudents')}</p>
-                </div>
+                <EmptyState
+                    icon={<Users />}
+                    title={query ? t('noMatches') : t('noStudents')}
+                    description={query ? t('noMatchesDesc') : undefined}
+                    action={
+                        !query ? (
+                            <Link
+                                href="/institution-admin/students/new"
+                                className={buttonClass({ variant: 'primary' })}
+                            >
+                                <UserPlus className="size-4" />
+                                {t('enrollStudent')}
+                            </Link>
+                        ) : undefined
+                    }
+                />
             ) : (
-                <div style={{ background: 'white', borderRadius: '8px', border: '1px solid #e5e7eb', overflow: 'hidden' }}>
-                    <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
-                        <thead style={{ background: '#f9fafb', borderBottom: '1px solid #e5e7eb' }}>
-                            <tr>
-                                <th style={{ padding: '0.75rem 1rem', fontWeight: 500, color: '#374151' }}>{t('admissionNo')}</th>
-                                <th style={{ padding: '0.75rem 1rem', fontWeight: 500, color: '#374151' }}>{t('name')}</th>
-                                <th style={{ padding: '0.75rem 1rem', fontWeight: 500, color: '#374151' }}>{t('class')}</th>
-                                <th style={{ padding: '0.75rem 1rem', fontWeight: 500, color: '#374151' }}>{t('status')}</th>
-                                <th style={{ padding: '0.75rem 1rem', fontWeight: 500, color: '#374151', textAlign: 'right' }}>{t('actions')}</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {filteredStudents.map((student) => (
-                                <tr key={student.id} style={{ borderBottom: '1px solid #e5e7eb' }}>
-                                    <td style={{ padding: '0.75rem 1rem' }}>{student.admission_no}</td>
-                                    <td style={{ padding: '0.75rem 1rem' }}>
-                                        <div style={{ fontWeight: 500 }}>{student.users?.full_name}</div>
-                                        <div style={{ fontSize: '0.85rem', color: '#6b7280' }}>{student.users?.email}</div>
-                                    </td>
-                                    <td style={{ padding: '0.75rem 1rem' }}>
-                                        {student.classes ? `Grade ${student.classes.grade}-${student.classes.section}` : <span style={{ color: '#9ca3af', fontStyle: 'italic' }}>{t('unassigned')}</span>}
-                                    </td>
-                                    <td style={{ padding: '0.75rem 1rem' }}>
-                                        <span style={{
-                                            padding: '0.25rem 0.5rem',
-                                            borderRadius: '9999px',
-                                            fontSize: '0.75rem',
-                                            fontWeight: 500,
-                                            background: student.users?.is_active ? '#dcfce7' : '#fee2e2',
-                                            color: student.users?.is_active ? '#166534' : '#991b1b'
-                                        }}>
-                                            {student.users?.is_active ? t('active') : t('inactive')}
-                                        </span>
-                                    </td>
-                                    <td style={{ padding: '0.75rem 1rem', textAlign: 'right' }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '0.5rem' }}>
-                                            <Link
-                                                href={`/institution-admin/students/${student.id}?edit=true`}
-                                                style={{ color: 'var(--color-brand-600)', textDecoration: 'none', fontWeight: 500, marginRight: '0.5rem' }}
+                <TableWrap>
+                    <Table>
+                        <THead>
+                            <TR>
+                                <TH className="w-36">{t('admissionNo')}</TH>
+                                <TH>{t('name')}</TH>
+                                <TH className="w-40">{t('class')}</TH>
+                                <TH className="w-28">{t('status')}</TH>
+                                <TH align="right" className="w-44">
+                                    {t('actions')}
+                                </TH>
+                            </TR>
+                        </THead>
+                        <TBody>
+                            {filteredStudents.length === 0 ? (
+                                <TDEmpty colSpan={5}>{t('noStudents')}</TDEmpty>
+                            ) : (
+                                filteredStudents.map((student, idx) => (
+                                    <motion.tr
+                                        key={student.id}
+                                        initial={{ opacity: 0, y: 8 }}
+                                        animate={{
+                                            opacity: 1,
+                                            y: 0,
+                                            transition: {
+                                                delay: Math.min(idx * 0.03, 0.3),
+                                            },
+                                        }}
+                                        className="transition-colors hover:bg-accent/60"
+                                    >
+                                        <TD numeric className="text-muted-foreground">
+                                            {student.admission_no}
+                                        </TD>
+                                        <TD>
+                                            <div className="font-medium text-foreground">
+                                                {student.users?.full_name}
+                                            </div>
+                                            <div className="text-xs text-muted-foreground">
+                                                {student.users?.email}
+                                            </div>
+                                        </TD>
+                                        <TD>
+                                            {student.classes ? (
+                                                <span className="text-foreground">
+                                                    {t('gradeShort')}{' '}
+                                                    {student.classes.grade}-
+                                                    {student.classes.section}
+                                                </span>
+                                            ) : (
+                                                <span className="italic text-muted-foreground">
+                                                    {t('unassigned')}
+                                                </span>
+                                            )}
+                                        </TD>
+                                        <TD>
+                                            <Badge
+                                                tone={
+                                                    student.users?.is_active
+                                                        ? 'success'
+                                                        : 'danger'
+                                                }
+                                                dot
                                             >
-                                                Edit
-                                            </Link>
-                                            <Link
-                                                href={`/institution-admin/students/${student.id}`}
-                                                style={{ color: 'var(--color-brand-600)', textDecoration: 'none', fontWeight: 500 }}
-                                            >
-                                                View &rarr;
-                                            </Link>
-                                            <button
-                                                onClick={() => setStudentToDelete(student)}
-                                                style={{ padding: '0.35rem', border: 'none', background: '#fee2e2', borderRadius: '4px', cursor: 'pointer', color: '#b91c1c' }}
-                                                title="Deactivate Student"
-                                            >
-                                                <Trash2 style={{ width: '1rem', height: '1rem' }} />
-                                            </button>
-                                        </div>
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
+                                                {student.users?.is_active
+                                                    ? t('active')
+                                                    : t('inactive')}
+                                            </Badge>
+                                        </TD>
+                                        <TD align="right">
+                                            <div className="flex items-center justify-end gap-1">
+                                                <Link
+                                                    href={`/institution-admin/students/${student.id}?edit=true`}
+                                                    aria-label={t('edit')}
+                                                    title={t('edit')}
+                                                    className={buttonClass({
+                                                        variant: 'ghost',
+                                                        size: 'icon-sm',
+                                                    })}
+                                                >
+                                                    <Pencil className="size-4" />
+                                                </Link>
+                                                <Link
+                                                    href={`/institution-admin/students/${student.id}`}
+                                                    aria-label={t('view')}
+                                                    title={t('view')}
+                                                    className={buttonClass({
+                                                        variant: 'ghost',
+                                                        size: 'icon-sm',
+                                                    })}
+                                                >
+                                                    <Eye className="size-4" />
+                                                </Link>
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon-sm"
+                                                    aria-label={t('deactivate')}
+                                                    title={t('deactivate')}
+                                                    disabled={!student.users?.is_active}
+                                                    onClick={() =>
+                                                        setStudentToDelete(student)
+                                                    }
+                                                    className="text-destructive"
+                                                >
+                                                    <Trash2 className="size-4" />
+                                                </Button>
+                                            </div>
+                                        </TD>
+                                    </motion.tr>
+                                ))
+                            )}
+                        </TBody>
+                    </Table>
+                </TableWrap>
             )}
 
             <MultiStepModal
                 isOpen={!!studentToDelete}
                 onClose={() => setStudentToDelete(null)}
-                title="Deactivate Student"
+                title={t('deactivate')}
                 steps={[
                     {
-                        title: 'Are you absolutely sure?',
-                        description: `This action will initiate the deactivation process for the student ${studentToDelete?.users?.full_name}. Their access will be revoked but historical data will be preserved.`,
-                        confirmText: 'Yes, proceed',
-                        isDestructive: true
+                        title: t('step1Title'),
+                        description: t('step1Desc', {
+                            name: studentToDelete?.users?.full_name ?? '',
+                        }),
+                        confirmText: t('step1Confirm'),
+                        isDestructive: true,
                     },
                     {
-                        title: 'Confirm Deactivation',
-                        description: 'Please confirm once more. They will no longer be able to log in to the portal.',
-                        confirmText: 'Deactivate Student',
-                        isDestructive: true
-                    }
+                        title: t('step2Title'),
+                        description: t('step2Desc'),
+                        confirmText: t('step2Confirm'),
+                        isDestructive: true,
+                    },
                 ]}
                 onComplete={handleDeleteConfirm}
             />

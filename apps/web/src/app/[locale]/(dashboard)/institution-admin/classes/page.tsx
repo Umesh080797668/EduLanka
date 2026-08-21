@@ -1,23 +1,53 @@
 'use client';
-import { authManager } from '@/lib/auth-store';
 
-import { useState, useEffect } from 'react';
-import { Link } from '@/i18n/routing';
-import { fetchClasses, deleteClass, RequestOpts } from '@/lib/api/school';
-import type { ClassProfile } from '@edu-lanka/shared-types';
+import { useEffect, useState } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
+import {
+    BookOpen,
+    ChevronRight,
+    Pencil,
+    Plus,
+    Star,
+    Trash2,
+    Users,
+} from 'lucide-react';
 import { useTranslations } from 'next-intl';
-import { motion, AnimatePresence } from 'framer-motion';
-import { BookOpen, Plus, Loader2, XCircle, ChevronRight, Users, Star, Trash2 } from 'lucide-react';
+
+import { Link } from '@/i18n/routing';
+import { authManager } from '@/lib/auth-store';
+import { deleteClass, fetchClasses, RequestOpts } from '@/lib/api/school';
+import type { ClassProfile } from '@edu-lanka/shared-types';
+import { Alert } from '@/components/ui/Alert';
+import { Badge } from '@/components/ui/Badge';
+import { Button, buttonClass } from '@/components/ui/Button';
+import { Dialog } from '@/components/ui/Dialog';
+import { Field, Input } from '@/components/ui/Form';
+import { EmptyState, PageHeader } from '@/components/ui/Layout';
 import MultiStepModal from '@/components/ui/MultiStepModal';
+import { Spinner } from '@/components/ui/Spinner';
+import {
+    Table,
+    TableWrap,
+    TBody,
+    TD,
+    TH,
+    THead,
+    TR,
+} from '@/components/ui/Table';
 
 export default function ClassesPage() {
     const t = useTranslations('InstitutionAdminClasses');
+    const tc = useTranslations('Common');
+    const tf = useTranslations('Confirm');
     const [classes, setClasses] = useState<ClassProfile[]>([]);
     const [loading, setLoading] = useState(true);
     const [classToDelete, setClassToDelete] = useState<ClassProfile | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [classToEdit, setClassToEdit] = useState<ClassProfile | null>(null);
-    const [editForm, setEditForm] = useState({ year: new Date().getFullYear(), section: '' });
+    const [editForm, setEditForm] = useState({
+        year: new Date().getFullYear(),
+        section: '',
+    });
     const [savingEdit, setSavingEdit] = useState(false);
 
     const openEditModal = (cls: ClassProfile) => {
@@ -31,9 +61,14 @@ export default function ClassesPage() {
         setSavingEdit(true);
         try {
             const { updateClass } = await import('@/lib/api/school');
-            const opts: RequestOpts = { token: authManager.getToken() || '', tenantId: authManager.getTenantId() || '' };
+            const opts: RequestOpts = {
+                token: authManager.getToken() || '',
+                tenantId: authManager.getTenantId() || '',
+            };
             const updated = await updateClass(classToEdit.id, editForm, opts);
-            setClasses(prev => prev.map(c => c.id === updated.id ? { ...c, ...updated } : c));
+            setClasses((prev) =>
+                prev.map((c) => (c.id === updated.id ? { ...c, ...updated } : c)),
+            );
             setClassToEdit(null);
             setError(null);
         } catch (err: any) {
@@ -45,235 +80,308 @@ export default function ClassesPage() {
 
     const handleDeleteConfirm = async () => {
         if (!classToDelete) return;
-        const opts: RequestOpts = { token: authManager.getToken() || '', tenantId: authManager.getTenantId() || '' };
+        const opts: RequestOpts = {
+            token: authManager.getToken() || '',
+            tenantId: authManager.getTenantId() || '',
+        };
         await deleteClass(classToDelete.id, opts);
-        setClasses(prev => prev.filter(c => c.id !== classToDelete.id));
+        setClasses((prev) => prev.filter((c) => c.id !== classToDelete.id));
     };
 
     useEffect(() => {
-        const opts: RequestOpts = { token: authManager.getToken() || '', tenantId: authManager.getTenantId() || '' };
+        const opts: RequestOpts = {
+            token: authManager.getToken() || '',
+            tenantId: authManager.getTenantId() || '',
+        };
         fetchClasses(opts)
-            .then((data) => {
-                setClasses(data);
-            })
+            .then(setClasses)
             .catch((err) => setError(err.message))
             .finally(() => setLoading(false));
     }, []);
 
     return (
-        <div className="max-w-6xl mx-auto space-y-6">
-            <motion.div
-                initial={{ opacity: 0, y: -20 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="bg-white rounded-2xl p-6 md:p-8 shadow-sm border border-slate-200"
-            >
-                {/* Header */}
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
-                    <div>
-                        <h1 className="text-2xl font-bold tracking-tight text-slate-900 flex items-center gap-3">
-                            <BookOpen className="w-6 h-6 text-indigo-600" />
-                            {t('title')}
-                        </h1>
-                        <p className="text-slate-500 mt-1">Manage and organise your school&apos;s classes and teacher assignments.</p>
-                    </div>
+        <div className="mx-auto max-w-6xl">
+            <PageHeader
+                icon={<BookOpen />}
+                title={t('title')}
+                description={t('description')}
+                badge={
+                    !loading && classes.length > 0 ? (
+                        <Badge tone="primary" dot>
+                            {classes.length}
+                        </Badge>
+                    ) : undefined
+                }
+                actions={
                     <Link
                         href="/institution-admin/classes/new"
-                        className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl transition-colors shadow-sm text-sm"
+                        className={buttonClass({ variant: 'primary' })}
                     >
-                        <Plus className="w-4 h-4" />
+                        <Plus className="size-4" />
                         {t('createClass')}
                     </Link>
-                </div>
+                }
+            />
 
-                {/* Error */}
-                {error && (
-                    <div className="p-4 bg-rose-50 text-rose-700 rounded-xl mb-6 border border-rose-100 flex items-center gap-3">
-                        <XCircle className="w-5 h-5 flex-shrink-0" />
-                        <p className="font-medium text-sm">{error}</p>
-                    </div>
-                )}
+            {error && (
+                <Alert tone="danger" className="mb-6" onDismiss={() => setError(null)}>
+                    {error}
+                </Alert>
+            )}
 
-                {/* Table */}
-                <div className="overflow-hidden border border-slate-200 rounded-xl relative min-h-[300px]">
+            {!loading && classes.length === 0 ? (
+                <EmptyState
+                    icon={<BookOpen />}
+                    title={t('noClasses')}
+                    action={
+                        <Link
+                            href="/institution-admin/classes/new"
+                            className={buttonClass({ variant: 'primary' })}
+                        >
+                            <Plus className="size-4" />
+                            {t('createClass')}
+                        </Link>
+                    }
+                />
+            ) : (
+                <div className="relative min-h-[300px]">
                     <AnimatePresence>
                         {loading && (
                             <motion.div
-                                initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                                className="absolute inset-0 bg-white/80 backdrop-blur-sm z-10 flex items-center justify-center"
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                                exit={{ opacity: 0 }}
+                                className="pointer-events-none absolute inset-0 z-10 grid place-items-center rounded-card bg-background/70 backdrop-blur-sm"
                             >
-                                <Loader2 className="w-8 h-8 animate-spin text-indigo-500" />
+                                <Spinner />
                             </motion.div>
                         )}
                     </AnimatePresence>
 
-                    <table className="w-full text-left border-collapse bg-white">
-                        <thead>
-                            <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 text-xs uppercase tracking-wider font-semibold">
-                                <th className="px-6 py-4">Class</th>
-                                <th className="px-6 py-4">Section</th>
-                                <th className="px-6 py-4">Year</th>
-                                <th className="px-6 py-4">Medium</th>
-                                <th className="px-6 py-4">Students</th>
-                                <th className="px-6 py-4">Homeroom Teacher</th>
-                                <th className="px-6 py-4 text-right">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100">
-                            {!loading && classes.length === 0 ? (
-                                <tr>
-                                    <td colSpan={7} className="px-6 py-16 text-center text-slate-500">
-                                        <div className="flex flex-col items-center gap-3">
-                                            <BookOpen className="w-12 h-12 text-slate-300" />
-                                            <p className="font-medium">{t('noClasses')}</p>
-                                            <Link
-                                                href="/institution-admin/classes/new"
-                                                className="text-sm text-indigo-600 hover:underline font-semibold"
-                                            >
-                                                {t('createClass')} →
-                                            </Link>
-                                        </div>
-                                    </td>
-                                </tr>
-                            ) : (
-                                classes.map((cls, idx) => {
-                                    const homeroomTeacher = (cls as any).class_teachers?.find((ct: any) => ct.is_homeroom);
-                                    const homeroomName = homeroomTeacher?.teachers?.users?.full_name || null;
-                                    const gradeName = (cls as any).grades?.name || (cls as any).grade?.name || `Grade ${(cls as any).grade ?? '?'}`;
+                    <TableWrap>
+                        <Table>
+                            <THead>
+                                <TR>
+                                    <TH>{t('classLabel')}</TH>
+                                    <TH className="w-28">{t('section')}</TH>
+                                    <TH className="w-24">{t('year')}</TH>
+                                    <TH className="w-32">{t('medium')}</TH>
+                                    <TH className="w-28">{t('students')}</TH>
+                                    <TH>{t('homeroomTeacher')}</TH>
+                                    <TH align="right" className="w-48">
+                                        {t('actions')}
+                                    </TH>
+                                </TR>
+                            </THead>
+                            <TBody>
+                                {classes.map((cls, idx) => {
+                                    const homeroomTeacher = (
+                                        cls as any
+                                    ).class_teachers?.find((ct: any) => ct.is_homeroom);
+                                    const homeroomName =
+                                        homeroomTeacher?.teachers?.users?.full_name ||
+                                        null;
+                                    const gradeName =
+                                        (cls as any).grades?.name ||
+                                        (cls as any).grade?.name ||
+                                        `${t('gradeShort')} ${(cls as any).grade ?? '?'}`;
+
                                     return (
                                         <motion.tr
                                             key={cls.id}
                                             initial={{ opacity: 0, y: 8 }}
-                                            animate={{ opacity: 1, y: 0, transition: { delay: idx * 0.04 } }}
-                                            className="hover:bg-slate-50/60 transition-colors group"
+                                            animate={{
+                                                opacity: 1,
+                                                y: 0,
+                                                transition: {
+                                                    delay: Math.min(idx * 0.03, 0.3),
+                                                },
+                                            }}
+                                            className="group transition-colors hover:bg-accent/60"
                                         >
-                                            <td className="px-6 py-4">
+                                            <TD>
                                                 <div className="flex items-center gap-3">
-                                                    <div className="w-10 h-10 bg-indigo-50 border border-indigo-100 rounded-lg flex items-center justify-center text-indigo-700 font-bold text-sm shadow-sm">
-                                                        {gradeName.toString().replace('Grade ', 'G')}
-                                                    </div>
-                                                    <span className="font-semibold text-slate-900 group-hover:text-indigo-700 transition-colors">
+                                                    <span className="grid size-10 shrink-0 place-items-center rounded-input bg-primary-subtle text-sm font-bold text-primary">
+                                                        {gradeName
+                                                            .toString()
+                                                            .replace(
+                                                                `${t('gradeShort')} `,
+                                                                'G',
+                                                            )}
+                                                    </span>
+                                                    <span className="font-semibold text-foreground transition-colors group-hover:text-primary">
                                                         {gradeName}
                                                     </span>
                                                 </div>
-                                            </td>
-                                            <td className="px-6 py-4">
-                                                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-slate-100 border border-slate-200 text-slate-700 text-xs font-semibold">
+                                            </TD>
+                                            <TD>
+                                                <Badge tone="neutral" variant="outline">
                                                     {cls.section}
-                                                </span>
-                                            </td>
-                                            <td className="px-6 py-4 text-slate-600 font-medium">{cls.year}</td>
-                                            <td className="px-6 py-4">
+                                                </Badge>
+                                            </TD>
+                                            <TD numeric className="text-muted-foreground">
+                                                {cls.year}
+                                            </TD>
+                                            <TD>
                                                 {cls.medium ? (
-                                                    <span className="inline-flex px-2.5 py-1 rounded-md bg-blue-50 border border-blue-200 text-blue-700 text-xs font-semibold">
+                                                    <Badge tone="info">
                                                         {cls.medium}
+                                                    </Badge>
+                                                ) : (
+                                                    <span className="text-sm italic text-muted-foreground">
+                                                        —
+                                                    </span>
+                                                )}
+                                            </TD>
+                                            <TD>
+                                                <span className="inline-flex items-center gap-1.5 text-sm font-medium text-foreground">
+                                                    <Users className="size-3.5 text-muted-foreground" />
+                                                    {(cls as any).students?.length ?? 0}
+                                                </span>
+                                            </TD>
+                                            <TD>
+                                                {homeroomName ? (
+                                                    <span className="inline-flex items-center gap-1.5 text-sm font-medium text-foreground">
+                                                        <Star className="size-3.5 text-warning" />
+                                                        {homeroomName}
                                                     </span>
                                                 ) : (
-                                                    <span className="text-slate-400 text-sm italic">—</span>
+                                                    <span className="text-sm italic text-muted-foreground">
+                                                        {t('unassigned')}
+                                                    </span>
                                                 )}
-                                            </td>
-                                            <td className="px-6 py-4">
-                                                <div className="flex items-center gap-1.5 text-slate-700 font-medium text-sm">
-                                                    <Users className="w-3.5 h-3.5 text-slate-400" />
-                                                    {(cls as any).students?.length ?? 0}
-                                                </div>
-                                            </td>
-                                            <td className="px-6 py-4">
-                                                {homeroomName ? (
-                                                    <div className="flex items-center gap-1.5 text-slate-700 text-sm font-medium">
-                                                        <Star className="w-3.5 h-3.5 text-amber-500" />
-                                                        {homeroomName}
-                                                    </div>
-                                                ) : (
-                                                    <span className="text-slate-400 text-sm italic">Unassigned</span>
-                                                )}
-                                            </td>
-                                            <td className="px-6 py-4 text-right">
-                                                <div className="flex items-center justify-end gap-2">
-                                                    <button
-                                                        onClick={() => openEditModal(cls)}
-                                                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-slate-50 text-slate-600 border border-slate-200 rounded-lg text-sm font-medium transition-all shadow-sm"
+                                            </TD>
+                                            <TD align="right">
+                                                <div className="flex items-center justify-end gap-1">
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon-sm"
+                                                        aria-label={t('edit')}
+                                                        title={t('edit')}
+                                                        onClick={() =>
+                                                            openEditModal(cls)
+                                                        }
                                                     >
-                                                        Edit
-                                                    </button>
+                                                        <Pencil className="size-4" />
+                                                    </Button>
                                                     <Link
                                                         href={`/institution-admin/classes/${cls.id}`}
-                                                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-indigo-50 text-slate-600 hover:text-indigo-700 border border-slate-200 hover:border-indigo-300 rounded-lg text-sm font-medium transition-all shadow-sm"
+                                                        className={buttonClass({
+                                                            variant: 'outline',
+                                                            size: 'sm',
+                                                        })}
                                                     >
                                                         {t('manage')}
-                                                        <ChevronRight className="w-3.5 h-3.5" />
+                                                        <ChevronRight className="size-3.5" />
                                                     </Link>
-                                                    <button
-                                                        onClick={() => setClassToDelete(cls)}
-                                                        className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg border border-transparent hover:border-rose-100 transition-all"
-                                                        title="Delete Class"
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon-sm"
+                                                        aria-label={t('deleteClass')}
+                                                        title={t('deleteClass')}
+                                                        onClick={() =>
+                                                            setClassToDelete(cls)
+                                                        }
+                                                        className="text-destructive"
                                                     >
-                                                        <Trash2 className="w-4 h-4" />
-                                                    </button>
+                                                        <Trash2 className="size-4" />
+                                                    </Button>
                                                 </div>
-                                            </td>
+                                            </TD>
                                         </motion.tr>
                                     );
-                                })
-                            )}
-                        </tbody>
-                    </table>
+                                })}
+                            </TBody>
+                        </Table>
+                    </TableWrap>
                 </div>
-            </motion.div>
+            )}
 
             <MultiStepModal
                 isOpen={!!classToDelete}
                 onClose={() => setClassToDelete(null)}
-                title="Delete Class"
+                title={t('deleteClass')}
                 steps={[
                     {
-                        title: 'Are you absolutely sure?',
-                        description: `This action will initiate the deletion process for the class ${classToDelete?.section}. Teachers and students will be unassigned.`,
-                        confirmText: 'Yes, proceed',
-                        isDestructive: true
+                        title: tf('sureTitle'),
+                        description: t('deleteNamed', {
+                            section: classToDelete?.section ?? '',
+                        }),
+                        confirmText: tf('proceed'),
+                        isDestructive: true,
                     },
                     {
-                        title: 'Confirm Deletion',
-                        description: 'Please confirm once more. This action cannot be undone.',
-                        confirmText: 'Delete Class',
-                        isDestructive: true
-                    }
+                        title: tf('deleteTitle'),
+                        description: tf('deleteDesc'),
+                        confirmText: t('deleteClass'),
+                        isDestructive: true,
+                    },
                 ]}
                 onComplete={handleDeleteConfirm}
             />
 
-            {classToEdit && (
-                <div style={{ position: 'fixed', inset: 0, zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(15, 23, 42, 0.5)' }}>
-                    <div style={{ background: 'white', border: '1px solid #e5e7eb', borderRadius: '1rem', padding: '2rem', width: '100%', maxWidth: '24rem', boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)' }}>
-                        <h2 style={{ fontSize: '1.25rem', fontWeight: 600, color: '#111827', marginBottom: '1.5rem' }}>Edit Class</h2>
-                        <form onSubmit={handleEditSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                            <div>
-                                <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 500, color: '#374151', marginBottom: '0.5rem' }}>Academic Year</label>
-                                <input
-                                    type="number" required
-                                    value={editForm.year}
-                                    onChange={e => setEditForm(prev => ({ ...prev, year: parseInt(e.target.value) }))}
-                                    style={{ width: '100%', padding: '0.5rem', borderRadius: '0.5rem', border: '1px solid #d1d5db' }}
-                                />
-                            </div>
-                            <div>
-                                <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 500, color: '#374151', marginBottom: '0.5rem' }}>Section/Name (e.g. 10-A, 11-Bio)</label>
-                                <input
-                                    type="text" required
-                                    value={editForm.section}
-                                    onChange={e => setEditForm(prev => ({ ...prev, section: e.target.value }))}
-                                    style={{ width: '100%', padding: '0.5rem', borderRadius: '0.5rem', border: '1px solid #d1d5db' }}
-                                />
-                            </div>
-                            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '1rem' }}>
-                                <button type="button" onClick={() => setClassToEdit(null)} style={{ padding: '0.5rem 1rem', borderRadius: '0.5rem', border: 'none', background: '#f3f4f6', color: '#374151', fontWeight: 500, cursor: 'pointer' }}>Cancel</button>
-                                <button type="submit" disabled={savingEdit} style={{ padding: '0.5rem 1rem', borderRadius: '0.5rem', border: 'none', background: '#4f46e5', color: 'white', fontWeight: 500, cursor: 'pointer', opacity: savingEdit ? 0.7 : 1 }}>
-                                    {savingEdit ? 'Saving...' : 'Save Changes'}
-                                </button>
-                            </div>
-                        </form>
+            {/* ── Inline edit ───────────────────────────────────────────────── */}
+            <Dialog
+                open={!!classToEdit}
+                onClose={() => setClassToEdit(null)}
+                title={t('editClass')}
+                icon={<Pencil />}
+                size="sm"
+                dismissible={!savingEdit}
+            >
+                <form onSubmit={handleEditSubmit} className="space-y-5">
+                    <Field label={t('academicYear')} htmlFor="edit-year" required>
+                        <Input
+                            id="edit-year"
+                            type="number"
+                            required
+                            min={2000}
+                            max={2100}
+                            value={editForm.year}
+                            onChange={(e) =>
+                                setEditForm((prev) => ({
+                                    ...prev,
+                                    year: parseInt(e.target.value, 10),
+                                }))
+                            }
+                        />
+                    </Field>
+
+                    <Field
+                        label={t('sectionLabel')}
+                        hint={t('sectionHint')}
+                        htmlFor="edit-section"
+                        required
+                    >
+                        <Input
+                            id="edit-section"
+                            type="text"
+                            required
+                            value={editForm.section}
+                            onChange={(e) =>
+                                setEditForm((prev) => ({
+                                    ...prev,
+                                    section: e.target.value,
+                                }))
+                            }
+                        />
+                    </Field>
+
+                    <div className="flex justify-end gap-3 pt-1">
+                        <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => setClassToEdit(null)}
+                            disabled={savingEdit}
+                        >
+                            {tc('cancel')}
+                        </Button>
+                        <Button type="submit" loading={savingEdit}>
+                            {t('saveChanges')}
+                        </Button>
                     </div>
-                </div>
-            )}
+                </form>
+            </Dialog>
         </div>
     );
 }
