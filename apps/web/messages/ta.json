@@ -630,7 +630,30 @@
         "eligibleLower": "தகுதியானவர்கள்",
         "completedLower": "முடித்தவர்கள்",
         "skippedLower": "தவிர்த்தவர்கள்",
-        "global": "உலகளாவிய"
+        "global": "உலகளாவிய",
+        "consoleEyebrow": "தளக் கட்டுப்பாட்டகம்",
+        "quickTenants": "பாடசாலைகளை நிர்வகி",
+        "quickUsers": "உலகளாவிய பயனர்கள்",
+        "quickAudit": "தணிக்கைப் பாதை",
+        "presenceTitle": "Supabase நிகழ்நேரம் (இருப்பு)",
+        "activeInstances": "செயலில் உள்ள நிகழ்வுகள்",
+        "socketsTitle": "NestJS WebSockets (Redis அடாப்டர்)",
+        "connectedSockets": "இணைக்கப்பட்ட சாக்கெட்டுகள்",
+        "offline": "ஆஃப்லைன்",
+        "completionRate": "நிறைவு",
+        "broadcastTitle": "உலகளாவிய பராமரிப்பு அறிவிப்பு",
+        "broadcastDesc": "செயலில் உள்ள அனைத்து பாடசாலைகளுக்கும் ஒரே நேரத்தில் அறிவிப்பை வெளியிடும்.",
+        "broadcastAlertTitle": "எச்சரிக்கை தலைப்பு",
+        "broadcastTitlePlaceholder": "எ.கா. திட்டமிட்ட உட்கட்டமைப்பு பராமரிப்பு",
+        "broadcastContent": "செய்தி உள்ளடக்கம்",
+        "broadcastContentPlaceholder": "அனைத்து பாடசாலைகளுக்கும் பொருந்தும் செயல்பாட்டு விவரங்கள்…",
+        "broadcastSmsOverride": "பேரிடர் மேலெழுதல்: SMS மூலமும் அனுப்பு",
+        "broadcastSmsOverrideHint": "SMS நுழைவாயில் வழியாக ஆஃப்லைன் பயனர்களை அணுகி, ஒவ்வொரு பாடசாலையின் SMS வரம்பையும் புறக்கணிக்கும்.",
+        "dispatchBroadcast": "அறிவிப்பை அனுப்பு",
+        "dispatching": "அனுப்புகிறது…",
+        "broadcastSuccess": "அறிவிப்பு அனுப்பப்பட்டது",
+        "broadcastSuccessDesc": "செயலில் உள்ள {count} பாடசாலைகளுக்கு வழங்கப்பட்டது.",
+        "broadcastFailure": "அறிவிப்பு தோல்வியடைந்தது"
     },
     "SystemAdminTenants": {
         "title": "தளத்தின் நிறுவனங்கள்",
@@ -659,7 +682,12 @@
         "reactivateShort": "மீண்டும் செயல்படுத்து",
         "smsEnable": "SMS-ஐ இயக்கு",
         "smsDisable": "SMS-ஐ முடக்கு",
-        "toggleSmsTooltip": "கணினி முழுவதும் நிறுவன SMS விதிகளை மாற்று"
+        "toggleSmsTooltip": "கணினி முழுவதும் நிறுவன SMS விதிகளை மாற்று",
+        "sms": "SMS",
+        "unknownType": "தெரியவில்லை",
+        "noMatches": "உங்கள் தேடலுக்குப் பொருந்தும் பாடசாலை இல்லை.",
+        "statusUpdateFailed": "பாடசாலையின் நிலையைப் புதுப்பிக்க முடியவில்லை",
+        "smsToggleFailed": "SMS அமைப்பை மாற்ற முடியவில்லை"
     },
     "SystemAdminAuditLogs": {
         "title": "கணினி தணிக்கை பதிவுகள்",
@@ -675,7 +703,8 @@
         "previous": "முந்தைய",
         "next": "அடுத்து",
         "page": "பக்கம்",
-        "of": "இல்"
+        "of": "இல்",
+        "filterScope": "இந்தப் பக்கத்தில் {count} காட்டப்படுகிறது"
     },
     "SystemAdminUsersExtras": {
         "globalEndUsers": "உலகளாவிய இறுதிப் பயனர்கள் அடைவு",
@@ -702,7 +731,14 @@
         "reactivateAccountBtn": "கணக்கை மீண்டும் செயல்படுத்து",
         "deactivateAccountBtn": "கணக்கை முடக்கு",
         "viewAuditLogsBtn": "தணிக்கை பதிவுகளைக் காண்க",
-        "noUsersMatching": "தேடலுக்குப் பொருந்தும் பயனர்கள் எவரும் இல்லை."
+        "noUsersMatching": "தேடலுக்குப் பொருந்தும் பயனர்கள் எவரும் இல்லை.",
+        "tenantColumn": "பாடசாலை",
+        "sysRoot": "தளம்",
+        "auditAction": "செயல்",
+        "auditTarget": "இலக்கு",
+        "auditIp": "IP முகவரி",
+        "auditTime": "நேரம்",
+        "statusUpdateFailed": "கணக்கின் நிலையைப் புதுப்பிக்க முடியவில்லை"
     },
     "ErrorBoundary": {
         "title": "ஏதோ தவறு நடந்துவிட்டது!",
@@ -876,5 +912,27 @@
         "enterReason": "காரணத்தை உள்ளிடுங்கள்…",
         "confirmSuspension": "இடைநிறுத்தத்தை உறுதிப்படுத்து",
         "statusUpdated": "கணக்கு நிலை புதுப்பிக்கப்பட்டது"
+    },
+    "SystemAdminSms": {
+        "title": "SMS நுழைவாயில்",
+        "subtitle": "தளத்தில் உள்ள அனைத்து பாடசாலைகளின் மொத்த குறுஞ்செய்தி ஓட்டம்.",
+        "totalDispatches": "மொத்த அனுப்புகைகள்",
+        "totalDispatchesHint": "இந்தக் கட்டண மாதம்",
+        "overages": "கட்டணமிடத்தக்க கூடுதல்",
+        "overagesHint": "திட்ட வரம்பைத் தாண்டி",
+        "failed": "தோல்வியடைந்த அனுப்புகைகள்",
+        "failedHint": "நுழைவாயிலால் நிராகரிக்கப்பட்டது",
+        "breakdown": "பாடசாலை வாரியான பயன்பாடு",
+        "breakdownDesc": "ஒவ்வொரு சந்தா திட்டம் வழங்கும் வரம்பிற்கு எதிரான பயன்பாடு.",
+        "colTenant": "பாடசாலை",
+        "colPlan": "திட்டம்",
+        "colQuota": "ஒதுக்கப்பட்ட வரம்பு",
+        "colUsage": "பயன்படுத்தியது",
+        "colOverage": "கூடுதல்",
+        "noQuotas": "எந்தப் பாடசாலையும் இன்னும் தள குறுஞ்செய்தியைப் பயன்படுத்தவில்லை.",
+        "loadFailed": "SMS வரம்புகளை ஏற்ற முடியவில்லை",
+        "none": "இல்லை",
+        "unmetered": "அளவிடப்படவில்லை",
+        "smsUnit": "SMS"
     }
 }

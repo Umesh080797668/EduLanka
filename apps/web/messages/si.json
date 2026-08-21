@@ -630,7 +630,30 @@
         "eligibleLower": "සුදුසුකම් ඇත",
         "completedLower": "සම්පූර්ණයි",
         "skippedLower": "මඟ හරින ලදි",
-        "global": "ගෝලීය"
+        "global": "ගෝලීය",
+        "consoleEyebrow": "වේදිකා කොන්සෝලය",
+        "quickTenants": "පාසල් කළමනාකරණය",
+        "quickUsers": "ගෝලීය පරිශීලකයෝ",
+        "quickAudit": "විගණන පථය",
+        "presenceTitle": "Supabase තත්‍ය කාලීන (පැමිණීම)",
+        "activeInstances": "ක්‍රියාකාරී අවස්ථා",
+        "socketsTitle": "NestJS WebSockets (Redis අනුවර්තකය)",
+        "connectedSockets": "සම්බන්ධිත සොකට්",
+        "offline": "නොබැඳි",
+        "completionRate": "සම්පූර්ණ කිරීම",
+        "broadcastTitle": "ගෝලීය නඩත්තු විකාශනය",
+        "broadcastDesc": "ක්‍රියාකාරී සෑම පාසලකටම එකවර දැනුම්දීමක් ප්‍රකාශ කරයි.",
+        "broadcastAlertTitle": "ඇඟවීමේ මාතෘකාව",
+        "broadcastTitlePlaceholder": "උදා: නියමිත යටිතල පහසුකම් නඩත්තුව",
+        "broadcastContent": "පණිවිඩ අන්තර්ගතය",
+        "broadcastContentPlaceholder": "සියලු පාසල්වලට අදාළ මෙහෙයුම් විස්තර…",
+        "broadcastSmsOverride": "ආපදා අභිබවා යාම: SMS මගිනුත් යවන්න",
+        "broadcastSmsOverrideHint": "SMS ගේට්වේ හරහා නොබැඳි පරිශීලකයන් වෙත ළඟා වන අතර සෑම පාසලක SMS සීමාව මග හරියි.",
+        "dispatchBroadcast": "විකාශනය යවන්න",
+        "dispatching": "යවමින්…",
+        "broadcastSuccess": "විකාශනය යවා ඇත",
+        "broadcastSuccessDesc": "ක්‍රියාකාරී පාසල් {count} ක් වෙත භාර දෙන ලදී.",
+        "broadcastFailure": "විකාශනය අසාර්ථක විය"
     },
     "SystemAdminTenants": {
         "title": "වේදිකා ආයතන (Tenants)",
@@ -659,7 +682,12 @@
         "reactivateShort": "නැවත සක්‍රිය කරන්න",
         "smsEnable": "SMS සක්‍රීය කරන්න",
         "smsDisable": "SMS අක්‍රීය කරන්න",
-        "toggleSmsTooltip": "පද්ධතිය පුරා ආයතන SMS නීති මාරු කරන්න"
+        "toggleSmsTooltip": "පද්ධතිය පුරා ආයතන SMS නීති මාරු කරන්න",
+        "sms": "SMS",
+        "unknownType": "නොදනී",
+        "noMatches": "ඔබේ සෙවුමට ගැළපෙන පාසලක් නැත.",
+        "statusUpdateFailed": "පාසලේ තත්ත්වය යාවත්කාලීන කළ නොහැකි විය",
+        "smsToggleFailed": "SMS සැකසුම වෙනස් කළ නොහැකි විය"
     },
     "SystemAdminAuditLogs": {
         "title": "පද්ධති විගණන ලොග",
@@ -675,7 +703,8 @@
         "previous": "පෙර",
         "next": "ඊළඟ",
         "page": "පිටුව",
-        "of": "සිට"
+        "of": "සිට",
+        "filterScope": "මෙම පිටුවේ {count} ක් පෙන්වයි"
     },
     "SystemAdminUsersExtras": {
         "globalEndUsers": "ගෝලීය අවසාන පරිශීලක නාමාවලිය",
@@ -702,7 +731,14 @@
         "reactivateAccountBtn": "ගිණුම නැවත සක්‍රිය කරන්න",
         "deactivateAccountBtn": "ගිණුම අක්‍රිය කරන්න",
         "viewAuditLogsBtn": "විගණන ලොග බලන්න",
-        "noUsersMatching": "සෙවුමට ගැළපෙන පරිශීලකයින් නොමැත."
+        "noUsersMatching": "සෙවුමට ගැළපෙන පරිශීලකයින් නොමැත.",
+        "tenantColumn": "පාසල",
+        "sysRoot": "වේදිකාව",
+        "auditAction": "ක්‍රියාව",
+        "auditTarget": "ඉලක්කය",
+        "auditIp": "IP ලිපිනය",
+        "auditTime": "වේලාව",
+        "statusUpdateFailed": "ගිණුමේ තත්ත්වය යාවත්කාලීන කළ නොහැකි විය"
     },
     "ErrorBoundary": {
         "title": "යම් දෝෂයක් සිදු විය!",
@@ -876,5 +912,27 @@
         "enterReason": "හේතුව ඇතුළත් කරන්න…",
         "confirmSuspension": "අත්හිටුවීම තහවුරු කරන්න",
         "statusUpdated": "ගිණුමේ තත්ත්වය යාවත්කාලීන කළා"
+    },
+    "SystemAdminSms": {
+        "title": "SMS ගේට්වේ",
+        "subtitle": "වේදිකාවේ සෑම පාසලක් හරහා සමස්ත කෙටි පණිවිඩ ප්‍රවාහය.",
+        "totalDispatches": "මුළු යැවීම්",
+        "totalDispatchesHint": "මෙම බිල්පත් මාසය",
+        "overages": "බිල් කළ හැකි අතිරික්ත",
+        "overagesHint": "සැලසුම් සීමාවෙන් ඉහළට",
+        "failed": "අසාර්ථක යැවීම්",
+        "failedHint": "ගේට්වේ මගින් ප්‍රතික්ෂේප විය",
+        "breakdown": "පාසල් අනුව භාවිතය",
+        "breakdownDesc": "එක් එක් දායකත්ව සැලසුම මගින් ලබා දෙන සීමාවට එරෙහි භාවිතය.",
+        "colTenant": "පාසල",
+        "colPlan": "සැලසුම",
+        "colQuota": "වෙන් කළ සීමාව",
+        "colUsage": "භාවිත කළ",
+        "colOverage": "අතිරික්තය",
+        "noQuotas": "තවම කිසිදු පාසලක් වේදිකා පණිවිඩ භාවිත කරන්නේ නැත.",
+        "loadFailed": "SMS සීමා පූරණය කළ නොහැකි විය",
+        "none": "නැත",
+        "unmetered": "මනිනු නොලැබේ",
+        "smsUnit": "SMS"
     }
 }

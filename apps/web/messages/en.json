@@ -630,7 +630,30 @@
         "eligibleLower": "eligible",
         "completedLower": "completed",
         "skippedLower": "skipped",
-        "global": "Global"
+        "global": "Global",
+        "consoleEyebrow": "Platform console",
+        "quickTenants": "Manage schools",
+        "quickUsers": "Global users",
+        "quickAudit": "Audit trail",
+        "presenceTitle": "Supabase Realtime (presence)",
+        "activeInstances": "active instances",
+        "socketsTitle": "NestJS WebSockets (Redis adapter)",
+        "connectedSockets": "connected sockets",
+        "offline": "Offline",
+        "completionRate": "Completion",
+        "broadcastTitle": "Global maintenance broadcast",
+        "broadcastDesc": "Publishes a notice to every active school at once.",
+        "broadcastAlertTitle": "Alert title",
+        "broadcastTitlePlaceholder": "e.g. Scheduled infrastructure maintenance",
+        "broadcastContent": "Message content",
+        "broadcastContentPlaceholder": "Operational details that apply to every school…",
+        "broadcastSmsOverride": "Disaster override: also send by SMS",
+        "broadcastSmsOverrideHint": "Reaches offline users through the SMS gateway and bypasses every school SMS quota.",
+        "dispatchBroadcast": "Dispatch broadcast",
+        "dispatching": "Dispatching…",
+        "broadcastSuccess": "Broadcast dispatched",
+        "broadcastSuccessDesc": "Delivered to {count} active schools.",
+        "broadcastFailure": "Broadcast failed"
     },
     "SystemAdminTenants": {
         "title": "Platform Tenants",
@@ -659,7 +682,12 @@
         "reactivateShort": "Reactivate",
         "smsEnable": "Enable SMS",
         "smsDisable": "Disable SMS",
-        "toggleSmsTooltip": "Toggle Tenant SMS Rules System Wide"
+        "toggleSmsTooltip": "Toggle Tenant SMS Rules System Wide",
+        "sms": "SMS",
+        "unknownType": "Unknown",
+        "noMatches": "No school matches your search.",
+        "statusUpdateFailed": "Could not update the school status",
+        "smsToggleFailed": "Could not change the SMS setting"
     },
     "SystemAdminAuditLogs": {
         "title": "System Audit Logs",
@@ -675,7 +703,8 @@
         "previous": "Previous",
         "next": "Next",
         "page": "Page",
-        "of": "of"
+        "of": "of",
+        "filterScope": "{count} shown on this page"
     },
     "SystemAdminUsersExtras": {
         "globalEndUsers": "Global End-Users Directory",
@@ -702,7 +731,14 @@
         "reactivateAccountBtn": "Reactivate Account",
         "deactivateAccountBtn": "Deactivate Account",
         "viewAuditLogsBtn": "View Audit Logs",
-        "noUsersMatching": "No users matching search."
+        "noUsersMatching": "No users matching search.",
+        "tenantColumn": "School",
+        "sysRoot": "Platform",
+        "auditAction": "Action",
+        "auditTarget": "Target",
+        "auditIp": "IP address",
+        "auditTime": "Time",
+        "statusUpdateFailed": "Could not update the account status"
     },
     "ErrorBoundary": {
         "title": "Something went wrong!",
@@ -876,5 +912,27 @@
         "enterReason": "Enter a reason…",
         "confirmSuspension": "Confirm suspension",
         "statusUpdated": "Account status updated"
+    },
+    "SystemAdminSms": {
+        "title": "SMS gateway",
+        "subtitle": "Aggregate transactional messaging throughput across every school on the platform.",
+        "totalDispatches": "Total dispatches",
+        "totalDispatchesHint": "This billing month",
+        "overages": "Billable overages",
+        "overagesHint": "Beyond the plan allowance",
+        "failed": "Failed transmissions",
+        "failedHint": "Rejected by the gateway",
+        "breakdown": "Per-school usage",
+        "breakdownDesc": "Consumption against the quota granted by each subscription plan.",
+        "colTenant": "School",
+        "colPlan": "Plan",
+        "colQuota": "Allocated quota",
+        "colUsage": "Consumed",
+        "colOverage": "Overage",
+        "noQuotas": "No school is consuming platform messaging yet.",
+        "loadFailed": "Could not load SMS quotas",
+        "none": "None",
+        "unmetered": "Not metered",
+        "smsUnit": "SMS"
     }
 }

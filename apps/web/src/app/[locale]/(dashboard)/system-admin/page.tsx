@@ -1,21 +1,57 @@
 'use client';
 
-import { motion } from 'framer-motion';
-import { Server, Activity, BookOpenCheck, RadioTower, Send, Users, Network } from 'lucide-react';
-import { toast } from 'sonner';
-import { useRealtimeTelemetry } from '@/hooks/useRealtimeTelemetry';
 import { useEffect, useState } from 'react';
-import { DashboardCardsSkeleton } from '@/components/ui/Skeleton';
-import { apiClient } from '@/lib/api-client';
+import { motion } from 'framer-motion';
+import {
+    Activity,
+    BookOpenCheck,
+    Building2,
+    Network,
+    RadioTower,
+    Send,
+    Server,
+    Shield,
+    Users,
+} from 'lucide-react';
+import { toast } from 'sonner';
 import { useTranslations } from 'next-intl';
+
+import { Link } from '@/i18n/routing';
+import { apiClient } from '@/lib/api-client';
+import { useRealtimeTelemetry } from '@/hooks/useRealtimeTelemetry';
+import { Badge } from '@/components/ui/Badge';
+import { Button } from '@/components/ui/Button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
+import { Checkbox, Field, Input, Textarea } from '@/components/ui/Form';
+import { EmptyState } from '@/components/ui/Layout';
+import { DashboardCardsSkeleton } from '@/components/ui/Skeleton';
+import { Progress, StatCard } from '@/components/ui/Stat';
+
+/** Console shortcuts rendered inside the hero. */
+const QUICK_LINKS = [
+    { href: '/system-admin/tenants', icon: Building2, key: 'quickTenants' },
+    { href: '/system-admin/users', icon: Users, key: 'quickUsers' },
+    { href: '/system-admin/audit-logs', icon: Shield, key: 'quickAudit' },
+] as const;
+
+interface TutorialStat {
+    role?: string;
+    eligible: number;
+    completed: number;
+    skipped: number;
+}
 
 export default function SystemAdminDashboard() {
     const t = useTranslations('SystemAdminDashboard');
     const { activeUsers } = useRealtimeTelemetry();
     const [stats, setStats] = useState<any>(null);
-    const [tutorialStats, setTutorialStats] = useState<any>(null);
+    const [tutorialStats, setTutorialStats] = useState<Record<string, TutorialStat> | null>(
+        null,
+    );
     const [observabilityStats, setObservabilityStats] = useState<any>(null);
     const [loading, setLoading] = useState(true);
+    // Kept separate from `loading` so dispatching a broadcast never blanks the page.
+    const [sending, setSending] = useState(false);
 
     useEffect(() => {
         const fetchStats = async () => {
@@ -23,7 +59,11 @@ export default function SystemAdminDashboard() {
                 const [res, tutRes, obsRes] = await Promise.all([
                     apiClient.get<any>('/tenants/stats'),
                     apiClient.get<any>('/system-admin/tutorials/stats'),
-                    apiClient.get<any>('/system-admin/observability/metrics').catch(() => null)
+                    apiClient
+                        .get<any>('/system-admin/observability/metrics', {
+                            skipGlobalToast: true,
+                        })
+                        .catch(() => null),
                 ]);
 
                 setStats(res);
@@ -38,249 +78,321 @@ export default function SystemAdminDashboard() {
         fetchStats();
     }, []);
 
-    const containerVariants = {
-        hidden: { opacity: 0 },
-        show: { opacity: 1, transition: { staggerChildren: 0.1 } }
+    const handleBroadcast = async (event: React.FormEvent<HTMLFormElement>) => {
+        event.preventDefault();
+        const form = event.currentTarget;
+        const formData = new FormData(form);
+
+        setSending(true);
+        try {
+            const res = await apiClient.post<any>('/notices/broadcast', {
+                title: formData.get('title') as string,
+                content: formData.get('content') as string,
+                send_sms: formData.get('send_sms') === 'on',
+            });
+            toast.success(t('broadcastSuccess'), {
+                description: t('broadcastSuccessDesc', { count: res?.dispatches ?? 0 }),
+            });
+            form.reset();
+        } catch (err: any) {
+            toast.error(t('broadcastFailure'), { description: err.message });
+        } finally {
+            setSending(false);
+        }
     };
 
-    const itemVariants: any = {
-        hidden: { opacity: 0, y: 15 },
-        show: { opacity: 1, y: 0, transition: { duration: 0.3 } }
-    };
+    const tutorials = Object.values(tutorialStats ?? {});
+    const totalCompleted = tutorials.reduce((sum, s) => sum + (s.completed ?? 0), 0);
+    const totalSkipped = tutorials.reduce((sum, s) => sum + (s.skipped ?? 0), 0);
+    const healthy = stats?.status === 'Healthy';
 
     if (loading) {
         return (
-            <div className="max-w-6xl mx-auto space-y-6">
+            <div className="mx-auto max-w-6xl space-y-6">
                 <DashboardCardsSkeleton />
             </div>
         );
     }
 
     return (
-        <div className="max-w-6xl mx-auto space-y-6">
-            <motion.div
-                initial={{ opacity: 0, y: -20 }}
+        <div className="mx-auto max-w-6xl space-y-6">
+            {/* ── Hero ──────────────────────────────────────────────────────── */}
+            <motion.section
+                initial={{ opacity: 0, y: -12 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="bg-slate-900 rounded-2xl p-8 text-white shadow-lg relative overflow-hidden"
+                transition={{ duration: 0.3 }}
+                className="relative isolate overflow-hidden rounded-card bg-gradient-to-br from-brand-800 to-brand-950 p-6 text-white shadow-card sm:p-8"
                 id="nav-dashboard"
             >
-                <div className="absolute top-0 right-0 w-80 h-80 bg-slate-500 rounded-full blur-3xl -translate-y-1/2 translate-x-1/3 opacity-30 pointer-events-none"></div>
+                <div
+                    aria-hidden
+                    className="pointer-events-none absolute -right-20 -top-32 size-80 rounded-full bg-brand-400/25 blur-3xl"
+                />
+                <div
+                    aria-hidden
+                    className="pointer-events-none absolute -bottom-24 left-10 size-48 rounded-full bg-white/10 blur-3xl"
+                />
 
-                <div className="relative z-10 flex flex-col md:flex-row items-start justify-between gap-6">
-                    <div>
-                        <div className="flex items-center gap-3 mb-2">
-                            <Server className="w-8 h-8 text-slate-400" />
-                            <h2 className="text-3xl font-bold tracking-tight">{t('title')}</h2>
+                <div className="relative flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+                    <div className="max-w-xl">
+                        <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-white/60">
+                            {t('consoleEyebrow')}
+                        </p>
+                        <div className="mt-2 flex items-center gap-3">
+                            <span className="grid size-11 shrink-0 place-items-center rounded-[12px] bg-white/15 ring-1 ring-inset ring-white/20">
+                                <Server className="size-5" aria-hidden />
+                            </span>
+                            <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
+                                {t('title')}
+                            </h1>
                         </div>
-                        <p className="text-slate-300 max-w-lg mb-6">
+                        <p className="mt-3 text-sm leading-relaxed text-white/75">
                             {t('subtitle')}
                         </p>
                     </div>
+
+                    <nav className="flex flex-wrap gap-2">
+                        {QUICK_LINKS.map(({ href, icon: Icon, key }) => (
+                            <Link
+                                key={href}
+                                href={href}
+                                className="inline-flex items-center gap-2 rounded-pill bg-white/10 px-3.5 py-2 text-sm font-semibold text-white ring-1 ring-inset ring-white/20 transition-colors hover:bg-white/20 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+                            >
+                                <Icon className="size-4" aria-hidden />
+                                {t(key)}
+                            </Link>
+                        ))}
+                    </nav>
                 </div>
-            </motion.div>
+            </motion.section>
 
+            {/* ── Telemetry ─────────────────────────────────────────────────── */}
             <motion.div
-                variants={containerVariants}
-                initial="hidden"
-                animate="show"
-                className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"
-            >
-                <motion.div variants={itemVariants} className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex flex-col justify-between hover:shadow-md transition-shadow group">
-                    <div className="w-12 h-12 bg-purple-50 rounded-xl mb-4 flex items-center justify-center text-purple-600 group-hover:scale-110 transition-transform">
-                        <Activity className="w-6 h-6" />
-                    </div>
-                    <p className="text-slate-500 text-sm font-medium mb-1">{t('systemStatus')}</p>
-                    <div className="flex items-center gap-2">
-                        <div className={`w-2.5 h-2.5 rounded-full animate-pulse ${stats?.status === 'Healthy' ? 'bg-emerald-500' : 'bg-amber-500'}`}></div>
-                        <h4 className={`text-lg font-bold ${stats?.status === 'Healthy' ? 'text-emerald-600' : 'text-amber-600'}`}>{stats?.status === 'Healthy' ? t('healthy') : t('active')}</h4>
-                    </div>
-                </motion.div>
-
-                {/* Tutorial Stats Card */}
-                {tutorialStats && Object.keys(tutorialStats).length > 0 && (
-                    <motion.div variants={itemVariants} className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex flex-col justify-between hover:shadow-md transition-shadow group">
-                        <div className="w-12 h-12 bg-orange-50 rounded-xl mb-4 flex items-center justify-center text-orange-600 group-hover:scale-110 transition-transform">
-                            <BookOpenCheck className="w-6 h-6" />
-                        </div>
-                        <p className="text-slate-500 text-sm font-medium mb-1">{t('overallCompletions')}</p>
-                        <div className="flex items-center gap-4">
-                            <div className="flex flex-col">
-                                <span className="text-2xl font-bold text-slate-800">
-                                    {Object.values(tutorialStats).reduce((sum: number, s: any) => sum + s.completed, 0) as number}
-                                </span>
-                                <span className="text-xs text-slate-400">{t('completed')}</span>
-                            </div>
-                            <div className="w-px h-8 bg-slate-200"></div>
-                            <div className="flex flex-col">
-                                <span className="text-2xl font-bold text-slate-800">
-                                    {Object.values(tutorialStats).reduce((sum: number, s: any) => sum + s.skipped, 0) as number}
-                                </span>
-                                <span className="text-xs text-slate-400">{t('skipped')}</span>
-                            </div>
-                        </div>
-                    </motion.div>
-                )}
-
-                {/* Supabase Presence Telemetry */}
-                <motion.div variants={itemVariants} className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex flex-col justify-between hover:shadow-md transition-shadow group">
-                    <div className="w-12 h-12 bg-blue-50 rounded-xl mb-4 flex items-center justify-center text-blue-600 group-hover:scale-110 transition-transform">
-                        <Users className="w-6 h-6" />
-                    </div>
-                    <p className="text-slate-500 text-sm font-medium mb-1">Supabase Realtime (Presence)</p>
-                    <div className="flex items-center gap-2">
-                        <div className="w-2.5 h-2.5 rounded-full animate-pulse bg-blue-500"></div>
-                        <h4 className="text-2xl font-bold text-slate-800">{activeUsers} <span className="text-sm font-normal text-slate-400">active instances</span></h4>
-                    </div>
-                </motion.div>
-
-                {/* NestJS Socket.IO Telemetry */}
-                <motion.div variants={itemVariants} className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex flex-col justify-between hover:shadow-md transition-shadow group">
-                    <div className="w-12 h-12 bg-green-50 rounded-xl mb-4 flex items-center justify-center text-green-600 group-hover:scale-110 transition-transform">
-                        <Network className="w-6 h-6" />
-                    </div>
-                    <p className="text-slate-500 text-sm font-medium mb-1">NestJS WebSockets (Redis Adapter)</p>
-                    <div className="flex items-center gap-2">
-                        {observabilityStats ? (
-                            <>
-                                <div className="w-2.5 h-2.5 rounded-full animate-pulse bg-green-500"></div>
-                                <h4 className="text-2xl font-bold text-slate-800">{observabilityStats.websockets?.active_connections || 0} <span className="text-sm font-normal text-slate-400">connected sockets</span></h4>
-                            </>
-                        ) : (
-                            <h4 className="text-lg font-bold text-slate-300">Offline</h4>
-                        )}
-                    </div>
-                </motion.div>
-            </motion.div>
-
-            <motion.div
-                initial={{ opacity: 0, y: 20 }}
+                initial={{ opacity: 0, y: 12 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.4 }}
-                className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden"
+                transition={{ duration: 0.3, delay: 0.05 }}
+                className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4"
             >
-                <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between">
-                    <h3 className="font-bold text-lg text-slate-800 flex items-center gap-2">
-                        <Activity className="w-5 h-5 text-slate-500" />
-                        {t('healthOverview')}
-                    </h3>
-                </div>
-                <div className="divide-y divide-slate-100 p-4">
-                    <p className="text-slate-500">{t('healthDesc')}</p>
-                </div>
-            </motion.div>
-
-            <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.5 }}
-                className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden mb-6"
-            >
-                <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between">
-                    <h3 className="font-bold text-lg text-slate-800 flex items-center gap-2">
-                        <BookOpenCheck className="w-5 h-5 text-orange-500" />
-                        {t('adoptionAnalytics')}
-                    </h3>
-                </div>
-                <div className="p-6">
-                    {!tutorialStats || Object.keys(tutorialStats).length === 0 ? (
-                        <div className="text-center text-slate-500 py-4">{t('noData')}</div>
-                    ) : (
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                            <div className="text-sm text-slate-500 italic max-w-sm mb-4">
-                                {t('analyticsMoved')}
-                            </div>
-                            {Object.values(tutorialStats).map((tut: any, idx: number) => {
-                                const completionPercentage = tut.eligible > 0 ? Math.round((tut.completed / tut.eligible) * 100) : 0;
-                                return (
-                                    <div key={idx} className="bg-slate-50 rounded-xl p-4 border border-slate-200 shadow-sm hover:shadow-md transition-shadow">
-                                        <div className="flex justify-between items-start mb-3">
-                                            <div>
-                                                <h4 className="font-bold text-slate-800 capitalize leading-tight">{tut.role?.toLowerCase().replace('_', ' ') || t('global')}</h4>
-                                            </div>
-                                            <span className="text-sm font-black text-orange-700 bg-orange-100 px-2 py-1 rounded-md">{completionPercentage}%</span>
-                                        </div>
-
-                                        <div className="w-full bg-slate-200 rounded-full h-2.5 mb-3">
-                                            <div className="bg-orange-500 h-2.5 rounded-full" style={{ width: `${completionPercentage}%` }}></div>
-                                        </div>
-
-                                        <div className="flex justify-between text-xs font-semibold">
-                                            <span className="text-orange-600">{tut.completed} {t('completedLower')}</span>
-                                            <span className="text-slate-500 text-[10px]">{tut.eligible} {t('eligibleLower')}</span>
-                                            <span className="text-slate-400">{tut.skipped} {t('skippedLower')}</span>
-                                        </div>
-                                    </div>
-                                )
-                            })}
-                        </div>
-                    )}
-                </div>
-            </motion.div>
-            <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.6 }}
-                className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden mb-6"
-            >
-                <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between bg-blue-50">
-                    <h3 className="font-bold text-lg text-slate-800 flex items-center gap-2">
-                        <RadioTower className="w-5 h-5 text-blue-600" />
-                        Global Maintenance Broadcast
-                    </h3>
-                </div>
-                <div className="p-6">
-                    <form
-                        onSubmit={async (e) => {
-                            e.preventDefault();
-                            const formData = new FormData(e.currentTarget);
-                            const title = formData.get('title') as string;
-                            const content = formData.get('content') as string;
-                            const send_sms = formData.get('send_sms') === 'on';
-
-                            try {
-                                setLoading(true);
-                                const res = await apiClient.post<any>('/notices/broadcast', { title, content, send_sms });
-                                toast.success(`Broadcast Dispatched Successfully!`, { description: `Successfully injected notices redundantly into ${res.dispatches} active Tenants universally.` });
-                                (e.target as HTMLFormElement).reset();
-                            } catch (err: any) {
-                                toast.error('Global Broadcast Failure', { description: err.message });
-                            } finally {
-                                setLoading(false);
-                            }
-                        }}
-                        className="space-y-4 max-w-2xl"
-                    >
-                        <div>
-                            <label className="block text-sm font-semibold text-slate-700 mb-1">Alert Title</label>
-                            <input
-                                name="title"
-                                required
-                                placeholder="e.g. Scheduled Infrastructure Maintenance"
-                                className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-shadow"
+                <StatCard
+                    label={t('systemStatus')}
+                    value={healthy ? t('healthy') : t('active')}
+                    icon={<Activity />}
+                    tone={healthy ? 'success' : 'warning'}
+                    hint={
+                        <span className="inline-flex items-center gap-1.5">
+                            <span
+                                aria-hidden
+                                className={`size-2 animate-pulse rounded-full ${healthy ? 'bg-success' : 'bg-warning'}`}
                             />
-                        </div>
-                        <div>
-                            <label className="block text-sm font-semibold text-slate-700 mb-1">Message Content</label>
-                            <textarea
-                                name="content"
-                                required
-                                rows={4}
-                                placeholder="Provide comprehensive operational details spanning all tenants..."
-                                className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-shadow"
-                            ></textarea>
-                        </div>
-                        <div className="flex items-center gap-2 mt-4 mb-2 p-3 bg-red-50 rounded-lg border border-red-100">
-                            <input type="checkbox" id="send_sms" name="send_sms" className="rounded text-red-600 focus:ring-red-500 w-4 h-4 cursor-pointer" />
-                            <label htmlFor="send_sms" className="text-sm font-semibold text-red-800 cursor-pointer select-none">
-                                Disaster Override: Echo broadcast to offline users natively via Twilio Gateway (Bypasses active Quotas blockades unconditionally)
-                            </label>
-                        </div>
-                        <button type="submit" disabled={loading} className="flex items-center gap-2 px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold transition-colors disabled:opacity-50">
-                            <Send className="w-4 h-4" />
-                            Dispatch Universal Broadcast
-                        </button>
-                    </form>
-                </div>
+                            {stats?.status ?? '—'}
+                        </span>
+                    }
+                />
+
+                <StatCard
+                    label={t('overallCompletions')}
+                    value={totalCompleted}
+                    icon={<BookOpenCheck />}
+                    tone="primary"
+                    hint={`${totalSkipped} ${t('skippedLower')}`}
+                />
+
+                <StatCard
+                    label={t('presenceTitle')}
+                    value={activeUsers}
+                    icon={<Users />}
+                    tone="info"
+                    hint={t('activeInstances')}
+                />
+
+                <StatCard
+                    label={t('socketsTitle')}
+                    value={
+                        observabilityStats
+                            ? (observabilityStats.websockets?.active_connections ?? 0)
+                            : t('offline')
+                    }
+                    icon={<Network />}
+                    tone={observabilityStats ? 'success' : 'neutral'}
+                    hint={observabilityStats ? t('connectedSockets') : t('healthDesc')}
+                />
+            </motion.div>
+
+            {/* ── Adoption analytics ────────────────────────────────────────── */}
+            <motion.div
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.3, delay: 0.1 }}
+            >
+                <Card>
+                    <CardHeader>
+                        <CardTitle as="h2" className="flex items-center gap-2">
+                            <BookOpenCheck
+                                className="size-[18px] text-muted-foreground"
+                                aria-hidden
+                            />
+                            {t('adoptionAnalytics')}
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        {tutorials.length === 0 ? (
+                            <EmptyState
+                                size="sm"
+                                icon={<BookOpenCheck />}
+                                title={t('noData')}
+                                description={t('analyticsMoved')}
+                            />
+                        ) : (
+                            <>
+                                <p className="mb-5 text-sm text-muted-foreground">
+                                    {t('analyticsMoved')}
+                                </p>
+                                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                                    {tutorials.map((tut, idx) => {
+                                        const pct =
+                                            tut.eligible > 0
+                                                ? Math.round(
+                                                      (tut.completed / tut.eligible) * 100,
+                                                  )
+                                                : 0;
+                                        return (
+                                            <motion.div
+                                                key={tut.role ?? idx}
+                                                initial={{ opacity: 0, y: 8 }}
+                                                animate={{ opacity: 1, y: 0 }}
+                                                transition={{
+                                                    delay: Math.min(idx * 0.04, 0.3),
+                                                }}
+                                                className="rounded-card border border-border bg-muted/40 p-4"
+                                            >
+                                                <div className="mb-3 flex items-start justify-between gap-2">
+                                                    <h3 className="text-sm font-bold capitalize leading-tight text-foreground">
+                                                        {tut.role
+                                                            ?.toLowerCase()
+                                                            .replace(/_/g, ' ') ??
+                                                            t('global')}
+                                                    </h3>
+                                                    <Badge
+                                                        tone={
+                                                            pct >= 75
+                                                                ? 'success'
+                                                                : pct >= 40
+                                                                  ? 'warning'
+                                                                  : 'neutral'
+                                                        }
+                                                        size="sm"
+                                                    >
+                                                        {pct}%
+                                                    </Badge>
+                                                </div>
+
+                                                <Progress
+                                                    value={pct}
+                                                    size="sm"
+                                                    tone={
+                                                        pct >= 75
+                                                            ? 'success'
+                                                            : pct >= 40
+                                                              ? 'warning'
+                                                              : 'primary'
+                                                    }
+                                                />
+
+                                                <dl className="mt-3 grid grid-cols-3 gap-2 text-center">
+                                                    {[
+                                                        {
+                                                            label: t('completedLower'),
+                                                            value: tut.completed,
+                                                        },
+                                                        {
+                                                            label: t('eligibleLower'),
+                                                            value: tut.eligible,
+                                                        },
+                                                        {
+                                                            label: t('skippedLower'),
+                                                            value: tut.skipped,
+                                                        },
+                                                    ].map((cell) => (
+                                                        <div key={cell.label}>
+                                                            <dd className="numeric text-base font-bold text-foreground">
+                                                                {cell.value ?? 0}
+                                                            </dd>
+                                                            <dt className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                                                                {cell.label}
+                                                            </dt>
+                                                        </div>
+                                                    ))}
+                                                </dl>
+                                            </motion.div>
+                                        );
+                                    })}
+                                </div>
+                            </>
+                        )}
+                    </CardContent>
+                </Card>
+            </motion.div>
+
+            {/* ── Global broadcast ──────────────────────────────────────────── */}
+            <motion.div
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.3, delay: 0.15 }}
+            >
+                <Card>
+                    <CardHeader>
+                        <CardTitle as="h2" className="flex items-center gap-2">
+                            <RadioTower
+                                className="size-[18px] text-muted-foreground"
+                                aria-hidden
+                            />
+                            {t('broadcastTitle')}
+                        </CardTitle>
+                        <p className="mt-1 text-sm text-muted-foreground">
+                            {t('broadcastDesc')}
+                        </p>
+                    </CardHeader>
+                    <CardContent>
+                        <form onSubmit={handleBroadcast} className="max-w-2xl space-y-4">
+                            <Field label={t('broadcastAlertTitle')} required htmlFor="bc-title">
+                                <Input
+                                    id="bc-title"
+                                    name="title"
+                                    required
+                                    maxLength={140}
+                                    placeholder={t('broadcastTitlePlaceholder')}
+                                />
+                            </Field>
+
+                            <Field label={t('broadcastContent')} required htmlFor="bc-content">
+                                <Textarea
+                                    id="bc-content"
+                                    name="content"
+                                    required
+                                    rows={4}
+                                    placeholder={t('broadcastContentPlaceholder')}
+                                />
+                            </Field>
+
+                            <div className="rounded-card border border-border bg-destructive-subtle p-4 ring-1 ring-inset ring-destructive/20">
+                                <Checkbox
+                                    id="send_sms"
+                                    name="send_sms"
+                                    label={t('broadcastSmsOverride')}
+                                    hint={t('broadcastSmsOverrideHint')}
+                                />
+                            </div>
+
+                            <Button
+                                type="submit"
+                                loading={sending}
+                                leadingIcon={<Send />}
+                            >
+                                {sending ? t('dispatching') : t('dispatchBroadcast')}
+                            </Button>
+                        </form>
+                    </CardContent>
+                </Card>
             </motion.div>
         </div>
     );

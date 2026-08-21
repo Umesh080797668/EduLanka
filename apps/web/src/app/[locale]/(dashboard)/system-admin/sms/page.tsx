@@ -1,165 +1,224 @@
 'use client';
 
+import { useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
-import { MessageSquare, AlertTriangle, Server, BarChart3 } from 'lucide-react';
-import { useEffect, useState } from 'react';
-import { apiClient } from '@/lib/api-client';
-import { DashboardCardsSkeleton } from '@/components/ui/Skeleton';
+import { AlertTriangle, BarChart3, MessageSquare, Radio } from 'lucide-react';
 import { toast } from 'sonner';
+import { useTranslations } from 'next-intl';
+
+import { apiClient } from '@/lib/api-client';
+import { Badge } from '@/components/ui/Badge';
+import { EmptyState, PageHeader } from '@/components/ui/Layout';
+import { DashboardCardsSkeleton } from '@/components/ui/Skeleton';
+import { Progress, StatCard } from '@/components/ui/Stat';
+import { Table, TBody, TD, TDEmpty, TH, THead, TR } from '@/components/ui/Table';
+
+interface SmsQuota {
+    tenant_id: string;
+    tenant_name: string;
+    plan: string;
+    monthly_quota: number;
+    current_month_usage: number;
+    failed_deliveries: number;
+    overage_count: number;
+}
 
 export default function SmsGatewayAdminPage() {
-    const [quotas, setQuotas] = useState<any[]>([]);
+    const t = useTranslations('SystemAdminSms');
+    const [quotas, setQuotas] = useState<SmsQuota[]>([]);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
         const fetchQuotas = async () => {
             try {
-                const data = await apiClient.get<any[]>('/sms/quotas');
-                setQuotas(data);
+                const data = await apiClient.get<SmsQuota[]>('/sms/quotas', {
+                    skipGlobalToast: true,
+                });
+                setQuotas(data ?? []);
             } catch (e: any) {
-                toast.error('Failed to load Twilio Matrices', { description: e?.message });
+                toast.error(t('loadFailed'), { description: e?.message });
             } finally {
                 setLoading(false);
             }
         };
         fetchQuotas();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
+
+    const totals = useMemo(
+        () =>
+            quotas.reduce(
+                (acc, q) => ({
+                    dispatched: acc.dispatched + (q.current_month_usage ?? 0),
+                    failed: acc.failed + (q.failed_deliveries ?? 0),
+                    overage: acc.overage + (q.overage_count ?? 0),
+                }),
+                { dispatched: 0, failed: 0, overage: 0 },
+            ),
+        [quotas],
+    );
 
     if (loading) {
         return (
-            <div className="max-w-6xl mx-auto space-y-6">
-                <DashboardCardsSkeleton />
+            <div className="mx-auto max-w-6xl space-y-6">
+                <DashboardCardsSkeleton cards={3} />
             </div>
         );
     }
 
-    const totalDispatched = quotas.reduce((acc, q) => acc + q.current_month_usage, 0);
-    const totalFailed = quotas.reduce((acc, q) => acc + q.failed_deliveries, 0);
-    const totalOverage = quotas.reduce((acc, q) => acc + q.overage_count, 0);
-
     return (
-        <div className="max-w-6xl mx-auto space-y-6">
-            <motion.div
-                initial={{ opacity: 0, y: -20 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="bg-indigo-950 rounded-2xl p-8 text-white shadow-lg relative overflow-hidden"
-            >
-                <div className="absolute top-0 right-0 w-80 h-80 bg-blue-500 rounded-full blur-3xl -translate-y-1/2 translate-x-1/3 opacity-30 pointer-events-none"></div>
+        <div className="mx-auto max-w-6xl space-y-6">
+            <PageHeader icon={<Radio />} title={t('title')} description={t('subtitle')} />
 
-                <div className="relative z-10 flex flex-col md:flex-row items-start justify-between gap-6">
-                    <div>
-                        <div className="flex items-center gap-3 mb-2">
-                            <Server className="w-8 h-8 text-blue-400" />
-                            <h2 className="text-3xl font-bold tracking-tight">Twilio SMS Interconnect</h2>
-                        </div>
-                        <p className="text-indigo-200 max-w-lg mb-6">
-                            Monitor aggregate transactional messaging throughput natively across the entire infrastructure footprint.
-                        </p>
-                    </div>
-                </div>
+            {/* ── Platform rollups ──────────────────────────────────────────── */}
+            <motion.div
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.3 }}
+                className="grid gap-4 sm:grid-cols-3"
+            >
+                <StatCard
+                    label={t('totalDispatches')}
+                    value={totals.dispatched.toLocaleString()}
+                    hint={t('totalDispatchesHint')}
+                    icon={<MessageSquare />}
+                    tone="primary"
+                />
+                <StatCard
+                    label={t('overages')}
+                    value={totals.overage.toLocaleString()}
+                    hint={t('overagesHint')}
+                    icon={<BarChart3 />}
+                    tone={totals.overage > 0 ? 'warning' : 'success'}
+                />
+                <StatCard
+                    label={t('failed')}
+                    value={totals.failed.toLocaleString()}
+                    hint={t('failedHint')}
+                    icon={<AlertTriangle />}
+                    tone={totals.failed > 0 ? 'danger' : 'neutral'}
+                />
             </motion.div>
 
-            {/* Platform Rollups */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex flex-col justify-between hover:shadow-md transition-shadow group">
-                    <div className="w-12 h-12 bg-blue-50 rounded-xl mb-4 flex items-center justify-center text-blue-600">
-                        <MessageSquare className="w-6 h-6" />
-                    </div>
-                    <p className="text-slate-500 text-sm font-medium mb-1">Total Global Dispatches</p>
-                    <h4 className="text-3xl font-bold text-slate-800">{totalDispatched}</h4>
-                </div>
-
-                <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex flex-col justify-between hover:shadow-md transition-shadow group">
-                    <div className="w-12 h-12 bg-emerald-50 rounded-xl mb-4 flex items-center justify-center text-emerald-600">
-                        <BarChart3 className="w-6 h-6" />
-                    </div>
-                    <p className="text-slate-500 text-sm font-medium mb-1">Global Overages (Billable)</p>
-                    <h4 className="text-3xl font-bold text-emerald-600">{totalOverage}</h4>
-                </div>
-
-                <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex flex-col justify-between hover:shadow-md transition-shadow group">
-                    <div className="w-12 h-12 bg-red-50 rounded-xl mb-4 flex items-center justify-center text-red-600">
-                        <AlertTriangle className="w-6 h-6" />
-                    </div>
-                    <p className="text-slate-500 text-sm font-medium mb-1">Failed Transmissions</p>
-                    <h4 className="text-3xl font-bold text-red-600">{totalFailed}</h4>
-                </div>
-            </div>
-
-            {/* Tenant Granularity */}
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden mt-6">
-                <div className="px-6 py-5 border-b border-slate-100 bg-slate-50 flex justify-between items-center">
-                    <h3 className="font-bold text-lg text-slate-800">Tenant Usage Breakdown</h3>
+            {/* ── Per-school breakdown ──────────────────────────────────────── */}
+            <motion.div
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.3, delay: 0.05 }}
+                className="overflow-hidden rounded-card border border-border bg-card shadow-card"
+            >
+                <div className="border-b border-border bg-muted/40 px-5 py-4">
+                    <h2 className="text-base font-bold tracking-tight text-foreground">
+                        {t('breakdown')}
+                    </h2>
+                    <p className="mt-0.5 text-sm text-muted-foreground">
+                        {t('breakdownDesc')}
+                    </p>
                 </div>
                 <div className="overflow-x-auto">
-                    <table className="w-full text-left">
-                        <thead className="bg-slate-50 text-slate-500 text-sm border-b border-slate-100">
-                            <tr>
-                                <th className="px-6 py-4 font-semibold">Tenant Name</th>
-                                <th className="px-6 py-4 font-semibold">Subscription Rank</th>
-                                <th className="px-6 py-4 font-semibold">Allocated Quota</th>
-                                <th className="px-6 py-4 font-semibold">Consumed Usage</th>
-                                <th className="px-6 py-4 font-semibold text-right">Overage Surcharge</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100">
-                            {quotas.map((tenant) => {
-                                const ratio = tenant.monthly_quota > 0
-                                    ? (tenant.current_month_usage / tenant.monthly_quota) * 100
-                                    : tenant.current_month_usage > 0 ? 100 : 0;
+                    <Table>
+                                <THead>
+                                    <TR>
+                                        <TH>{t('colTenant')}</TH>
+                                        <TH className="w-32">{t('colPlan')}</TH>
+                                        <TH align="right" className="w-36">
+                                            {t('colQuota')}
+                                        </TH>
+                                        <TH className="w-[28%]">{t('colUsage')}</TH>
+                                        <TH align="right" className="w-40">
+                                            {t('colOverage')}
+                                        </TH>
+                                    </TR>
+                                </THead>
+                                <TBody>
+                                    {quotas.length === 0 ? (
+                                        <TDEmpty colSpan={5}>
+                                            <EmptyState
+                                                size="sm"
+                                                icon={<MessageSquare />}
+                                                title={t('noQuotas')}
+                                            />
+                                        </TDEmpty>
+                                    ) : (
+                                        quotas.map((tenant, idx) => {
+                                            const quota = tenant.monthly_quota ?? 0;
+                                            const used = tenant.current_month_usage ?? 0;
+                                            const ratio =
+                                                quota > 0
+                                                    ? (used / quota) * 100
+                                                    : used > 0
+                                                      ? 100
+                                                      : 0;
+                                            const isOverage = (tenant.overage_count ?? 0) > 0;
+                                            const unmetered = tenant.plan === 'COMMUNITY';
 
-                                const isOverage = tenant.overage_count > 0;
-
-                                return (
-                                    <tr key={tenant.tenant_id} className="hover:bg-slate-50/50 transition-colors">
-                                        <td className="px-6 py-4 font-semibold text-slate-800">
-                                            {tenant.tenant_name}
-                                        </td>
-                                        <td className="px-6 py-4">
-                                            <span className="bg-slate-100 text-slate-600 px-2 py-1 rounded text-xs font-semibold">
-                                                {tenant.plan}
-                                            </span>
-                                        </td>
-                                        <td className="px-6 py-4 text-slate-500">
-                                            {tenant.plan === 'COMMUNITY' ? 'N/A' : (tenant.monthly_quota || 0).toLocaleString()}
-                                        </td>
-                                        <td className="px-6 py-4 w-1/4">
-                                            <div className="flex items-center gap-3">
-                                                <span className={`font-semibold ${isOverage ? 'text-orange-600' : 'text-slate-700'}`}>
-                                                    {tenant.current_month_usage.toLocaleString()}
-                                                </span>
-                                                <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
-                                                    <div
-                                                        className={`h-full rounded-full ${isOverage ? 'bg-orange-500' : 'bg-blue-500'}`}
-                                                        style={{ width: `${Math.min(ratio, 100)}%` }}
-                                                    />
-                                                </div>
-                                            </div>
-                                        </td>
-                                        <td className="px-6 py-4 text-right">
-                                            {isOverage ? (
-                                                <span className="text-orange-600 font-bold bg-orange-50 px-3 py-1 rounded-full text-sm">
-                                                    +{tenant.overage_count.toLocaleString()} SMS
-                                                </span>
-                                            ) : (
-                                                <span className="text-slate-400 font-medium">None</span>
-                                            )}
-                                        </td>
-                                    </tr>
-                                );
-                            })}
-
-                            {quotas.length === 0 && (
-                                <tr>
-                                    <td colSpan={5} className="px-6 py-8 text-center text-slate-500">
-                                        No active tenants consuming platform messaging limits natively found.
-                                    </td>
-                                </tr>
-                            )}
-                        </tbody>
-                    </table>
+                                            return (
+                                                <TR key={tenant.tenant_id}>
+                                                    <TD>
+                                                        <motion.span
+                                                            initial={{ opacity: 0 }}
+                                                            animate={{ opacity: 1 }}
+                                                            transition={{
+                                                                delay: Math.min(
+                                                                    idx * 0.03,
+                                                                    0.3,
+                                                                ),
+                                                            }}
+                                                            className="block font-semibold text-foreground"
+                                                        >
+                                                            {tenant.tenant_name}
+                                                        </motion.span>
+                                                    </TD>
+                                                    <TD>
+                                                        <Badge
+                                                            tone="neutral"
+                                                            variant="outline"
+                                                            size="sm"
+                                                        >
+                                                            {tenant.plan}
+                                                        </Badge>
+                                                    </TD>
+                                                    <TD align="right" numeric>
+                                                        {unmetered
+                                                            ? t('unmetered')
+                                                            : quota.toLocaleString()}
+                                                    </TD>
+                                                    <TD>
+                                                        <Progress
+                                                            size="sm"
+                                                            value={ratio}
+                                                            tone={
+                                                                isOverage
+                                                                    ? 'warning'
+                                                                    : ratio >= 90
+                                                                      ? 'danger'
+                                                                      : 'primary'
+                                                            }
+                                                            valueLabel={used.toLocaleString()}
+                                                            label={`${Math.round(Math.min(ratio, 100))}%`}
+                                                        />
+                                                    </TD>
+                                                    <TD align="right">
+                                                        {isOverage ? (
+                                                            <Badge tone="warning" size="sm">
+                                                                +
+                                                                {tenant.overage_count.toLocaleString()}{' '}
+                                                                {t('smsUnit')}
+                                                            </Badge>
+                                                        ) : (
+                                                            <span className="text-sm text-muted-foreground">
+                                                                {t('none')}
+                                                            </span>
+                                                        )}
+                                                    </TD>
+                                                </TR>
+                                            );
+                                        })
+                                    )}
+                                </TBody>
+                            </Table>
                 </div>
-            </div>
+            </motion.div>
         </div>
     );
 }
