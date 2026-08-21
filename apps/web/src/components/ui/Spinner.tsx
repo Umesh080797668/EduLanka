@@ -1,26 +1,62 @@
-import React from 'react';
+import * as React from 'react';
 import { Loader2 } from 'lucide-react';
+import { cn } from '@/lib/cn';
 
-interface SpinnerProps {
-    text?: string;
+export interface SpinnerProps {
+    /** Caption under the spinner. Pass `null` for a bare spinner. */
+    text?: string | null;
+    /** Centres the spinner in a tall region. */
     fullScreen?: boolean;
+    size?: 'sm' | 'md' | 'lg';
+    className?: string;
 }
 
-export function Spinner({ text = 'Loading...', fullScreen = false }: SpinnerProps) {
+const SIZE = {
+    sm: 'size-4',
+    md: 'size-6',
+    lg: 'size-9',
+} as const;
+
+export function Spinner({
+    text = null,
+    fullScreen = false,
+    size = 'lg',
+    className,
+}: SpinnerProps) {
     const content = (
-        <div className="flex flex-col items-center justify-center space-y-4 text-indigo-600 p-8">
-            <Loader2 className="w-10 h-10 animate-spin" strokeWidth={2.5} />
-            <p className="text-sm font-semibold tracking-wide text-slate-500 uppercase">{text}</p>
+        <div
+            role="status"
+            aria-live="polite"
+            className={cn('flex flex-col items-center justify-center gap-3 p-8', className)}
+        >
+            <Loader2
+                className={cn('animate-spin text-primary', SIZE[size])}
+                strokeWidth={2.25}
+                aria-hidden
+            />
+            {text !== null && (
+                <p className="text-sm font-medium text-muted-foreground">{text}</p>
+            )}
+            <span className="sr-only">Loading</span>
         </div>
     );
 
     if (fullScreen) {
         return (
-            <div className="flex items-center justify-center min-h-[50vh] w-full">
+            <div className="flex min-h-[50vh] w-full items-center justify-center">
                 {content}
             </div>
         );
     }
 
     return content;
+}
+
+/** Fills the viewport — for route-level transitions. */
+export function FullPageSpinner({ text }: { text?: string | null }) {
+    return (
+        <div className="grid min-h-dvh place-items-center bg-background">
+            <Spinner text={text ?? null} />
+        </div>
+    );
 }

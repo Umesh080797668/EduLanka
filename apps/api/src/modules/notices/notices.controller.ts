@@ -5,7 +5,8 @@ import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { UserRole } from '@edu-lanka/shared-types';
 
-@Controller('v1/notices')
+// Global prefix ('api') + URI versioning (default '1') already yield /api/v1/notices.
+@Controller('notices')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class NoticesController {
     constructor(private readonly noticesService: NoticesService) { }
