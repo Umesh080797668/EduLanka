@@ -1,14 +1,32 @@
 'use client';
-import { authManager } from '@/lib/auth-store';
-import { apiClient } from '@/lib/api-client';
-import { toast } from 'sonner';
 
 import { useState } from 'react';
-import { useRouter } from '@/i18n/routing';
-import { motion } from 'framer-motion';
-import { Loader2, AlertCircle, GraduationCap } from 'lucide-react';
-import { Link } from '@/i18n/routing';
+import { GraduationCap } from 'lucide-react';
 import { useTranslations } from 'next-intl';
+import { toast } from 'sonner';
+
+import { Link, useRouter } from '@/i18n/routing';
+import { apiClient } from '@/lib/api-client';
+import { authManager } from '@/lib/auth-store';
+import { Alert } from '@/components/ui/Alert';
+import { Button } from '@/components/ui/Button';
+import {
+    Card,
+    CardContent,
+    CardDescription,
+    CardHeader,
+    CardTitle,
+} from '@/components/ui/Card';
+import { Field, Input } from '@/components/ui/Form';
+
+/** Role → portal route. The admin portals don't match their lowercased role. */
+const PORTAL_BY_ROLE: Record<string, string> = {
+    STUDENT: '/student',
+    PARENT: '/parent',
+    TEACHER: '/teacher',
+    SCHOOL_ADMIN: '/institution-admin',
+    SUPER_ADMIN: '/system-admin',
+};
 
 export default function LoginPage() {
     const router = useRouter();
@@ -24,148 +42,129 @@ export default function LoginPage() {
         setError(null);
 
         try {
-            const data = await apiClient.post<any>('/auth/login',
+            const data = await apiClient.post<any>(
+                '/auth/login',
                 { identifier, password },
-                { skipGlobalToast: true }
+                { skipGlobalToast: true },
             );
 
-            // Assuming Sprint 2 auth payload returns tokens and user info
             const { accessToken, user } = data;
-            const role = user?.role || 'STUDENT'; // Fallback role if undefined
+            const role = user?.role || 'STUDENT';
 
-            // Save to local storage for the rest of the app to consume
             authManager.setAuth(accessToken, user?.tenantId || '', role, user?.id || '');
-            localStorage.setItem('role', role);
 
-            // Initial route resolution based on role
-            let route = `/${role.toLowerCase()}`;
-            if (role === 'SCHOOL_ADMIN') route = '/institution-admin';
-            if (role === 'SUPER_ADMIN') route = '/system-admin';
-
-            toast.success('Welcome back!', { description: 'Sign in successful.' });
-            router.push(route);
+            toast.success(t('welcomeBack'), { description: t('signInSuccess') });
+            router.push(PORTAL_BY_ROLE[role] ?? '/dashboard');
         } catch (err: any) {
             const backendMessage = err.message || t('networkError');
 
+            // The API encodes the suspension payload after a pipe.
             if (backendMessage.startsWith('User account is deactivated|')) {
                 try {
-                    const payloadStr = backendMessage.split('|')[1];
-                    const payload = JSON.parse(payloadStr);
-                    router.push(`/deactivated?role=${payload.role}&tenantId=${payload.tenantId}&userId=${payload.userId}&reason=${encodeURIComponent(payload.reason || '')}`);
+                    const payload = JSON.parse(backendMessage.split('|')[1]);
+                    const query = new URLSearchParams({
+                        role: payload.role ?? 'STUDENT',
+                        tenantId: payload.tenantId ?? '',
+                        userId: payload.userId ?? '',
+                        reason: payload.reason ?? '',
+                    });
+                    router.push(`/deactivated?${query.toString()}`);
                 } catch {
-                    router.push(`/deactivated?role=STUDENT`);
+                    router.push('/deactivated?role=STUDENT');
                 }
                 return;
             }
 
             setError(backendMessage);
-            toast.error(t('invalidCreds') || 'Sign In Failed', {
-                description: backendMessage
-            });
+            toast.error(t('invalidCreds'), { description: backendMessage });
         } finally {
             setLoading(false);
         }
     };
 
     return (
-        <div className="min-h-screen relative flex items-center justify-center p-4 overflow-hidden bg-slate-900">
-            {/* Vibrant Background Gradients */}
-            <div className="absolute top-0 left-0 w-full h-full overflow-hidden z-0 pointer-events-none">
-                <div className="absolute -top-[20%] -left-[10%] w-[50%] h-[50%] rounded-full bg-indigo-600/30 blur-[120px]" />
-                <div className="absolute top-[60%] -right-[10%] w-[60%] h-[60%] rounded-full bg-violet-600/20 blur-[120px]" />
-                <div className="absolute top-[20%] left-[60%] w-[30%] h-[30%] rounded-full bg-blue-500/20 blur-[100px]" />
-            </div>
+        <Card>
+            <CardHeader className="flex-col items-stretch gap-0 pb-2 pt-7 text-center sm:px-8">
+                <span className="mx-auto grid size-14 place-items-center rounded-card bg-primary text-primary-foreground shadow-card">
+                    <GraduationCap className="size-7" />
+                </span>
+                <CardTitle as="h1" className="mt-5 text-display-sm">
+                    {t('welcome')}
+                </CardTitle>
+                <CardDescription>{t('subtitle')}</CardDescription>
+            </CardHeader>
 
-            <motion.div
-                initial={{ opacity: 0, y: 30 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6, ease: "easeOut" }}
-                className="relative z-10 w-full max-w-[440px]"
-            >
-                {/* Glassmorphic Card */}
-                <div className="backdrop-blur-xl bg-white/10 dark:bg-slate-900/50 border border-white/20 dark:border-slate-700/50 rounded-3xl shadow-2xl overflow-hidden">
-                    <div className="p-10 text-center">
-                        <motion.div
-                            initial={{ scale: 0.8, opacity: 0 }}
-                            animate={{ scale: 1, opacity: 1 }}
-                            transition={{ delay: 0.2, duration: 0.5 }}
-                            className="w-20 h-20 bg-gradient-to-tr from-indigo-500 to-violet-500 rounded-2xl mx-auto flex items-center justify-center mb-6 shadow-lg shadow-indigo-500/30"
-                        >
-                            <GraduationCap className="w-10 h-10 text-white" />
-                        </motion.div>
-                        <h1 className="text-3xl font-extrabold text-white tracking-tight">{t('welcome')}</h1>
-                        <p className="text-indigo-200/80 mt-2 font-medium">{t('subtitle')}</p>
-                    </div>
+            <CardContent className="pt-5 sm:px-8">
+                {error && (
+                    <Alert tone="danger" className="mb-5">
+                        {error}
+                    </Alert>
+                )}
 
-                    <div className="px-10 pb-10">
-                        {error && (
-                            <motion.div
-                                initial={{ opacity: 0, height: 0 }}
-                                animate={{ opacity: 1, height: 'auto' }}
-                                className="p-4 bg-rose-500/10 border border-rose-500/20 text-rose-300 rounded-2xl mb-6 flex items-start gap-3 backdrop-blur-md"
+                <form onSubmit={handleLogin} className="space-y-4">
+                    <Field label={t('identifierLabel')} htmlFor="identifier" required>
+                        <Input
+                            id="identifier"
+                            type="text"
+                            required
+                            autoComplete="username"
+                            autoFocus
+                            value={identifier}
+                            onChange={(e) => setIdentifier(e.target.value)}
+                            placeholder={t('identifierPlaceholder')}
+                        />
+                    </Field>
+
+                    <div className="space-y-1.5">
+                        <div className="flex items-baseline justify-between gap-3">
+                            <label
+                                htmlFor="password"
+                                className="block text-[13px] font-semibold text-foreground"
                             >
-                                <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5" />
-                                <p className="font-medium text-sm">{error}</p>
-                            </motion.div>
-                        )}
-
-                        <form onSubmit={handleLogin} className="space-y-5">
-                            <div className="space-y-1.5">
-                                <label className="block text-sm font-semibold text-slate-300">Email, Phone, or Admission No</label>
-                                <input
-                                    type="text"
-                                    required
-                                    autoComplete="username"
-                                    value={identifier}
-                                    onChange={(e) => setIdentifier(e.target.value)}
-                                    className="w-full bg-slate-900/40 border border-white/10 rounded-xl px-4 py-3.5 text-sm text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all placeholder:text-slate-500"
-                                    placeholder="e.g. admin@school.edu.lk / +9477... / 1004"
-                                />
-                            </div>
-
-                            <div className="space-y-1.5">
-                                <div className="flex items-center justify-between">
-                                    <label className="block text-sm font-semibold text-slate-300">{t('password')}</label>
-                                    <Link href="/reset-password" className="text-xs font-bold text-indigo-400 hover:text-indigo-300 transition-colors">
-                                        {t('forgotPassword')}
-                                    </Link>
-                                </div>
-                                <input
-                                    type="password"
-                                    required
-                                    autoComplete="current-password"
-                                    value={password}
-                                    onChange={(e) => setPassword(e.target.value)}
-                                    className="w-full bg-slate-900/40 border border-white/10 rounded-xl px-4 py-3.5 text-sm text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all placeholder:text-slate-500"
-                                    placeholder="••••••••"
-                                />
-                            </div>
-
-                            <button
-                                type="submit"
-                                disabled={loading}
-                                className={`
-                                    w-full mt-4 flex items-center justify-center gap-2 px-6 py-4 rounded-xl font-bold transition-all
-                                    ${loading
-                                        ? 'bg-indigo-500/50 text-white/50 cursor-not-allowed'
-                                        : 'bg-gradient-to-r from-indigo-500 to-violet-500 text-white hover:shadow-lg hover:shadow-indigo-500/25 hover:scale-[1.02] active:scale-[0.98]'
-                                    }
-                                `}
+                                {t('password')}
+                                <span className="ml-0.5 text-destructive" aria-hidden>
+                                    *
+                                </span>
+                            </label>
+                            <Link
+                                href="/reset-password"
+                                className="text-xs font-semibold text-primary underline-offset-4 hover:underline"
                             >
-                                {loading && <Loader2 className="w-5 h-5 animate-spin" />}
-                                <span>{loading ? t('authenticating') : t('signIn')}</span>
-                            </button>
-                        </form>
-
-                        <div className="mt-8 text-center text-sm font-medium text-slate-400">
-                            Don't have an account?{' '}
-                            <Link href="/signup" className="text-indigo-400 hover:text-indigo-300 font-bold transition-colors">
-                                Sign up here
+                                {t('forgotPassword')}
                             </Link>
                         </div>
+                        <Input
+                            id="password"
+                            type="password"
+                            required
+                            autoComplete="current-password"
+                            value={password}
+                            onChange={(e) => setPassword(e.target.value)}
+                            placeholder={t('passwordPlaceholder')}
+                        />
                     </div>
-                </div>
-            </motion.div>
-        </div>
+
+                    <Button
+                        type="submit"
+                        size="lg"
+                        block
+                        loading={loading}
+                        className="mt-2"
+                    >
+                        {loading ? t('authenticating') : t('signIn')}
+                    </Button>
+                </form>
+
+                <p className="mt-6 text-center text-sm text-muted-foreground">
+                    {t('noAccount')}{' '}
+                    <Link
+                        href="/signup"
+                        className="font-semibold text-primary underline-offset-4 hover:underline"
+                    >
+                        {t('signUpHere')}
+                    </Link>
+                </p>
+            </CardContent>
+        </Card>
     );
 }

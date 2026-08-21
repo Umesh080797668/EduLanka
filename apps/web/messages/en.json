@@ -64,14 +64,40 @@
         "authenticating": "Authenticating...",
         "signIn": "Sign In",
         "noAccount": "Don't have an account?",
-        "registerHere": "Register Here"
+        "registerHere": "Register Here",
+        "identifierLabel": "Email, phone, or admission number",
+        "identifierPlaceholder": "admin@school.edu.lk / +9477… / 1004",
+        "passwordPlaceholder": "••••••••",
+        "signUpHere": "Sign up",
+        "welcomeBack": "Welcome back",
+        "signInSuccess": "Sign in successful."
     },
     "Signup": {
-        "title": "Registration Disabled",
-        "subtitle": "Self-service registration is not available for portal access.",
+        "title": "Create account",
+        "subtitle": "Join your school community in seconds.",
         "description": "To maintain strict security and data isolation, student, parent, and teacher accounts must be provisioned directly by your school's administration through their control panel.",
         "contactAdmin": "Please contact your school administrator to obtain your login credentials.",
-        "returnLogin": "Return to Login"
+        "returnLogin": "Return to sign in",
+        "selectSchool": "Select school",
+        "choosePlaceholder": "Choose your school…",
+        "discovering": "Discovering schools…",
+        "noSchools": "No schools are currently accepting self-enrollment.",
+        "iAmA": "I am a…",
+        "student": "Student",
+        "parent": "Parent",
+        "fullName": "Full name",
+        "fullNamePlaceholder": "e.g. Nimal Perera",
+        "emailLabel": "Email address",
+        "emailPlaceholder": "you@example.com",
+        "passwordLabel": "Password",
+        "passwordPlaceholder": "At least 8 characters",
+        "creating": "Creating account…",
+        "createAccount": "Create account",
+        "haveAccount": "Already have an account?",
+        "signIn": "Sign in",
+        "accountCreated": "Account created",
+        "registrationFailed": "Registration failed",
+        "networkError": "Network error. Please try again."
     },
     "ResetPassword": {
         "title": "Reset Password",
@@ -87,7 +113,10 @@
         "emailPlaceholder": "you@school.lk",
         "sending": "Sending Instructions...",
         "sendLink": "Send Reset Link",
-        "cancelReturn": "Cancel and return to login"
+        "cancelReturn": "Cancel and return to login",
+        "resetLinkSent": "Reset link sent",
+        "resetLinkSentDesc": "Check your inbox for password reset instructions.",
+        "couldNotReset": "Could not reset password"
     },
     "StudentDashboard": {
         "welcomeBack": "Welcome back,",
@@ -689,5 +718,22 @@
         "closeMenu": "Close navigation",
         "loadFailed": "Could not load this data.",
         "tryAgain": "Try again"
+    },
+    "Deactivated": {
+        "title": "Account suspended",
+        "subtitle": "Your access to the EduLanka portal has been revoked.",
+        "reasonLabel": "Reason for suspension",
+        "submitInquiry": "Submit an inquiry",
+        "inquiryNote": "Your inquiry will be sent securely to your school administrators.",
+        "appealPlaceholder": "Explain why you believe this is an error, or ask for clarification…",
+        "sendMessage": "Send message",
+        "sending": "Sending…",
+        "submitted": "Inquiry submitted",
+        "submittedNote": "Your message has been forwarded safely.",
+        "returnLogin": "Return to sign in",
+        "inquiryForwarded": "Inquiry forwarded",
+        "inquiryForwardedDesc": "Your appeal has been sent to an administrator.",
+        "inquiryFailed": "Inquiry submission failed",
+        "failedDefault": "Failed to submit inquiry."
     }
 }

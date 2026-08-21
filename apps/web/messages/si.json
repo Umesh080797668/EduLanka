@@ -64,14 +64,40 @@
         "authenticating": "තහවුරු කරමින්...",
         "signIn": "පුරනය වන්න",
         "noAccount": "ගිණුමක් නොමැතිද?",
-        "registerHere": "මෙහි ලියාපදිංචි වන්න"
+        "registerHere": "මෙහි ලියාපදිංචි වන්න",
+        "identifierLabel": "ඊමේල්, දුරකථනය හෝ ඇඳුම් අංකය",
+        "identifierPlaceholder": "admin@school.edu.lk / +9477… / 1004",
+        "passwordPlaceholder": "••••••••",
+        "signUpHere": "ලියාපදිංචි වන්න",
+        "welcomeBack": "නැවත සාදරයෙන් පිළිගනිමු",
+        "signInSuccess": "පිවිසීම සාර්ථකයි."
     },
     "Signup": {
-        "title": "ලියාපදිංචිය අක්‍රීය කර ඇත",
-        "subtitle": "ද්වාර ප්‍රවේශය සඳහා ස්වයං-ලියාපදිංචිය ලබා ගත නොහැක.",
+        "title": "ගිණුම සාදන්න",
+        "subtitle": "තත්පර කිහිපයකින් ඔබේ පාසල් ප්‍රජාවට එක් වන්න.",
         "description": "දැඩි ආරක්ෂාව සහ දත්ත හුදකලා කිරීම පවත්වා ගැනීම සඳහා, ශිෂ්‍ය, දෙමාපිය, සහ ගුරු ගිණුම් සෘජුවම ඔබේ පාසලේ පරිපාලනය විසින් ඔවුන්ගේ පාලක පැනලය හරහා ලබා දිය යුතුය.",
         "contactAdmin": "කරුණාකර ඔබේ පිවිසුම් තොරතුරු ලබා ගැනීමට ඔබේ පාසල් පරිපාලක අමතන්න.",
-        "returnLogin": "පිවිසුමට ආපසු යන්න"
+        "returnLogin": "පිවිසුමට ආපසු",
+        "selectSchool": "පාසල තෝරන්න",
+        "choosePlaceholder": "ඔබේ පාසල තෝරන්න…",
+        "discovering": "පාසල් සොයමින්…",
+        "noSchools": "දැනට කිසිදු පාසලක් ස්වයං-ලියාපදිංචිය පිළිගන්නේ නැත.",
+        "iAmA": "මම…",
+        "student": "ශිෂ්‍යයෙක්",
+        "parent": "දෙමාපියෙක්",
+        "fullName": "සම්පූර්ණ නම",
+        "fullNamePlaceholder": "උදා. නිමල් පෙරේරා",
+        "emailLabel": "ඊමේල් ලිපිනය",
+        "emailPlaceholder": "you@example.com",
+        "passwordLabel": "මුරපදය",
+        "passwordPlaceholder": "අවම අක්ෂර 8",
+        "creating": "ගිණුම සාදමින්…",
+        "createAccount": "ගිණුම සාදන්න",
+        "haveAccount": "දැනටමත් ගිණුමක් තිබේද?",
+        "signIn": "පිවිසෙන්න",
+        "accountCreated": "ගිණුම සාදන ලදී",
+        "registrationFailed": "ලියාපදිංචිය අසාර්ථකයි",
+        "networkError": "ජාල දෝෂයකි. නැවත උත්සාහ කරන්න."
     },
     "ResetPassword": {
         "title": "මුරපදය යළි සකසන්න",
@@ -87,7 +113,10 @@
         "emailPlaceholder": "you@school.lk",
         "sending": "උපදෙස් යවමින්...",
         "sendLink": "යළි සැකසීමේ සබැඳිය යවන්න",
-        "cancelReturn": "අවලංගු කර පිවිසුමට ආපසු යන්න"
+        "cancelReturn": "අවලංගු කර පිවිසුමට ආපසු යන්න",
+        "resetLinkSent": "යළි පිහිටුවීමේ සබැඳිය යවන ලදී",
+        "resetLinkSentDesc": "මුරපදය යළි පිහිටුවීමේ උපදෙස් සඳහා ඔබේ ඊමේල් පරීක්ෂා කරන්න.",
+        "couldNotReset": "මුරපදය යළි පිහිටුවීමට නොහැකි විය"
     },
     "StudentDashboard": {
         "welcomeBack": "යළිත් සාදරයෙන් පිළිගනිමු,",
@@ -689,5 +718,22 @@
         "closeMenu": "සංචාලනය වසන්න",
         "loadFailed": "මෙම දත්ත පූරණය කළ නොහැකි විය.",
         "tryAgain": "නැවත උත්සාහ කරන්න"
+    },
+    "Deactivated": {
+        "title": "ගිණුම අත්හිටුවා ඇත",
+        "subtitle": "EduLanka ද්වාරයට ඔබේ ප්‍රවේශය අවලංගු කර ඇත.",
+        "reasonLabel": "අත්හිටුවීමට හේතුව",
+        "submitInquiry": "විමසුමක් ඉදිරිපත් කරන්න",
+        "inquiryNote": "ඔබේ විමසුම ආරක්ෂිතව ඔබේ පාසල් පරිපාලකයන් වෙත යවනු ලැබේ.",
+        "appealPlaceholder": "මෙය වැරදීමක් යැයි ඔබ සිතන්නේ මන්දැයි පැහැදිලි කරන්න…",
+        "sendMessage": "පණිවිඩය යවන්න",
+        "sending": "යවමින්…",
+        "submitted": "විමසුම ඉදිරිපත් කරන ලදී",
+        "submittedNote": "ඔබේ පණිවිඩය ආරක්ෂිතව යොමු කර ඇත.",
+        "returnLogin": "පිවිසුමට ආපසු",
+        "inquiryForwarded": "විමසුම යොමු කරන ලදී",
+        "inquiryForwardedDesc": "ඔබේ අභියාචනය පරිපාලකයෙකු වෙත යවා ඇත.",
+        "inquiryFailed": "විමසුම ඉදිරිපත් කිරීම අසාර්ථකයි",
+        "failedDefault": "විමසුම ඉදිරිපත් කිරීමට අසමත් විය."
     }
 }
