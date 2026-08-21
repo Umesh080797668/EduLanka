@@ -58,7 +58,7 @@ export default async function RootLayout({
             <head>
                 {/* Applies the stored theme before first paint to avoid a flash. */}
                 <script
-                    // eslint-disable-next-line react/no-danger -- static, self-authored bootstrap snippet
+                     
                     dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }}
                 />
             </head>
