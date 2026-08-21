@@ -192,7 +192,10 @@
         "notAssignedYet": "உங்களுக்கு இன்னும் எந்த வகுப்புகளும் ஒதுக்கப்படவில்லை.",
         "classYear": "வகுப்பு ஆண்டு:",
         "rosterAvailable": "பட்டியல் பார்வை உள்ளது",
-        "enterGradesAction": "மதிப்பெண்களை உள்ளிடுக"
+        "enterGradesAction": "மதிப்பெண்களை உள்ளிடுக",
+        "noMatches": "உங்கள் தேடலுக்குப் பொருந்தும் வகுப்புகள் இல்லை",
+        "noMatchesDesc": "வேறு தரம், பிரிவு அல்லது ஆண்டை முயற்சிக்கவும்.",
+        "studentsEnrolled": "{count} மாணவர்கள்"
     },
     "TeacherGradesEntry": {
         "backToClasses": "வகுப்புகளுக்குத் திரும்பு",
@@ -218,7 +221,9 @@
         "failedToSave": "மதிப்பெண்ணைச் சேமிப்பதில் தோல்வி",
         "errorSaving": "மதிப்பெண்ணைச் சேமிப்பதில் பிழை",
         "save": "சேமி",
-        "saved": "சேமிக்கப்பட்டது"
+        "saved": "சேமிக்கப்பட்டது",
+        "unsavedChanges": "சேமிக்கப்படவில்லை",
+        "rosterCount": "மாணவர் பட்டியல்"
     },
     "ParentDashboard": {
         "greeting": "பெற்றோர் முகப்பு —",
@@ -685,7 +690,8 @@
         "noticeCreatedSuccess": "அறிவிப்பு வெற்றிகரமாக வெளியிடப்பட்டுள்ளது.",
         "noticeCreateFailed": "அறிவிப்பை வெளியிடுவதில் தோல்வி.",
         "officialNotices": "அதிகாரப்பூர்வ அறிவிப்புகள்",
-        "latestNotices": "சமீபத்திய அறிவிப்புகள்"
+        "latestNotices": "சமீபத்திய அறிவிப்புகள்",
+        "institutionNotices": "நிறுவன அறிவிப்புகள்"
     },
     "Theme": {
         "toggle": "தோற்றம்",

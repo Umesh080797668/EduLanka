@@ -192,7 +192,10 @@
         "notAssignedYet": "You have not been assigned to any classes yet.",
         "classYear": "Class Year:",
         "rosterAvailable": "Roster View Available",
-        "enterGradesAction": "Enter Grades"
+        "enterGradesAction": "Enter Grades",
+        "noMatches": "No classes match your search",
+        "noMatchesDesc": "Try a different grade, section, or year.",
+        "studentsEnrolled": "{count} students"
     },
     "TeacherGradesEntry": {
         "backToClasses": "Back to Classes",
@@ -218,7 +221,9 @@
         "failedToSave": "Failed to save grade",
         "errorSaving": "Error saving grade",
         "save": "Save",
-        "saved": "Saved"
+        "saved": "Saved",
+        "unsavedChanges": "Unsaved",
+        "rosterCount": "Roster"
     },
     "ParentDashboard": {
         "greeting": "Parent Dashboard —",
@@ -685,7 +690,8 @@
         "noticeCreatedSuccess": "Notice successfully published and targeted.",
         "noticeCreateFailed": "Failed to publish notice. Check permissions or targeting.",
         "officialNotices": "Official notices",
-        "latestNotices": "Latest notices"
+        "latestNotices": "Latest notices",
+        "institutionNotices": "Institution notices"
     },
     "Theme": {
         "toggle": "Appearance",

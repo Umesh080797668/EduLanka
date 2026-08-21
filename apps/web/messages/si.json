@@ -192,7 +192,10 @@
         "notAssignedYet": "ඔබට තවමත් කිසිදු පන්තියක් පවරා නැත.",
         "classYear": "පන්ති වර්ෂය:",
         "rosterAvailable": "නාමලේඛන දසුන ඇත",
-        "enterGradesAction": "ලකුණු ඇතුළත් කරන්න"
+        "enterGradesAction": "ලකුණු ඇතුළත් කරන්න",
+        "noMatches": "ඔබේ සෙවුමට ගැළපෙන පන්ති නොමැත",
+        "noMatchesDesc": "වෙනත් ශ්‍රේණියක්, කොටසක් හෝ වර්ෂයක් උත්සාහ කරන්න.",
+        "studentsEnrolled": "ශිෂ්‍යයන් {count}"
     },
     "TeacherGradesEntry": {
         "backToClasses": "ආපසු පන්ති වෙත",
@@ -218,7 +221,9 @@
         "failedToSave": "ලකුණු සුරැකීම අසාර්ථක විය",
         "errorSaving": "ලකුණු සුරැකීමේ දෝෂයකි",
         "save": "සුරකින්න",
-        "saved": "සුරකින ලදි"
+        "saved": "සුරකින ලදි",
+        "unsavedChanges": "සුරකා නැත",
+        "rosterCount": "නාම ලේඛනය"
     },
     "ParentDashboard": {
         "greeting": "දෙමාපිය ඩෑෂ්බෝඩ් —",
@@ -685,7 +690,8 @@
         "noticeCreatedSuccess": "නිවේදනය සාර්ථකව පළ කරන ලදී.",
         "noticeCreateFailed": "නිවේදනය පළ කිරීමට අපොහොසත් විය.",
         "officialNotices": "නිල දැනුම්දීම්",
-        "latestNotices": "නවතම දැනුම්දීම්"
+        "latestNotices": "නවතම දැනුම්දීම්",
+        "institutionNotices": "ආයතනික දැනුම්දීම්"
     },
     "Theme": {
         "toggle": "පෙනුම",
