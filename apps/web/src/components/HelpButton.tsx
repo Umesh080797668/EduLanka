@@ -1,8 +1,10 @@
 'use client';
+
 import React from 'react';
 import { HelpCircle } from 'lucide-react';
-import { useTutorial } from './TutorialProvider';
 import { useTranslations } from 'next-intl';
+
+import { useTutorial } from './TutorialProvider';
 
 export const HelpButton: React.FC = () => {
     const { startTutorial } = useTutorial();
@@ -10,12 +12,13 @@ export const HelpButton: React.FC = () => {
 
     return (
         <button
+            type="button"
             onClick={startTutorial}
-            className="fixed bottom-6 right-6 p-3 bg-blue-600 text-white rounded-full shadow-lg hover:bg-blue-700 transition z-50 focus:outline-none focus:ring-4 focus:ring-blue-300"
-            aria-label={t('help') || 'Help'}
-            title={t('help') || 'Help'}
+            aria-label={t('help')}
+            title={t('help')}
+            className="fixed bottom-6 right-6 z-40 grid size-12 place-items-center rounded-full bg-primary text-primary-foreground shadow-modal transition-[background-color,transform] hover:bg-primary-hover active:scale-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
         >
-            <HelpCircle size={24} />
+            <HelpCircle className="size-6" />
         </button>
     );
 };

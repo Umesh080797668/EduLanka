@@ -1,9 +1,11 @@
 'use client';
 
-import { useTranslations } from 'next-intl';
 import { useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { AlertCircle, RotateCcw } from 'lucide-react';
+import { useTranslations } from 'next-intl';
+
+import { Button } from '@/components/ui/Button';
 
 export default function Error({
     error,
@@ -19,26 +21,39 @@ export default function Error({
     }, [error]);
 
     return (
-        <div className="min-h-screen flex items-center justify-center bg-slate-50 p-4">
+        <div className="grid min-h-dvh place-items-center bg-background p-4">
             <motion.div
-                initial={{ opacity: 0, y: 20 }}
+                initial={{ opacity: 0, y: 16 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="bg-white p-8 rounded-2xl shadow-xl max-w-md w-full text-center border border-red-100"
+                transition={{ duration: 0.25 }}
+                className="w-full max-w-md rounded-card border border-border bg-card p-8 text-center shadow-card"
             >
-                <div className="w-16 h-16 bg-red-50 text-red-500 rounded-full flex items-center justify-center mx-auto mb-6">
-                    <AlertCircle className="w-8 h-8" />
+                <div className="mx-auto mb-6 grid size-14 place-items-center rounded-full bg-destructive-subtle text-destructive">
+                    <AlertCircle className="size-7" />
                 </div>
-                <h2 className="text-2xl font-bold text-slate-800 mb-3">{t('title') || 'Something went wrong!'}</h2>
-                <p className="text-slate-500 mb-8 leading-relaxed">
-                    {t('subtitle') || 'A critical error occurred while trying to render this section. We apologize for the inconvenience.'}
+
+                <h2 className="text-xl font-bold tracking-tight text-foreground">
+                    {t('title')}
+                </h2>
+                <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+                    {t('subtitle')}
                 </p>
-                <button
+
+                {error.digest && (
+                    <p className="mt-4 rounded-input bg-muted px-3 py-2 font-mono text-[11px] text-muted-foreground">
+                        {error.digest}
+                    </p>
+                )}
+
+                <Button
                     onClick={() => reset()}
-                    className="w-full flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white py-3 px-6 rounded-xl font-semibold transition-colors"
+                    leadingIcon={<RotateCcw />}
+                    block
+                    size="lg"
+                    className="mt-7"
                 >
-                    <RotateCcw className="w-5 h-5" />
-                    {t('tryAgain') || 'Try Again'}
-                </button>
+                    {t('tryAgain')}
+                </Button>
             </motion.div>
         </div>
     );

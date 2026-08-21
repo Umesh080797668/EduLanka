@@ -47,7 +47,8 @@
         "userDirectory": "User Directory",
         "schoolPolicies": "School Policies",
         "overviewDashboard": "Overview Dashboard",
-        "notifications": "Notifications"
+        "notifications": "Notifications",
+        "noNotifications": "No new notifications."
     },
     "Login": {
         "invalidCreds": "Invalid credentials. Please try again.",

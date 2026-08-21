@@ -1,44 +1,71 @@
 'use client';
-import { authManager } from '@/lib/auth-store';
-import { apiClient } from '@/lib/api-client';
 
-import { Bell, Search, User, Menu } from 'lucide-react';
-import { usePathname, useRouter } from '@/i18n/routing';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { AlertTriangle, Bell, Info, Menu, Search } from 'lucide-react';
 import { motion } from 'framer-motion';
-import { useEffect, useState, useRef } from 'react';
 import { useTranslations } from 'next-intl';
-import { useSidebar } from './SidebarContext';
 import { io, Socket } from 'socket.io-client';
-import { createSupabaseBrowserClient } from '@/lib/supabase/client';
 import { toast } from 'sonner';
+
+import { usePathname, useRouter } from '@/i18n/routing';
+import { apiClient } from '@/lib/api-client';
+import { authManager } from '@/lib/auth-store';
+import { cn } from '@/lib/cn';
+import { createSupabaseBrowserClient } from '@/lib/supabase/client';
+import { Avatar } from '@/components/ui/Avatar';
+import { Badge } from '@/components/ui/Badge';
+import { ThemeToggle } from '@/components/ui/ThemeToggle';
+import { useSidebar } from './SidebarContext';
+
+interface Notification {
+    title?: string;
+    message?: string;
+    type?: string;
+    timestamp?: string | number;
+}
+
+/** Search landing page per role. `userRole` is the space-separated display form. */
+const SEARCH_TARGET: Record<string, string> = {
+    'SUPER ADMIN': '/system-admin/users',
+    'SCHOOL ADMIN': '/institution-admin/students',
+    TEACHER: '/teacher/classes',
+    STUDENT: '/student/grades',
+    PARENT: '/parent',
+};
+
+const NOTIF_TONE: Record<string, string> = {
+    warning: 'bg-warning-subtle text-warning',
+    info: 'bg-info-subtle text-info',
+    danger: 'bg-destructive-subtle text-destructive',
+};
 
 export default function Header() {
     const pathname = usePathname();
     const router = useRouter();
     const t = useTranslations('Header');
-    const [userName, setUserName] = useState('...');
-    const [userRole, setUserRole] = useState('...');
+    const tc = useTranslations('Common');
     const { setIsOpen } = useSidebar();
+
+    const [userName, setUserName] = useState('');
+    const [userRole, setUserRole] = useState('');
     const [searchQuery, setSearchQuery] = useState('');
     const [isTyping, setIsTyping] = useState(false);
 
-    // Notifications State
-    const [notifications, setNotifications] = useState<any[]>([]);
+    // Notifications
+    const [notifications, setNotifications] = useState<Notification[]>([]);
     const [showNotifications, setShowNotifications] = useState(false);
     const socketRef = useRef<Socket | null>(null);
+    const notifRef = useRef<HTMLDivElement | null>(null);
 
     useEffect(() => {
         const fetchUser = async () => {
-
             const role = authManager.getRole() || 'USER';
             setUserRole(role.replace('_', ' '));
 
             try {
-                // Fetch the dynamic user based on API (for simplicity, using generic me endpoint we added)
-                // Both /users/me and /parents/me work, but only if they have the right headers
+                // Both /users/me and /parents/me work, but only with the right headers —
+                // apiClient attaches X-Tenant-Id and the auth cookie for us.
                 const uri = role === 'PARENT' ? '/parents/me' : '/users/me';
-
-                // Use apiClient so that the authManager seamlessly attaches the X-Tenant-Id header
                 const data = await apiClient.get<any>(uri);
 
                 if (role === 'PARENT') {
@@ -53,75 +80,82 @@ export default function Header() {
         };
         fetchUser();
 
-        // ---------------- Realtime Notifications ----------------
-        const notificationMethod = process.env.NEXT_PUBLIC_NOTIFICATION_METHOD || 'socket.io';
+        // ---------------- Realtime notifications ----------------
+        const notificationMethod =
+            process.env.NEXT_PUBLIC_NOTIFICATION_METHOD || 'socket.io';
         let cleanupFn = () => { };
 
         const apiUrl = process.env.NEXT_PUBLIC_API_URL || '';
 
-        // Vercel serverless completely breaks Socket.io long-polling states resulting in 400s.
-        // Fallback to supabase if on vercel natively, or if env forces it.
+        // Vercel serverless breaks Socket.io long-polling (400s), so fall back to
+        // Supabase Realtime there or when the env forces it.
         if (notificationMethod === 'supabase' || apiUrl.includes('vercel.app')) {
-            console.log('[Notifications] Using Supabase Realtime for system broadcasts (Vercel-compatible mode)');
             try {
                 const supabase = createSupabaseBrowserClient();
-                const channel = supabase.channel('system_notifications')
-                    .on(
-                        'broadcast',
-                        { event: 'system_notification' },
-                        (payload) => {
-                            // Supabase wraps broadcast data in `payload.payload`
-                            if (payload?.payload) {
-                                setNotifications(prev => [payload.payload, ...prev]);
-                                toast.info(payload.payload.title || 'New Notification', {
-                                    description: payload.payload.message,
-                                    duration: 5000,
-                                });
-                            }
+                const channel = supabase
+                    .channel('system_notifications')
+                    .on('broadcast', { event: 'system_notification' }, (payload) => {
+                        // Supabase wraps broadcast data in `payload.payload`.
+                        if (payload?.payload) {
+                            setNotifications((prev) => [payload.payload, ...prev]);
+                            toast.info(payload.payload.title || t('notifications'), {
+                                description: payload.payload.message,
+                                duration: 5000,
+                            });
                         }
-                    )
-                    .subscribe((status) => {
-                        if (status === 'SUBSCRIBED') {
-                            console.log('[Notifications] Connected to Supabase real-time channel.');
-                        }
-                    });
+                    })
+                    .subscribe();
 
-                cleanupFn = () => { supabase.removeChannel(channel); };
+                cleanupFn = () => {
+                    supabase.removeChannel(channel);
+                };
             } catch (error) {
                 console.error('[Notifications] Failed to init Supabase client', error);
             }
         } else {
-            // Traditional Socket.IO Setup (Local, VPS, Docker environments)
             const socket = io(apiUrl, {
                 transports: ['polling', 'websocket'],
                 autoConnect: true,
             });
 
-            socket.on('connect', () => {
-                console.log(`[Notifications] Connected with ID: ${socket.id} via ${socket.io.engine.transport.name}`);
-
-                // Optionally monitor transport upgrades from polling to websocket
-                socket.io.engine.on('upgrade', (transport) => {
-                    console.log('[Notifications] Transport upgraded to', transport.name);
-                });
-            });
-
-            socket.on('system_notification', (data) => {
-                setNotifications(prev => [data, ...prev]);
-                toast.info(data.title || 'New Notification', {
+            socket.on('system_notification', (data: Notification) => {
+                setNotifications((prev) => [data, ...prev]);
+                toast.info(data.title || t('notifications'), {
                     description: data.message,
                     duration: 5000,
                 });
             });
 
             socketRef.current = socket;
-            cleanupFn = () => { socket.disconnect(); };
+            cleanupFn = () => {
+                socket.disconnect();
+            };
         }
 
         return cleanupFn;
     }, [t]);
 
-    // Determine title based on path
+    // Close the notification dropdown on outside click / Escape.
+    useEffect(() => {
+        if (!showNotifications) return;
+
+        const onPointerDown = (event: MouseEvent) => {
+            if (!notifRef.current?.contains(event.target as Node)) {
+                setShowNotifications(false);
+            }
+        };
+        const onKeyDown = (event: KeyboardEvent) => {
+            if (event.key === 'Escape') setShowNotifications(false);
+        };
+
+        document.addEventListener('mousedown', onPointerDown);
+        document.addEventListener('keydown', onKeyDown);
+        return () => {
+            document.removeEventListener('mousedown', onPointerDown);
+            document.removeEventListener('keydown', onKeyDown);
+        };
+    }, [showNotifications]);
+
     const getPageTitle = () => {
         if (pathname?.includes('/grades')) return t('gradesReports');
         if (pathname?.includes('/classes')) return t('classMgmt');
@@ -130,150 +164,197 @@ export default function Header() {
         return t('overviewDashboard');
     };
 
-    // Debounce the search query
+    /** Single source of truth for search navigation, shared by debounce + Enter. */
+    const runSearch = useCallback(
+        (query: string) => {
+            const base = SEARCH_TARGET[userRole];
+            if (!base) return;
+
+            const trimmed = query.trim();
+            if (trimmed) {
+                router.push(`${base}?query=${encodeURIComponent(trimmed)}`);
+            } else if (query === '') {
+                // Clearing the box returns to the unfiltered list.
+                router.push(base);
+            }
+        },
+        [router, userRole],
+    );
+
+    // Debounce the search query.
     useEffect(() => {
         if (!isTyping) return;
         const timer = setTimeout(() => {
-            if (searchQuery.trim()) {
-                const queryUri = encodeURIComponent(searchQuery.trim());
-                if (userRole === 'SUPER ADMIN') {
-                    router.push(`/system-admin/users?query=${queryUri}`);
-                } else if (userRole === 'SCHOOL ADMIN') {
-                    router.push(`/institution-admin/students?query=${queryUri}`);
-                } else if (userRole === 'TEACHER') {
-                    router.push(`/teacher/classes?query=${queryUri}`);
-                } else if (userRole === 'STUDENT') {
-                    router.push(`/student/grades?query=${queryUri}`);
-                } else if (userRole === 'PARENT') {
-                    router.push(`/parent?query=${queryUri}`);
-                }
-            } else if (searchQuery === '') {
-                // If they clear the search, push back to base dir
-                if (userRole === 'SUPER ADMIN') router.push(`/system-admin/users`);
-                if (userRole === 'SCHOOL ADMIN') router.push(`/institution-admin/students`);
-                if (userRole === 'TEACHER') router.push(`/teacher/classes`);
-                if (userRole === 'STUDENT') router.push(`/student/grades`);
-                if (userRole === 'PARENT') router.push(`/parent`);
-            }
+            runSearch(searchQuery);
             setIsTyping(false);
         }, 400);
 
         return () => clearTimeout(timer);
-    }, [searchQuery, isTyping, router, userRole]);
+    }, [searchQuery, isTyping, runSearch]);
 
-    const handleSearch = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    const handleSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
         if (e.key === 'Enter') {
-            setIsTyping(false); // Force rapid push
-            if (searchQuery.trim()) {
-                const queryUri = encodeURIComponent(searchQuery.trim());
-                if (userRole === 'SUPER ADMIN') {
-                    router.push(`/system-admin/users?query=${queryUri}`);
-                } else if (userRole === 'SCHOOL ADMIN') {
-                    router.push(`/institution-admin/students?query=${queryUri}`);
-                } else if (userRole === 'TEACHER') {
-                    router.push(`/teacher/classes?query=${queryUri}`);
-                } else if (userRole === 'STUDENT') {
-                    router.push(`/student/grades?query=${queryUri}`);
-                } else if (userRole === 'PARENT') {
-                    router.push(`/parent?query=${queryUri}`);
-                }
-            }
+            setIsTyping(false); // Skip the debounce.
+            if (searchQuery.trim()) runSearch(searchQuery);
         }
     };
 
     return (
-        <header className="h-16 flex items-center justify-between px-6 bg-white/70 backdrop-blur-md border-b border-slate-200 sticky top-0 z-10">
-            <div className="flex items-center gap-4">
+        <header className="sticky top-0 z-30 flex h-16 shrink-0 items-center justify-between gap-3 border-b border-border bg-card/85 px-4 backdrop-blur-md sm:px-6">
+            <div className="flex min-w-0 items-center gap-3">
                 <button
+                    type="button"
                     onClick={() => setIsOpen(true)}
-                    className="md:hidden p-2 -ml-2 text-slate-500 hover:bg-slate-100 rounded-lg transition-colors"
+                    aria-label={tc('openMenu')}
+                    className="-ml-1 rounded-input p-2 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring md:hidden"
                 >
-                    <Menu className="w-5 h-5" />
+                    <Menu className="size-5" />
                 </button>
+
                 <motion.h1
-                    initial={{ opacity: 0, y: -10 }}
+                    key={getPageTitle()}
+                    initial={{ opacity: 0, y: -6 }}
                     animate={{ opacity: 1, y: 0 }}
-                    className="text-lg font-semibold text-slate-800"
+                    transition={{ duration: 0.2 }}
+                    className="truncate text-[15px] font-semibold tracking-tight text-foreground sm:text-base"
                 >
                     {getPageTitle()}
                 </motion.h1>
             </div>
 
-            <div className="flex items-center gap-4">
-                <div className="relative hidden md:block">
-                    <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                    <input
-                        type="text"
-                        value={searchQuery}
-                        onChange={(e) => {
-                            setSearchQuery(e.target.value);
-                            setIsTyping(true);
-                        }}
-                        onKeyDown={handleSearch}
-                        placeholder={t('searchPlaceholder')}
-                        className="pl-9 pr-4 py-1.5 bg-slate-100 border-none rounded-full text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none transition-all w-64"
-                    />
-                </div>
+            <div className="flex items-center gap-1.5 sm:gap-2">
+                {/* Search — only rendered for roles that have a search target. */}
+                {SEARCH_TARGET[userRole] && (
+                    <div className="relative hidden lg:block">
+                        <Search
+                            aria-hidden
+                            className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
+                        />
+                        <input
+                            type="search"
+                            value={searchQuery}
+                            onChange={(e) => {
+                                setSearchQuery(e.target.value);
+                                setIsTyping(true);
+                            }}
+                            onKeyDown={handleSearchKeyDown}
+                            placeholder={t('searchPlaceholder')}
+                            aria-label={tc('search')}
+                            className="h-9 w-60 rounded-pill border border-transparent bg-muted pl-9 pr-4 text-sm text-foreground transition-colors placeholder:text-muted-foreground focus:border-input focus:bg-card focus:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring xl:w-72"
+                        />
+                    </div>
+                )}
 
-                <div className="relative">
+                <ThemeToggle variant="icon" />
+
+                {/* Notifications */}
+                <div className="relative" ref={notifRef}>
                     <button
-                        className="relative p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-full transition-colors focus:outline-none"
-                        onClick={() => setShowNotifications(!showNotifications)}
+                        type="button"
+                        onClick={() => setShowNotifications((prev) => !prev)}
+                        aria-label={t('notifications')}
+                        aria-expanded={showNotifications}
+                        aria-haspopup="menu"
+                        className={cn(
+                            'relative grid size-9 place-items-center rounded-input transition-colors',
+                            'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring',
+                            showNotifications
+                                ? 'bg-accent text-foreground'
+                                : 'text-muted-foreground hover:bg-accent hover:text-foreground',
+                        )}
                     >
-                        <Bell className="w-5 h-5" />
+                        <Bell className="size-[18px]" />
                         {notifications.length > 0 && (
-                            <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-rose-500 rounded-full border-2 border-white animate-pulse"></span>
+                            <span className="absolute right-1.5 top-1.5 size-2.5 animate-pulse rounded-full border-2 border-card bg-destructive" />
                         )}
                     </button>
 
-                    {/* Notifications Dropdown */}
                     {showNotifications && (
-                        <div className="absolute right-0 mt-2 w-80 bg-white rounded-xl shadow-xl border border-slate-200 overflow-hidden z-50">
-                            <div className="p-3 border-b border-slate-100 flex justify-between items-center bg-slate-50">
-                                <h3 className="font-semibold text-slate-800 text-sm">{t('notifications') || 'Notifications'}</h3>
-                                <span className="text-xs bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full font-bold">
+                        <div
+                            role="menu"
+                            className="absolute right-0 mt-2 w-[min(22rem,calc(100vw-2rem))] animate-slide-up overflow-hidden rounded-card border border-border bg-popover text-popover-foreground shadow-dropdown"
+                        >
+                            <div className="flex items-center justify-between gap-2 border-b border-border bg-muted/60 px-4 py-3">
+                                <h3 className="text-sm font-semibold tracking-tight">
+                                    {t('notifications')}
+                                </h3>
+                                <Badge tone="primary" variant="soft">
                                     {notifications.length}
-                                </span>
+                                </Badge>
                             </div>
+
                             <div className="max-h-80 overflow-y-auto">
                                 {notifications.length === 0 ? (
-                                    <div className="p-6 text-center text-slate-500 text-sm">
-                                        No new notifications.
+                                    <div className="flex flex-col items-center gap-2 px-6 py-9 text-center">
+                                        <span className="grid size-10 place-items-center rounded-full bg-muted text-muted-foreground">
+                                            <Bell className="size-[18px]" />
+                                        </span>
+                                        <p className="text-sm text-muted-foreground">
+                                            {t('noNotifications')}
+                                        </p>
                                     </div>
                                 ) : (
-                                    <div className="divide-y divide-slate-50">
-                                        {notifications.map((notif, idx) => (
-                                            <div key={idx} className="p-4 hover:bg-slate-50 transition-colors flex items-start gap-3">
-                                                <div className={`w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center
-                                                    ${notif.type === 'warning' ? 'bg-amber-100 text-amber-600' :
-                                                        notif.type === 'info' ? 'bg-blue-100 text-blue-600' : 'bg-slate-100 text-slate-600'}`}>
-                                                    <Bell className="w-4 h-4" />
-                                                </div>
-                                                <div>
-                                                    <h4 className="text-sm font-semibold text-slate-800">{notif.title}</h4>
-                                                    <p className="text-xs text-slate-500 mt-0.5 leading-relaxed">{notif.message}</p>
-                                                    <span className="text-[10px] text-slate-400 mt-1 block">
-                                                        {new Date(notif.timestamp).toLocaleTimeString()}
+                                    <ul className="divide-y divide-border">
+                                        {notifications.map((notif, idx) => {
+                                            const Icon =
+                                                notif.type === 'warning'
+                                                    ? AlertTriangle
+                                                    : notif.type === 'info'
+                                                        ? Info
+                                                        : Bell;
+                                            return (
+                                                <li
+                                                    key={`${notif.timestamp ?? ''}-${idx}`}
+                                                    className="flex items-start gap-3 px-4 py-3 transition-colors hover:bg-accent"
+                                                >
+                                                    <span
+                                                        className={cn(
+                                                            'mt-0.5 grid size-8 shrink-0 place-items-center rounded-full',
+                                                            NOTIF_TONE[notif.type ?? ''] ??
+                                                            'bg-muted text-muted-foreground',
+                                                        )}
+                                                    >
+                                                        <Icon className="size-4" />
                                                     </span>
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
+                                                    <div className="min-w-0 flex-1">
+                                                        <h4 className="truncate text-sm font-semibold text-foreground">
+                                                            {notif.title}
+                                                        </h4>
+                                                        {notif.message && (
+                                                            <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
+                                                                {notif.message}
+                                                            </p>
+                                                        )}
+                                                        {notif.timestamp && (
+                                                            <time className="mt-1 block text-[10px] uppercase tracking-wide text-muted-foreground">
+                                                                {new Date(
+                                                                    notif.timestamp,
+                                                                ).toLocaleTimeString()}
+                                                            </time>
+                                                        )}
+                                                    </div>
+                                                </li>
+                                            );
+                                        })}
+                                    </ul>
                                 )}
                             </div>
                         </div>
                     )}
                 </div>
 
-                <div className="w-px h-6 bg-slate-200 mx-2"></div>
+                <div className="mx-1 hidden h-6 w-px bg-border sm:block" />
 
-                <div className="flex items-center gap-3 cursor-pointer p-1 pr-3 rounded-full hover:bg-slate-50 transition-colors border border-transparent hover:border-slate-200">
-                    <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700">
-                        <User className="w-4 h-4" />
-                    </div>
-                    <div className="hidden sm:block text-sm">
-                        <p className="font-medium text-slate-700 leading-none mb-1 capitalize">{userName}</p>
-                        <p className="text-xs text-slate-500 leading-none capitalize">{userRole.toLowerCase()}</p>
+                {/* Identity */}
+                <div className="flex items-center gap-2.5 rounded-pill border border-transparent p-1 pr-1 transition-colors hover:border-border hover:bg-accent sm:pr-3">
+                    <Avatar name={userName} size="sm" />
+                    <div className="hidden min-w-0 sm:block">
+                        <p className="truncate text-[13px] font-semibold capitalize leading-tight text-foreground">
+                            {userName || '—'}
+                        </p>
+                        <p className="truncate text-[11px] capitalize leading-tight text-muted-foreground">
+                            {userRole.toLowerCase()}
+                        </p>
                     </div>
                 </div>
             </div>

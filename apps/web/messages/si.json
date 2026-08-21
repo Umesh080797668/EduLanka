@@ -47,7 +47,8 @@
         "userDirectory": "පරිශීලක නාමාවලිය",
         "schoolPolicies": "පාසල් ප්‍රතිපත්ති",
         "overviewDashboard": "දළ විශ්ලේෂණ ඩෑෂ්බෝඩ්",
-        "notifications": "නිවේදන"
+        "notifications": "නිවේදන",
+        "noNotifications": "නව දැනුම්දීම් නොමැත."
     },
     "Login": {
         "invalidCreds": "අවලංගු පිවිසුම් තොරතුරු. කරුණාකර නැවත උත්සාහ කරන්න.",

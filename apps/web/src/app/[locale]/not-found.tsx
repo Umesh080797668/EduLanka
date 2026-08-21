@@ -1,33 +1,47 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import { SearchX, Home } from 'lucide-react';
-import { Link } from '@/i18n/routing';
+import { Home, SearchX } from 'lucide-react';
 import { useTranslations } from 'next-intl';
+
+import { Link } from '@/i18n/routing';
+import { buttonClass } from '@/components/ui/Button';
 
 export default function NotFound() {
     const t = useTranslations('NotFound');
 
     return (
-        <div className="min-h-screen flex items-center justify-center bg-slate-50 p-4">
+        <div className="relative isolate grid min-h-dvh place-items-center bg-background p-4">
+            <div
+                aria-hidden
+                className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-[380px] hero-glow"
+            />
+
             <motion.div
-                initial={{ opacity: 0, scale: 0.95 }}
+                initial={{ opacity: 0, scale: 0.97 }}
                 animate={{ opacity: 1, scale: 1 }}
-                className="bg-white p-8 rounded-2xl shadow-xl max-w-md w-full text-center border border-slate-100"
+                transition={{ duration: 0.25 }}
+                className="w-full max-w-md rounded-card border border-border bg-card p-8 text-center shadow-card"
             >
-                <div className="w-20 h-20 bg-slate-100 text-slate-400 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-inner rotate-3">
-                    <SearchX className="w-10 h-10" />
+                <div className="mx-auto mb-6 grid size-16 rotate-3 place-items-center rounded-card bg-muted text-muted-foreground">
+                    <SearchX className="size-8" />
                 </div>
-                <h1 className="text-6xl font-black text-slate-200 mb-2 tracking-tighter">404</h1>
-                <h2 className="text-2xl font-bold text-slate-800 mb-3">{t('title')}</h2>
-                <p className="text-slate-500 mb-8 leading-relaxed">
+
+                <p className="numeric text-5xl font-black tracking-tighter text-border-strong">
+                    404
+                </p>
+                <h1 className="mt-2 text-xl font-bold tracking-tight text-foreground">
+                    {t('title')}
+                </h1>
+                <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
                     {t('longDescription')}
                 </p>
+
                 <Link
                     href="/"
-                    className="w-full flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white py-3 px-6 rounded-xl font-semibold transition-colors"
+                    className={buttonClass({ size: 'lg', block: true, className: 'mt-7' })}
                 >
-                    <Home className="w-5 h-5" />
+                    <Home className="size-[18px]" />
                     {t('returnHome')}
                 </Link>
             </motion.div>
