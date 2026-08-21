@@ -137,7 +137,9 @@
         "quickLinks": "Quick Links",
         "reportCards": "Report Cards",
         "comingPhase6": "Coming Phase 6",
-        "timetable": "Timetable"
+        "timetable": "Timetable",
+        "classLabel": "Class",
+        "admissionLabel": "Admission no"
     },
     "StudentGrades": {
         "failedToResolve": "Failed to resolve current student.",
@@ -223,7 +225,10 @@
         "dashboardSubtitle": "Monitor your children's academic progress, attendance, and upcoming school events all in one place.",
         "linkedChildren": "Linked Children",
         "gradeNotAssigned": "Grade Not Assigned",
-        "viewAcademicReport": "View Academic Report"
+        "viewAcademicReport": "View Academic Report",
+        "noChildren": "No children linked yet",
+        "noChildrenDesc": "Once your school links a student to your account, their reports appear here.",
+        "noMatches": "No children match your search."
     },
     "ParentGrades": {
         "failedToLoad": "Failed to load marks",
@@ -678,7 +683,9 @@
         "sendSmsDescription": "Dispatches Twilio SMS. (Starter+ Tier)",
         "publishNotice": "Publish Notice",
         "noticeCreatedSuccess": "Notice successfully published and targeted.",
-        "noticeCreateFailed": "Failed to publish notice. Check permissions or targeting."
+        "noticeCreateFailed": "Failed to publish notice. Check permissions or targeting.",
+        "officialNotices": "Official notices",
+        "latestNotices": "Latest notices"
     },
     "Theme": {
         "toggle": "Appearance",

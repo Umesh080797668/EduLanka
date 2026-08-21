@@ -9,9 +9,10 @@ import { toast } from 'sonner';
 
 import { apiClient } from '@/lib/api-client';
 import { authManager } from '@/lib/auth-store';
+import { gradeFor } from '@/lib/grades';
 import { HelpButton } from '@/components/HelpButton';
 import { TutorialProvider } from '@/components/TutorialProvider';
-import { Badge, type BadgeTone } from '@/components/ui/Badge';
+import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent } from '@/components/ui/Card';
 import { Field, Input, Select } from '@/components/ui/Form';
@@ -27,15 +28,6 @@ import {
     THead,
     TR,
 } from '@/components/ui/Table';
-
-/** Sri Lankan grading bands, best → worst. */
-function gradeFor(marks: number): { key: string; tone: BadgeTone } {
-    if (marks >= 75) return { key: 'gradeA', tone: 'success' };
-    if (marks >= 65) return { key: 'gradeB', tone: 'info' };
-    if (marks >= 50) return { key: 'gradeC', tone: 'primary' };
-    if (marks >= 35) return { key: 'gradeS', tone: 'warning' };
-    return { key: 'gradeW', tone: 'danger' };
-}
 
 export default function StudentGradesPage() {
     const t = useTranslations('StudentGrades');

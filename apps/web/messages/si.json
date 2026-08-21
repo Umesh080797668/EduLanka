@@ -137,7 +137,9 @@
         "quickLinks": "ඉක්මන් සබැඳි",
         "reportCards": "වාර්තා පත්",
         "comingPhase6": "6 වන අදියරේදී පැමිණේ",
-        "timetable": "කාලසටහන"
+        "timetable": "කාලසටහන",
+        "classLabel": "පන්තිය",
+        "admissionLabel": "ඇඳුම් අංකය"
     },
     "StudentGrades": {
         "failedToResolve": "වත්මන් ශිෂ්‍යයා හඳුනා ගැනීම අසාර්ථක විය.",
@@ -223,7 +225,10 @@
         "dashboardSubtitle": "ඔබේ දරුවන්ගේ අධ්‍යාපනික ප්‍රගතිය, පැමිණීම සහ ඉදිරි පාසල් සිදුවීම් සියල්ල එකම තැනකින් නිරීක්ෂණය කරන්න.",
         "linkedChildren": "සම්බන්ධිත දරුවන්",
         "gradeNotAssigned": "ශ්‍රේණියක් පවරා නැත",
-        "viewAcademicReport": "අධ්‍යාපනික වාර්තාව බලන්න"
+        "viewAcademicReport": "අධ්‍යාපනික වාර්තාව බලන්න",
+        "noChildren": "තවම දරුවන් සම්බන්ධ කර නැත",
+        "noChildrenDesc": "ඔබේ පාසල ශිෂ්‍යයෙකු ඔබේ ගිණුමට සම්බන්ධ කළ පසු, ඔවුන්ගේ වාර්තා මෙහි දිස්වේ.",
+        "noMatches": "ඔබේ සෙවුමට ගැළපෙන දරුවන් නොමැත."
     },
     "ParentGrades": {
         "failedToLoad": "ලකුණු පැටවීම අසාර්ථක විය",
@@ -678,7 +683,9 @@
         "sendSmsDescription": "SMS මගින් යවන්න.",
         "publishNotice": "නිවේදනය පළ කරන්න",
         "noticeCreatedSuccess": "නිවේදනය සාර්ථකව පළ කරන ලදී.",
-        "noticeCreateFailed": "නිවේදනය පළ කිරීමට අපොහොසත් විය."
+        "noticeCreateFailed": "නිවේදනය පළ කිරීමට අපොහොසත් විය.",
+        "officialNotices": "නිල දැනුම්දීම්",
+        "latestNotices": "නවතම දැනුම්දීම්"
     },
     "Theme": {
         "toggle": "පෙනුම",

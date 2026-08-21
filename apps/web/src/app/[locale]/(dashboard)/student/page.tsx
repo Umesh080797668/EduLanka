@@ -11,13 +11,16 @@ import { HelpButton } from '@/components/HelpButton';
 import { TutorialProvider } from '@/components/TutorialProvider';
 import NoticeFeed from '@/components/notices/NoticeFeed';
 import { Badge } from '@/components/ui/Badge';
-import { buttonClass } from '@/components/ui/Button';
 import {
     Card,
     CardContent,
     CardHeader,
     CardTitle,
 } from '@/components/ui/Card';
+
+/** Chips sit on the brand gradient, so they're styled inline rather than via Badge tones. */
+const HERO_CHIP =
+    'inline-flex items-center rounded-pill bg-white/15 px-3 py-1 text-xs font-semibold text-white ring-1 ring-inset ring-white/20 backdrop-blur-sm';
 
 interface StudentInfo {
     name: string;
@@ -71,22 +74,14 @@ export default function StudentDashboard() {
                         {studentInfo?.className || studentInfo?.admission ? (
                             <div className="mt-3 flex flex-wrap items-center gap-2">
                                 {studentInfo.className && (
-                                    <Badge
-                                        variant="soft"
-                                        size="md"
-                                        className="bg-white/15 text-white"
-                                    >
+                                    <span className={HERO_CHIP}>
                                         {t('classLabel')}: {studentInfo.className}
-                                    </Badge>
+                                    </span>
                                 )}
                                 {studentInfo.admission && (
-                                    <Badge
-                                        variant="soft"
-                                        size="md"
-                                        className="bg-white/15 text-white"
-                                    >
+                                    <span className={HERO_CHIP}>
                                         {t('admissionLabel')}: {studentInfo.admission}
-                                    </Badge>
+                                    </span>
                                 )}
                             </div>
                         ) : (
@@ -97,11 +92,7 @@ export default function StudentDashboard() {
 
                         <Link
                             href="/student/grades"
-                            className={buttonClass({
-                                size: 'md',
-                                className:
-                                    'mt-6 bg-white text-brand-700 shadow-sm hover:bg-white/90',
-                            })}
+                            className="mt-6 inline-flex h-10 items-center gap-2 rounded-input bg-white px-4 text-sm font-semibold text-brand-700 shadow-sm transition-colors hover:bg-white/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
                         >
                             <FileText className="size-4" />
                             {t('viewFullReport')}

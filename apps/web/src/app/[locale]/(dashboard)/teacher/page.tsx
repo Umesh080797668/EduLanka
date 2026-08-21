@@ -1,27 +1,52 @@
 'use client';
 
-import { motion } from 'framer-motion';
-import { BookOpen, Users, LineChart, FileEdit } from 'lucide-react';
-import { Link } from '@/i18n/routing';
 import { useEffect, useState } from 'react';
-import { TutorialProvider } from '@/components/TutorialProvider';
-import { HelpButton } from '@/components/HelpButton';
-import { apiClient } from '@/lib/api-client';
+import { motion } from 'framer-motion';
+import { Bell, BookOpen, FileEdit, Users, Zap } from 'lucide-react';
 import { useTranslations } from 'next-intl';
+
+import { Link } from '@/i18n/routing';
+import { apiClient } from '@/lib/api-client';
+import { HelpButton } from '@/components/HelpButton';
+import { TutorialProvider } from '@/components/TutorialProvider';
 import NoticeFeed from '@/components/notices/NoticeFeed';
+import {
+    Card,
+    CardContent,
+    CardHeader,
+    CardTitle,
+} from '@/components/ui/Card';
+import { Progress, StatCard } from '@/components/ui/Stat';
+
+/** Sri Lankan school calendar: three terms across the year. */
+function currentTermFor(month: number) {
+    if (month >= 1 && month <= 4) return 1;
+    if (month >= 5 && month <= 8) return 2;
+    return 3;
+}
+
+const containerVariants = {
+    hidden: { opacity: 0 },
+    show: { opacity: 1, transition: { staggerChildren: 0.08 } },
+};
+
+const itemVariants: any = {
+    hidden: { opacity: 0, y: 15 },
+    show: { opacity: 1, y: 0, transition: { duration: 0.3 } },
+};
 
 export default function TeacherDashboard() {
     const t = useTranslations('TeacherDashboard');
-    const getCurrentTerm = () => {
-        const month = new Date().getMonth() + 1;
-        if (month >= 1 && month <= 4) return 1;
-        if (month >= 5 && month <= 8) return 2;
-        return 3;
-    };
-    const currentTerm = getCurrentTerm();
+    const tn = useTranslations('Notices');
+    const currentTerm = currentTermFor(new Date().getMonth() + 1);
 
-    const [teacherName, setTeacherName] = useState('...');
-    const [stats, setStats] = useState({ totalStudents: 0, activeClasses: 0, gradingProgress: 0 });
+    const [teacherName, setTeacherName] = useState('…');
+    const [stats, setStats] = useState({
+        totalStudents: 0,
+        activeClasses: 0,
+        gradingProgress: 0,
+    });
+    const [loading, setLoading] = useState(true);
 
     useEffect(() => {
         const init = async () => {
@@ -30,141 +55,186 @@ export default function TeacherDashboard() {
                 setTeacherName(user?.full_name || 'Teacher');
 
                 if (user?.id) {
-                    const classesData = await apiClient.get<any[]>(`/classes?teacherId=${user.id}`);
+                    const classesData = await apiClient.get<any[]>(
+                        `/classes?teacherId=${user.id}`,
+                    );
                     if (classesData) {
                         let students = 0;
-                        classesData.forEach(c => { students += (c.students?.length || 0); });
+                        classesData.forEach((c) => {
+                            students += c.students?.length || 0;
+                        });
 
-                        let totalMarksCount = 0;
-
-                        const marksPromises = classesData.map(async c => {
+                        // Grading progress = marks recorded this term / enrolled students.
+                        const marksPromises = classesData.map(async (c) => {
                             try {
-                                return await apiClient.get<any[]>(`/student-marks/class/${c.id}?term=${currentTerm}`);
-                            } catch (error) {
+                                return await apiClient.get<any[]>(
+                                    `/student-marks/class/${c.id}?term=${currentTerm}`,
+                                );
+                            } catch {
                                 return [];
                             }
                         });
                         const results = await Promise.all(marksPromises);
-                        results.forEach(mList => {
+
+                        let totalMarksCount = 0;
+                        results.forEach((mList) => {
                             if (mList) totalMarksCount += mList.length;
                         });
 
-                        const progress = students > 0 ? Math.round((totalMarksCount / students) * 100) : 0;
-                        setStats({ totalStudents: students, activeClasses: classesData.length, gradingProgress: progress });
+                        const progress =
+                            students > 0
+                                ? Math.round((totalMarksCount / students) * 100)
+                                : 0;
+                        setStats({
+                            totalStudents: students,
+                            activeClasses: classesData.length,
+                            gradingProgress: progress,
+                        });
                     }
                 }
             } catch (e) {
                 console.error(e);
                 setTeacherName('Teacher');
+            } finally {
+                setLoading(false);
             }
         };
         init();
-    }, []);
-
-    const containerVariants = {
-        hidden: { opacity: 0 },
-        show: { opacity: 1, transition: { staggerChildren: 0.1 } }
-    };
-
-    const itemVariants: any = {
-        hidden: { opacity: 0, y: 15 },
-        show: { opacity: 1, y: 0, transition: { duration: 0.3 } }
-    };
+    }, [currentTerm]);
 
     return (
         <TutorialProvider role="TEACHER" screenId="dashboard">
-            <div className="max-w-5xl mx-auto space-y-6" id="nav-dashboard">
-                <motion.div
-                    initial={{ opacity: 0, y: -20 }}
+            <div className="mx-auto max-w-5xl space-y-6" id="nav-dashboard">
+                {/* ── Hero ──────────────────────────────────────────────────── */}
+                <motion.section
+                    initial={{ opacity: 0, y: -12 }}
                     animate={{ opacity: 1, y: 0 }}
-                    className="bg-sky-900 rounded-2xl p-8 text-white shadow-lg relative overflow-hidden"
+                    transition={{ duration: 0.3 }}
+                    className="relative isolate overflow-hidden rounded-card bg-gradient-to-br from-info to-brand-800 p-6 text-white shadow-card sm:p-8"
                 >
-                    <div className="absolute top-0 right-0 w-64 h-64 bg-sky-500 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 opacity-30 pointer-events-none"></div>
-
-                    <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
-                        <div>
-                            <h2 className="text-3xl font-bold tracking-tight mb-2">{t('greeting')} {teacherName}</h2>
-                            <p className="text-sky-200 max-w-lg mb-4">
-                                {t('dashboardSubtitle', { count: stats.activeClasses, term: t(`term${currentTerm}`) })}
-                            </p>
-                            <div className="flex gap-4">
-                                <Link href="/teacher/classes" id="nav-classes">
-                                    <button className="bg-white text-sky-800 px-5 py-2.5 rounded-lg font-semibold hover:bg-sky-50 transition-colors shadow-sm flex items-center gap-2">
-                                        <BookOpen className="w-4 h-4" />
-                                        {t('viewAssignedClasses')}
-                                    </button>
-                                </Link>
-                            </div>
-                        </div>
+                    <div
+                        aria-hidden
+                        className="pointer-events-none absolute -right-16 -top-24 size-64 rounded-full bg-white/10 blur-3xl"
+                    />
+                    <div className="relative">
+                        <h1 className="text-display-sm text-white">
+                            {t('greeting')} {teacherName}
+                        </h1>
+                        <p className="mt-2 max-w-lg text-sm leading-relaxed text-white/80">
+                            {t('dashboardSubtitle', {
+                                count: stats.activeClasses,
+                                term: t(`term${currentTerm}`),
+                            })}
+                        </p>
+                        <Link
+                            id="nav-classes"
+                            href="/teacher/classes"
+                            className="mt-6 inline-flex h-10 items-center gap-2 rounded-input bg-white px-4 text-sm font-semibold text-brand-700 shadow-sm transition-colors hover:bg-white/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+                        >
+                            <BookOpen className="size-4" />
+                            {t('viewAssignedClasses')}
+                        </Link>
                     </div>
-                </motion.div>
+                </motion.section>
 
+                {/* ── Stats ─────────────────────────────────────────────────── */}
                 <motion.div
                     variants={containerVariants}
                     initial="hidden"
                     animate="show"
-                    className="grid grid-cols-1 md:grid-cols-3 gap-4"
+                    className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3"
                 >
-                    <motion.div variants={itemVariants} className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 flex flex-col justify-between hover:shadow-md transition-shadow">
-                        <div className="w-10 h-10 bg-indigo-50 rounded-xl mb-4 flex items-center justify-center text-indigo-600">
-                            <Users className="w-5 h-5" />
-                        </div>
-                        <p className="text-slate-500 text-sm font-medium mb-1">{t('totalStudents')}</p>
-                        <h4 className="text-2xl font-bold text-slate-800">{stats.totalStudents}</h4>
+                    <motion.div variants={itemVariants}>
+                        <StatCard
+                            label={t('totalStudents')}
+                            value={stats.totalStudents}
+                            icon={<Users />}
+                            tone="primary"
+                            loading={loading}
+                        />
                     </motion.div>
-
-                    <motion.div variants={itemVariants} className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 flex flex-col justify-between hover:shadow-md transition-shadow">
-                        <div className="w-10 h-10 bg-emerald-50 rounded-xl mb-4 flex items-center justify-center text-emerald-600">
-                            <BookOpen className="w-5 h-5" />
-                        </div>
-                        <p className="text-slate-500 text-sm font-medium mb-1">{t('activeClasses')}</p>
-                        <h4 className="text-2xl font-bold text-slate-800">{stats.activeClasses}</h4>
+                    <motion.div variants={itemVariants}>
+                        <StatCard
+                            label={t('activeClasses')}
+                            value={stats.activeClasses}
+                            icon={<BookOpen />}
+                            tone="success"
+                            loading={loading}
+                        />
                     </motion.div>
-
-                    <motion.div variants={itemVariants} className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 flex flex-col justify-between hover:shadow-md transition-shadow">
-                        <div className="w-10 h-10 bg-rose-50 rounded-xl mb-4 flex items-center justify-center text-rose-600">
-                            <FileEdit className="w-5 h-5" />
-                        </div>
-                        <p className="text-slate-500 text-sm font-medium mb-1">{t('gradingProgress')}</p>
-                        <h4 className="text-2xl font-bold text-slate-800">{stats.gradingProgress}%</h4>
+                    <motion.div variants={itemVariants} className="sm:col-span-2 lg:col-span-1">
+                        <StatCard
+                            label={t('gradingProgress')}
+                            value={`${stats.gradingProgress}%`}
+                            hint={t(`term${currentTerm}`)}
+                            icon={<FileEdit />}
+                            tone="warning"
+                            loading={loading}
+                        />
                     </motion.div>
                 </motion.div>
 
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
-                    <motion.div
-                        initial={{ opacity: 0, x: 20 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ delay: 0.4 }}
-                        className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 lg:col-span-2"
-                    >
-                        <div className="flex items-center justify-between mb-6">
-                            <h3 className="font-bold text-lg text-slate-800 flex items-center gap-2">
-                                <LineChart className="w-5 h-5 text-emerald-500" />
+                {/* ── Quick actions ─────────────────────────────────────────── */}
+                <motion.div
+                    initial={{ opacity: 0, y: 12 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.3 }}
+                >
+                    <Card>
+                        <CardHeader>
+                            <CardTitle className="flex items-center gap-2">
+                                <Zap className="size-4 text-muted-foreground" />
                                 {t('quickActions')}
-                            </h3>
-                        </div>
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-5">
+                            <Progress
+                                value={stats.gradingProgress}
+                                label={t('gradingProgress')}
+                                valueLabel={`${stats.gradingProgress}%`}
+                                tone={
+                                    stats.gradingProgress >= 80
+                                        ? 'success'
+                                        : stats.gradingProgress >= 40
+                                            ? 'primary'
+                                            : 'warning'
+                                }
+                            />
 
-                        <div className="grid grid-cols-1 gap-4">
-                            <Link href="/teacher/classes" className="bg-slate-50 p-6 rounded-xl flex flex-col items-center text-center hover:bg-slate-100 transition-colors border border-slate-100 group">
-                                <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center text-indigo-600 mb-3 shadow-sm group-hover:scale-110 transition-transform">
-                                    <FileEdit className="w-6 h-6" />
-                                </div>
-                                <span className="font-semibold text-slate-700">{t('enterGrades')}</span>
+                            <Link
+                                href="/teacher/classes"
+                                className="group flex items-center gap-4 rounded-card border border-border bg-muted/50 px-5 py-4 transition-colors hover:border-primary/40 hover:bg-primary-subtle focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+                            >
+                                <span className="grid size-11 shrink-0 place-items-center rounded-full bg-card text-primary shadow-xs transition-transform group-hover:scale-105">
+                                    <FileEdit className="size-5" />
+                                </span>
+                                <span className="text-sm font-semibold text-foreground">
+                                    {t('enterGrades')}
+                                </span>
                             </Link>
-                        </div>
-                    </motion.div>
+                        </CardContent>
+                    </Card>
+                </motion.div>
 
-                    <motion.div
-                        initial={{ opacity: 0, x: -20 }}
-                        animate={{ opacity: 1, x: 0, transition: { delay: 0.5 } }}
-                        className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 lg:col-span-2"
-                    >
-                        <h3 className="text-lg font-bold text-slate-800 mb-6 font-sans">Institution Notices</h3>
-                        <div className="max-h-[400px] overflow-y-auto pr-2">
+                {/* ── Notices ───────────────────────────────────────────────── */}
+                <motion.div
+                    initial={{ opacity: 0, y: 12 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.4 }}
+                >
+                    <Card>
+                        <CardHeader>
+                            <CardTitle className="flex items-center gap-2">
+                                <Bell className="size-4 text-muted-foreground" />
+                                {tn('institutionNotices')}
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent className="max-h-[400px] overflow-y-auto">
                             <NoticeFeed />
-                        </div>
-                    </motion.div>
-                </div>
+                        </CardContent>
+                    </Card>
+                </motion.div>
+
                 <HelpButton />
             </div>
         </TutorialProvider>
