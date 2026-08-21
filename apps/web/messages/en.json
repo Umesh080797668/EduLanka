@@ -817,5 +817,17 @@
         "deactivateDesc": "Please confirm once more. They will no longer be able to sign in to the portal.",
         "deleteTitle": "Confirm deletion",
         "deleteDesc": "Please confirm once more. This cannot be undone."
+    },
+    "Forms": {
+        "profilePicture": "Profile picture",
+        "profilePictureHint": "Upload a square JPEG, PNG or WebP image. Optional — it can be added later.",
+        "updatePhoto": "Update",
+        "invalidImage": "Please choose a valid image file (JPEG, PNG or WebP).",
+        "uploadFailed": "Image upload failed. Please try again.",
+        "provisioningFailed": "Provisioning failed",
+        "phFullName": "e.g. Nimal Perera",
+        "phEmail": "name@school.edu.lk",
+        "phMobile": "+94 77 123 4567",
+        "phNic": "e.g. 198512345678"
     }
 }

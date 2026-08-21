@@ -1,9 +1,13 @@
 'use client';
-import { useState, useRef } from 'react';
-import { Camera, Loader2, Image as ImageIcon } from 'lucide-react';
+
+import { useRef, useState } from 'react';
 import Image from 'next/image';
-import { getUploadSignature, RequestOpts } from '@/lib/api/school';
+import { Camera, ImageIcon, Loader2 } from 'lucide-react';
+import { useTranslations } from 'next-intl';
+
+import { cn } from '@/lib/cn';
 import { authManager } from '@/lib/auth-store';
+import { getUploadSignature, RequestOpts } from '@/lib/api/school';
 
 interface ImageUploadProps {
     currentImageUrl?: string | null;
@@ -13,7 +17,14 @@ interface ImageUploadProps {
     className?: string;
 }
 
-export default function ImageUpload({ currentImageUrl, onUploadSuccess, onError, size = 120, className = '' }: ImageUploadProps) {
+export default function ImageUpload({
+    currentImageUrl,
+    onUploadSuccess,
+    onError,
+    size = 120,
+    className,
+}: ImageUploadProps) {
+    const t = useTranslations('Forms');
     const [uploading, setUploading] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -22,7 +33,7 @@ export default function ImageUpload({ currentImageUrl, onUploadSuccess, onError,
         if (!file) return;
 
         if (!file.type.startsWith('image/')) {
-            onError('Please upload a valid image file (jpeg, png, etc)');
+            onError(t('invalidImage'));
             return;
         }
 
@@ -30,11 +41,14 @@ export default function ImageUpload({ currentImageUrl, onUploadSuccess, onError,
 
         try {
             // Retrieve secure signature from backend
-            const opts: RequestOpts = { token: authManager.getToken() || '', tenantId: authManager.getTenantId() || '' };
+            const opts: RequestOpts = {
+                token: authManager.getToken() || '',
+                tenantId: authManager.getTenantId() || '',
+            };
             const sigRes = await getUploadSignature(opts);
             const { timestamp, signature, folder, apiKey } = sigRes;
 
-            // Form Cloudinary Payload
+            // Form Cloudinary payload
             const formData = new FormData();
             formData.append('file', file);
             formData.append('api_key', apiKey);
@@ -42,21 +56,22 @@ export default function ImageUpload({ currentImageUrl, onUploadSuccess, onError,
             formData.append('signature', signature);
             formData.append('folder', folder);
 
-            const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME || 'dx2c48mou'; // A fallback or requires actual env
+            const cloudName =
+                process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME || 'dx2c48mou';
 
-            const res = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, {
-                method: 'POST',
-                body: formData,
-            });
+            const res = await fetch(
+                `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`,
+                { method: 'POST', body: formData },
+            );
 
             if (!res.ok) {
                 const errorData = await res.json();
-                throw new Error(errorData.error?.message || 'Upload failed');
+                throw new Error(errorData.error?.message || t('uploadFailed'));
             }
             const data = await res.json();
             onUploadSuccess(data.secure_url);
         } catch (err: any) {
-            onError(err.message || 'Error uploading image');
+            onError(err.message || t('uploadFailed'));
         } finally {
             setUploading(false);
             if (fileInputRef.current) {
@@ -66,7 +81,10 @@ export default function ImageUpload({ currentImageUrl, onUploadSuccess, onError,
     };
 
     return (
-        <div className={`relative group inline-block ${className}`} style={{ width: size, height: size }}>
+        <div
+            className={cn('group relative inline-block', className)}
+            style={{ width: size, height: size }}
+        >
             <input
                 type="file"
                 ref={fileInputRef}
@@ -75,40 +93,34 @@ export default function ImageUpload({ currentImageUrl, onUploadSuccess, onError,
                 className="hidden"
             />
 
-            <div
-                className="w-full h-full rounded-2xl overflow-hidden bg-slate-100 flex items-center justify-center border-4 border-white shadow-md relative"
-            >
+            <div className="relative flex size-full items-center justify-center overflow-hidden rounded-card border border-border bg-muted shadow-xs">
                 {currentImageUrl ? (
                     <Image
                         src={currentImageUrl}
-                        alt="Profile avatar"
+                        alt=""
                         fill
                         sizes={`${size}px`}
                         className="object-cover"
                     />
                 ) : (
-                    <ImageIcon className="w-1/3 h-1/3 text-slate-300" />
+                    <ImageIcon className="size-1/3 text-muted-foreground/50" />
                 )}
 
-                {/* Hover overlay */}
+                {/* Hover overlay — type="button" so it never submits the parent form. */}
                 <button
+                    type="button"
                     onClick={() => fileInputRef.current?.click()}
                     disabled={uploading}
-                    className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center text-white cursor-pointer disabled:cursor-not-allowed"
+                    aria-label={t('updatePhoto')}
+                    className="absolute inset-0 flex cursor-pointer flex-col items-center justify-center bg-neutral-950/50 text-white opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:cursor-not-allowed"
                 >
-                    {uploading ? (
-                        <Loader2 className="w-6 h-6 animate-spin" />
-                    ) : (
-                        <>
-                            <Camera className="w-6 h-6 mb-1" />
-                            <span className="text-xs font-medium">Update</span>
-                        </>
-                    )}
+                    <Camera className="mb-1 size-6" />
+                    <span className="text-xs font-medium">{t('updatePhoto')}</span>
                 </button>
 
                 {uploading && (
-                    <div className="absolute inset-0 bg-white/70 flex items-center justify-center z-10 backdrop-blur-sm">
-                        <Loader2 className="w-6 h-6 animate-spin text-indigo-600" />
+                    <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/70 backdrop-blur-sm">
+                        <Loader2 className="size-6 animate-spin text-primary" />
                     </div>
                 )}
             </div>

@@ -29,6 +29,11 @@ export class CreateStudentDto {
     @IsOptional()
     phoneNumber?: string;
 
+    @ApiPropertyOptional({ description: 'Avatar image URL from the uploads bucket' })
+    @IsString()
+    @IsOptional()
+    avatarUrl?: string;
+
     @ApiPropertyOptional({ description: 'Admission number (auto-generated if omitted)', example: '2026/001' })
     @IsString()
     @IsOptional()

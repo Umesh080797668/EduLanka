@@ -30,6 +30,11 @@ export class CreateTeacherDto {
     @IsOptional()
     phoneNumber?: string;
 
+    @ApiPropertyOptional({ description: 'Avatar image URL from the uploads bucket' })
+    @IsString()
+    @IsOptional()
+    avatarUrl?: string;
+
     @ApiPropertyOptional({ description: 'Employee number (auto-generated if omitted)', example: 'EMP/2026/001' })
     @IsString()
     @IsOptional()

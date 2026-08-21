@@ -87,6 +87,7 @@ export class StudentsService {
                     full_name: dto.fullName,
                     role: UserRole.STUDENT, tenant_id: slug,
                     phone_number: dto.phoneNumber ?? null,
+                    avatar_url: dto.avatarUrl ?? null,
                 })
                 .select()
                 .single();
