@@ -1,133 +1,162 @@
 'use client';
 
-import { motion } from 'framer-motion';
-import { Users, GraduationCap, ChevronRight } from 'lucide-react';
-import { Link } from '@/i18n/routing';
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { TutorialProvider } from '@/components/TutorialProvider';
-import { HelpButton } from '@/components/HelpButton';
-import { apiClient } from '@/lib/api-client';
+import { motion } from 'framer-motion';
+import { Bell, ChevronRight, GraduationCap, Users } from 'lucide-react';
 import { useTranslations } from 'next-intl';
+
+import { Link } from '@/i18n/routing';
+import { apiClient } from '@/lib/api-client';
+import { HelpButton } from '@/components/HelpButton';
+import { TutorialProvider } from '@/components/TutorialProvider';
 import NoticeFeed from '@/components/notices/NoticeFeed';
+import { Avatar } from '@/components/ui/Avatar';
+import {
+    Card,
+    CardContent,
+    CardHeader,
+    CardTitle,
+} from '@/components/ui/Card';
+import { EmptyState, SectionHeading } from '@/components/ui/Layout';
 
 export default function ParentDashboard() {
     const t = useTranslations('ParentDashboard');
+    const tn = useTranslations('Notices');
     const searchParams = useSearchParams();
     const query = searchParams.get('query') || '';
-    const [parentName, setParentName] = useState('...');
-    const [childrenData, setChildrenData] = useState<any[]>([]);
 
-    // Mock data for UI presentation when API lacks children
-    const FALLBACK_CHILDREN = [
-        { id: 'STU-1001', name: 'Nisal Perera', grade: 'Grade 10-A', gpa: '3.8', attendance: '96%' },
-        { id: 'STU-2055', name: 'Kamal Perera', grade: 'Grade 7-C', gpa: '3.4', attendance: '92%' }
-    ];
+    const [parentName, setParentName] = useState('');
+    const [childrenData, setChildrenData] = useState<any[]>([]);
+    const [loaded, setLoaded] = useState(false);
 
     useEffect(() => {
         const init = async () => {
             try {
-                // Fetch /parents/me and their linked children
                 const data = await apiClient.get<any>('/parents/me');
-
-                setParentName(data?.users?.full_name || 'Parent');
-                if (data?.children && data.children.length > 0) {
-                    setChildrenData(data.children);
-                } else {
-                    setChildrenData(FALLBACK_CHILDREN);
-                }
+                setParentName(data?.users?.full_name || '');
+                setChildrenData(data?.children ?? []);
             } catch (e) {
                 console.error(e);
+            } finally {
+                setLoaded(true);
             }
         };
         init();
     }, []);
 
-    const filteredChildren = childrenData.filter((child) =>
-        child.name?.toLowerCase().includes(query.toLowerCase()) || false
+    const filteredChildren = childrenData.filter(
+        (child) => child.name?.toLowerCase().includes(query.toLowerCase()) ?? false,
     );
-
-    const containerVariants = {
-        hidden: { opacity: 0 },
-        show: { opacity: 1, transition: { staggerChildren: 0.1 } }
-    };
-
-    const itemVariants: any = {
-        hidden: { opacity: 0, y: 15 },
-        show: { opacity: 1, y: 0, transition: { ease: 'easeOut', duration: 0.3 } }
-    };
 
     return (
         <TutorialProvider role="PARENT" screenId="dashboard">
-            <div className="max-w-5xl mx-auto space-y-6" id="nav-dashboard">
-                <motion.div
-                    initial={{ opacity: 0, y: -20 }}
+            <div className="mx-auto max-w-5xl space-y-6" id="nav-dashboard">
+                {/* ── Hero ──────────────────────────────────────────────────── */}
+                <motion.section
+                    initial={{ opacity: 0, y: -12 }}
                     animate={{ opacity: 1, y: 0 }}
-                    className="bg-indigo-900 rounded-2xl p-8 text-white shadow-lg relative overflow-hidden"
+                    transition={{ duration: 0.3 }}
+                    className="relative isolate overflow-hidden rounded-card bg-gradient-to-br from-brand-700 to-brand-900 p-6 text-white shadow-card sm:p-8"
                 >
-                    <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500 rounded-full blur-3xl -translate-y-1/2 translate-x-1/3 opacity-30 pointer-events-none"></div>
-
-                    <div className="relative z-10 flex items-center justify-between">
-                        <div>
-                            <h1 className="text-3xl font-bold tracking-tight mb-2">{t('greeting')} {parentName}</h1>
-                            <p className="text-indigo-200 max-w-lg">
+                    <div
+                        aria-hidden
+                        className="pointer-events-none absolute -right-12 -top-24 size-64 rounded-full bg-white/10 blur-3xl"
+                    />
+                    <div className="relative flex items-center justify-between gap-6">
+                        <div className="min-w-0">
+                            <h1 className="text-display-sm text-white">
+                                {t('greeting')} {parentName || '…'}
+                            </h1>
+                            <p className="mt-2 max-w-lg text-sm leading-relaxed text-white/80">
                                 {t('dashboardSubtitle')}
                             </p>
                         </div>
-                        <div className="hidden md:flex w-16 h-16 bg-white/10 rounded-2xl items-center justify-center backdrop-blur-sm border border-white/20">
-                            <Users className="w-8 h-8 text-white" />
+                        <span className="hidden size-14 shrink-0 place-items-center rounded-card border border-white/20 bg-white/10 backdrop-blur-sm md:grid">
+                            <Users className="size-7" />
+                        </span>
+                    </div>
+                </motion.section>
+
+                {/* ── Children ──────────────────────────────────────────────── */}
+                <section>
+                    <SectionHeading title={t('linkedChildren')} />
+
+                    {filteredChildren.length === 0 ? (
+                        <Card>
+                            <EmptyState
+                                icon={<GraduationCap />}
+                                title={
+                                    !loaded
+                                        ? t('linkedChildren')
+                                        : childrenData.length === 0
+                                            ? t('noChildren')
+                                            : t('noMatches')
+                                }
+                                description={
+                                    loaded && childrenData.length === 0
+                                        ? t('noChildrenDesc')
+                                        : undefined
+                                }
+                            />
+                        </Card>
+                    ) : (
+                        <div className="grid gap-5 sm:grid-cols-2">
+                            {filteredChildren.map((child, idx) => (
+                                <motion.div
+                                    key={child.id ?? idx}
+                                    initial={{ opacity: 0, y: 12 }}
+                                    animate={{
+                                        opacity: 1,
+                                        y: 0,
+                                        transition: { delay: Math.min(idx * 0.08, 0.4) },
+                                    }}
+                                >
+                                    <Link
+                                        id={`nav-child-${idx}`}
+                                        href={`/parent/students/${child.id}/grades`}
+                                        className="block h-full rounded-card focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+                                    >
+                                        <Card interactive className="group h-full">
+                                            <CardContent className="flex h-full flex-col pt-5">
+                                                <div className="flex items-center gap-3.5">
+                                                    <Avatar name={child.name} size="lg" />
+                                                    <div className="min-w-0">
+                                                        <p className="truncate font-semibold tracking-tight text-foreground transition-colors group-hover:text-primary">
+                                                            {child.name}
+                                                        </p>
+                                                        <p className="mt-0.5 truncate text-sm text-muted-foreground">
+                                                            {child.grade ||
+                                                                t('gradeNotAssigned')}
+                                                        </p>
+                                                    </div>
+                                                </div>
+
+                                                <span className="mt-5 flex items-center justify-center gap-1.5 rounded-input border border-border bg-muted/50 py-2.5 text-[13px] font-semibold text-primary transition-colors group-hover:border-primary/40 group-hover:bg-primary-subtle">
+                                                    {t('viewAcademicReport')}
+                                                    <ChevronRight className="size-4" />
+                                                </span>
+                                            </CardContent>
+                                        </Card>
+                                    </Link>
+                                </motion.div>
+                            ))}
                         </div>
-                    </div>
-                </motion.div>
+                    )}
+                </section>
 
-                <h3 className="text-xl font-bold text-slate-800 pt-4 px-1">{t('linkedChildren')}</h3>
-
-                <motion.div
-                    variants={containerVariants}
-                    initial="hidden"
-                    animate="show"
-                    className="grid grid-cols-1 md:grid-cols-2 gap-6"
-                >
-                    {filteredChildren.map((child, idx) => (
-                        <motion.div
-                            key={idx}
-                            variants={itemVariants}
-                            className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 hover:shadow-md transition-all hover:border-indigo-100 group"
-                        >
-                            <div className="flex items-start justify-between mb-6">
-                                <div className="flex items-center gap-4">
-                                    <div className="w-14 h-14 bg-indigo-50 text-indigo-600 rounded-full flex items-center justify-center">
-                                        <GraduationCap className="w-7 h-7" />
-                                    </div>
-                                    <div>
-                                        <h4 className="text-lg font-bold text-slate-800 group-hover:text-indigo-600 transition-colors">{child.name}</h4>
-                                        <p className="text-sm font-medium text-slate-500">{child.grade || t('gradeNotAssigned')}</p>
-                                    </div>
-                                </div>
-                            </div>
-
-
-
-                            <Link id={`nav-child-${idx}`} href={`/parent/students/${child.id}/grades`}>
-                                <button className="w-full bg-slate-50 hover:bg-indigo-50 text-indigo-600 font-semibold py-3 rounded-xl flex items-center justify-center gap-2 transition-colors border border-slate-100 hover:border-indigo-100">
-                                    {t('viewAcademicReport')}
-                                    <ChevronRight className="w-4 h-4" />
-                                </button>
-                            </Link>
-                        </motion.div>
-                    ))}
-                </motion.div>
-
-                <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0, transition: { delay: 0.4 } }}
-                    className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 mt-6"
-                >
-                    <h3 className="text-lg font-bold text-slate-800 mb-6 font-sans">Latest Notices</h3>
-                    <div className="max-h-[400px] overflow-y-auto pr-2">
+                {/* ── Notices ───────────────────────────────────────────────── */}
+                <Card>
+                    <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                            <Bell className="size-4 text-muted-foreground" />
+                            {tn('latestNotices')}
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent className="max-h-[420px] overflow-y-auto">
                         <NoticeFeed />
-                    </div>
-                </motion.div>
+                    </CardContent>
+                </Card>
 
                 <HelpButton />
             </div>

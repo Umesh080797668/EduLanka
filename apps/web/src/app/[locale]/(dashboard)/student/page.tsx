@@ -1,27 +1,45 @@
 'use client';
 
-import { motion } from 'framer-motion';
-import { Calendar, FileText } from 'lucide-react';
-import { Link } from '@/i18n/routing';
 import { useEffect, useState } from 'react';
-import { TutorialProvider } from '@/components/TutorialProvider';
-import { HelpButton } from '@/components/HelpButton';
-import { apiClient } from '@/lib/api-client';
+import { motion } from 'framer-motion';
+import { Bell, Calendar, FileText } from 'lucide-react';
 import { useTranslations } from 'next-intl';
+
+import { Link } from '@/i18n/routing';
+import { apiClient } from '@/lib/api-client';
+import { HelpButton } from '@/components/HelpButton';
+import { TutorialProvider } from '@/components/TutorialProvider';
 import NoticeFeed from '@/components/notices/NoticeFeed';
+import { Badge } from '@/components/ui/Badge';
+import { buttonClass } from '@/components/ui/Button';
+import {
+    Card,
+    CardContent,
+    CardHeader,
+    CardTitle,
+} from '@/components/ui/Card';
+
+interface StudentInfo {
+    name: string;
+    className: string;
+    admission: string;
+}
 
 export default function StudentDashboard() {
     const t = useTranslations('StudentDashboard');
-    const [studentInfo, setStudentInfo] = useState<{ name: string, className: string, admission: string } | null>(null);
+    const tn = useTranslations('Notices');
+    const [studentInfo, setStudentInfo] = useState<StudentInfo | null>(null);
 
     useEffect(() => {
         const init = async () => {
             try {
                 const data = await apiClient.get<any>('/students/me');
                 setStudentInfo({
-                    name: data?.users?.full_name || 'Student',
-                    className: data?.classes ? `${data.classes.grade}-${data.classes.name}` : 'Unassigned',
-                    admission: data?.admission_no || ''
+                    name: data?.users?.full_name || '',
+                    className: data?.classes
+                        ? `${data.classes.grade}-${data.classes.name}`
+                        : '',
+                    admission: data?.admission_no || '',
                 });
             } catch (e) {
                 console.error(e);
@@ -33,69 +51,127 @@ export default function StudentDashboard() {
     return (
         <TutorialProvider role="STUDENT" screenId="dashboard">
             <div className="space-y-6" id="nav-dashboard">
-                <motion.div
-                    initial={{ opacity: 0, y: -20 }}
+                {/* ── Hero ──────────────────────────────────────────────────── */}
+                <motion.section
+                    initial={{ opacity: 0, y: -12 }}
                     animate={{ opacity: 1, y: 0 }}
-                    className="bg-gradient-to-r from-indigo-600 to-violet-600 rounded-2xl p-8 text-white shadow-xl shadow-indigo-600/20 relative overflow-hidden"
+                    transition={{ duration: 0.3 }}
+                    className="relative isolate overflow-hidden rounded-card bg-gradient-to-br from-brand-600 to-brand-800 p-6 text-white shadow-card sm:p-8"
                 >
-                    <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 pointer-events-none"></div>
+                    <div
+                        aria-hidden
+                        className="pointer-events-none absolute -right-16 -top-24 size-64 rounded-full bg-white/10 blur-3xl"
+                    />
 
-                    <div className="relative z-10">
-                        <h2 className="text-3xl font-bold tracking-tight mb-2">{t('welcomeBack')} {studentInfo?.name || '...'}{t('greetingEmoji')}</h2>
-                        <p className="text-indigo-100 max-w-lg mb-6">
-                            {studentInfo ? `Class: ${studentInfo.className} | Admission No: ${studentInfo.admission}` : t('dashboardSubtitle')}
-                        </p>
+                    <div className="relative">
+                        <h1 className="text-display-sm text-white">
+                            {t('welcomeBack')} {studentInfo?.name || '…'}
+                        </h1>
 
-                        <div className="flex flex-wrap gap-4">
-                            <Link href="/student/grades">
-                                <button className="bg-white text-indigo-600 px-5 py-2.5 rounded-lg font-semibold hover:bg-slate-50 transition-colors shadow-sm flex items-center gap-2">
-                                    <FileText className="w-4 h-4" />
-                                    {t('viewFullReport')}
-                                </button>
-                            </Link>
-                        </div>
-                    </div>
-                </motion.div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-8">
-                    <motion.div
-                        initial={{ opacity: 0, x: -20 }}
-                        animate={{ opacity: 1, x: 0, transition: { delay: 0.3 } }}
-                        className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 flex flex-col"
-                    >
-                        <div className="flex items-center justify-between mb-6">
-                            <h3 className="text-lg font-bold text-slate-800">{t('quickLinks')}</h3>
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-4 flex-1">
-                            <Link id="nav-grades" href="/student/grades" className="bg-slate-50 hover:bg-slate-100 rounded-xl p-5 border border-slate-100 transition-colors group flex flex-col items-center justify-center text-center">
-                                <div className="w-12 h-12 bg-white rounded-full shadow-sm flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
-                                    <FileText className="w-6 h-6 text-indigo-600" />
-                                </div>
-                                <span className="font-semibold text-slate-700 text-sm">{t('reportCards')}</span>
-                            </Link>
-
-                            <div className="bg-slate-50 opacity-70 cursor-not-allowed rounded-xl p-5 border border-slate-100 flex flex-col items-center justify-center text-center relative overflow-hidden">
-                                <div className="absolute top-2 right-2 bg-slate-200 text-slate-500 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase">{t('comingPhase6')}</div>
-                                <div className="w-12 h-12 bg-white rounded-full shadow-sm flex items-center justify-center mb-3 grayscale">
-                                    <Calendar className="w-6 h-6 text-slate-400" />
-                                </div>
-                                <span className="font-semibold text-slate-500 text-sm">{t('timetable')}</span>
+                        {studentInfo?.className || studentInfo?.admission ? (
+                            <div className="mt-3 flex flex-wrap items-center gap-2">
+                                {studentInfo.className && (
+                                    <Badge
+                                        variant="soft"
+                                        size="md"
+                                        className="bg-white/15 text-white"
+                                    >
+                                        {t('classLabel')}: {studentInfo.className}
+                                    </Badge>
+                                )}
+                                {studentInfo.admission && (
+                                    <Badge
+                                        variant="soft"
+                                        size="md"
+                                        className="bg-white/15 text-white"
+                                    >
+                                        {t('admissionLabel')}: {studentInfo.admission}
+                                    </Badge>
+                                )}
                             </div>
-                        </div>
+                        ) : (
+                            <p className="mt-2 max-w-lg text-sm leading-relaxed text-white/80">
+                                {t('dashboardSubtitle')}
+                            </p>
+                        )}
+
+                        <Link
+                            href="/student/grades"
+                            className={buttonClass({
+                                size: 'md',
+                                className:
+                                    'mt-6 bg-white text-brand-700 shadow-sm hover:bg-white/90',
+                            })}
+                        >
+                            <FileText className="size-4" />
+                            {t('viewFullReport')}
+                        </Link>
+                    </div>
+                </motion.section>
+
+                <div className="grid gap-6 lg:grid-cols-2">
+                    {/* ── Quick links ───────────────────────────────────────── */}
+                    <motion.div
+                        initial={{ opacity: 0, y: 12 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.3, delay: 0.1 }}
+                    >
+                        <Card className="h-full">
+                            <CardHeader>
+                                <CardTitle>{t('quickLinks')}</CardTitle>
+                            </CardHeader>
+                            <CardContent className="grid grid-cols-2 gap-3">
+                                <Link
+                                    id="nav-grades"
+                                    href="/student/grades"
+                                    className="group flex flex-col items-center justify-center gap-3 rounded-card border border-border bg-muted/50 px-4 py-6 text-center transition-colors hover:border-primary/40 hover:bg-primary-subtle focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+                                >
+                                    <span className="grid size-11 place-items-center rounded-full bg-card text-primary shadow-xs transition-transform group-hover:scale-105">
+                                        <FileText className="size-5" />
+                                    </span>
+                                    <span className="text-[13px] font-semibold text-foreground">
+                                        {t('reportCards')}
+                                    </span>
+                                </Link>
+
+                                <div
+                                    aria-disabled
+                                    className="relative flex cursor-not-allowed flex-col items-center justify-center gap-3 overflow-hidden rounded-card border border-border bg-muted/40 px-4 py-6 text-center opacity-75"
+                                >
+                                    <Badge className="absolute right-2 top-2">
+                                        {t('comingPhase6')}
+                                    </Badge>
+                                    <span className="grid size-11 place-items-center rounded-full bg-card text-muted-foreground shadow-xs">
+                                        <Calendar className="size-5" />
+                                    </span>
+                                    <span className="text-[13px] font-semibold text-muted-foreground">
+                                        {t('timetable')}
+                                    </span>
+                                </div>
+                            </CardContent>
+                        </Card>
                     </motion.div>
 
+                    {/* ── Notices ───────────────────────────────────────────── */}
                     <motion.div
-                        initial={{ opacity: 0, x: 20 }}
-                        animate={{ opacity: 1, x: 0, transition: { delay: 0.5 } }}
-                        className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 flex flex-col h-full"
+                        initial={{ opacity: 0, y: 12 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.3, delay: 0.18 }}
                     >
-                        <h3 className="text-lg font-bold text-slate-800 mb-6 font-sans">Official Notices</h3>
-                        <div className="flex-1 overflow-y-auto max-h-[400px] pr-2">
-                            <NoticeFeed />
-                        </div>
+                        <Card className="flex h-full flex-col">
+                            <CardHeader>
+                                <CardTitle className="flex items-center gap-2">
+                                    <Bell className="size-4 text-muted-foreground" />
+                                    {tn('officialNotices')}
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent className="max-h-[420px] flex-1 overflow-y-auto">
+                                <NoticeFeed />
+                            </CardContent>
+                        </Card>
                     </motion.div>
                 </div>
+
                 <HelpButton />
             </div>
         </TutorialProvider>

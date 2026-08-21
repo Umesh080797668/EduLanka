@@ -1,15 +1,41 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Download, FileText, AlertCircle, Loader2 } from 'lucide-react';
-import { TutorialProvider } from '@/components/TutorialProvider';
-import { HelpButton } from '@/components/HelpButton';
+import { useEffect, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
+import { AnimatePresence, motion } from 'framer-motion';
+import { Download, FileText, Inbox, ShieldAlert } from 'lucide-react';
+import { useTranslations } from 'next-intl';
+import { toast } from 'sonner';
+
 import { apiClient } from '@/lib/api-client';
 import { authManager } from '@/lib/auth-store';
-import { useTranslations } from 'next-intl';
+import { HelpButton } from '@/components/HelpButton';
+import { TutorialProvider } from '@/components/TutorialProvider';
+import { Badge, type BadgeTone } from '@/components/ui/Badge';
+import { Button } from '@/components/ui/Button';
+import { Card, CardContent } from '@/components/ui/Card';
+import { Field, Input, Select } from '@/components/ui/Form';
+import { EmptyState, PageHeader, SectionHeading } from '@/components/ui/Layout';
+import { Spinner } from '@/components/ui/Spinner';
+import {
+    Table,
+    TableWrap,
+    TBody,
+    TD,
+    TDEmpty,
+    TH,
+    THead,
+    TR,
+} from '@/components/ui/Table';
 
-import { useSearchParams } from 'next/navigation';
+/** Sri Lankan grading bands, best → worst. */
+function gradeFor(marks: number): { key: string; tone: BadgeTone } {
+    if (marks >= 75) return { key: 'gradeA', tone: 'success' };
+    if (marks >= 65) return { key: 'gradeB', tone: 'info' };
+    if (marks >= 50) return { key: 'gradeC', tone: 'primary' };
+    if (marks >= 35) return { key: 'gradeS', tone: 'warning' };
+    return { key: 'gradeW', tone: 'danger' };
+}
 
 export default function StudentGradesPage() {
     const t = useTranslations('StudentGrades');
@@ -24,7 +50,7 @@ export default function StudentGradesPage() {
     const [year, setYear] = useState(new Date().getFullYear());
     const [downloading, setDownloading] = useState(false);
 
-    // Fetch user's student profile to get the ID
+    // Resolve the signed-in user's student profile to get its ID.
     useEffect(() => {
         const init = async () => {
             try {
@@ -42,19 +68,26 @@ export default function StudentGradesPage() {
         init();
     }, [t]);
 
-    // Load marks when term/studentId change
+    // Reload marks when the term, student, or search query changes.
     useEffect(() => {
         const fetchMarks = async () => {
             if (!studentId) return;
             setFetchingMarks(true);
             try {
-                const marksData = await apiClient.get<any>(`/student-marks/student/${studentId}`);
+                const marksData = await apiClient.get<any>(
+                    `/student-marks/student/${studentId}`,
+                );
                 if (marksData) {
-                    setMarks(marksData.filter((m: any) => {
-                        const termMatch = String(m.term) === String(term);
-                        if (!query) return termMatch;
-                        return termMatch && (m.subject || '').toLowerCase().includes(query);
-                    }));
+                    setMarks(
+                        marksData.filter((m: any) => {
+                            const termMatch = String(m.term) === String(term);
+                            if (!query) return termMatch;
+                            return (
+                                termMatch &&
+                                (m.subject || '').toLowerCase().includes(query)
+                            );
+                        }),
+                    );
                 }
             } catch (e) {
                 console.error(t('failedToLoad'), e);
@@ -69,12 +102,13 @@ export default function StudentGradesPage() {
         if (!studentId) return;
         setDownloading(true);
         try {
-            const res = await fetch(`/api/v1/report-cards/student/${studentId}/term/${term}/year/${year}/download`, {
-                credentials: 'include',
-                headers: {
-                    'X-Tenant-Id': authManager.getTenantId() || ''
-                }
-            });
+            const res = await fetch(
+                `/api/v1/report-cards/student/${studentId}/term/${term}/year/${year}/download`,
+                {
+                    credentials: 'include',
+                    headers: { 'X-Tenant-Id': authManager.getTenantId() || '' },
+                },
+            );
 
             if (res.ok) {
                 const blob = await res.blob();
@@ -85,13 +119,14 @@ export default function StudentGradesPage() {
                 a.download = `report-card-term${term}-${year}.pdf`;
                 document.body.appendChild(a);
                 a.click();
+                a.remove();
                 window.URL.revokeObjectURL(url);
             } else {
-                alert(t('reportNotFound'));
+                toast.error(t('reportNotFound'));
             }
         } catch (e) {
             console.error(e);
-            alert(t('failedToDownload'));
+            toast.error(t('failedToDownload'));
         } finally {
             setDownloading(false);
         }
@@ -99,145 +134,153 @@ export default function StudentGradesPage() {
 
     if (loading) {
         return (
-            <div className="flex items-center justify-center h-[60vh] text-slate-500">
-                <Loader2 className="w-8 h-8 animate-spin text-indigo-500" />
+            <div className="grid min-h-[60vh] place-items-center">
+                <Spinner />
             </div>
         );
     }
 
     if (!studentId) {
         return (
-            <div className="bg-rose-50 border border-rose-200 rounded-xl p-6 flex flex-col items-center justify-center text-center max-w-md mx-auto mt-10">
-                <AlertCircle className="w-12 h-12 text-rose-500 mb-4" />
-                <h3 className="text-lg font-bold text-slate-800">{t('profileNotFound')}</h3>
-                <p className="text-slate-600 mt-2">{t('profileNotFoundMsg')}</p>
-            </div>
+            <Card className="mx-auto mt-8 max-w-md">
+                <EmptyState
+                    tone="danger"
+                    icon={<ShieldAlert />}
+                    title={t('profileNotFound')}
+                    description={t('profileNotFoundMsg')}
+                />
+            </Card>
         );
     }
 
     return (
         <TutorialProvider role="STUDENT" screenId="grades">
-            <div className="max-w-5xl mx-auto space-y-6">
-                <motion.div
-                    initial={{ opacity: 0, y: -20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="bg-white rounded-2xl p-6 md:p-8 shadow-sm border border-slate-200"
-                >
-                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8">
-                        <div>
-                            <h1 className="text-2xl font-bold tracking-tight text-slate-900 flex items-center gap-3">
-                                <FileText className="w-6 h-6 text-indigo-600" />
-                                {t('myReportCards')}
-                            </h1>
-                            <p className="text-slate-500 mt-1">{t('myReportCardsMsg')}</p>
-                        </div>
-                    </div>
+            <div className="mx-auto max-w-5xl">
+                <PageHeader
+                    icon={<FileText />}
+                    title={t('myReportCards')}
+                    description={t('myReportCardsMsg')}
+                    actions={
+                        <Button
+                            onClick={handleDownload}
+                            loading={downloading}
+                            disabled={marks.length === 0}
+                            leadingIcon={<Download />}
+                        >
+                            {downloading ? t('generatingPdf') : t('downloadOfficial')}
+                        </Button>
+                    }
+                />
 
-                    <div className="bg-slate-50 rounded-xl p-4 md:p-6 border border-slate-200 mb-8 flex flex-col sm:flex-row gap-6">
-                        <div className="flex-1">
-                            <label className="block text-sm font-semibold text-slate-700 mb-2">{t('academicTerm')}</label>
-                            <select
-                                value={term}
-                                onChange={e => setTerm(Number(e.target.value))}
-                                className="w-full bg-white border border-slate-300 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-shadow"
-                            >
-                                <option value={1}>{t('term1')}</option>
-                                <option value={2}>{t('term2')}</option>
-                                <option value={3}>{t('term3')}</option>
-                            </select>
-                        </div>
-                        <div className="flex-1">
-                            <label className="block text-sm font-semibold text-slate-700 mb-2">{t('academicYear')}</label>
-                            <input
-                                type="number"
-                                value={year}
-                                onChange={e => setYear(Number(e.target.value))}
-                                className="w-full bg-white border border-slate-300 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-shadow"
-                            />
-                        </div>
-                    </div>
+                <div className="space-y-6">
+                    {/* ── Filters ───────────────────────────────────────────── */}
+                    <Card>
+                        <CardContent className="grid gap-4 pt-5 sm:grid-cols-2">
+                            <Field label={t('academicTerm')} htmlFor="term">
+                                <Select
+                                    id="term"
+                                    value={term}
+                                    onChange={(e) => setTerm(Number(e.target.value))}
+                                >
+                                    <option value={1}>{t('term1')}</option>
+                                    <option value={2}>{t('term2')}</option>
+                                    <option value={3}>{t('term3')}</option>
+                                </Select>
+                            </Field>
 
-                    <div className="mb-6">
-                        <h3 className="text-lg font-bold text-slate-800 mb-4 px-1">{t('termResults')}</h3>
+                            <Field label={t('academicYear')} htmlFor="year">
+                                <Input
+                                    id="year"
+                                    type="number"
+                                    min={2000}
+                                    max={2100}
+                                    value={year}
+                                    onChange={(e) => setYear(Number(e.target.value))}
+                                />
+                            </Field>
+                        </CardContent>
+                    </Card>
 
-                        <div className="overflow-hidden border border-slate-200 rounded-t-xl rounded-b-lg">
-                            <table className="w-full text-left border-collapse">
-                                <thead>
-                                    <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 text-xs uppercase tracking-wider font-semibold">
-                                        <th className="px-6 py-4">{t('subject')}</th>
-                                        <th className="px-6 py-4">{t('score')}</th>
-                                        <th className="px-6 py-4">{t('grade')}</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="bg-white divide-y divide-slate-100">
-                                    <AnimatePresence mode="wait">
+                    {/* ── Results ───────────────────────────────────────────── */}
+                    <section>
+                        <SectionHeading
+                            title={t('termResults')}
+                            actions={
+                                marks.length > 0 ? (
+                                    <Badge tone="neutral">{marks.length}</Badge>
+                                ) : null
+                            }
+                        />
+
+                        <TableWrap>
+                            <Table>
+                                <THead>
+                                    <TR>
+                                        <TH>{t('subject')}</TH>
+                                        <TH align="right">{t('score')}</TH>
+                                        <TH align="right">{t('grade')}</TH>
+                                    </TR>
+                                </THead>
+                                <TBody>
+                                    <AnimatePresence mode="wait" initial={false}>
                                         {fetchingMarks ? (
-                                            <motion.tr key="loading" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-                                                <td colSpan={3} className="px-6 py-12 text-center text-slate-400">
-                                                    <Loader2 className="w-6 h-6 animate-spin mx-auto text-indigo-400" />
-                                                </td>
-                                            </motion.tr>
+                                            <TDEmpty colSpan={3}>
+                                                <div className="py-10">
+                                                    <Spinner size="sm" />
+                                                </div>
+                                            </TDEmpty>
                                         ) : marks.length === 0 ? (
-                                            <motion.tr key="empty" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-                                                <td colSpan={3} className="px-6 py-12 text-center text-slate-500">
-                                                    <div className="flex flex-col items-center">
-                                                        <AlertCircle className="w-8 h-8 text-slate-300 mb-3" />
-                                                        <p>{t('noMarksYet')}</p>
-                                                    </div>
-                                                </td>
-                                            </motion.tr>
+                                            <TDEmpty colSpan={3}>
+                                                <EmptyState
+                                                    size="sm"
+                                                    icon={<Inbox />}
+                                                    title={t('noMarksYet')}
+                                                />
+                                            </TDEmpty>
                                         ) : (
-                                            marks.map((m: any, idx) => (
-                                                <motion.tr
-                                                    key={m.id}
-                                                    initial={{ opacity: 0, y: 10 }}
-                                                    animate={{ opacity: 1, y: 0, transition: { delay: idx * 0.05 } }}
-                                                    className="hover:bg-slate-50 transition-colors group"
-                                                >
-                                                    <td className="px-6 py-4 font-medium text-slate-800">{m.subject}</td>
-                                                    <td className="px-6 py-4 text-slate-600 font-medium">{m.marks}</td>
-                                                    <td className="px-6 py-4">
-                                                        <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold
-                                                            ${m.marks >= 75 ? 'bg-emerald-100 text-emerald-700' :
-                                                                m.marks >= 65 ? 'bg-blue-100 text-blue-700' :
-                                                                    m.marks >= 50 ? 'bg-indigo-100 text-indigo-700' :
-                                                                        m.marks >= 35 ? 'bg-amber-100 text-amber-700' :
-                                                                            'bg-rose-100 text-rose-700'}`
-                                                        }>
-                                                            {m.marks >= 75 ? t('gradeA') :
-                                                                m.marks >= 65 ? t('gradeB') :
-                                                                    m.marks >= 50 ? t('gradeC') :
-                                                                        m.marks >= 35 ? t('gradeS') : t('gradeW')}
-                                                        </span>
-                                                    </td>
-                                                </motion.tr>
-                                            ))
+                                            marks.map((m: any, idx) => {
+                                                const grade = gradeFor(Number(m.marks));
+                                                return (
+                                                    <motion.tr
+                                                        key={m.id}
+                                                        initial={{ opacity: 0, y: 8 }}
+                                                        animate={{
+                                                            opacity: 1,
+                                                            y: 0,
+                                                            transition: {
+                                                                delay: Math.min(idx * 0.04, 0.4),
+                                                            },
+                                                        }}
+                                                        className="transition-colors hover:bg-accent/60"
+                                                    >
+                                                        <TD className="font-medium">
+                                                            {m.subject}
+                                                        </TD>
+                                                        <TD align="right" numeric>
+                                                            {m.marks}
+                                                        </TD>
+                                                        <TD align="right">
+                                                            <Badge tone={grade.tone}>
+                                                                {t(grade.key)}
+                                                            </Badge>
+                                                        </TD>
+                                                    </motion.tr>
+                                                );
+                                            })
                                         )}
                                     </AnimatePresence>
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
+                                </TBody>
+                            </Table>
+                        </TableWrap>
 
-                    <div className="pt-6 mt-6 border-t border-slate-100">
-                        <button
-                            onClick={handleDownload}
-                            disabled={downloading || marks.length === 0}
-                            className={`w-full md:w-auto px-8 py-3.5 rounded-xl font-semibold flex items-center justify-center gap-3 transition-all
-                                ${marks.length === 0
-                                    ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
-                                    : 'bg-indigo-600 text-white hover:bg-indigo-700 hover:shadow-lg hover:shadow-indigo-600/30'
-                                }
-                            `}
-                        >
-                            {downloading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Download className="w-5 h-5" />}
-                            {downloading ? t('generatingPdf') : t('downloadOfficial')}
-                        </button>
                         {marks.length === 0 && (
-                            <p className="text-xs text-center md:text-left text-slate-400 mt-3">{t('marksMustBeAvailable')}</p>
+                            <p className="mt-3 text-xs text-muted-foreground">
+                                {t('marksMustBeAvailable')}
+                            </p>
                         )}
-                    </div>
-                </motion.div>
+                    </section>
+                </div>
+
                 <HelpButton />
             </div>
         </TutorialProvider>
