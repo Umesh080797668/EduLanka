@@ -1,81 +1,161 @@
-"use client";
+'use client';
 
-import React, { useEffect, useState } from 'react';
+import * as React from 'react';
+import { BellOff, Check } from 'lucide-react';
+import { motion } from 'framer-motion';
+import { toast } from 'sonner';
 import { useTranslations } from 'next-intl';
-import { createSupabaseBrowserClient } from '@/lib/supabase/client';
+
+import { cn } from '@/lib/cn';
+import { apiClient } from '@/lib/api-client';
+import { Alert } from '@/components/ui/Alert';
+import { Badge, type BadgeTone } from '@/components/ui/Badge';
+import { Button } from '@/components/ui/Button';
+import { EmptyState } from '@/components/ui/Layout';
+import { Skeleton } from '@/components/ui/Skeleton';
+
+/** Priority drives both the badge tone and the card's accent border. */
+const PRIORITY: Record<string, { tone: BadgeTone; ring: string }> = {
+    URGENT: { tone: 'danger', ring: 'ring-2 ring-destructive/35' },
+    HIGH: { tone: 'warning', ring: 'ring-2 ring-warning/35' },
+    NORMAL: { tone: 'info', ring: '' },
+    LOW: { tone: 'neutral', ring: '' },
+};
 
 export default function NoticeFeed() {
-    const [notices, setNotices] = useState<any[]>([]);
     const t = useTranslations('Notices');
-    const supabase = createSupabaseBrowserClient();
+    const [notices, setNotices] = React.useState<any[]>([]);
+    const [loading, setLoading] = React.useState(true);
+    const [error, setError] = React.useState<string | null>(null);
+    const [acking, setAcking] = React.useState<string | null>(null);
 
-    useEffect(() => {
-        const fetchNotices = async () => {
-            const { data: { session } } = await supabase.auth.getSession();
-            if (session) {
-                const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/v1/notices`, {
-                    headers: { 'Authorization': `Bearer ${session.access_token}` }
-                });
-                if (res.ok) {
-                    const data = await res.json();
-                    setNotices(data);
-                }
-            }
+    React.useEffect(() => {
+        let isMounted = true;
+        apiClient
+            .get<any[]>('/notices', { skipGlobalToast: true })
+            .then((data) => {
+                if (isMounted) setNotices(Array.isArray(data) ? data : []);
+            })
+            .catch((err: any) => {
+                if (isMounted) setError(err.message || t('loadFailed'));
+            })
+            .finally(() => {
+                if (isMounted) setLoading(false);
+            });
+        return () => {
+            isMounted = false;
         };
-        fetchNotices();
-    }, [supabase]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     const markAsRead = async (id: string) => {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (session) {
-            await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/v1/notices/${id}/read`, {
-                method: 'POST',
-                headers: { 'Authorization': `Bearer ${session.access_token}` }
-            });
-            setNotices(notices.map(n => n.id === id ? { ...n, is_read: true } : n));
+        setAcking(id);
+        try {
+            await apiClient.post(`/notices/${id}/read`, {}, { skipGlobalToast: true });
+            setNotices((prev) =>
+                prev.map((n) => (n.id === id ? { ...n, is_read: true } : n)),
+            );
+        } catch (err: any) {
+            toast.error(t('ackFailed'), { description: err.message });
+        } finally {
+            setAcking(null);
         }
     };
 
+    if (loading) {
+        return (
+            <div className="space-y-4">
+                {Array.from({ length: 3 }).map((_, idx) => (
+                    <div
+                        key={idx}
+                        className="rounded-card border border-border bg-card p-5 shadow-card"
+                    >
+                        <div className="mb-4 flex items-start justify-between gap-3">
+                            <Skeleton className="h-4 w-2/5" />
+                            <Skeleton className="h-5 w-16 rounded-pill" />
+                        </div>
+                        <Skeleton className="mb-2 h-3 w-full" />
+                        <Skeleton className="h-3 w-4/5" />
+                    </div>
+                ))}
+            </div>
+        );
+    }
+
+    if (error) {
+        return (
+            <Alert tone="danger" title={t('loadFailed')}>
+                {error}
+            </Alert>
+        );
+    }
+
     if (notices.length === 0) {
-        return <div className="p-8 text-center text-muted-foreground">{t('noNotices')}</div>;
+        return <EmptyState icon={<BellOff />} title={t('noNotices')} />;
     }
 
     return (
         <div className="space-y-4">
-            {notices.map(notice => (
-                <div key={notice.id} className={`p-5 rounded-2xl border transition-all hover:shadow-md ${notice.priority === 'URGENT' ? 'border-red-500 bg-red-50/10' : notice.priority === 'HIGH' ? 'border-orange-500 bg-orange-50/10' : 'border-border bg-card'}`}>
-                    <div className="flex justify-between items-start mb-3">
-                        <h4 className="font-semibold text-lg tracking-tight">{notice.title}</h4>
-                        <span className={`text-[10px] uppercase font-bold tracking-wider px-2.5 py-1 rounded-full border ${notice.priority === 'URGENT' ? 'bg-red-500 text-white border-red-600' : notice.priority === 'HIGH' ? 'bg-orange-500 text-white border-orange-600' : 'bg-muted text-muted-foreground'}`}>
-                            {t(`priority_${notice.priority}`)}
-                        </span>
-                    </div>
-
-                    <div className="text-[15px] leading-relaxed text-muted-foreground mb-6" dangerouslySetInnerHTML={{ __html: notice.content_html }}></div>
-
-                    <div className="flex justify-between items-center pt-3 border-t border-border/50">
-                        <div className="flex flex-col">
-                            <span className="text-muted-foreground text-[11px] font-medium uppercase tracking-wider">
-                                {new Date(notice.created_at).toLocaleDateString()}
-                            </span>
-                            <span className="text-foreground text-xs font-semibold mt-1">
-                                {notice.author?.first_name} {notice.author?.last_name}
-                            </span>
-                        </div>
-
-                        {!notice.is_read ? (
-                            <button onClick={() => markAsRead(notice.id)} className="bg-primary text-primary-foreground px-4 py-2 rounded-lg text-sm font-semibold hover:bg-primary/90 transition-transform active:scale-95 shadow-sm">
-                                {t('acknowledge')}
-                            </button>
-                        ) : (
-                            <span className="text-green-500 font-bold bg-green-50/50 px-3 py-1.5 rounded-lg text-sm flex items-center gap-1.5 border border-green-200">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                                {t('acknowledged')}
-                            </span>
+            {notices.map((notice, idx) => {
+                const priority = PRIORITY[notice.priority] ?? PRIORITY['NORMAL']!;
+                return (
+                    <motion.article
+                        key={notice.id}
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: Math.min(idx * 0.05, 0.3) }}
+                        className={cn(
+                            'rounded-card border border-border bg-card p-5 shadow-card',
+                            'transition-[box-shadow] duration-200 hover:shadow-card-hover',
+                            priority.ring,
                         )}
-                    </div>
-                </div>
-            ))}
+                    >
+                        <header className="mb-3 flex items-start justify-between gap-3">
+                            <h3 className="text-base font-bold leading-snug tracking-tight text-foreground">
+                                {notice.title}
+                            </h3>
+                            <Badge tone={priority.tone} size="sm" className="shrink-0">
+                                {t(`priority_${notice.priority}`)}
+                            </Badge>
+                        </header>
+
+                        {/* Notice bodies are authored as HTML by school staff. */}
+                        <div
+                            className="text-[15px] leading-relaxed text-muted-foreground [&_a]:text-primary [&_a]:underline [&_li]:ml-4 [&_li]:list-disc [&_p]:mb-2"
+                            dangerouslySetInnerHTML={{ __html: notice.content_html }}
+                        />
+
+                        <footer className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-border pt-3.5">
+                            <div className="min-w-0">
+                                <p className="numeric text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                                    {new Date(notice.created_at).toLocaleDateString()}
+                                </p>
+                                {(notice.author?.first_name || notice.author?.last_name) && (
+                                    <p className="mt-0.5 truncate text-xs font-semibold text-foreground">
+                                        {t('postedBy')} {notice.author?.first_name}{' '}
+                                        {notice.author?.last_name}
+                                    </p>
+                                )}
+                            </div>
+
+                            {notice.is_read ? (
+                                <Badge tone="success" size="sm">
+                                    <Check className="size-3.5" />
+                                    {t('acknowledged')}
+                                </Badge>
+                            ) : (
+                                <Button
+                                    size="sm"
+                                    loading={acking === notice.id}
+                                    onClick={() => markAsRead(notice.id)}
+                                >
+                                    {t('acknowledge')}
+                                </Button>
+                            )}
+                        </footer>
+                    </motion.article>
+                );
+            })}
         </div>
     );
 }

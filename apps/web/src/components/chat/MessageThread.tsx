@@ -1,111 +1,231 @@
-"use client";
+'use client';
 
-import React, { useEffect, useState, useRef } from 'react';
-import { useRealtimeChat } from '@/hooks/useRealtimeChat';
+import * as React from 'react';
+import { Pin, Send } from 'lucide-react';
+import { toast } from 'sonner';
 import { useTranslations } from 'next-intl';
-import ModerationTools from './ModerationTools';
+
+import { cn } from '@/lib/cn';
+import { apiClient } from '@/lib/api-client';
+import { authManager } from '@/lib/auth-store';
 import { createSupabaseBrowserClient } from '@/lib/supabase/client';
+import { useRealtimeChat } from '@/hooks/useRealtimeChat';
+import { Badge } from '@/components/ui/Badge';
+import { Button } from '@/components/ui/Button';
+import { Input } from '@/components/ui/Form';
+import { EmptyState } from '@/components/ui/Layout';
+import { Spinner } from '@/components/ui/Spinner';
+import ModerationTools from './ModerationTools';
+
+/** Connection quality is surfaced as a dot + label rather than raw driver names. */
+const CONNECTION: Record<string, { tone: string; key: 'connSocket' | 'connFallback' | 'connConnecting' }> = {
+    socket: { tone: 'bg-success', key: 'connSocket' },
+    supabase: { tone: 'bg-warning', key: 'connFallback' },
+};
 
 export default function MessageThread({ conversationId }: { conversationId: string }) {
-    const [tenantId, setTenantId] = useState('');
-    const [userId, setUserId] = useState('');
+    const t = useTranslations('Chat');
     const supabase = createSupabaseBrowserClient();
+    // Fall back to the NestJS session so the thread still identifies "me"
+    // when the Supabase client has no session of its own.
+    const [tenantId, setTenantId] = React.useState(() => authManager.getTenantId() || '');
+    const [userId, setUserId] = React.useState(() => authManager.getUserId() || '');
+    const [inputText, setInputText] = React.useState('');
+    const [sending, setSending] = React.useState(false);
+    const scrollRef = React.useRef<HTMLDivElement>(null);
+    const readRef = React.useRef<Set<string>>(new Set());
 
-    useEffect(() => {
+    React.useEffect(() => {
         supabase.auth.getSession().then(({ data }) => {
-            if (data.session) {
-                const tId = (data.session.user as any).app_metadata?.tenantId || data.session.user.user_metadata?.tenantId;
-                setTenantId(tId || 'demo');
-                setUserId(data.session.user.id);
-            }
+            if (!data.session) return;
+            const user = data.session.user;
+            const tId =
+                (user as any).app_metadata?.tenantId || user.user_metadata?.tenantId;
+            if (tId) setTenantId(tId);
+            setUserId(user.id);
         });
     }, [supabase]);
 
-    const { messages, connectionStatus, sendMessage } = useRealtimeChat(tenantId, conversationId);
-    const [inputText, setInputText] = useState('');
-    const t = useTranslations('Chat');
-    const scrollRef = useRef<HTMLDivElement>(null);
+    const { messages, connectionStatus, sendMessage } = useRealtimeChat(
+        tenantId,
+        conversationId,
+    );
 
-    useEffect(() => {
+    React.useEffect(() => {
         if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
 
-        // Auto-mark as read
-        messages.forEach(async msg => {
-            if (msg.sender_id !== userId) {
-                const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-                const { data: { session } } = await supabase.auth.getSession();
-                if (session) {
-                    fetch(`${apiBaseUrl}/api/v1/chat/messages/${msg.id}/read`, {
-                        method: 'POST',
-                        headers: { 'Authorization': `Bearer ${session.access_token}` }
-                    }).catch(() => null);
-                }
-            }
+        // Acknowledge inbound messages once each — the receipt endpoint is
+        // cookie-authenticated like every other API call.
+        messages.forEach((msg) => {
+            if (msg.sender_id === userId || readRef.current.has(msg.id)) return;
+            readRef.current.add(msg.id);
+            apiClient
+                .post(`/chat/messages/${msg.id}/read`, {}, { skipGlobalToast: true })
+                .catch(() => readRef.current.delete(msg.id));
         });
-    }, [messages, supabase, userId]);
+    }, [messages, userId]);
 
     const handleSend = async () => {
-        if (!inputText.trim()) return;
-        await sendMessage(inputText);
-        setInputText('');
+        const text = inputText.trim();
+        if (!text || sending) return;
+        setSending(true);
+        try {
+            await sendMessage(text);
+            setInputText('');
+        } catch (err: any) {
+            toast.error(t('sendFailed'), { description: err?.message });
+        } finally {
+            setSending(false);
+        }
     };
 
-    if (!tenantId) return <div className="flex-1 flex justify-center items-center"><div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin"></div></div>;
+    if (!tenantId) {
+        return (
+            <div className="flex flex-1 items-center justify-center">
+                <Spinner text={t('loading')} />
+            </div>
+        );
+    }
+
+    const conn = CONNECTION[connectionStatus];
 
     return (
-        <div className="flex flex-col h-full bg-background relative">
-            <header className="p-4 border-b border-border bg-card/80 backdrop-blur-sm flex justify-between items-center shadow-sm z-10 sticky top-0">
-                <div>
-                    <h3 className="font-semibold text-lg text-foreground tracking-tight">{t('conversationThread')}</h3>
-                    <span className="text-xs text-muted-foreground flex items-center gap-1">
-                        <span className={`w-2 h-2 rounded-full ${connectionStatus === 'socket' ? 'bg-green-500' : connectionStatus === 'supabase' ? 'bg-yellow-500' : 'bg-red-500'}`}></span>
-                        {connectionStatus === 'socket' ? 'Lightning Mode (Socket.io)' : connectionStatus === 'supabase' ? 'Fallback DB Polling' : 'Connecting...'}
-                    </span>
+        <div className="flex h-full min-h-0 flex-col bg-background">
+            {/* ── Thread header ─────────────────────────────────────────────── */}
+            <header className="flex shrink-0 items-center justify-between gap-3 border-b border-border bg-card/90 px-4 py-3 backdrop-blur">
+                <div className="min-w-0">
+                    <h2 className="truncate text-base font-bold tracking-tight text-foreground">
+                        {t('conversationThread')}
+                    </h2>
+                    <p className="mt-0.5 flex items-center gap-1.5 text-xs text-muted-foreground">
+                        <span
+                            aria-hidden
+                            className={cn(
+                                'size-2 shrink-0 rounded-full',
+                                conn ? conn.tone : 'bg-muted-foreground',
+                                !conn && 'animate-pulse',
+                            )}
+                        />
+                        {t(conn?.key ?? 'connConnecting')}
+                    </p>
                 </div>
             </header>
 
-            <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-muted/20" ref={scrollRef}>
-                {messages.map(msg => {
-                    const isMe = msg.sender_id === userId;
-                    const isRead = msg.chat_read_receipts && msg.chat_read_receipts.length > 0;
-                    return (
-                        <div key={msg.id} className={`flex flex-col max-w-[75%] rounded-2xl p-4 shadow-sm border border-border/50 relative overflow-hidden group transition-all duration-300 transform translate-y-0 opacity-100 ${isMe ? 'bg-primary text-primary-foreground self-end rounded-tr-sm ml-auto' : 'bg-card text-card-foreground self-start rounded-tl-sm'}`}>
-                            {msg.is_pinned && (
-                                <div className="absolute top-0 left-0 w-full h-1">
-                                    <div className="h-full bg-yellow-400"></div>
-                                </div>
-                            )}
-                            <span className="text-[15px] font-medium leading-relaxed z-10 block pr-6 relative">{msg.content}</span>
-                            <span className={`text-[10px] self-end mt-2 z-10 font-bold flex items-center gap-1 ${isMe ? 'text-primary-foreground/70' : 'text-muted-foreground'}`}>
-                                {new Date(msg.created_at).toLocaleTimeString()}
-                                {isMe && (
-                                    <span className={isRead ? 'text-blue-300 tracking-tighter' : 'text-primary-foreground/40'}>
-                                        {isRead ? '✓✓' : '✓'}
-                                    </span>
+            {/* ── Messages ──────────────────────────────────────────────────── */}
+            <div
+                ref={scrollRef}
+                className="scrollbar-none flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto bg-muted/25 p-4"
+            >
+                {messages.length === 0 ? (
+                    <div className="flex flex-1 items-center justify-center">
+                        <EmptyState
+                            size="sm"
+                            icon={<Send />}
+                            title={t('noMessages')}
+                            description={t('noMessagesDesc')}
+                        />
+                    </div>
+                ) : (
+                    messages.map((msg) => {
+                        const isMe = msg.sender_id === userId;
+                        const isRead =
+                            !!msg.chat_read_receipts && msg.chat_read_receipts.length > 0;
+
+                        return (
+                            <div
+                                key={msg.id}
+                                className={cn(
+                                    'group relative max-w-[80%] rounded-card px-4 py-3 shadow-xs sm:max-w-[70%]',
+                                    isMe
+                                        ? 'ml-auto self-end rounded-br-sm bg-primary text-primary-foreground'
+                                        : 'self-start rounded-bl-sm border border-border bg-card text-card-foreground',
                                 )}
-                            </span>
-                            <ModerationTools messageId={msg.id} isPinned={msg.is_pinned} senderId={msg.sender_id} conversationId={conversationId} isMe={isMe} />
-                        </div>
-                    )
-                })}
+                            >
+                                {msg.is_pinned && (
+                                    <Badge
+                                        tone="warning"
+                                        size="sm"
+                                        variant="solid"
+                                        className="mb-2"
+                                    >
+                                        <Pin className="size-3" />
+                                        {t('pinnedMessage')}
+                                    </Badge>
+                                )}
+
+                                <p className="whitespace-pre-wrap break-words pr-7 text-[15px] leading-relaxed">
+                                    {msg.content}
+                                </p>
+
+                                <p
+                                    className={cn(
+                                        'mt-1.5 flex items-center justify-end gap-1 text-[10px] font-bold',
+                                        isMe
+                                            ? 'text-primary-foreground/70'
+                                            : 'text-muted-foreground',
+                                    )}
+                                >
+                                    <span className="numeric">
+                                        {new Date(msg.created_at).toLocaleTimeString([], {
+                                            hour: '2-digit',
+                                            minute: '2-digit',
+                                        })}
+                                    </span>
+                                    {isMe && (
+                                        <span
+                                            title={isRead ? t('read') : t('delivered')}
+                                            className={
+                                                isRead
+                                                    ? 'text-primary-foreground'
+                                                    : 'text-primary-foreground/45'
+                                            }
+                                        >
+                                            {isRead ? '✓✓' : '✓'}
+                                        </span>
+                                    )}
+                                </p>
+
+                                <ModerationTools
+                                    messageId={msg.id}
+                                    isPinned={msg.is_pinned}
+                                    senderId={msg.sender_id}
+                                    conversationId={conversationId}
+                                    isMe={isMe}
+                                />
+                            </div>
+                        );
+                    })
+                )}
             </div>
 
-            <footer className="p-4 border-t border-border bg-card shadow-[0_-4px_10px_rgba(0,0,0,0.02)]">
-                <div className="flex items-center space-x-3">
-                    <input
-                        className="flex h-12 w-full rounded-full border border-input/50 bg-background hover:bg-muted/30 transition-colors px-6 py-2 text-[15px] ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+            {/* ── Composer ──────────────────────────────────────────────────── */}
+            <footer className="shrink-0 border-t border-border bg-card p-3">
+                <form
+                    onSubmit={(e) => {
+                        e.preventDefault();
+                        handleSend();
+                    }}
+                    className="flex items-center gap-2"
+                >
+                    <Input
                         value={inputText}
                         onChange={(e) => setInputText(e.target.value)}
-                        onKeyDown={(e) => e.key === 'Enter' && handleSend()}
                         placeholder={t('typeAMessage')}
+                        aria-label={t('typeAMessage')}
+                        autoComplete="off"
+                        className="flex-1"
                     />
-                    <button
-                        onClick={handleSend}
-                        className="inline-flex items-center justify-center rounded-full text-sm font-semibold transition-transform active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary h-12 w-12 px-0 py-0 shadow-md"
+                    <Button
+                        type="submit"
+                        size="icon"
+                        aria-label={t('send')}
+                        title={t('send')}
+                        loading={sending}
+                        disabled={!inputText.trim()}
                     >
-                        &rarr;
-                    </button>
-                </div>
+                        <Send className="size-4" />
+                    </Button>
+                </form>
             </footer>
         </div>
     );

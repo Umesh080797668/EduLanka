@@ -764,12 +764,26 @@
         "loading": "Loading chat context...",
         "pinnedMessage": "Pinned",
         "typeAMessage": "Type a message...",
-        "send": "Send"
+        "send": "Send",
+        "backToList": "All conversations",
+        "connSocket": "Live",
+        "connFallback": "Fallback sync",
+        "connConnecting": "Connecting…",
+        "noMessages": "No messages yet",
+        "noMessagesDesc": "Send the first message to start this thread.",
+        "sendFailed": "Message could not be sent",
+        "delivered": "Delivered",
+        "read": "Read"
     },
     "Moderation": {
         "pin": "Pin Message",
         "unpin": "Unpin",
-        "muteUser": "Mute User"
+        "muteUser": "Mute User",
+        "pinned": "Message pinned",
+        "unpinned": "Message unpinned",
+        "muted": "Participant muted for 60 minutes",
+        "pinFailed": "Could not update the pin",
+        "muteFailed": "Could not mute the participant"
     },
     "Notices": {
         "noNotices": "No active notices found.",
@@ -799,7 +813,10 @@
         "noticeCreateFailed": "Failed to publish notice. Check permissions or targeting.",
         "officialNotices": "Official notices",
         "latestNotices": "Latest notices",
-        "institutionNotices": "Institution notices"
+        "institutionNotices": "Institution notices",
+        "loadFailed": "Could not load notices",
+        "ackFailed": "Could not acknowledge the notice",
+        "postedBy": "Posted by"
     },
     "Theme": {
         "toggle": "Appearance",
