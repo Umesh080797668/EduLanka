@@ -3,7 +3,8 @@ import { authManager } from '@/lib/auth-store';
 
 import { useEffect, useState } from 'react';
 import { useRouter, usePathname } from '@/i18n/routing';
-import { Loader2 } from 'lucide-react';
+
+import { FullPageSpinner } from '@/components/ui/Spinner';
 
 export default function RouteGuard({ children }: { children: React.ReactNode }) {
     const router = useRouter();
@@ -53,11 +54,7 @@ export default function RouteGuard({ children }: { children: React.ReactNode }) 
     }, [pathname, router]);
 
     if (!authorized) {
-        return (
-            <div className="flex h-screen w-full items-center justify-center bg-slate-50">
-                <Loader2 className="w-8 h-8 animate-spin text-indigo-500" />
-            </div>
-        );
+        return <FullPageSpinner />;
     }
 
     return <>{children}</>;

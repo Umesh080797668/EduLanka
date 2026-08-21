@@ -415,7 +415,7 @@ export default function Sidebar() {
                             exit={{ opacity: 0 }}
                             transition={{ duration: 0.16 }}
                             onClick={() => setIsOpen(false)}
-                            className="fixed inset-0 z-40 bg-neutral-950/50 backdrop-blur-sm md:hidden"
+                            className="fixed inset-0 z-40 bg-scrim/50 backdrop-blur-sm md:hidden"
                         />
                         <motion.aside
                             initial={{ x: '-100%' }}

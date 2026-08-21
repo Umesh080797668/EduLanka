@@ -112,7 +112,7 @@ export default function ImageUpload({
                     onClick={() => fileInputRef.current?.click()}
                     disabled={uploading}
                     aria-label={t('updatePhoto')}
-                    className="absolute inset-0 flex cursor-pointer flex-col items-center justify-center bg-neutral-950/50 text-white opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:cursor-not-allowed"
+                    className="absolute inset-0 flex cursor-pointer flex-col items-center justify-center bg-scrim/50 text-white opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:cursor-not-allowed"
                 >
                     <Camera className="mb-1 size-6" />
                     <span className="text-xs font-medium">{t('updatePhoto')}</span>

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { ShieldOff, ShieldCheck } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 
@@ -36,14 +36,17 @@ export function AccountStatusDialog({
     const tc = useTranslations('Common');
     const [step, setStep] = useState<1 | 2>(1);
     const [reason, setReason] = useState('');
+    const [wasOpen, setWasOpen] = useState(open);
 
-    // Reset whenever the dialog is (re)opened so a stale reason never leaks.
-    useEffect(() => {
+    // Reset during render rather than in an effect (React's documented pattern for
+    // adjusting state when a prop changes) so a stale reason never leaks through.
+    if (open !== wasOpen) {
+        setWasOpen(open);
         if (open) {
             setStep(1);
             setReason('');
         }
-    }, [open]);
+    }
 
     return (
         <Dialog

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { AlertTriangle, ChevronRight } from 'lucide-react';
 import { useTranslations } from 'next-intl';
@@ -38,15 +38,18 @@ export default function MultiStepModal({
     const [currentStep, setCurrentStep] = useState(0);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [wasOpen, setWasOpen] = useState(isOpen);
 
-    // Reset when reopened so a previous run's step/error doesn't leak through.
-    useEffect(() => {
+    // Reset during render rather than in an effect (React's documented pattern for
+    // adjusting state when a prop changes) so a previous run doesn't leak through.
+    if (isOpen !== wasOpen) {
+        setWasOpen(isOpen);
         if (isOpen) {
             setCurrentStep(0);
             setIsLoading(false);
             setError(null);
         }
-    }, [isOpen]);
+    }
 
     const step = steps[currentStep];
     const isLastStep = currentStep === steps.length - 1;

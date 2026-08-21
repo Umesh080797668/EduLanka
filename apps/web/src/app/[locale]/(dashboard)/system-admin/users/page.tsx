@@ -116,16 +116,26 @@ export default function SystemAdminUsersPage() {
     const t = useTranslations('InstitutionAdminUsers');
     const te = useTranslations('SystemAdminUsersExtras');
     const searchParams = useSearchParams();
+    const urlQuery = searchParams?.get('query') ?? '';
     const [users, setUsers] = useState<any[]>([]);
-    const [searchQuery, setSearchQuery] = useState(searchParams?.get('query') || '');
+    const [searchQuery, setSearchQuery] = useState(urlQuery);
+    const [lastUrlQuery, setLastUrlQuery] = useState(urlQuery);
     const [loading, setLoading] = useState(true);
     const [actionLoading, setActionLoading] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [userToConfirm, setUserToConfirm] = useState<any | null>(null);
     const [auditLogTarget, setAuditLogTarget] = useState<any | null>(null);
 
+    // The header search navigates here with ?query=…, which does not remount the
+    // page. Adopt it during render rather than syncing it in an effect.
+    if (urlQuery !== lastUrlQuery) {
+        setLastUrlQuery(urlQuery);
+        setSearchQuery(urlQuery);
+    }
+
+    // No `setLoading(true)` here: the first load starts in a loading state, and
+    // later refreshes update the table in place while a row spinner is showing.
     const refreshUsers = () => {
-        setLoading(true);
         const opts: RequestOpts = {
             token: authManager.getToken() || '',
             tenantId: authManager.getTenantId() || '',
@@ -140,12 +150,6 @@ export default function SystemAdminUsersPage() {
         refreshUsers();
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
-
-    // Sync external URI changes onto local state (the header search links here).
-    useEffect(() => {
-        const query = searchParams?.get('query');
-        if (query !== null && query !== undefined) setSearchQuery(query);
-    }, [searchParams]);
 
     const confirmToggleStatus = async (reason: string) => {
         if (!userToConfirm) return;

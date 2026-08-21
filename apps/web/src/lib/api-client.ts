@@ -47,7 +47,11 @@ async function apiFetch<T>(
     if (response.status === 401) {
         if (typeof window !== 'undefined') {
             authManager.clearAuth();
-            window.location.href = '/auth/login';
+            // `(auth)` is a route group, so the real path is /{locale}/login —
+            // '/auth/login' would 404. Keep whatever locale the user is on.
+            const segment = window.location.pathname.split('/')[1] ?? '';
+            const prefix = ['en', 'si', 'ta'].includes(segment) ? `/${segment}` : '';
+            window.location.href = `${prefix}/login`;
         }
         throw new Error('Session expired. Please sign in again.');
     }

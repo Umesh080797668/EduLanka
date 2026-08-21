@@ -38,6 +38,20 @@ const ICON_TONE: Record<NonNullable<DialogProps['tone']>, string> = {
     warning: 'bg-warning-subtle text-warning-subtle-foreground',
 };
 
+const noopSubscribe = () => () => {};
+
+/**
+ * False on the server and during hydration, true afterwards. `createPortal`
+ * needs a real `document`, and this reports it without a setState-in-effect.
+ */
+function useIsHydrated(): boolean {
+    return React.useSyncExternalStore(
+        noopSubscribe,
+        () => true,
+        () => false,
+    );
+}
+
 export function Dialog({
     open,
     onClose,
@@ -51,12 +65,10 @@ export function Dialog({
     children,
     className,
 }: DialogProps) {
-    const [mounted, setMounted] = React.useState(false);
+    const mounted = useIsHydrated();
     const panelRef = React.useRef<HTMLDivElement>(null);
     const titleId = React.useId();
     const descId = React.useId();
-
-    React.useEffect(() => setMounted(true), []);
 
     // Escape to close + scroll lock while open.
     React.useEffect(() => {
@@ -100,7 +112,7 @@ export function Dialog({
                         exit={{ opacity: 0 }}
                         transition={{ duration: 0.16 }}
                         onClick={dismissible ? onClose : undefined}
-                        className="absolute inset-0 bg-neutral-950/45 backdrop-blur-sm dark:bg-neutral-950/70"
+                        className="absolute inset-0 bg-scrim/45 backdrop-blur-sm dark:bg-scrim/70"
                     />
 
                     <motion.div

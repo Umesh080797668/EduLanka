@@ -27,36 +27,39 @@ const STATUS_TONE: Record<string, BadgeTone> = {
 export default function SystemAdminTenantsPage() {
     const t = useTranslations('SystemAdminTenants');
     const searchParams = useSearchParams();
+    const urlQuery = searchParams?.get('query') ?? '';
     const [tenants, setTenants] = useState<any[]>([]);
-    const [searchQuery, setSearchQuery] = useState(searchParams?.get('query') || '');
+    const [searchQuery, setSearchQuery] = useState(urlQuery);
+    const [lastUrlQuery, setLastUrlQuery] = useState(urlQuery);
     const [loading, setLoading] = useState(true);
     const [actionLoading, setActionLoading] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [tenantToConfirm, setTenantToConfirm] = useState<any | null>(null);
+
+    // The header search navigates here with ?query=…, which does not remount the
+    // page. Adopt it during render rather than syncing it in an effect.
+    if (urlQuery !== lastUrlQuery) {
+        setLastUrlQuery(urlQuery);
+        setSearchQuery(urlQuery);
+    }
 
     const opts = (): RequestOpts => ({
         token: authManager.getToken() || '',
         tenantId: authManager.getTenantId() || '',
     });
 
-    const refreshTenants = () => {
-        setLoading(true);
-        return fetchTenants(opts())
+    // No `setLoading(true)` here: the first load starts in a loading state, and
+    // later refreshes update the table in place while a row spinner is showing.
+    const refreshTenants = () =>
+        fetchTenants(opts())
             .then(setTenants)
             .catch((err) => setError(err.message))
             .finally(() => setLoading(false));
-    };
 
     useEffect(() => {
         refreshTenants();
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
-
-    // Sync external URI changes onto local state (the header search links here).
-    useEffect(() => {
-        const query = searchParams?.get('query');
-        if (query !== null && query !== undefined) setSearchQuery(query);
-    }, [searchParams]);
 
     const confirmToggleStatus = async (reason: string) => {
         if (!tenantToConfirm) return;

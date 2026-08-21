@@ -76,10 +76,13 @@ export const TutorialProvider: React.FC<TutorialProviderProps> = ({
                     prevBtnText: t('previous'),
                     doneBtnText: t('done'),
                     allowClose: true,
+                    // Opts the popover into the themed overrides in styles/tokens.css.
+                    popoverClass: 'edulanka-tour',
                     onPopoverRender: (popover) => {
                         const skipBtn = document.createElement("button");
+                        skipBtn.type = 'button';
                         skipBtn.innerText = t('skip');
-                        skipBtn.className = "driver-skip-btn !ml-2 text-sm text-gray-500 hover:text-gray-700";
+                        skipBtn.className = "driver-skip-btn";
                         skipBtn.onclick = () => {
                             isSkippedFlag.current = true;
                             if (tenantId) markCompleteOrSkip('SKIPPED', tutData.id, tenantId, token);

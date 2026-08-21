@@ -29,6 +29,10 @@ export function useTheme() {
     React.useEffect(() => {
         const stored = localStorage.getItem(THEME_STORAGE_KEY) as ThemePreference | null;
         if (stored === 'light' || stored === 'dark' || stored === 'system') {
+            // localStorage does not exist during SSR, so the stored preference can
+            // only be adopted after hydration — reading it during render would
+            // desync the server and client markup.
+            // eslint-disable-next-line react-hooks/set-state-in-effect
             setPreference(stored);
         }
     }, []);
