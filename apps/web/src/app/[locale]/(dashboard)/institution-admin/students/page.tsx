@@ -10,6 +10,8 @@ import { Link } from '@/i18n/routing';
 import { authManager } from '@/lib/auth-store';
 import { deactivateStudent, fetchStudents, RequestOpts } from '@/lib/api/school';
 import type { StudentProfile } from '@edu-lanka/shared-types';
+import { HelpButton } from '@/components/HelpButton';
+import { TutorialProvider } from '@/components/TutorialProvider';
 import { Alert } from '@/components/ui/Alert';
 import { Badge } from '@/components/ui/Badge';
 import { buttonClass, Button } from '@/components/ui/Button';
@@ -76,7 +78,8 @@ export default function StudentsPage() {
     );
 
     return (
-        <div className="mx-auto max-w-6xl">
+        <TutorialProvider role="SCHOOL_ADMIN" screenId="users">
+            <div className="mx-auto max-w-6xl">
             <PageHeader
                 icon={<GraduationCap />}
                 title={t('title')}
@@ -89,6 +92,7 @@ export default function StudentsPage() {
                 }
                 actions={
                     <Link
+                        id="add-user-btn"
                         href="/institution-admin/students/new"
                         className={buttonClass({ variant: 'primary' })}
                     >
@@ -122,7 +126,7 @@ export default function StudentsPage() {
                     }
                 />
             ) : (
-                <TableWrap>
+                <TableWrap id="user-directory-table">
                     <Table>
                         <THead>
                             <TR>
@@ -259,6 +263,9 @@ export default function StudentsPage() {
                 ]}
                 onComplete={handleDeleteConfirm}
             />
-        </div>
+
+                <HelpButton />
+            </div>
+        </TutorialProvider>
     );
 }

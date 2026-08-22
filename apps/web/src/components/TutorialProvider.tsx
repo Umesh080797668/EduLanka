@@ -69,6 +69,30 @@ export const TutorialProvider: React.FC<TutorialProviderProps> = ({
 
                 setSteps(formattedSteps);
 
+                // SUPER_ADMIN sessions carry no tenancy, so the API deliberately
+                // refuses to persist their tour state. Without a local fallback the
+                // tour would either never start (nothing to check against) or replay
+                // on every visit, so remember it in this browser instead.
+                const localKey = `edulanka:tour:${tutData.id}`;
+                const readLocal = () => {
+                    try {
+                        return window.localStorage.getItem(localKey);
+                    } catch {
+                        return null;
+                    }
+                };
+                const finish = (status: 'COMPLETED' | 'SKIPPED') => {
+                    if (tenantId) {
+                        markCompleteOrSkip(status, tutData.id, tenantId, token);
+                        return;
+                    }
+                    try {
+                        window.localStorage.setItem(localKey, status);
+                    } catch {
+                        // Private browsing — the tour simply shows again next time.
+                    }
+                };
+
                 driverObj.current = driver({
                     showProgress: true,
                     steps: formattedSteps,
@@ -85,7 +109,7 @@ export const TutorialProvider: React.FC<TutorialProviderProps> = ({
                         skipBtn.className = "driver-skip-btn";
                         skipBtn.onclick = () => {
                             isSkippedFlag.current = true;
-                            if (tenantId) markCompleteOrSkip('SKIPPED', tutData.id, tenantId, token);
+                            finish('SKIPPED');
                             driverObj.current?.destroy();
                         };
                         if (popover.footerButtons) {
@@ -95,28 +119,30 @@ export const TutorialProvider: React.FC<TutorialProviderProps> = ({
                     onDestroyStarted: () => {
                         const activeIndex = driverObj.current?.getActiveIndex() ?? 0;
                         if (!isSkippedFlag.current && activeIndex === formattedSteps.length - 1) {
-                            if (tenantId) markCompleteOrSkip('COMPLETED', tutData.id, tenantId, token);
+                            finish('COMPLETED');
                         }
-                        if (driverObj.current?.hasNextStep() || isSkippedFlag.current) {
-                            driverObj.current?.destroy();
-                        } else {
-                            driverObj.current?.destroy();
-                        }
+                        driverObj.current?.destroy();
                     }
                 });
 
-                // 2. Check if already completed
+                // 2. Suppress the tour for anyone who has already been through it.
+                // The local flag is the fallback; a tenanted session always defers
+                // to the server so progress follows the user across devices.
+                let alreadySeen = readLocal() !== null;
                 if (tenantId) {
                     const completions: any = await apiClient.get('/me/tutorials', { token, tenantId });
-                    const isCompleted = completions.some((c: any) => c.tutorial_id === tutData.id && c.status === 'COMPLETED');
-                    const isSkipped = completions.some((c: any) => c.tutorial_id === tutData.id && c.status === 'SKIPPED');
+                    alreadySeen = completions.some(
+                        (c: any) =>
+                            c.tutorial_id === tutData.id &&
+                            (c.status === 'COMPLETED' || c.status === 'SKIPPED'),
+                    );
+                }
 
-                    if (!isCompleted && !isSkipped) {
-                        // Add a small delay so Next.js hydration completes and elements are mounted
-                        setTimeout(() => {
-                            if (driverObj.current) driverObj.current.drive();
-                        }, 1000);
-                    }
+                if (!alreadySeen) {
+                    // Add a small delay so Next.js hydration completes and elements are mounted
+                    setTimeout(() => {
+                        if (driverObj.current) driverObj.current.drive();
+                    }, 1000);
                 }
             } catch (err: any) {
                 if (err?.message && (err.message.includes('No active tutorial found') || err.message.includes('Not Found'))) {

@@ -212,13 +212,19 @@ export class ChatService {
         }
 
         return conversations
-            .map((conversation) => ({
-                ...conversation,
-                name: conversation.name ?? counterpart.get(conversation.id) ?? null,
-                muted_until: mutedUntil.get(conversation.id) ?? null,
-                last_message: latest.get(conversation.id) ?? null,
-                unread_count: unread.get(conversation.id) ?? 0,
-            }))
+            .map((conversation) => {
+                const muted = mutedUntil.get(conversation.id) ?? null;
+                return {
+                    ...conversation,
+                    name: conversation.name ?? counterpart.get(conversation.id) ?? null,
+                    muted_until: muted,
+                    // Resolved here rather than in the browser: the client would
+                    // have to read the clock during render to work it out.
+                    is_muted: !!muted && new Date(muted).getTime() > Date.now(),
+                    last_message: latest.get(conversation.id) ?? null,
+                    unread_count: unread.get(conversation.id) ?? 0,
+                };
+            })
             .sort((a, b) => {
                 const left = a.last_message?.created_at ?? a.created_at ?? '';
                 const right = b.last_message?.created_at ?? b.created_at ?? '';
@@ -524,6 +530,7 @@ export class ChatService {
             ...conversation,
             name,
             muted_until: null,
+            is_muted: false,
             last_message: null,
             unread_count: 0,
         };

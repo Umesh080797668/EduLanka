@@ -117,8 +117,7 @@ export default function ConversationList({
                 const name = conv.name || t('untitled');
                 const active = selectedId === conv.id;
                 const unread = opened.includes(conv.id) ? 0 : conv.unread_count ?? 0;
-                const muted =
-                    !!conv.muted_until && new Date(conv.muted_until).getTime() > Date.now();
+                const muted = conv.is_muted;
                 const preview = conv.last_message
                     ? `${conv.last_message.sender_id === me ? `${t('you')}: ` : ''}${conv.last_message.content}`
                     : null;

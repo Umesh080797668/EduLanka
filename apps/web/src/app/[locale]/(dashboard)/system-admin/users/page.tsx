@@ -148,7 +148,7 @@ export default function SystemAdminUsersPage() {
 
     useEffect(() => {
         refreshUsers();
-        // eslint-disable-next-line react-hooks/exhaustive-deps
+         
     }, []);
 
     const confirmToggleStatus = async (reason: string) => {

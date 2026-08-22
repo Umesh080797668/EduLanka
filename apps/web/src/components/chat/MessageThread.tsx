@@ -301,7 +301,7 @@ export default function MessageThread({ conversation }: { conversation: Conversa
             </div>
 
             {/* ── Composer ──────────────────────────────────────────────────── */}
-            <footer className="shrink-0 border-t border-border bg-card p-3">
+            <footer id="chat-composer" className="shrink-0 border-t border-border bg-card p-3">
                 <form
                     onSubmit={(e) => {
                         e.preventDefault();

@@ -7,6 +7,8 @@ import { useTranslations } from 'next-intl';
 import { toast } from 'sonner';
 
 import { apiClient } from '@/lib/api-client';
+import { HelpButton } from '@/components/HelpButton';
+import { TutorialProvider } from '@/components/TutorialProvider';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent } from '@/components/ui/Card';
 import { Field, Input, Select, Switch, Textarea } from '@/components/ui/Form';
@@ -51,7 +53,8 @@ export default function AdminNoticesPage() {
     };
 
     return (
-        <div className="mx-auto max-w-3xl">
+        <TutorialProvider role="SCHOOL_ADMIN" screenId="notices">
+            <div className="mx-auto max-w-3xl">
             <PageHeader
                 icon={<Megaphone />}
                 title={t('createNotice')}
@@ -150,6 +153,7 @@ export default function AdminNoticesPage() {
                         </div>
 
                         <Switch
+                            id="notice-sms-toggle"
                             checked={sendSms}
                             onCheckedChange={setSendSms}
                             label={t('sendSmsPrompt')}
@@ -168,6 +172,9 @@ export default function AdminNoticesPage() {
                     </CardContent>
                 </Card>
             </motion.form>
-        </div>
+
+                <HelpButton />
+            </div>
+        </TutorialProvider>
     );
 }

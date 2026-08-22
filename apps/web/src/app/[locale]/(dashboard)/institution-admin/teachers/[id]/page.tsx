@@ -9,6 +9,7 @@ import {
     ChevronLeft,
     Edit2,
     GraduationCap,
+    ListChecks,
     Mail,
     Phone,
     Save,
@@ -21,7 +22,8 @@ import { toast } from 'sonner';
 import { Link } from '@/i18n/routing';
 import { authManager } from '@/lib/auth-store';
 import { fetchTeacher, RequestOpts, updateTeacher } from '@/lib/api/school';
-import type { TeacherProfile } from '@edu-lanka/shared-types';
+import { subjectLabel } from '@/lib/subject-areas';
+import type { SubjectArea, TeacherProfile } from '@edu-lanka/shared-types';
 import { AccountStatusDialog } from '@/components/ui/AccountStatusDialog';
 import { Alert } from '@/components/ui/Alert';
 import { Badge } from '@/components/ui/Badge';
@@ -31,14 +33,7 @@ import { Field, Input } from '@/components/ui/Form';
 import ImageUpload from '@/components/ui/ImageUpload';
 import { EmptyState } from '@/components/ui/Layout';
 import { PageSkeleton } from '@/components/ui/Skeleton';
-
-/** Enum members are SCREAMING_SNAKE; render them as readable title case. */
-function subjectLabel(value: string): string {
-    return value
-        .split('_')
-        .map((part) => part.charAt(0) + part.slice(1).toLowerCase())
-        .join(' ');
-}
+import { SubjectAreaDialog } from '@/components/teachers/SubjectAreaDialog';
 
 export default function TeacherDetailPage() {
     const t = useTranslations('InstitutionAdminTeachers');
@@ -59,6 +54,12 @@ export default function TeacherDetailPage() {
         phoneNumber: '',
         hireDate: '',
     });
+
+    // Subject Areas State — the draft is seeded from the profile when the picker
+    // opens, so cancelling leaves the saved list untouched.
+    const [subjectsOpen, setSubjectsOpen] = useState(false);
+    const [subjectDraft, setSubjectDraft] = useState<SubjectArea[]>([]);
+    const [savingSubjects, setSavingSubjects] = useState(false);
 
     // Status Modal State
     const [showStatusModal, setShowStatusModal] = useState(false);
@@ -125,6 +126,36 @@ export default function TeacherDetailPage() {
             toast.error(err.message || tc('somethingWentWrong'));
         } finally {
             setSavingProfile(false);
+        }
+    };
+
+    const openSubjects = () => {
+        setSubjectDraft(teacher?.subject_areas ?? []);
+        setSubjectsOpen(true);
+    };
+
+    const handleSaveSubjects = async () => {
+        setSavingSubjects(true);
+        const opts: RequestOpts = {
+            token: authManager.getToken() || '',
+            tenantId: authManager.getTenantId() || '',
+        };
+        try {
+            // The API only writes `subject_areas` when the key is truthy, so an
+            // empty array has to go out as `[]` — which it does, since a
+            // present-but-empty array is still truthy on the server side.
+            const updated = await updateTeacher(
+                id,
+                { subjectAreas: subjectDraft },
+                opts,
+            );
+            setTeacher(updated);
+            setSubjectsOpen(false);
+            toast.success(t('subjectsUpdated'));
+        } catch (err: any) {
+            toast.error(err.message || tc('somethingWentWrong'));
+        } finally {
+            setSavingSubjects(false);
         }
     };
 
@@ -366,12 +397,22 @@ export default function TeacherDetailPage() {
                 {/* ── Teaching load ─────────────────────────────────────────── */}
                 <Card>
                     <CardHeader className="flex-row items-center justify-between gap-3">
-                        <CardTitle as="h2">{t('subjectAreas')}</CardTitle>
-                        {subjects.length > 0 && (
-                            <Badge tone="neutral" variant="outline" size="sm">
-                                {t('subjectCount', { count: subjects.length })}
-                            </Badge>
-                        )}
+                        <div className="flex items-center gap-2.5">
+                            <CardTitle as="h2">{t('subjectAreas')}</CardTitle>
+                            {subjects.length > 0 && (
+                                <Badge tone="neutral" variant="outline" size="sm">
+                                    {t('subjectCount', { count: subjects.length })}
+                                </Badge>
+                            )}
+                        </div>
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={openSubjects}
+                            leadingIcon={<ListChecks />}
+                        >
+                            {t('editSubjects')}
+                        </Button>
                     </CardHeader>
                     <CardContent>
                         {subjects.length > 0 ? (
@@ -383,9 +424,19 @@ export default function TeacherDetailPage() {
                                 ))}
                             </div>
                         ) : (
-                            <p className="text-sm text-muted-foreground">
-                                {t('noSubjects')}
-                            </p>
+                            <div className="flex flex-wrap items-center gap-3">
+                                <p className="text-sm text-muted-foreground">
+                                    {t('noSubjects')}
+                                </p>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={openSubjects}
+                                    leadingIcon={<ListChecks />}
+                                >
+                                    {t('addSubjects')}
+                                </Button>
+                            </div>
                         )}
 
                         <hr className="my-6 border-border" />
@@ -408,6 +459,15 @@ export default function TeacherDetailPage() {
                 name={fullName}
                 loading={actionLoading}
                 onConfirm={confirmToggleStatus}
+            />
+
+            <SubjectAreaDialog
+                open={subjectsOpen}
+                onClose={() => setSubjectsOpen(false)}
+                value={subjectDraft}
+                onChange={setSubjectDraft}
+                onConfirm={handleSaveSubjects}
+                saving={savingSubjects}
             />
         </div>
     );

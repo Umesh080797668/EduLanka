@@ -146,7 +146,7 @@ export default function ParentDashboard() {
                 </section>
 
                 {/* ── Notices ───────────────────────────────────────────────── */}
-                <Card>
+                <Card id="nav-notices">
                     <CardHeader>
                         <CardTitle className="flex items-center gap-2">
                             <Bell className="size-4 text-muted-foreground" />

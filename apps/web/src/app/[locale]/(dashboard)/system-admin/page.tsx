@@ -19,6 +19,8 @@ import { useTranslations } from 'next-intl';
 import { Link } from '@/i18n/routing';
 import { apiClient } from '@/lib/api-client';
 import { useRealtimeTelemetry } from '@/hooks/useRealtimeTelemetry';
+import { HelpButton } from '@/components/HelpButton';
+import { TutorialProvider } from '@/components/TutorialProvider';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
@@ -27,11 +29,11 @@ import { EmptyState } from '@/components/ui/Layout';
 import { DashboardCardsSkeleton } from '@/components/ui/Skeleton';
 import { Progress, StatCard } from '@/components/ui/Stat';
 
-/** Console shortcuts rendered inside the hero. */
+/** Console shortcuts rendered inside the hero. `id` doubles as a tour anchor. */
 const QUICK_LINKS = [
-    { href: '/system-admin/tenants', icon: Building2, key: 'quickTenants' },
-    { href: '/system-admin/users', icon: Users, key: 'quickUsers' },
-    { href: '/system-admin/audit-logs', icon: Shield, key: 'quickAudit' },
+    { href: '/system-admin/tenants', icon: Building2, key: 'quickTenants', id: 'nav-tenants' },
+    { href: '/system-admin/users', icon: Users, key: 'quickUsers', id: 'nav-users' },
+    { href: '/system-admin/audit-logs', icon: Shield, key: 'quickAudit', id: 'nav-audit' },
 ] as const;
 
 interface TutorialStat {
@@ -115,7 +117,8 @@ export default function SystemAdminDashboard() {
     }
 
     return (
-        <div className="mx-auto max-w-6xl space-y-6">
+        <TutorialProvider role="SUPER_ADMIN" screenId="dashboard">
+            <div className="mx-auto max-w-6xl space-y-6">
             {/* ── Hero ──────────────────────────────────────────────────────── */}
             <motion.section
                 initial={{ opacity: 0, y: -12 }}
@@ -152,9 +155,10 @@ export default function SystemAdminDashboard() {
                     </div>
 
                     <nav className="flex flex-wrap gap-2">
-                        {QUICK_LINKS.map(({ href, icon: Icon, key }) => (
+                        {QUICK_LINKS.map(({ href, icon: Icon, key, id }) => (
                             <Link
                                 key={href}
+                                id={id}
                                 href={href}
                                 className="inline-flex items-center gap-2 rounded-pill bg-white/10 px-3.5 py-2 text-sm font-semibold text-white ring-1 ring-inset ring-white/20 transition-colors hover:bg-white/20 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
                             >
@@ -168,6 +172,7 @@ export default function SystemAdminDashboard() {
 
             {/* ── Telemetry ─────────────────────────────────────────────────── */}
             <motion.div
+                id="nav-infrastructure"
                 initial={{ opacity: 0, y: 12 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.3, delay: 0.05 }}
@@ -394,6 +399,9 @@ export default function SystemAdminDashboard() {
                     </CardContent>
                 </Card>
             </motion.div>
-        </div>
+
+                <HelpButton />
+            </div>
+        </TutorialProvider>
     );
 }

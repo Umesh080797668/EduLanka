@@ -2,19 +2,23 @@
 
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { ChevronLeft, Mail, Phone, Save, UserPlus } from 'lucide-react';
+import { ChevronLeft, ListChecks, Mail, Phone, Save, UserPlus } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { toast } from 'sonner';
 
 import { Link } from '@/i18n/routing';
 import { apiClient } from '@/lib/api-client';
+import { subjectLabel } from '@/lib/subject-areas';
+import type { SubjectArea } from '@edu-lanka/shared-types';
 import { Alert, Note } from '@/components/ui/Alert';
+import { Badge } from '@/components/ui/Badge';
 import { Button, buttonClass } from '@/components/ui/Button';
 import { Card, CardContent, CardFooter } from '@/components/ui/Card';
 import { CredentialHandoff } from '@/components/ui/CredentialHandoff';
 import { Field, Input } from '@/components/ui/Form';
 import ImageUpload from '@/components/ui/ImageUpload';
 import { PageHeader, SectionHeading } from '@/components/ui/Layout';
+import { SubjectAreaDialog } from '@/components/teachers/SubjectAreaDialog';
 
 export default function NewTeacherPage() {
     const t = useTranslations('InstitutionAdminTeachers');
@@ -24,6 +28,8 @@ export default function NewTeacherPage() {
     const [email, setEmail] = useState('');
     const [phoneNumber, setPhoneNumber] = useState('');
     const [avatarUrl, setAvatarUrl] = useState('');
+    const [subjectAreas, setSubjectAreas] = useState<SubjectArea[]>([]);
+    const [subjectsOpen, setSubjectsOpen] = useState(false);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [successData, setSuccessData] = useState<{
@@ -50,6 +56,7 @@ export default function NewTeacherPage() {
             };
             if (phoneNumber) payload['phoneNumber'] = phoneNumber;
             if (avatarUrl) payload['avatarUrl'] = avatarUrl;
+            if (subjectAreas.length > 0) payload['subjectAreas'] = subjectAreas;
 
             await apiClient.post<any>('/teachers', payload, {
                 skipGlobalToast: true,
@@ -88,6 +95,7 @@ export default function NewTeacherPage() {
                     setEmail('');
                     setPhoneNumber('');
                     setAvatarUrl('');
+                    setSubjectAreas([]);
                     setSuccessData(null);
                 }}
                 returnAction={
@@ -215,9 +223,39 @@ export default function NewTeacherPage() {
                                 </div>
                             </div>
 
+                            {/* ── Teaching load ─────────────────────────────── */}
+                            <div>
+                                <SectionHeading
+                                    title={t('subjectAreas')}
+                                    description={t('manageSubjectsDesc')}
+                                    className="mb-5"
+                                />
+
+                                {subjectAreas.length > 0 && (
+                                    <div className="mb-4 flex flex-wrap gap-2">
+                                        {subjectAreas.map((subject) => (
+                                            <Badge key={subject} tone="primary">
+                                                {subjectLabel(subject)}
+                                            </Badge>
+                                        ))}
+                                    </div>
+                                )}
+
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => setSubjectsOpen(true)}
+                                    leadingIcon={<ListChecks />}
+                                >
+                                    {subjectAreas.length > 0
+                                        ? t('editSubjects')
+                                        : t('addSubjects')}
+                                </Button>
+                            </div>
+
                             <Note>{t('securePasswordGen')}</Note>
                         </CardContent>
-
                         <CardFooter className="justify-end gap-3">
                             <Link
                                 href="/institution-admin/teachers"
@@ -238,6 +276,13 @@ export default function NewTeacherPage() {
                     </Card>
                 </form>
             </motion.div>
+
+            <SubjectAreaDialog
+                open={subjectsOpen}
+                onClose={() => setSubjectsOpen(false)}
+                value={subjectAreas}
+                onChange={setSubjectAreas}
+            />
         </div>
     );
 }

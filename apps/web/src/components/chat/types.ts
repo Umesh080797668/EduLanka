@@ -18,6 +18,8 @@ export interface Conversation {
     class_id: string | null;
     created_at: string;
     muted_until: string | null;
+    /** Resolved server-side — reading the clock during render is not allowed. */
+    is_muted: boolean;
     last_message: ConversationPreview | null;
     unread_count: number;
 }

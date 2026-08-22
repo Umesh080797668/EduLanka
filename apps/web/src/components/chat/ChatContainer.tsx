@@ -32,6 +32,7 @@ export default function ChatContainer() {
         <div className="flex h-full min-h-0 w-full overflow-hidden border-t border-border bg-background">
             {/* ── Conversations ─────────────────────────────────────────────── */}
             <aside
+                id="chat-conversation-list"
                 className={`${selected ? 'hidden' : 'flex'} w-full shrink-0 flex-col border-r border-border bg-card md:flex md:w-80`}
             >
                 <div className="flex shrink-0 items-center justify-between gap-2 border-b border-border px-4 py-3">
@@ -39,6 +40,7 @@ export default function ChatContainer() {
                         {t('conversations')}
                     </h1>
                     <Button
+                        id="chat-new-conversation"
                         variant="subtle"
                         size="icon-sm"
                         aria-label={t('newConversation')}

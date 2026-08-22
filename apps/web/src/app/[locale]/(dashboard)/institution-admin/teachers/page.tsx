@@ -8,6 +8,7 @@ import { useTranslations } from 'next-intl';
 import { Link } from '@/i18n/routing';
 import { authManager } from '@/lib/auth-store';
 import { deactivateTeacher, fetchTeachers, RequestOpts } from '@/lib/api/school';
+import { subjectLabel } from '@/lib/subject-areas';
 import type { TeacherProfile } from '@edu-lanka/shared-types';
 import { Alert } from '@/components/ui/Alert';
 import { Badge } from '@/components/ui/Badge';
@@ -147,13 +148,13 @@ export default function TeachersPage() {
                                         <div className="flex flex-wrap items-center gap-1">
                                             {teacher.subject_areas
                                                 .slice(0, 3)
-                                                .map((sub, i) => (
+                                                .map((sub) => (
                                                     <Badge
-                                                        key={i}
+                                                        key={sub}
                                                         tone="neutral"
                                                         variant="outline"
                                                     >
-                                                        {sub.replace('_', ' ')}
+                                                        {subjectLabel(sub)}
                                                     </Badge>
                                                 ))}
                                             {teacher.subject_areas.length > 3 && (
