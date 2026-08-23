@@ -12,6 +12,7 @@ import { Avatar } from '@/components/ui/Avatar';
 import { Badge } from '@/components/ui/Badge';
 import { EmptyState } from '@/components/ui/Layout';
 import { Skeleton } from '@/components/ui/Skeleton';
+import ConversationActionsMenu from './ConversationActionsMenu';
 import type { Conversation } from './types';
 
 /** Previews and unread counts go stale silently, so re-pull on a slow cadence. */
@@ -30,12 +31,18 @@ interface ConversationListProps {
     onSelect: (conversation: Conversation) => void;
     /** Change this to force an immediate re-pull (e.g. after creating a thread). */
     refreshToken?: number;
+    /** Called when the caller removes or leaves a conversation. */
+    onConversationRemoved?: (id: string) => void;
+    /** Called when the caller mutes a conversation. */
+    onConversationMuted?: (id: string) => void;
 }
 
 export default function ConversationList({
     selectedId,
     onSelect,
     refreshToken = 0,
+    onConversationRemoved,
+    onConversationMuted,
 }: ConversationListProps) {
     const t = useTranslations('Chat');
     const [conversations, setConversations] = React.useState<Conversation[]>([]);
@@ -74,6 +81,23 @@ export default function ConversationList({
     const handleSelect = (conversation: Conversation) => {
         setOpened((prev) => (prev.includes(conversation.id) ? prev : [...prev, conversation.id]));
         onSelect(conversation);
+    };
+
+    const handleRemoved = (id: string) => {
+        setConversations((prev) => prev.filter((c) => c.id !== id));
+        onConversationRemoved?.(id);
+    };
+
+    const handleMuted = (id: string) => {
+        // Mark the conversation as muted in local state immediately.
+        setConversations((prev) =>
+            prev.map((c) =>
+                c.id === id
+                    ? { ...c, is_muted: true, muted_until: new Date(Date.now() + 3_600_000).toISOString() }
+                    : c,
+            ),
+        );
+        onConversationMuted?.(id);
     };
 
     if (loading) {
@@ -125,11 +149,11 @@ export default function ConversationList({
                     conv.type === 'CLASS'
                         ? t('classGroup')
                         : conv.type === 'GROUP'
-                          ? t('groupChat')
-                          : t('directMessage');
+                            ? t('groupChat')
+                            : t('directMessage');
 
                 return (
-                    <li key={conv.id}>
+                    <li key={conv.id} className="group relative">
                         <button
                             type="button"
                             aria-current={active ? 'true' : undefined}
@@ -194,6 +218,16 @@ export default function ConversationList({
                                 </span>
                             </span>
                         </button>
+
+                        {/* Per-conversation actions menu — shown on hover */}
+                        <div className="absolute right-2.5 top-1/2 -translate-y-1/2">
+                            <ConversationActionsMenu
+                                conversationId={conv.id}
+                                conversationType={conv.type}
+                                onRemoved={handleRemoved}
+                                onMuted={handleMuted}
+                            />
+                        </div>
                     </li>
                 );
             })}

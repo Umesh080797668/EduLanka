@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Req, UseGuards, Param, Query } from '@nestjs/common';
+import { Controller, Get, Post, Delete, Body, Req, UseGuards, Param, Query, HttpCode, HttpStatus } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ChatService } from './chat.service';
 import { ChatGateway } from './chat.gateway';
@@ -168,4 +168,56 @@ export class ChatController {
         const tenantId = req.user.tenantId;
         return this.chatService.markAsRead(tenantId, messageId, this.callerId(req));
     }
+
+    // =========================================================================
+    // Conversation-level actions
+    // =========================================================================
+
+    /**
+     * DELETE /chat/conversations/:id?scope=me  — removes only the caller's membership.
+     * DELETE /chat/conversations/:id?scope=everyone — hard-deletes the entire thread
+     *   (DIRECT: either party; GROUP: creator only).
+     */
+    @Delete('conversations/:id')
+    @HttpCode(HttpStatus.OK)
+    async deleteConversation(
+        @Req() req: any,
+        @Param('id') conversationId: string,
+        @Query('scope') scope: 'me' | 'everyone' = 'me',
+    ) {
+        return this.chatService.deleteConversation(
+            req.user.tenantId,
+            conversationId,
+            this.callerId(req),
+            scope,
+        );
+    }
+
+    /** Leave a GROUP conversation (not allowed on DIRECT threads). */
+    @Post('conversations/:id/leave')
+    @HttpCode(HttpStatus.OK)
+    async leaveConversation(@Req() req: any, @Param('id') conversationId: string) {
+        return this.chatService.leaveConversation(
+            req.user.tenantId,
+            conversationId,
+            this.callerId(req),
+        );
+    }
+
+    /** Mute a conversation for the calling user only. */
+    @Post('conversations/:id/mute')
+    @HttpCode(HttpStatus.OK)
+    async muteConversation(
+        @Req() req: any,
+        @Param('id') conversationId: string,
+        @Body() body: { durationMinutes?: number },
+    ) {
+        return this.chatService.muteConversationForUser(
+            req.user.tenantId,
+            conversationId,
+            this.callerId(req),
+            body.durationMinutes ?? 60,
+        );
+    }
 }
+

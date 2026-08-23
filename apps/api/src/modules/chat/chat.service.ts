@@ -772,4 +772,123 @@ export class ChatService {
         if (error && error.code !== '23505') throw error; // Ignore duplicates
         return data;
     }
+
+    // =========================================================================
+    // Conversation management (delete / leave / mute-self)
+    // =========================================================================
+
+    /**
+     * Delete for Me  — removes the caller's participant row. The thread stays
+     *                  alive for every other participant.
+     * Delete for Everyone — hard-deletes the conversation row (cascades to
+     *                  messages). DIRECT: either party; GROUP: creator only.
+     */
+    async deleteConversation(
+        tenantId: string,
+        conversationId: string,
+        callerId: string,
+        scope: 'me' | 'everyone',
+    ) {
+        const client = this.supabaseService.getTenantClient(tenantId);
+
+        // Caller must be a participant (or a moderator who bypasses the gate).
+        await this.assertParticipant(client, conversationId, callerId);
+
+        if (scope === 'me') {
+            const { error } = await client
+                .from('chat_participants')
+                .delete()
+                .eq('conversation_id', conversationId)
+                .eq('user_id', callerId);
+
+            if (error) throw error;
+            return { deleted: 'me' };
+        }
+
+        // scope === 'everyone' — verify the caller is allowed to nuke the thread.
+        const { data: conversation } = await client
+            .from('chat_conversations')
+            .select('id, type, created_by')
+            .eq('id', conversationId)
+            .maybeSingle();
+
+        if (!conversation) {
+            throw new ForbiddenException('Conversation not found.');
+        }
+
+        const isGroup = conversation.type === 'GROUP' || conversation.type === 'CLASS';
+        if (isGroup && conversation.created_by && conversation.created_by !== callerId) {
+            // For group chats, only the creator may delete for everyone.
+            throw new ForbiddenException('Only the conversation creator can delete for everyone.');
+        }
+
+        const { error } = await client
+            .from('chat_conversations')
+            .delete()
+            .eq('id', conversationId);
+
+        if (error) throw error;
+        return { deleted: 'everyone' };
+    }
+
+    /**
+     * Leave a GROUP conversation (not allowed on DIRECT or CLASS threads).
+     * Removes the caller's participant row.
+     */
+    async leaveConversation(tenantId: string, conversationId: string, callerId: string) {
+        const client = this.supabaseService.getTenantClient(tenantId);
+
+        const { data: conversation } = await client
+            .from('chat_conversations')
+            .select('id, type')
+            .eq('id', conversationId)
+            .maybeSingle();
+
+        if (!conversation) {
+            throw new ForbiddenException('Conversation not found.');
+        }
+
+        if (conversation.type !== 'GROUP') {
+            throw new ForbiddenException('You can only leave group conversations. Use "Delete for Me" to remove a direct message thread.');
+        }
+
+        await this.assertParticipant(client, conversationId, callerId);
+
+        const { error } = await client
+            .from('chat_participants')
+            .delete()
+            .eq('conversation_id', conversationId)
+            .eq('user_id', callerId);
+
+        if (error) throw error;
+        return { left: conversationId };
+    }
+
+    /**
+     * Mute a conversation for the calling user only. Updates their own
+     * participant row; does not affect anyone else.
+     */
+    async muteConversationForUser(
+        tenantId: string,
+        conversationId: string,
+        callerId: string,
+        durationMinutes: number,
+    ) {
+        const client = this.supabaseService.getTenantClient(tenantId);
+        await this.assertParticipant(client, conversationId, callerId);
+
+        const mutedUntil = new Date(Date.now() + durationMinutes * 60_000).toISOString();
+
+        const { data, error } = await client
+            .from('chat_participants')
+            .update({ muted_until: mutedUntil })
+            .eq('conversation_id', conversationId)
+            .eq('user_id', callerId)
+            .select()
+            .single();
+
+        if (error) throw error;
+        return data;
+    }
 }
+

@@ -19,12 +19,16 @@ export default function ChatContainer() {
     const t = useTranslations('Chat');
     const [selected, setSelected] = React.useState<Conversation | null>(null);
     const [composing, setComposing] = React.useState(false);
-    // Bumped after a new thread is created so the inbox re-pulls immediately
-    // instead of waiting out its refresh interval.
     const [refreshToken, setRefreshToken] = React.useState(0);
 
     const handleCreated = (conversation: Conversation) => {
         setSelected(conversation);
+        setRefreshToken((token) => token + 1);
+    };
+
+    const handleConversationRemoved = (id: string) => {
+        // If the user removed/left the currently open thread, close it.
+        if (selected?.id === id) setSelected(null);
         setRefreshToken((token) => token + 1);
     };
 
@@ -54,6 +58,7 @@ export default function ChatContainer() {
                     selectedId={selected?.id ?? null}
                     onSelect={setSelected}
                     refreshToken={refreshToken}
+                    onConversationRemoved={handleConversationRemoved}
                 />
             </aside>
 
@@ -75,7 +80,11 @@ export default function ChatContainer() {
                         </div>
                         <div className="min-h-0 flex-1">
                             {/* Keyed so switching threads starts the hook clean. */}
-                            <MessageThread key={selected.id} conversation={selected} />
+                            <MessageThread
+                                key={selected.id}
+                                conversation={selected}
+                                onRemoved={handleConversationRemoved}
+                            />
                         </div>
                     </>
                 ) : (

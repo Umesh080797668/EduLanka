@@ -102,6 +102,9 @@ export const createTeacher = (data: any, opts: RequestOpts) =>
 export const updateTeacher = (id: string, data: any, opts: RequestOpts) =>
     apiClient.patch<TeacherProfile>(`/teachers/${id}`, data, opts);
 
+export const fetchTeacherClasses = (id: string, opts: RequestOpts) =>
+    apiClient.get<any[]>(`/teachers/${id}/classes`, opts);
+
 export const deactivateTeacher = (id: string, opts: RequestOpts) =>
     apiClient.delete(`/teachers/${id}`, opts);
 

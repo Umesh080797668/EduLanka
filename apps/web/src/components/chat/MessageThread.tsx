@@ -19,6 +19,7 @@ import { EmptyState } from '@/components/ui/Layout';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { Spinner } from '@/components/ui/Spinner';
 import ModerationTools from './ModerationTools';
+import ConversationActionsMenu from './ConversationActionsMenu';
 import type { Conversation, Participant } from './types';
 
 /** Connection quality is surfaced as a dot + label rather than raw driver names. */
@@ -31,7 +32,14 @@ const CONNECTION: Record<
     disconnected: { tone: 'bg-destructive', key: 'connDisconnected' },
 };
 
-export default function MessageThread({ conversation }: { conversation: Conversation }) {
+export default function MessageThread({
+    conversation,
+    onRemoved,
+}: {
+    conversation: Conversation;
+    /** Called when the caller removes or leaves this conversation. */
+    onRemoved?: (id: string) => void;
+}) {
     const t = useTranslations('Chat');
     const conversationId = conversation.id;
 
@@ -150,6 +158,11 @@ export default function MessageThread({ conversation }: { conversation: Conversa
                 >
                     <Users className="size-4" />
                 </Button>
+                <ConversationActionsMenu
+                    conversationId={conversationId}
+                    conversationType={conversation.type}
+                    onRemoved={(id) => { onRemoved?.(id); }}
+                />
             </header>
 
             {/* ── Messages ──────────────────────────────────────────────────── */}

@@ -5,9 +5,11 @@ import { useParams } from 'next/navigation';
 import {
     BadgeCheck,
     BookMarked,
+    BookOpen,
     CalendarDays,
     ChevronLeft,
     Edit2,
+    ExternalLink,
     GraduationCap,
     ListChecks,
     Mail,
@@ -21,7 +23,7 @@ import { toast } from 'sonner';
 
 import { Link } from '@/i18n/routing';
 import { authManager } from '@/lib/auth-store';
-import { fetchTeacher, RequestOpts, updateTeacher } from '@/lib/api/school';
+import { fetchTeacher, fetchTeacherClasses, RequestOpts, updateTeacher } from '@/lib/api/school';
 import { subjectLabel } from '@/lib/subject-areas';
 import type { SubjectArea, TeacherProfile } from '@edu-lanka/shared-types';
 import { AccountStatusDialog } from '@/components/ui/AccountStatusDialog';
@@ -32,7 +34,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Field, Input } from '@/components/ui/Form';
 import ImageUpload from '@/components/ui/ImageUpload';
 import { EmptyState } from '@/components/ui/Layout';
-import { PageSkeleton } from '@/components/ui/Skeleton';
+import { PageSkeleton, Skeleton } from '@/components/ui/Skeleton';
 import { SubjectAreaDialog } from '@/components/teachers/SubjectAreaDialog';
 
 export default function TeacherDetailPage() {
@@ -46,6 +48,11 @@ export default function TeacherDetailPage() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
+    // Assigned classes
+    const [classes, setClasses] = useState<any[] | null>(null);
+    const [classesLoading, setClassesLoading] = useState(true);
+    const [classesError, setClassesError] = useState<string | null>(null);
+
     // Edit Profile State
     const [isEditing, setIsEditing] = useState(false);
     const [savingProfile, setSavingProfile] = useState(false);
@@ -55,8 +62,7 @@ export default function TeacherDetailPage() {
         hireDate: '',
     });
 
-    // Subject Areas State — the draft is seeded from the profile when the picker
-    // opens, so cancelling leaves the saved list untouched.
+    // Subject Areas State
     const [subjectsOpen, setSubjectsOpen] = useState(false);
     const [subjectDraft, setSubjectDraft] = useState<SubjectArea[]>([]);
     const [savingSubjects, setSavingSubjects] = useState(false);
@@ -76,6 +82,11 @@ export default function TeacherDetailPage() {
             .then(setTeacher)
             .catch((err) => setError(err.message))
             .finally(() => setLoading(false));
+
+        fetchTeacherClasses(id, opts)
+            .then(setClasses)
+            .catch((err) => setClassesError(err.message))
+            .finally(() => setClassesLoading(false));
     }, [id]);
 
     const handleAvatarUpload = async (url: string) => {
@@ -110,14 +121,11 @@ export default function TeacherDetailPage() {
             tenantId: authManager.getTenantId() || '',
         };
         try {
-            // hireDate is @IsDateString on the API — omit it rather than
-            // sending an empty string, which would fail validation.
             const payload: Record<string, unknown> = {
                 fullName: editForm.fullName,
                 phoneNumber: editForm.phoneNumber,
             };
             if (editForm.hireDate) payload['hireDate'] = editForm.hireDate;
-
             const updated = await updateTeacher(id, payload, opts);
             setTeacher(updated);
             setIsEditing(false);
@@ -141,14 +149,7 @@ export default function TeacherDetailPage() {
             tenantId: authManager.getTenantId() || '',
         };
         try {
-            // The API only writes `subject_areas` when the key is truthy, so an
-            // empty array has to go out as `[]` — which it does, since a
-            // present-but-empty array is still truthy on the server side.
-            const updated = await updateTeacher(
-                id,
-                { subjectAreas: subjectDraft },
-                opts,
-            );
+            const updated = await updateTeacher(id, { subjectAreas: subjectDraft }, opts);
             setTeacher(updated);
             setSubjectsOpen(false);
             toast.success(t('subjectsUpdated'));
@@ -161,7 +162,6 @@ export default function TeacherDetailPage() {
 
     const confirmToggleStatus = async (reason: string) => {
         if (!teacher || !teacher.users) return;
-
         setActionLoading(true);
         const opts: RequestOpts = {
             token: authManager.getToken() || '',
@@ -169,14 +169,7 @@ export default function TeacherDetailPage() {
         };
         try {
             const { setUserActive } = await import('@/lib/api/school');
-            await setUserActive(
-                teacher.user_id,
-                !teacher.users.is_active,
-                opts,
-                reason,
-            );
-
-            // Re-fetch to reflect
+            await setUserActive(teacher.user_id, !teacher.users.is_active, opts, reason);
             const updated = await fetchTeacher(id, opts);
             setTeacher(updated);
             toast.success(ts('statusUpdated'));
@@ -251,14 +244,11 @@ export default function TeacherDetailPage() {
                             </Badge>
                         </div>
                         <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted-foreground">
-                            <span className="truncate">
-                                {teacher.users?.email || t('none')}
-                            </span>
+                            <span className="truncate">{teacher.users?.email || t('none')}</span>
                             <span aria-hidden>&middot;</span>
                             <span className="numeric">{teacher.employee_no}</span>
                         </p>
                     </div>
-
                     <Button
                         variant="outline"
                         onClick={() => setShowStatusModal(true)}
@@ -276,72 +266,32 @@ export default function TeacherDetailPage() {
                     <CardHeader className="flex-row items-center justify-between gap-3">
                         <CardTitle as="h2">{t('profileInfo')}</CardTitle>
                         {!isEditing ? (
-                            <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={toggleEdit}
-                                leadingIcon={<Edit2 />}
-                            >
+                            <Button variant="ghost" size="sm" onClick={toggleEdit} leadingIcon={<Edit2 />}>
                                 {t('editProfile')}
                             </Button>
                         ) : (
                             <div className="flex gap-2">
-                                <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={toggleEdit}
-                                    disabled={savingProfile}
-                                >
+                                <Button variant="ghost" size="sm" onClick={toggleEdit} disabled={savingProfile}>
                                     {tc('cancel')}
                                 </Button>
-                                <Button
-                                    size="sm"
-                                    onClick={handleSaveProfile}
-                                    loading={savingProfile}
-                                    leadingIcon={<Save />}
-                                >
+                                <Button size="sm" onClick={handleSaveProfile} loading={savingProfile} leadingIcon={<Save />}>
                                     {tc('save')}
                                 </Button>
                             </div>
                         )}
                     </CardHeader>
-
                     <CardContent>
                         {!isEditing ? (
                             <dl className="divide-y divide-border text-sm">
                                 {[
-                                    {
-                                        icon: <BadgeCheck className="size-3.5" />,
-                                        label: t('employeeNumber'),
-                                        value: teacher.employee_no,
-                                    },
-                                    {
-                                        icon: <Mail className="size-3.5" />,
-                                        label: t('email'),
-                                        value: teacher.users?.email || t('none'),
-                                    },
-                                    {
-                                        icon: <Phone className="size-3.5" />,
-                                        label: t('phone'),
-                                        value: teacher.users?.phone_number || t('none'),
-                                    },
-                                    {
-                                        icon: <CalendarDays className="size-3.5" />,
-                                        label: t('hireDate'),
-                                        value: teacher.hire_date || t('notSpecified'),
-                                    },
+                                    { icon: <BadgeCheck className="size-3.5" />, label: t('employeeNumber'), value: teacher.employee_no },
+                                    { icon: <Mail className="size-3.5" />, label: t('email'), value: teacher.users?.email || t('none') },
+                                    { icon: <Phone className="size-3.5" />, label: t('phone'), value: teacher.users?.phone_number || t('none') },
+                                    { icon: <CalendarDays className="size-3.5" />, label: t('hireDate'), value: teacher.hire_date || t('notSpecified') },
                                 ].map(({ icon, label, value }) => (
-                                    <div
-                                        key={label}
-                                        className="flex items-center justify-between gap-4 py-2.5"
-                                    >
-                                        <dt className="flex items-center gap-2 text-muted-foreground">
-                                            {icon}
-                                            {label}
-                                        </dt>
-                                        <dd className="truncate font-medium text-foreground">
-                                            {value}
-                                        </dd>
+                                    <div key={label} className="flex items-center justify-between gap-4 py-2.5">
+                                        <dt className="flex items-center gap-2 text-muted-foreground">{icon}{label}</dt>
+                                        <dd className="truncate font-medium text-foreground">{value}</dd>
                                     </div>
                                 ))}
                             </dl>
@@ -352,12 +302,7 @@ export default function TeacherDetailPage() {
                                         id="edit-full-name"
                                         inputSize="sm"
                                         value={editForm.fullName}
-                                        onChange={(e) =>
-                                            setEditForm({
-                                                ...editForm,
-                                                fullName: e.target.value,
-                                            })
-                                        }
+                                        onChange={(e) => setEditForm({ ...editForm, fullName: e.target.value })}
                                     />
                                 </Field>
                                 <Field label={t('mobileNumber')} htmlFor="edit-phone">
@@ -367,12 +312,7 @@ export default function TeacherDetailPage() {
                                         inputSize="sm"
                                         leadingIcon={<Phone />}
                                         value={editForm.phoneNumber}
-                                        onChange={(e) =>
-                                            setEditForm({
-                                                ...editForm,
-                                                phoneNumber: e.target.value,
-                                            })
-                                        }
+                                        onChange={(e) => setEditForm({ ...editForm, phoneNumber: e.target.value })}
                                     />
                                 </Field>
                                 <Field label={t('hireDate')} htmlFor="edit-hire-date">
@@ -381,12 +321,7 @@ export default function TeacherDetailPage() {
                                         type="date"
                                         inputSize="sm"
                                         value={editForm.hireDate}
-                                        onChange={(e) =>
-                                            setEditForm({
-                                                ...editForm,
-                                                hireDate: e.target.value,
-                                            })
-                                        }
+                                        onChange={(e) => setEditForm({ ...editForm, hireDate: e.target.value })}
                                     />
                                 </Field>
                             </div>
@@ -394,7 +329,7 @@ export default function TeacherDetailPage() {
                     </CardContent>
                 </Card>
 
-                {/* ── Teaching load ─────────────────────────────────────────── */}
+                {/* ── Teaching load + Assigned Classes ────────────────────── */}
                 <Card>
                     <CardHeader className="flex-row items-center justify-between gap-3">
                         <div className="flex items-center gap-2.5">
@@ -405,12 +340,7 @@ export default function TeacherDetailPage() {
                                 </Badge>
                             )}
                         </div>
-                        <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={openSubjects}
-                            leadingIcon={<ListChecks />}
-                        >
+                        <Button variant="ghost" size="sm" onClick={openSubjects} leadingIcon={<ListChecks />}>
                             {t('editSubjects')}
                         </Button>
                     </CardHeader>
@@ -418,22 +348,13 @@ export default function TeacherDetailPage() {
                         {subjects.length > 0 ? (
                             <div className="flex flex-wrap gap-2">
                                 {subjects.map((subject) => (
-                                    <Badge key={subject} tone="primary">
-                                        {subjectLabel(subject)}
-                                    </Badge>
+                                    <Badge key={subject} tone="primary">{subjectLabel(subject)}</Badge>
                                 ))}
                             </div>
                         ) : (
                             <div className="flex flex-wrap items-center gap-3">
-                                <p className="text-sm text-muted-foreground">
-                                    {t('noSubjects')}
-                                </p>
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={openSubjects}
-                                    leadingIcon={<ListChecks />}
-                                >
+                                <p className="text-sm text-muted-foreground">{t('noSubjects')}</p>
+                                <Button variant="outline" size="sm" onClick={openSubjects} leadingIcon={<ListChecks />}>
                                     {t('addSubjects')}
                                 </Button>
                             </div>
@@ -441,13 +362,64 @@ export default function TeacherDetailPage() {
 
                         <hr className="my-6 border-border" />
 
-                        <h3 className="mb-2 flex items-center gap-2 text-sm font-semibold text-foreground">
-                            <BookMarked className="size-4 text-muted-foreground" />
-                            {t('assignedClasses')}
-                        </h3>
-                        <p className="text-sm text-muted-foreground">
-                            {t('phase2Manage')}
-                        </p>
+                        {/* ── Assigned Classes ──────────────────────────────── */}
+                        <div className="mb-3 flex items-center justify-between gap-2">
+                            <h3 className="flex items-center gap-2 text-sm font-semibold text-foreground">
+                                <BookMarked className="size-4 text-muted-foreground" />
+                                {t('assignedClasses')}
+                                {classes && classes.length > 0 && (
+                                    <Badge tone="neutral" variant="outline" size="sm">{classes.length}</Badge>
+                                )}
+                            </h3>
+                            <Link
+                                href="/institution-admin/classes"
+                                className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
+                            >
+                                {t('goToClasses')}
+                                <ExternalLink className="size-3" />
+                            </Link>
+                        </div>
+
+                        {classesLoading ? (
+                            <div className="space-y-2">
+                                <Skeleton className="h-10 w-full rounded-input" />
+                                <Skeleton className="h-10 w-3/4 rounded-input" />
+                            </div>
+                        ) : classesError ? (
+                            <p className="text-sm text-destructive">{t('classesLoadFailed')}</p>
+                        ) : classes && classes.length > 0 ? (
+                            <ul className="divide-y divide-border">
+                                {classes.map((ct: any) => {
+                                    const cls = ct.classes ?? ct;
+                                    const grade = cls.grade ?? '—';
+                                    const section = cls.section ?? '—';
+                                    const year = cls.year ?? '';
+                                    const isHomeroom = !!ct.is_homeroom;
+                                    return (
+                                        <li key={ct.id ?? ct.class_id} className="flex items-center gap-3 py-2.5">
+                                            <span className="grid size-8 shrink-0 place-items-center rounded-full bg-primary-subtle text-primary-subtle-foreground">
+                                                <BookOpen className="size-4" aria-hidden />
+                                            </span>
+                                            <span className="min-w-0 flex-1">
+                                                <span className="block truncate text-sm font-semibold text-foreground">
+                                                    Grade {grade} — {section}
+                                                </span>
+                                                {year && (
+                                                    <span className="text-xs text-muted-foreground">{year}</span>
+                                                )}
+                                            </span>
+                                            {isHomeroom && (
+                                                <Badge tone="primary" size="sm" variant="solid">
+                                                    {t('homeroomBadge')}
+                                                </Badge>
+                                            )}
+                                        </li>
+                                    );
+                                })}
+                            </ul>
+                        ) : (
+                            <p className="text-sm text-muted-foreground">{t('noAssignedClasses')}</p>
+                        )}
                     </CardContent>
                 </Card>
             </div>
