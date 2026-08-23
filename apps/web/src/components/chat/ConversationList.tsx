@@ -88,12 +88,17 @@ export default function ConversationList({
         onConversationRemoved?.(id);
     };
 
-    const handleMuted = (id: string) => {
-        // Mark the conversation as muted in local state immediately.
+    const handleMuted = (id: string, muted: boolean) => {
         setConversations((prev) =>
             prev.map((c) =>
                 c.id === id
-                    ? { ...c, is_muted: true, muted_until: new Date(Date.now() + 3_600_000).toISOString() }
+                    ? {
+                        ...c,
+                        is_muted: muted,
+                        muted_until: muted
+                            ? new Date(Date.now() + 3_600_000).toISOString()
+                            : null,
+                    }
                     : c,
             ),
         );
@@ -224,6 +229,7 @@ export default function ConversationList({
                             <ConversationActionsMenu
                                 conversationId={conv.id}
                                 conversationType={conv.type}
+                                isMuted={muted}
                                 onRemoved={handleRemoved}
                                 onMuted={handleMuted}
                             />

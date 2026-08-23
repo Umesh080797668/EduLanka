@@ -877,7 +877,12 @@ export class ChatService {
         const client = this.supabaseService.getTenantClient(tenantId);
         await this.assertParticipant(client, conversationId, callerId);
 
-        const mutedUntil = new Date(Date.now() + durationMinutes * 60_000).toISOString();
+        // durationMinutes === 0 means "unmute" — set muted_until to now so it
+        // immediately expires; is_muted will resolve to false on the next list call.
+        const mutedUntil =
+            durationMinutes > 0
+                ? new Date(Date.now() + durationMinutes * 60_000).toISOString()
+                : new Date().toISOString();
 
         const { data, error } = await client
             .from('chat_participants')

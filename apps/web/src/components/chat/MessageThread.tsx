@@ -161,6 +161,7 @@ export default function MessageThread({
                 <ConversationActionsMenu
                     conversationId={conversationId}
                     conversationType={conversation.type}
+                    isMuted={conversation.is_muted}
                     onRemoved={(id) => { onRemoved?.(id); }}
                 />
             </header>
