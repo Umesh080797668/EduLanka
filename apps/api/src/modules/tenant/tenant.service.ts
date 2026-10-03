@@ -4,6 +4,7 @@ import {
     TenantStatus,
     UserRole,
     SchoolType,
+    DisasterReason,
 } from '@edu-lanka/shared-types';
 import {
     Injectable,
@@ -268,13 +269,16 @@ export class TenantService {
     }
 
     /**
-     * POST /api/v1/tenants/disaster-mode
-     * Toggles the global Disaster Mode flag on the given tenant.
-     * Initiates SMS blasting using Twilio Gateway to all mapped Parents safely.
+     * POST /api/v1/tenants/disaster-mode/activate
+     * Atomically activates Disaster Mode, records in disaster_events history,
+     * triggers emergency SMS blast to parents, and audit-logs for all tiers.
      */
-    async toggleDisasterMode(dto: { reason: string, resumeDate?: string }, caller: JwtPayload): Promise<{ active: boolean }> {
+    async activateDisasterMode(
+        dto: { reason: DisasterReason; details?: string; resumeDate?: string },
+        caller: JwtPayload
+    ): Promise<{ active: boolean; eventId: string; smsQueued: number }> {
         if (caller.role !== UserRole.SCHOOL_ADMIN && caller.role !== UserRole.SUPER_ADMIN) {
-            throw new ForbiddenException('Only Administrators can trigger System Outages (Disaster Mode).');
+            throw new ForbiddenException('Only Administrators can activate Disaster Mode (emergency school closures).');
         }
 
         const { data: tenant } = await this.supabase.adminClient
@@ -285,60 +289,209 @@ export class TenantService {
 
         if (!tenant) throw new NotFoundException('Tenant context unavailable.');
 
-        const newStatus = !tenant.disaster_mode;
+        // 1. Record in disaster_events history table (persisting for Phase 5/6 reporting)
+        const { data: disasterEvent, error: insertErr } = await this.supabase.adminClient
+            .from('disaster_events')
+            .insert({
+                tenant_id: tenant.id,
+                triggered_by: caller.sub,
+                reason: dto.reason,
+                details: dto.details || null,
+                expected_resume_date: dto.resumeDate ? new Date(dto.resumeDate).toISOString() : null,
+                is_active: true,
+            })
+            .select()
+            .single();
 
+        if (insertErr || !disasterEvent) {
+            this.logger.error(`Failed to insert disaster event: ${insertErr?.message}`);
+            throw new InternalServerErrorException('Failed to record disaster event');
+        }
+
+        // 2. Atomically update tenant status
         await this.supabase.adminClient
             .from('tenants')
             .update({
-                disaster_mode: newStatus,
-                disaster_reason: newStatus ? dto.reason : null,
-                disaster_resume_date: newStatus && dto.resumeDate ? dto.resumeDate : null
+                disaster_mode: true,
+                disaster_reason: dto.reason,
+                disaster_resume_date: dto.resumeDate || null,
             })
-            .eq('id', caller.tenantId);
+            .eq('id', tenant.id);
 
-        this.logger.warn(`Disaster Mode toggled to [${newStatus}] for ${tenant.name} (${dto.reason})!`);
+        this.logger.warn(`Disaster Mode ACTIVATED for ${tenant.name} (${dto.reason})!`);
 
-        // Broadcast Trigger 
-        if (newStatus && tenant.plan !== 'COMMUNITY') {
-            // Find all parent contacts
+        // 3. Emergency SMS blast for paid tiers (Community tier strictly excluded per blueprint)
+        let smsQueued = 0;
+        if (tenant.plan !== TenantPlan.COMMUNITY) {
             const { data: parents } = await this.supabase.getTenantClient(tenant.id)
                 .from('users')
                 .select('phone_number')
                 .eq('role', 'PARENT')
                 .not('phone_number', 'is', null);
 
-            let parentsTexted = 0;
-            parents?.forEach(parent => {
-                if (parent.phone_number) {
-                    this.smsService.sendSms(
-                        parent.phone_number,
-                        `[🚨 ${tenant.name} EMERGENCY 🚨] Disaster Mode engaged due to ${dto.reason}. Expected resume: ${dto.resumeDate ? new Date(dto.resumeDate).toLocaleDateString() : 'Unknown'}. Please access offline portals now.`,
-                        tenant.id,
-                        undefined,
-                        true // bypassQuota = true!
-                    ).catch(e => this.logger.error(`Disaster Blast failure: ${e.message}`));
-                    parentsTexted++;
-                }
-            });
+            const phoneNumbers = (parents ?? [])
+                .map((p) => p.phone_number)
+                .filter((p): p is string => Boolean(p));
 
-            // Enhanced Audit Log Dispatch
-            await this.auditLogs.logAction({
-                tenantId: tenant.id,
-                actorId: caller.sub,
-                actorRole: caller.role,
-                action: 'DISASTER_MODE_ENGAGED',
-                entityType: 'TENANT',
-                entityId: tenant.id,
-                newValues: {
-                    disaster_mode: true,
-                    disaster_reason: dto.reason,
-                    disaster_resume_date: dto.resumeDate || null,
-                    sms_dispatched: parentsTexted,
-                    bypassed_quotas: true
+            if (phoneNumbers.length > 0) {
+                const message = `[🚨 ${tenant.name} EMERGENCY 🚨] Disaster Mode engaged due to ${dto.reason}. Expected resume: ${dto.resumeDate ? new Date(dto.resumeDate).toLocaleDateString() : 'Unknown'}. Please access offline portals now.`;
+                const smsResult = await this.smsService.sendBatchSms(
+                    phoneNumbers,
+                    message,
+                    tenant.id,
+                    {
+                        disasterEventId: disasterEvent.id,
+                        bypassQuota: true,
+                        isSafetyCritical: true,
+                    }
+                );
+                smsQueued = smsResult.queuedCount;
+
+                if (smsQueued > 0) {
+                    await this.supabase.adminClient
+                        .from('disaster_events')
+                        .update({ sms_queued_count: smsQueued })
+                        .eq('id', disasterEvent.id);
                 }
-            });
+            }
         }
 
-        return { active: newStatus };
+        // 4. Audit Log activation for ALL tiers (including Community)
+        await this.auditLogs.logAction({
+            tenantId: tenant.id,
+            actorId: caller.sub,
+            actorRole: caller.role,
+            action: 'DISASTER_MODE_ENGAGED',
+            entityType: 'TENANT',
+            entityId: tenant.id,
+            newValues: {
+                disaster_mode: true,
+                disaster_reason: dto.reason,
+                disaster_event_id: disasterEvent.id,
+                disaster_resume_date: dto.resumeDate || null,
+                sms_dispatched: smsQueued,
+                bypassed_quotas: true,
+            },
+        });
+
+        return { active: true, eventId: disasterEvent.id, smsQueued };
+    }
+
+    /**
+     * POST /api/v1/tenants/disaster-mode/deactivate
+     * Atomically deactivates Disaster Mode, archives active event, and audit-logs.
+     */
+    async deactivateDisasterMode(
+        dto: { note?: string },
+        caller: JwtPayload
+    ): Promise<{ active: boolean }> {
+        if (caller.role !== UserRole.SCHOOL_ADMIN && caller.role !== UserRole.SUPER_ADMIN) {
+            throw new ForbiddenException('Only Administrators can deactivate Disaster Mode (emergency school closures).');
+        }
+
+        const { data: tenant } = await this.supabase.adminClient
+            .from('tenants')
+            .select('id, name, plan, disaster_mode')
+            .eq('id', caller.tenantId)
+            .single();
+
+        if (!tenant) throw new NotFoundException('Tenant context unavailable.');
+
+        const now = new Date().toISOString();
+
+        // 1. Mark active disaster events as deactivated
+        await this.supabase.adminClient
+            .from('disaster_events')
+            .update({
+                is_active: false,
+                deactivated_at: now,
+                deactivated_by: caller.sub,
+                updated_at: now,
+            })
+            .eq('tenant_id', tenant.id)
+            .eq('is_active', true);
+
+        // 2. Clear disaster mode on tenant row
+        await this.supabase.adminClient
+            .from('tenants')
+            .update({
+                disaster_mode: false,
+                disaster_reason: null,
+                disaster_resume_date: null,
+            })
+            .eq('id', tenant.id);
+
+        this.logger.log(`Disaster Mode DEACTIVATED for ${tenant.name}.`);
+
+        // 3. Audit Log deactivation for ALL tiers
+        await this.auditLogs.logAction({
+            tenantId: tenant.id,
+            actorId: caller.sub,
+            actorRole: caller.role,
+            action: 'DISASTER_MODE_DISENGAGED',
+            entityType: 'TENANT',
+            entityId: tenant.id,
+            newValues: {
+                disaster_mode: false,
+                deactivated_by: caller.sub,
+                deactivation_note: dto.note || null,
+            },
+        });
+
+        return { active: false };
+    }
+
+    /**
+     * GET /api/v1/tenants/disaster-mode/history
+     * Retrieves historical disaster event tracking for Phase 5/6 reporting.
+     */
+    async getDisasterHistory(tenantId: string) {
+        const { data, error } = await this.supabase.adminClient
+            .from('disaster_events')
+            .select('*')
+            .eq('tenant_id', tenantId)
+            .order('activated_at', { ascending: false });
+
+        if (error) {
+            this.logger.error(`Failed to fetch disaster history: ${error.message}`);
+            throw new InternalServerErrorException('Failed to fetch disaster history');
+        }
+
+        return data ?? [];
+    }
+
+    /**
+     * POST /api/v1/tenants/disaster-mode
+     * Backward-compatible toggle that delegates to atomic activate/deactivate.
+     */
+    async toggleDisasterMode(
+        dto: { reason?: DisasterReason; details?: string; resumeDate?: string; action?: 'activate' | 'deactivate' },
+        caller: JwtPayload
+    ): Promise<{ active: boolean }> {
+        if (caller.role !== UserRole.SCHOOL_ADMIN && caller.role !== UserRole.SUPER_ADMIN) {
+            throw new ForbiddenException('Only Administrators can activate Disaster Mode (emergency school closures).');
+        }
+
+        const { data: tenant } = await this.supabase.adminClient
+            .from('tenants')
+            .select('id, disaster_mode')
+            .eq('id', caller.tenantId)
+            .single();
+
+        if (!tenant) throw new NotFoundException('Tenant context unavailable.');
+
+        const shouldActivate = dto.action ? dto.action === 'activate' : !tenant.disaster_mode;
+
+        if (shouldActivate) {
+            const reason = dto.reason || DisasterReason.OTHER;
+            const res = await this.activateDisasterMode({
+                reason,
+                details: dto.details,
+                resumeDate: dto.resumeDate,
+            }, caller);
+            return { active: res.active };
+        } else {
+            return this.deactivateDisasterMode({ note: dto.details }, caller);
+        }
     }
 }

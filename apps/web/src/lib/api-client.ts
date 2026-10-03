@@ -34,6 +34,7 @@ async function apiFetch<T>(
     const headers: Record<string, string> = {
         'Content-Type': 'application/json',
         ...(finalTenantId ? { 'X-Tenant-Id': finalTenantId } : {}),
+        ...(finalToken ? { Authorization: `Bearer ${finalToken}` } : {}),
         ...(extraHeaders as Record<string, string>),
     };
 

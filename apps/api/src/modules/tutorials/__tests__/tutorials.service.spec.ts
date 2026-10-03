@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { TutorialsService } from '../tutorials.service';
 import { SupabaseService } from '../../supabase/supabase.service';
-import { NotFoundException, BadRequestException } from '@nestjs/common';
+import { NotFoundException, InternalServerErrorException } from '@nestjs/common';
 import { UserRole } from '@edu-lanka/shared-types';
 
 describe('TutorialsService', () => {
@@ -68,14 +68,13 @@ describe('TutorialsService', () => {
     describe('updateUserStatus', () => {
         const caller = { sub: 'user-sub', role: UserRole.STUDENT, tenantId: 'tenant-1' } as any;
 
-        it('should throw BadRequestException if tenant user mapping fails', async () => {
+        it('should throw InternalServerErrorException if update fails', async () => {
             mockTenantDb.single.mockResolvedValueOnce({ data: null, error: { message: 'Not found' } });
-            await expect(service.updateUserStatus('tut-1', 'COMPLETED', caller)).rejects.toThrow(BadRequestException);
+            await expect(service.updateUserStatus('tut-1', 'COMPLETED', caller)).rejects.toThrow(InternalServerErrorException);
         });
 
         it('should successfully update status', async () => {
-            mockTenantDb.single.mockResolvedValueOnce({ data: { id: 'db-user-id' }, error: null }); // user fetch
-            mockTenantDb.single.mockResolvedValueOnce({ data: { id: 'user-tut-1' }, error: null }); // upsert
+            mockTenantDb.single.mockResolvedValueOnce({ data: { id: 'user-tut-1' }, error: null });
 
             const result = await service.updateUserStatus('tut-1', 'COMPLETED', caller);
             expect(result.success).toBe(true);

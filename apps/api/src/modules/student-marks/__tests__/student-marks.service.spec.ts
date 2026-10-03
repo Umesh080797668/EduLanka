@@ -121,30 +121,25 @@ describe('StudentMarksService', () => {
         });
 
         it('should throw ForbiddenException for student accessing another student marks', async () => {
-            // inner user join returns a different id
-            mockDb.maybeSingle.mockResolvedValueOnce({ data: { users: { user_id: 'other-student-id' } }, error: null });
+            mockDb.maybeSingle.mockResolvedValueOnce({ data: { user_id: 'other-student-id' }, error: null });
             await expect(service.getMarksByStudent('student-1', studentCaller)).rejects.toThrow(ForbiddenException);
         });
 
         it('should return marks for student accessing their own marks', async () => {
-            mockDb.maybeSingle.mockResolvedValueOnce({ data: { users: { user_id: 'student-id' } }, error: null });
+            mockDb.maybeSingle.mockResolvedValueOnce({ data: { user_id: 'student-id' }, error: null });
             mockDb.then.mockImplementationOnce((resolve: any) => resolve(mockMarksReturn));
             const result = await service.getMarksByStudent('student-1', studentCaller);
             expect(result).toHaveLength(1);
         });
 
         it('should throw ForbiddenException for parent accessing unlinked student marks', async () => {
-            // resolve parent db user id
-            mockDb.maybeSingle.mockResolvedValueOnce({ data: { id: 'db-parent-id' }, error: null }); // from users
-            // resolve link
-            mockDb.maybeSingle.mockResolvedValueOnce({ data: null, error: null }); // from parent_children
+            mockDb.maybeSingle.mockResolvedValueOnce({ data: null, error: null });
 
             await expect(service.getMarksByStudent('student-1', parentCaller)).rejects.toThrow(ForbiddenException);
         });
 
         it('should return marks for parent accessing linked student', async () => {
-            mockDb.maybeSingle.mockResolvedValueOnce({ data: { id: 'db-parent-id' }, error: null }); // users
-            mockDb.maybeSingle.mockResolvedValueOnce({ data: { id: 'pc-1' }, error: null }); // parent_children
+            mockDb.maybeSingle.mockResolvedValueOnce({ data: { id: 'pc-1' }, error: null });
             mockDb.then.mockImplementationOnce((resolve: any) => resolve(mockMarksReturn));
 
             const result = await service.getMarksByStudent('student-1', parentCaller);

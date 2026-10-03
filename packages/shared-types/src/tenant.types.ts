@@ -27,6 +27,15 @@ export enum SchoolType {
     PRIVATE = 'PRIVATE',   // Approved private / semi-gov
 }
 
+/** Official closure reason taxonomy for Disaster Mode. */
+export enum DisasterReason {
+    FLOOD = 'FLOOD',
+    CYCLONE = 'CYCLONE',
+    LANDSLIDE = 'LANDSLIDE',
+    CIVIL_PUBLIC_HEALTH = 'CIVIL_PUBLIC_HEALTH',
+    OTHER = 'OTHER',
+}
+
 export interface Tenant {
     id: string;
     name: string;

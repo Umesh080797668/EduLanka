@@ -106,6 +106,13 @@ export class ChatService {
     }
 
     async saveMessage(tenantId: string, conversationId: string, senderId: string, content: string, callerRole?: string) {
+        if (!content || typeof content !== 'string' || !content.trim()) {
+            throw new BadRequestException('Message content cannot be empty.');
+        }
+        if (content.length > 4000) {
+            throw new BadRequestException('Message content exceeds maximum length of 4000 characters.');
+        }
+
         const client = this.supabaseService.getTenantClient(tenantId);
 
         await this.assertParticipant(client, conversationId, senderId, callerRole, {

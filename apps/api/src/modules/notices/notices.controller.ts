@@ -1,11 +1,35 @@
-import { Controller, Post, Get, Body, Req, UseGuards, Param, Query } from '@nestjs/common';
+import {
+    Controller,
+    Post,
+    Get,
+    Delete,
+    Body,
+    Req,
+    UseGuards,
+    Param,
+    Query,
+    ForbiddenException,
+    HttpCode,
+    HttpStatus,
+} from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { NoticesService } from './notices.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { UserRole } from '@edu-lanka/shared-types';
 
+export class CreateMaintenanceNoticeDto {
+    title!: string;
+    message!: string;
+    severity?: 'INFO' | 'WARNING' | 'CRITICAL';
+    scheduledStart?: string;
+    scheduledEnd?: string;
+}
+
 // Global prefix ('api') + URI versioning (default '1') already yield /api/v1/notices.
+@ApiTags('notices')
+@ApiBearerAuth()
 @Controller('notices')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class NoticesController {
@@ -13,11 +37,13 @@ export class NoticesController {
 
     @Post()
     @Roles(UserRole.SCHOOL_ADMIN, UserRole.SUPER_ADMIN, UserRole.TEACHER)
+    @ApiOperation({ summary: 'Create a new notice' })
     async createNotice(@Req() req: any, @Body() body: any) {
         return this.noticesService.createNotice(req.user.tenantId, req.user.sub, body, req.user.role);
     }
 
     @Get()
+    @ApiOperation({ summary: 'Get notices scoped to the caller' })
     async getNotices(
         @Req() req: any,
         @Query('classId') classId?: string,
@@ -27,15 +53,48 @@ export class NoticesController {
     }
 
     @Post('broadcast')
+    @Roles(UserRole.SUPER_ADMIN)
+    @ApiOperation({ summary: 'Dispatch cross-tenant announcement' })
     async dispatchBroadcast(@Req() req: any, @Body() request: any) {
-        if (req.user.role !== 'SUPER_ADMIN') {
-            throw new Error('Strictly System Administrator privilege isolated.'); // Hard abort cleanly
+        if (req.user.role !== UserRole.SUPER_ADMIN) {
+            throw new ForbiddenException('Strictly System Administrator privilege isolated.');
         }
         return this.noticesService.broadcastGlobalNotice(req.user.sub, request);
     }
 
     @Post(':id/read')
+    @HttpCode(HttpStatus.OK)
+    @ApiOperation({ summary: 'Mark notice as read' })
     async markAsRead(@Req() req: any, @Param('id') id: string) {
         return this.noticesService.markAsRead(req.user.tenantId, id, req.user.sub);
+    }
+
+    // ── System Maintenance Notices (Platform-wide downtime & upgrades) ─────────
+
+    @Get('maintenance/active')
+    @ApiOperation({ summary: 'Retrieve active platform maintenance notices' })
+    async getActiveMaintenanceNotices() {
+        return this.noticesService.getActiveMaintenanceNotices();
+    }
+
+    @Post('maintenance')
+    @Roles(UserRole.SUPER_ADMIN)
+    @ApiOperation({ summary: 'Create platform maintenance announcement' })
+    async createMaintenanceNotice(@Req() req: any, @Body() dto: CreateMaintenanceNoticeDto) {
+        if (req.user.role !== UserRole.SUPER_ADMIN) {
+            throw new ForbiddenException('Only System Administrators can create maintenance announcements.');
+        }
+        return this.noticesService.createMaintenanceNotice(req.user.sub, dto);
+    }
+
+    @Delete('maintenance/:id')
+    @Roles(UserRole.SUPER_ADMIN)
+    @HttpCode(HttpStatus.OK)
+    @ApiOperation({ summary: 'Deactivate platform maintenance announcement' })
+    async deactivateMaintenanceNotice(@Req() req: any, @Param('id') id: string) {
+        if (req.user.role !== UserRole.SUPER_ADMIN) {
+            throw new ForbiddenException('Only System Administrators can deactivate maintenance announcements.');
+        }
+        return this.noticesService.deactivateMaintenanceNotice(id);
     }
 }

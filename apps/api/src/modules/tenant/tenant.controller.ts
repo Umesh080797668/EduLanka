@@ -1,5 +1,5 @@
 import type { JwtPayload } from '@edu-lanka/shared-types';
-import { SchoolType, TenantPlan, TenantStatus } from '@edu-lanka/shared-types';
+import { SchoolType, TenantPlan, TenantStatus, DisasterReason } from '@edu-lanka/shared-types';
 import {
     Controller,
     Get,
@@ -64,14 +64,42 @@ export class UpdateTenantStatusDto {
     deactivationReason?: string;
 }
 
-export class ToggleDisasterModeDto {
-    @IsString()
+export class ActivateDisasterModeDto {
+    @IsEnum(DisasterReason)
     @IsNotEmpty()
-    reason!: string;
+    reason!: DisasterReason;
+
+    @IsString()
+    @IsOptional()
+    details?: string;
 
     @IsString()
     @IsOptional()
     resumeDate?: string;
+}
+
+export class DeactivateDisasterModeDto {
+    @IsString()
+    @IsOptional()
+    note?: string;
+}
+
+export class ToggleDisasterModeDto {
+    @IsEnum(DisasterReason)
+    @IsOptional()
+    reason?: DisasterReason;
+
+    @IsString()
+    @IsOptional()
+    details?: string;
+
+    @IsString()
+    @IsOptional()
+    resumeDate?: string;
+
+    @IsString()
+    @IsOptional()
+    action?: 'activate' | 'deactivate';
 }
 
 // ── Controller ────────────────────────────────────────────────────────────────
@@ -152,14 +180,52 @@ export class TenantController {
     }
 
     /**
+     * POST /api/v1/tenants/disaster-mode/activate
+     * Explicitly activate Disaster Mode with taxonomy closure reason.
+     */
+    @Post('disaster-mode/activate')
+    @Version('1')
+    @HttpCode(HttpStatus.OK)
+    @ApiOperation({ summary: 'Activate Disaster Mode protocol' })
+    @ApiOkResponse({ description: 'Disaster Mode activated' })
+    activateDisasterMode(@Body() dto: ActivateDisasterModeDto, @CurrentUser() user: JwtPayload) {
+        return this.tenantService.activateDisasterMode(dto, user);
+    }
+
+    /**
+     * POST /api/v1/tenants/disaster-mode/deactivate
+     * Explicitly deactivate Disaster Mode.
+     */
+    @Post('disaster-mode/deactivate')
+    @Version('1')
+    @HttpCode(HttpStatus.OK)
+    @ApiOperation({ summary: 'Deactivate Disaster Mode protocol' })
+    @ApiOkResponse({ description: 'Disaster Mode deactivated' })
+    deactivateDisasterMode(@Body() dto: DeactivateDisasterModeDto, @CurrentUser() user: JwtPayload) {
+        return this.tenantService.deactivateDisasterMode(dto, user);
+    }
+
+    /**
+     * GET /api/v1/tenants/disaster-mode/history
+     * Get historical disaster events for this school.
+     */
+    @Get('disaster-mode/history')
+    @Version('1')
+    @ApiOperation({ summary: 'Get Disaster Mode history' })
+    @ApiOkResponse({ description: 'Array of historical disaster events' })
+    getDisasterHistory(@CurrentUser() user: JwtPayload) {
+        return this.tenantService.getDisasterHistory(user.tenantId);
+    }
+
+    /**
      * POST /api/v1/tenants/disaster-mode
-     * Toggle the Disaster Mode alert.
+     * Backward-compatible toggle for Disaster Mode alert.
      */
     @Post('disaster-mode')
     @Version('1')
     @HttpCode(HttpStatus.OK)
     @ApiOperation({ summary: 'Trigger Disaster Mode global alert protocol' })
-    @ApiOkResponse({ description: 'Disaster Mode activated' })
+    @ApiOkResponse({ description: 'Disaster Mode status updated' })
     toggleDisasterMode(@Body() dto: ToggleDisasterModeDto, @CurrentUser() user: JwtPayload) {
         return this.tenantService.toggleDisasterMode(dto, user);
     }

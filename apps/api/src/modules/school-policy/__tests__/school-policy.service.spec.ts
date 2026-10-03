@@ -25,6 +25,7 @@ describe('SchoolPolicyService', () => {
 
     mockSupabaseService = {
       getTenantClient: jest.fn().mockReturnValue(mockDb),
+      adminClient: mockDb,
     };
 
     mockTenantService = {

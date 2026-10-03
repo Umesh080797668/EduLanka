@@ -119,7 +119,7 @@ export class NoticesService {
     }
 
     /**
-     * Fan a notice out over SMS to the guardians its scope targets.
+     * Fan a notice out over SMS to the guardians its scope targets using batch enqueuing.
      */
     private async dispatchNoticeSms(tenantId: string, notice: any, bypassQuota: boolean): Promise<void> {
         try {
@@ -134,14 +134,11 @@ export class NoticesService {
             const preview = noticeHtmlToText(notice.content_html).slice(0, 240);
             const body = `[EduLanka] ${notice.title}${preview ? ` — ${preview}` : ''}`;
 
-            this.logger.log(`Queueing ${recipients.length} SMS for notice ${notice.id}`);
-            await Promise.all(
-                recipients.map((phone) =>
-                    this.smsService
-                        .sendSms(phone, body, tenantId, notice.id, bypassQuota)
-                        .catch((e: any) => this.logger.error(`SMS dispatch to ${phone} failed: ${e.message}`)),
-                ),
-            );
+            this.logger.log(`Dispatching batch of ${recipients.length} SMS for notice ${notice.id}`);
+            await this.smsService.sendBatchSms(recipients, body, tenantId, {
+                noticeId: notice.id,
+                bypassQuota,
+            });
         } catch (e: any) {
             this.logger.error(`SMS dispatcher failure for notice ${notice.id}: ${e.message}`);
         }
@@ -201,73 +198,302 @@ export class NoticesService {
         ];
     }
 
+    /**
+     * Retrieve notices scoped to the caller's enrollment and permissions.
+     * Prevents students/parents/teachers from querying arbitrary class/grade notices.
+     * Defaults to school-wide + enrolled/assigned classes & grades when params are omitted.
+     */
     async getNotices(tenantId: string, userId: string, userRole: string, classId?: string, gradeId?: string) {
         const client = this.supabaseService.getTenantClient(tenantId);
+        const parsedGrade = gradeId ? parseInt(gradeId, 10) : undefined;
 
         let query = client.from('notices').select('*, author:users(full_name, role, avatar_url)');
-
         query = query.or('expires_at.is.null,expires_at.gt.' + new Date().toISOString());
 
-        if (classId) {
-            query = query.eq('target_class_id', classId).eq('scope', 'CLASS_SPECIFIC');
-        } else if (gradeId) {
-            query = query.eq('target_grade', parseInt(gradeId)).eq('scope', 'GRADE_LEVEL');
-        } else if (userRole !== 'SCHOOL_ADMIN' && userRole !== 'SUPER_ADMIN') {
-            // General pull for non-admins limits strictly to School-wide bounds if class is omitted
+        if (userRole === UserRole.SUPER_ADMIN || userRole === UserRole.SCHOOL_ADMIN) {
+            // Admins have school-wide visibility; respect query filters if provided
+            if (classId) {
+                query = query.eq('target_class_id', classId).eq('scope', 'CLASS_SPECIFIC');
+            } else if (parsedGrade !== undefined && !isNaN(parsedGrade)) {
+                query = query.eq('target_grade', parsedGrade).eq('scope', 'GRADE_LEVEL');
+            }
+        } else if (userRole === UserRole.STUDENT) {
+            const { data: student } = await client
+                .from('students')
+                .select('class_id, classes(grade)')
+                .eq('user_id', userId)
+                .maybeSingle();
+
+            const enrolledClassId = student?.class_id;
+            const enrolledGrade = (student as any)?.classes?.grade;
+
+            if (classId) {
+                if (!enrolledClassId || enrolledClassId !== classId) {
+                    throw new ForbiddenException('You can only access notices for your enrolled class.');
+                }
+                query = query.eq('target_class_id', classId).eq('scope', 'CLASS_SPECIFIC');
+            } else if (parsedGrade !== undefined && !isNaN(parsedGrade)) {
+                if (enrolledGrade === undefined || enrolledGrade !== parsedGrade) {
+                    throw new ForbiddenException('You can only access notices for your enrolled grade.');
+                }
+                query = query.eq('target_grade', parsedGrade).eq('scope', 'GRADE_LEVEL');
+            } else {
+                const conditions: string[] = ['scope.in.(SCHOOL_WIDE,UNIVERSAL)'];
+                if (enrolledClassId) {
+                    conditions.push(`and(scope.eq.CLASS_SPECIFIC,target_class_id.eq.${enrolledClassId})`);
+                }
+                if (enrolledGrade !== undefined && enrolledGrade !== null) {
+                    conditions.push(`and(scope.eq.GRADE_LEVEL,target_grade.eq.${enrolledGrade})`);
+                }
+                if (conditions.length === 1) {
+                    query = query.in('scope', ['SCHOOL_WIDE', 'UNIVERSAL']);
+                } else {
+                    query = query.or(conditions.join(','));
+                }
+            }
+        } else if (userRole === UserRole.PARENT) {
+            const { data: children } = await client
+                .from('parents')
+                .select('students(class_id, classes(grade))')
+                .eq('user_id', userId);
+
+            const childrenClassIds = new Set<string>();
+            const childrenGrades = new Set<number>();
+
+            for (const row of children ?? []) {
+                const s = (row as any).students;
+                if (s?.class_id) childrenClassIds.add(s.class_id);
+                if (s?.classes?.grade !== undefined && s?.classes?.grade !== null) {
+                    childrenGrades.add(s.classes.grade);
+                }
+            }
+
+            if (classId) {
+                if (!childrenClassIds.has(classId)) {
+                    throw new ForbiddenException("You can only access notices for your children's classes.");
+                }
+                query = query.eq('target_class_id', classId).eq('scope', 'CLASS_SPECIFIC');
+            } else if (parsedGrade !== undefined && !isNaN(parsedGrade)) {
+                if (!childrenGrades.has(parsedGrade)) {
+                    throw new ForbiddenException("You can only access notices for your children's grades.");
+                }
+                query = query.eq('target_grade', parsedGrade).eq('scope', 'GRADE_LEVEL');
+            } else {
+                const conditions: string[] = ['scope.in.(SCHOOL_WIDE,UNIVERSAL)'];
+                if (childrenClassIds.size > 0) {
+                    const classList = Array.from(childrenClassIds).join(',');
+                    conditions.push(`and(scope.eq.CLASS_SPECIFIC,target_class_id.in.(${classList}))`);
+                }
+                if (childrenGrades.size > 0) {
+                    const gradeList = Array.from(childrenGrades).join(',');
+                    conditions.push(`and(scope.eq.GRADE_LEVEL,target_grade.in.(${gradeList}))`);
+                }
+                if (conditions.length === 1) {
+                    query = query.in('scope', ['SCHOOL_WIDE', 'UNIVERSAL']);
+                } else {
+                    query = query.or(conditions.join(','));
+                }
+            }
+        } else if (userRole === UserRole.TEACHER) {
+            const { data: teacher } = await client
+                .from('teachers')
+                .select('id')
+                .eq('user_id', userId)
+                .maybeSingle();
+
+            const assignedClassIds = new Set<string>();
+            const assignedGrades = new Set<number>();
+
+            if (teacher?.id) {
+                const { data: assignments } = await client
+                    .from('class_teachers')
+                    .select('class_id, classes(grade)')
+                    .eq('teacher_id', teacher.id);
+
+                for (const a of assignments ?? []) {
+                    if (a.class_id) assignedClassIds.add(a.class_id);
+                    const grade = (a as any).classes?.grade;
+                    if (grade !== undefined && grade !== null) assignedGrades.add(grade);
+                }
+            }
+
+            if (classId) {
+                if (!assignedClassIds.has(classId)) {
+                    throw new ForbiddenException('You are not assigned to this class.');
+                }
+                query = query.eq('target_class_id', classId).eq('scope', 'CLASS_SPECIFIC');
+            } else if (parsedGrade !== undefined && !isNaN(parsedGrade)) {
+                if (!assignedGrades.has(parsedGrade)) {
+                    throw new ForbiddenException('You are not assigned to teach this grade.');
+                }
+                query = query.eq('target_grade', parsedGrade).eq('scope', 'GRADE_LEVEL');
+            } else {
+                const conditions: string[] = ['scope.in.(SCHOOL_WIDE,UNIVERSAL)'];
+                if (assignedClassIds.size > 0) {
+                    const classList = Array.from(assignedClassIds).join(',');
+                    conditions.push(`and(scope.eq.CLASS_SPECIFIC,target_class_id.in.(${classList}))`);
+                }
+                if (assignedGrades.size > 0) {
+                    const gradeList = Array.from(assignedGrades).join(',');
+                    conditions.push(`and(scope.eq.GRADE_LEVEL,target_grade.in.(${gradeList}))`);
+                }
+                if (conditions.length === 1) {
+                    query = query.in('scope', ['SCHOOL_WIDE', 'UNIVERSAL']);
+                } else {
+                    query = query.or(conditions.join(','));
+                }
+            }
+        } else {
             query = query.in('scope', ['SCHOOL_WIDE', 'UNIVERSAL']);
         }
 
         const { data, error } = await query.order('created_at', { ascending: false });
         if (error) {
-            this.logger.error(error);
+            this.logger.error(`Failed to fetch notices: ${error.message}`);
             throw error;
         }
 
         const { data: reads } = await client.from('notice_reads').select('notice_id').eq('user_id', userId);
         const readIds = new Set(reads?.map(r => r.notice_id) || []);
 
-        return data.map(n => ({ ...n, is_read: readIds.has(n.id) }));
+        return (data ?? []).map(n => ({ ...n, is_read: readIds.has(n.id) }));
     }
 
     async markAsRead(tenantId: string, noticeId: string, userId: string) {
         const client = this.supabaseService.getTenantClient(tenantId);
         const { error } = await client.from('notice_reads').insert({ notice_id: noticeId, user_id: userId });
 
-        // Supabase foreign key triggers handle clean constraint violations silently if it already exists
         if (error && error.code !== '23505') throw error;
 
         return { success: true };
     }
 
+    /**
+     * Dispatch genuine cross-tenant announcements (SUPER_ADMIN only).
+     * Skips SMS cleanly for Community tier, and uses per-tenant try/catch so
+     * one failure does not abort dispatches to other tenants.
+     */
     async broadcastGlobalNotice(authorId: string, request: any) {
-        if (!request || !request.title) throw new Error('Invalid Broadcast Payload');
+        if (!request || !request.title) throw new BadRequestException('Invalid Broadcast Payload');
 
         const db = this.supabaseService.adminClient;
-        const { data: tenants } = await db.from('tenants').select('id, plan, status').eq('status', 'ACTIVE');
+        const { data: tenants, error } = await db
+            .from('tenants')
+            .select('id, plan, status, name')
+            .eq('status', 'ACTIVE');
 
-        if (!tenants) return { dispatches: 0 };
+        if (error || !tenants) return { dispatches: 0, failedTenants: [] };
 
         this.logger.warn(`GLOBAL BROADCAST INITIATED across ${tenants.length} instances.`);
         let dispatchCount = 0;
+        const failedTenants: { tenantId: string; error: string }[] = [];
 
         for (const tenant of tenants) {
-            // System overrides tenant blockages dynamically
-            await this.createNotice(
-                tenant.id,
-                authorId,
-                {
-                    title: request.title,
-                    content_html: request.content_html ?? request.content,
-                    priority: 'URGENT',
-                    scope: 'SCHOOL_WIDE',
-                    send_sms: request.send_sms,
-                    bypass_quota: request.send_sms, // Assuming send_sms globally maps directly to Disaster Overrides for Super Admins
-                },
-                UserRole.SUPER_ADMIN,
-            );
-            dispatchCount++;
+            try {
+                // Per blueprint: Community tier has SMS disabled by policy; skip SMS cleanly for Community
+                const sendSms = tenant.plan === 'COMMUNITY' ? false : Boolean(request.send_sms);
+
+                await this.createNotice(
+                    tenant.id,
+                    authorId,
+                    {
+                        title: request.title,
+                        content_html: request.content_html ?? request.content,
+                        priority: 'URGENT',
+                        scope: 'SCHOOL_WIDE',
+                        send_sms: sendSms,
+                        bypass_quota: sendSms,
+                    },
+                    UserRole.SUPER_ADMIN,
+                );
+                dispatchCount++;
+            } catch (err: any) {
+                this.logger.error(`Failed to broadcast notice to tenant ${tenant.id} (${tenant.name}): ${err.message}`);
+                failedTenants.push({ tenantId: tenant.id, error: err.message });
+            }
         }
 
-        return { success: true, dispatches: dispatchCount };
+        return {
+            success: true,
+            dispatches: dispatchCount,
+            totalTenants: tenants.length,
+            failedTenants,
+        };
+    }
+
+    // ── Platform Maintenance Notices (Entity separate from school notices) ─────
+
+    async getActiveMaintenanceNotices() {
+        const { data, error } = await this.supabaseService.adminClient
+            .from('system_maintenance_notices')
+            .select('*')
+            .eq('is_active', true)
+            .order('scheduled_start', { ascending: false });
+
+        if (error) {
+            this.logger.error(`Failed to fetch maintenance notices: ${error.message}`);
+            return [];
+        }
+        return data ?? [];
+    }
+
+    async createMaintenanceNotice(authorId: string, dto: any) {
+        if (!dto.title || !dto.message) {
+            throw new BadRequestException('Title and message are required.');
+        }
+
+        const { data, error } = await this.supabaseService.adminClient
+            .from('system_maintenance_notices')
+            .insert({
+                title: dto.title,
+                message: dto.message,
+                severity: dto.severity || 'INFO',
+                scheduled_start: dto.scheduledStart ? new Date(dto.scheduledStart).toISOString() : new Date().toISOString(),
+                scheduled_end: dto.scheduledEnd ? new Date(dto.scheduledEnd).toISOString() : null,
+                created_by: authorId,
+                is_active: true,
+            })
+            .select()
+            .single();
+
+        if (error) {
+            this.logger.error(`Failed to create maintenance notice: ${error.message}`);
+            throw error;
+        }
+
+        // Broadcast in-app banner to all connected clients via Supabase Realtime channel
+        try {
+            const channel = this.supabaseService.adminClient.channel('system_notifications');
+            await channel.send({
+                type: 'broadcast',
+                event: 'system_notification',
+                payload: {
+                    id: data.id,
+                    title: `[Maintenance] ${data.title}`,
+                    message: data.message,
+                    timestamp: data.scheduled_start,
+                    type: data.severity === 'CRITICAL' ? 'critical' : data.severity === 'WARNING' ? 'warning' : 'info',
+                },
+            });
+        } catch (err: any) {
+            this.logger.warn(`Could not broadcast maintenance notice to channel: ${err.message}`);
+        }
+
+        return data;
+    }
+
+    async deactivateMaintenanceNotice(id: string) {
+        const { data, error } = await this.supabaseService.adminClient
+            .from('system_maintenance_notices')
+            .update({ is_active: false, updated_at: new Date().toISOString() })
+            .eq('id', id)
+            .select()
+            .single();
+
+        if (error) {
+            this.logger.error(`Failed to deactivate maintenance notice: ${error.message}`);
+            throw error;
+        }
+        return { success: true, notice: data };
     }
 }

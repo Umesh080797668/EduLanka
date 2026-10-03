@@ -54,8 +54,13 @@ const makeSupabase = (opts?: {
     resetError?: boolean;
 }): SupabaseService => {
     const o = opts ?? {};
-    const authUser = { id: 'supabase-auth-uid' };
-    const tenantRow = { slug: 'school-a', status: o.tenantStatus ?? 'ACTIVE' };
+    const tenantId = 'a1b2c3d4-0000-0000-0000-000000000001';
+    const authUser = {
+        id: 'supabase-auth-uid',
+        email: 't@school.lk',
+        user_metadata: { tenant_id: tenantId },
+    };
+    const tenantRow = { id: tenantId, slug: 'school-a', status: o.tenantStatus ?? 'ACTIVE' };
     const userRow = { id: 'user-uuid', role: UserRole.TEACHER, is_active: !o.userInactive };
 
     // Minimal chain builder for Supabase query builder
@@ -95,7 +100,11 @@ const makeSupabase = (opts?: {
                     deleteUser: jest.fn().mockResolvedValue({ error: null }),
                 },
             },
-            from: () => (o.noTenant ? makeChain(null) : makeChain(tenantRow)),
+            from: (table: string) => {
+                if (table === 'platform_admins') return makeChain(null);
+                if (table === 'tenants') return o.noTenant ? makeChain(null) : makeChain(tenantRow);
+                return makeChain(null);
+            },
         },
         getTenantClient: () => ({
             from: () => (o.noUser ? makeChain(null) : makeChain(userRow)),

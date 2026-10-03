@@ -200,4 +200,105 @@ describe('NoticesService', () => {
       expect(result.id).toBe('notice_1');
     });
   });
+
+  describe('broadcastGlobalNotice', () => {
+    it('should continue across tenants even if one tenant throws, and suppress SMS on Community', async () => {
+      supabaseService.adminClient.from = jest.fn().mockImplementation((table: string) => {
+        if (table === 'tenants') {
+          return {
+            select: jest.fn().mockReturnValue({
+              eq: jest.fn().mockResolvedValue({
+                data: [
+                  { id: 'tenant_comm', plan: 'COMMUNITY', status: 'ACTIVE', name: 'Comm School' },
+                  { id: 'tenant_err', plan: 'STARTER', status: 'ACTIVE', name: 'Err School' },
+                  { id: 'tenant_ok', plan: 'STARTER', status: 'ACTIVE', name: 'Ok School' },
+                ],
+                error: null,
+              }),
+            }),
+          };
+        }
+        return {
+          select: jest.fn().mockReturnThis(),
+          eq: jest.fn().mockReturnThis(),
+        };
+      });
+
+      jest.spyOn(service, 'createNotice').mockImplementation(async (tenantId, _author, req) => {
+        if (tenantId === 'tenant_comm') {
+          expect(req.send_sms).toBe(false); // Suppressed for Community
+          return { id: 'notice_comm' } as any;
+        }
+        if (tenantId === 'tenant_err') {
+          throw new Error('Database connection failed');
+        }
+        return { id: 'notice_ok' } as any;
+      });
+
+      const result = await service.broadcastGlobalNotice('super_admin_id', {
+        title: 'Platform Maintenance Announcement',
+        content_html: '<p>Update tonight</p>',
+        send_sms: true,
+      });
+
+      expect(result.success).toBe(true);
+      expect(result.dispatches).toBe(2);
+      expect(result.failedTenants).toHaveLength(1);
+      expect(result.failedTenants[0].tenantId).toBe('tenant_err');
+    });
+  });
+
+  describe('getNotices scoping enforcement', () => {
+    it('should forbid student from querying arbitrary class notice', async () => {
+      mockTenantFrom.mockImplementation((table: string) => {
+        if (table === 'students') {
+          return {
+            select: jest.fn().mockReturnValue({
+              eq: jest.fn().mockReturnValue({
+                maybeSingle: jest.fn().mockResolvedValue({
+                  data: { class_id: 'enrolled_class_id', classes: { grade: 7 } },
+                }),
+              }),
+            }),
+          };
+        }
+        return {
+          select: jest.fn().mockReturnThis(),
+          eq: jest.fn().mockReturnThis(),
+          or: jest.fn().mockReturnThis(),
+          order: jest.fn().mockResolvedValue({ data: [], error: null }),
+        };
+      });
+
+      await expect(
+        service.getNotices('tenant_1', 'student_1', UserRole.STUDENT, 'unauthorized_class_id')
+      ).rejects.toThrow(new ForbiddenException('You can only access notices for your enrolled class.'));
+    });
+
+    it('should forbid student from querying arbitrary grade notice', async () => {
+      mockTenantFrom.mockImplementation((table: string) => {
+        if (table === 'students') {
+          return {
+            select: jest.fn().mockReturnValue({
+              eq: jest.fn().mockReturnValue({
+                maybeSingle: jest.fn().mockResolvedValue({
+                  data: { class_id: 'enrolled_class_id', classes: { grade: 7 } },
+                }),
+              }),
+            }),
+          };
+        }
+        return {
+          select: jest.fn().mockReturnThis(),
+          eq: jest.fn().mockReturnThis(),
+          or: jest.fn().mockReturnThis(),
+          order: jest.fn().mockResolvedValue({ data: [], error: null }),
+        };
+      });
+
+      await expect(
+        service.getNotices('tenant_1', 'student_1', UserRole.STUDENT, undefined, '10')
+      ).rejects.toThrow(new ForbiddenException('You can only access notices for your enrolled grade.'));
+    });
+  });
 });

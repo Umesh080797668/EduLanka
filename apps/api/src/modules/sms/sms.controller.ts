@@ -7,6 +7,13 @@ import { AppConfiguration } from '../../config/configuration';
 import { SupabaseService } from '../supabase/supabase.service';
 import * as twilio from 'twilio';
 
+const STATUS_RANK: Record<string, number> = {
+    QUEUED: 1,
+    SENT: 2,
+    DELIVERED: 3,
+    FAILED: 3,
+};
+
 @Controller('sms')
 export class SmsController {
     private readonly logger = new Logger(SmsController.name);
@@ -85,11 +92,58 @@ export class SmsController {
             const dbStatus = mapTwilioStatus(status);
             if (dbStatus) {
                 const db = this.supabaseService.adminClient;
-                await db.from('sms_logs')
-                    .update({ status: dbStatus, error_code: errorCode || null })
-                    .eq('twilio_sid', sid);
 
-                this.logger.log(`Webhook natively updated TWILIO_SID: [${sid}] => ${dbStatus}`);
+                // 1. Fetch current sms_logs entry to prevent out-of-order transitions
+                let logEntry: any = null;
+                try {
+                    const lookup = await db.from('sms_logs')
+                        .select('id, status, disaster_event_id')
+                        .eq('twilio_sid', sid)
+                        .maybeSingle();
+                    logEntry = lookup?.data;
+                } catch (e: any) {
+                    this.logger.debug(`Could not query existing sms_logs: ${e?.message}`);
+                }
+
+                if (logEntry) {
+                    const currentRank = STATUS_RANK[logEntry.status] || 0;
+                    const newRank = STATUS_RANK[dbStatus] || 0;
+
+                    // Prevent late 'SENT' from overwriting 'DELIVERED' or 'FAILED'
+                    if (newRank < currentRank) {
+                        this.logger.warn(`Ignoring out-of-order Twilio callback for ${sid}: current ${logEntry.status}, incoming ${dbStatus}`);
+                        return res.status(HttpStatus.OK).send('<Response></Response>');
+                    }
+
+                    const isNewTerminalStatus = newRank === 3 && currentRank < 3;
+
+                    await db.from('sms_logs')
+                        .update({ status: dbStatus, error_code: errorCode || null, updated_at: new Date().toISOString() })
+                        .eq('id', logEntry.id);
+
+                    this.logger.log(`Webhook updated TWILIO_SID: [${sid}] => ${dbStatus}`);
+
+                    // 2. Link delivery stats to disaster_events for Phase 5/6 tracking
+                    if (isNewTerminalStatus && logEntry.disaster_event_id) {
+                        const countField = dbStatus === 'DELIVERED' ? 'sms_delivered_count' : 'sms_failed_count';
+                        const { data: event } = await db.from('disaster_events')
+                            .select(countField)
+                            .eq('id', logEntry.disaster_event_id)
+                            .maybeSingle();
+
+                        if (event) {
+                            const updatedCount = ((event as any)[countField] || 0) + 1;
+                            await db.from('disaster_events')
+                                .update({ [countField]: updatedCount, updated_at: new Date().toISOString() })
+                                .eq('id', logEntry.disaster_event_id);
+                        }
+                    }
+                } else {
+                    // Direct update fallback (e.g. unit tests or early webhook)
+                    await db.from('sms_logs')
+                        .update({ status: dbStatus, error_code: errorCode || null })
+                        .eq('twilio_sid', sid);
+                }
             }
         }
 

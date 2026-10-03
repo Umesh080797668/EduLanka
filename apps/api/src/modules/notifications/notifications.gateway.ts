@@ -14,15 +14,19 @@ import { UserRole } from '@edu-lanka/shared-types';
 import { SupabaseService } from '../supabase/supabase.service';
 import { RedisService } from '../redis/redis.service';
 
+const allowedOrigins = process.env.ALLOWED_ORIGINS
+  ? process.env.ALLOWED_ORIGINS.split(',').map((s) => s.trim()).filter(Boolean)
+  : '*';
+
 @WebSocketGateway({
   cors: {
-    origin: '*', // Allow all origins for development
+    origin: allowedOrigins,
   },
   transports: ['websocket', 'polling'], // Hybrid strategy
 })
 export class NotificationsGateway implements OnGatewayConnection, OnGatewayDisconnect, OnModuleInit {
   @WebSocketServer()
-  server: Server;
+  server!: Server;
 
   private readonly logger = new Logger(NotificationsGateway.name);
   private realtimeChannel: any;
@@ -43,8 +47,9 @@ export class NotificationsGateway implements OnGatewayConnection, OnGatewayDisco
   }
 
   async handleConnection(client: Socket) {
-    this.logger.log(`Client connected: ${client.id} (Transport: ${client.conn.transport.name})`);
-    await this.redisService.getClient().incr('metrics:ws:connections');
+    this.logger.log(`Client connected to notifications: ${client.id} (Transport: ${client.conn.transport.name})`);
+    await this.redisService.getClient().incr('metrics:ws:notifications:connections');
+    client.data.counted = true;
 
     try {
       const token = client.handshake.auth?.token || client.handshake.headers?.authorization?.split(' ')[1];
@@ -63,7 +68,7 @@ export class NotificationsGateway implements OnGatewayConnection, OnGatewayDisco
       }
     } catch {
       // Connects unauthenticated (e.g. public visitor or fallback), client.data stays empty
-      this.logger.debug(`Client ${client.id} connected unauthenticated`);
+      this.logger.debug(`Client ${client.id} connected unauthenticated to notifications`);
     }
 
     // Send a welcome system notification immediately (Socket.io only)
@@ -79,8 +84,11 @@ export class NotificationsGateway implements OnGatewayConnection, OnGatewayDisco
   }
 
   async handleDisconnect(client: Socket) {
-    this.logger.log(`Client disconnected: ${client.id}`);
-    await this.redisService.getClient().decr('metrics:ws:connections');
+    this.logger.log(`Client disconnected from notifications: ${client.id}`);
+    if (client.data?.counted) {
+      await this.redisService.getClient().decr('metrics:ws:notifications:connections');
+      client.data.counted = false;
+    }
   }
 
   /**

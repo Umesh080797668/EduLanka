@@ -1,14 +1,13 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { StudentsService } from '../students.service';
 import { SupabaseService } from '../../supabase/supabase.service';
-import { TenantService } from '../../tenant/tenant.service';
+import { ChatService } from '../../chat/chat.service';
 import { Logger, ForbiddenException, ConflictException, } from '@nestjs/common';
 import { UserRole } from '@edu-lanka/shared-types';
 
 describe('StudentsService', () => {
   let service: StudentsService;
   let mockSupabaseService: any;
-  let mockTenantService: any;
   let mockDb: any;
 
   beforeEach(async () => {
@@ -37,15 +36,11 @@ describe('StudentsService', () => {
       },
     };
 
-    mockTenantService = {
-      findOneById: jest.fn().mockResolvedValue({ slug: 'test-tenant' }),
-    };
-
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         StudentsService,
         { provide: SupabaseService, useValue: mockSupabaseService },
-        { provide: TenantService, useValue: mockTenantService },
+        { provide: ChatService, useValue: { syncClassParticipants: jest.fn().mockResolvedValue(0) } },
       ],
     }).compile();
 

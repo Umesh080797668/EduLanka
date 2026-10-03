@@ -96,6 +96,9 @@ const buildMockSupabase = (overrides?: {
     } as unknown as SupabaseService;
 };
 
+import { AuditLogsService } from '../../audit-logs/audit-logs.service';
+import { SmsService } from '../../sms/sms.service';
+
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
 describe('TenantService', () => {
@@ -106,6 +109,8 @@ describe('TenantService', () => {
             providers: [
                 TenantService,
                 { provide: SupabaseService, useValue: supabaseMock },
+                { provide: AuditLogsService, useValue: { logAction: jest.fn().mockResolvedValue(true) } },
+                { provide: SmsService, useValue: { sendBatchSms: jest.fn().mockResolvedValue({ success: true, queuedCount: 1 }) } },
             ],
         }).compile();
         service = module.get(TenantService);

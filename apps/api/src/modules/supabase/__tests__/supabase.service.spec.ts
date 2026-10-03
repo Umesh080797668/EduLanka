@@ -2,9 +2,18 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { SupabaseService } from '../supabase.service';
 import { ConfigService } from '@nestjs/config';
 
-jest.mock('@supabase/supabase-js', () => ({
-    createClient: jest.fn().mockReturnValue({ auth: {}, db: {} })
-}));
+jest.mock('@supabase/supabase-js', () => {
+    const mockFromObj = {
+        select: jest.fn().mockReturnThis(),
+        eq: jest.fn().mockReturnThis(),
+    };
+    return {
+        createClient: jest.fn().mockReturnValue({
+            auth: {},
+            from: jest.fn().mockReturnValue(mockFromObj),
+        }),
+    };
+});
 
 import { createClient } from '@supabase/supabase-js';
 
@@ -29,6 +38,7 @@ describe('SupabaseService', () => {
         }).compile();
 
         service = module.get<SupabaseService>(SupabaseService);
+        service.onModuleInit();
     });
 
     afterEach(() => {
@@ -40,18 +50,17 @@ describe('SupabaseService', () => {
     });
 
     it('should initialize admin client on module init', () => {
-        service.onModuleInit();
         expect(createClient).toHaveBeenCalledWith('http://mock-supabase.local', 'mock-key', expect.objectContaining({
             db: { schema: 'public' }
         }));
         expect(service.adminClient).toBeDefined();
     });
 
-    it('should return a tenant client correctly scoped to tenant schema', () => {
-        const tenantClient = service.getTenantClient('dev-school');
-        expect(createClient).toHaveBeenCalledWith('http://mock-supabase.local', 'mock-key', expect.objectContaining({
-            db: { schema: 'tenant_dev-school' }
-        }));
+    it('should return a tenant client correctly scoped to tenant with tenant_id injection', () => {
+        const tenantClient = service.getTenantClient('tenant-uuid-123');
         expect(tenantClient).toBeDefined();
+
+        const query = tenantClient.from('students').select('*');
+        expect(query.eq).toHaveBeenCalledWith('tenant_id', 'tenant-uuid-123');
     });
 });
