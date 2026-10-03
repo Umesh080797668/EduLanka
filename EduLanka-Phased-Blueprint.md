@@ -88,7 +88,7 @@ The full vision spans roughly six independently hard products: a multi-tenant sc
 
 **What changed concretely (Sprint 7 / migration `20260813000000_sprint7_single_schema.sql`):**
 - All per-tenant tables (`users`, `classes`, `teachers`, `students`, `parents`, `class_teachers`, `student_marks`, `user_tutorials`, `school_policy`, etc.) now live once in `public`, each with a `tenant_id UUID REFERENCES public.tenants(id)`.
-- Every table has a `USING (tenant_id::TEXT = current_setting('request.jwt.claim.tenantId', true))` RLS policy, plus a `service_role_all` bypass policy for the NestJS backend's service-role key.
+- Every table has a `USING (tenant_id::TEXT = current_setting('request.jwt.claim.tenantId', true))` RLS policy for tenant isolation. Redundant `service_role_all` policies with `USING (true)` were removed because Supabase `service_role` natively bypasses RLS (BYPASSRLS) and omitting `TO service_role` erroneously granted public/anon access to all rows.
 - The `create_tenant_schema()` / `drop_tenant_schema()` RPCs and the various `apply_sprintN_to_tenant()` dynamic-SQL functions are dropped. Provisioning a school is now a single `INSERT INTO public.tenants`; deprovisioning is a status flip (soft-delete) rather than a destructive `DROP SCHEMA ... CASCADE`.
 - At the API layer, `SupabaseService.getTenantClient()` no longer opens a connection scoped to a `tenant_<slug>` schema — it returns a proxied service-role client that auto-appends `.eq('tenant_id', ...)` to every `select`/`update`/`delete` call, so existing service code (`classes.service.ts`, `parents.service.ts`, etc.) didn't need a full rewrite.
 

@@ -14,7 +14,7 @@ export class NoticesController {
     @Post()
     @Roles(UserRole.SCHOOL_ADMIN, UserRole.SUPER_ADMIN, UserRole.TEACHER)
     async createNotice(@Req() req: any, @Body() body: any) {
-        return this.noticesService.createNotice(req.user.tenantId, req.user.sub, body);
+        return this.noticesService.createNotice(req.user.tenantId, req.user.sub, body, req.user.role);
     }
 
     @Get()

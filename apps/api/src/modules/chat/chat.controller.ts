@@ -138,7 +138,7 @@ export class ChatController {
 
         // Clients post over HTTP so refusals (muted, not a participant) surface as
         // errors, but the other participants still need the message pushed to them.
-        this.gateway.broadcastMessage(tenantId, saved);
+        this.gateway.broadcastMessage(body.conversationId, saved);
         return saved;
     }
 

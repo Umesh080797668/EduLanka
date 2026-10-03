@@ -1,4 +1,5 @@
 import { Injectable, ForbiddenException, BadRequestException, Logger } from '@nestjs/common';
+import { UserRole } from '@edu-lanka/shared-types';
 import { SupabaseService } from '../supabase/supabase.service';
 import { SmsService } from '../sms/sms.service';
 import { sanitizeNoticeHtml, noticeHtmlToText } from '../../common/utils/sanitize-html';
@@ -12,7 +13,7 @@ export class NoticesService {
         private readonly smsService: SmsService
     ) { }
 
-    async createNotice(tenantId: string, authorId: string, request: any) {
+    async createNotice(tenantId: string, authorId: string, request: any, callerRole?: string) {
         const adminClient = this.supabaseService.adminClient;
 
         const { data: tenant } = await adminClient
@@ -24,6 +25,21 @@ export class NoticesService {
         if (!tenant) throw new ForbiddenException('Tenant not found');
 
         const { title, content_html, scope, target_grade, target_class_id, priority, attachments, expires_at, send_sms } = request;
+
+        // Security check: Only SUPER_ADMIN can bypass SMS quotas
+        if (request.bypass_quota && callerRole !== UserRole.SUPER_ADMIN) {
+            throw new ForbiddenException('Only System Administrators can bypass SMS quotas.');
+        }
+
+        // Security check: Teachers cannot create SCHOOL_WIDE/UNIVERSAL notices or send SMS
+        if (callerRole === UserRole.TEACHER) {
+            if (scope === 'SCHOOL_WIDE' || scope === 'UNIVERSAL') {
+                throw new ForbiddenException('Teachers are not permitted to create school-wide notices.');
+            }
+            if (send_sms) {
+                throw new ForbiddenException('Teachers are not permitted to trigger SMS notifications.');
+            }
+        }
 
         // Notice bodies are authored as HTML and rendered into every recipient's
         // browser, so anyone who can post could otherwise script a principal's
@@ -44,6 +60,29 @@ export class NoticesService {
         }
 
         const client = this.supabaseService.getTenantClient(tenantId);
+
+        // If teacher creates class notice, verify teacher is assigned to that class
+        if (callerRole === UserRole.TEACHER && scope === 'CLASS_SPECIFIC' && target_class_id) {
+            const { data: teacher } = await client
+                .from('teachers')
+                .select('id')
+                .eq('user_id', authorId)
+                .maybeSingle();
+
+            if (teacher?.id) {
+                const { data: assignment } = await client
+                    .from('class_teachers')
+                    .select('id')
+                    .eq('teacher_id', teacher.id)
+                    .eq('class_id', target_class_id)
+                    .maybeSingle();
+
+                if (!assignment) {
+                    throw new ForbiddenException('You are not assigned to teach this class.');
+                }
+            }
+        }
+
         const { data, error } = await client
             .from('notices')
             .insert({
@@ -67,8 +106,8 @@ export class NoticesService {
         }
 
         if (send_sms && tenant.plan !== 'COMMUNITY') {
-            // System Admin overrides mapping
-            const forceBypass = request.bypass_quota === true;
+            // System Admin overrides mapping (strictly verified above)
+            const forceBypass = callerRole === UserRole.SUPER_ADMIN && request.bypass_quota === true;
 
             // Background Twilio broadcast via BullMQ Producer. Detached on
             // purpose — the notice is already saved and must not be rolled back
@@ -213,14 +252,19 @@ export class NoticesService {
 
         for (const tenant of tenants) {
             // System overrides tenant blockages dynamically
-            await this.createNotice(tenant.id, authorId, {
-                title: request.title,
-                content_html: request.content_html ?? request.content,
-                priority: 'URGENT',
-                scope: 'SCHOOL_WIDE',
-                send_sms: request.send_sms,
-                bypass_quota: request.send_sms // Assuming send_sms globally maps directly to Disaster Overrides for Super Admins
-            });
+            await this.createNotice(
+                tenant.id,
+                authorId,
+                {
+                    title: request.title,
+                    content_html: request.content_html ?? request.content,
+                    priority: 'URGENT',
+                    scope: 'SCHOOL_WIDE',
+                    send_sms: request.send_sms,
+                    bypass_quota: request.send_sms, // Assuming send_sms globally maps directly to Disaster Overrides for Super Admins
+                },
+                UserRole.SUPER_ADMIN,
+            );
             dispatchCount++;
         }
 

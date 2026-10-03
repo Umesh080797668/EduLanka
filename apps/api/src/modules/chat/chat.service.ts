@@ -68,6 +68,22 @@ export class ChatService {
         }
     }
 
+    /**
+     * Check if a user is authorized to participate in / listen to a conversation.
+     * Used by ChatGateway before allowing a socket to join a conversation room.
+     */
+    async assertParticipantAccess(
+        tenantId: string,
+        conversationId: string,
+        userId: string,
+        callerRole?: string,
+    ): Promise<void> {
+        const client = this.supabaseService.getTenantClient(tenantId);
+        await this.assertParticipant(client, conversationId, userId, callerRole, {
+            enforceMute: false,
+        });
+    }
+
     /** Resolve display identities for a set of `public.users.id` values. */
     private async resolveUsers(
         client: any,

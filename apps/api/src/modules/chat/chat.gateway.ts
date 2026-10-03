@@ -28,10 +28,10 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       client.data.userId = payload.sub || payload.userId;
       client.data.role = payload.role;
 
-      const roomName = `tenant_${client.data.tenantId}`;
-      await client.join(roomName);
+      // Join user-specific room for direct socket messaging if needed
+      await client.join(`user_${client.data.userId}`);
 
-      this.logger.log(`Client ${client.id} connected. Subscribed to ${roomName}`);
+      this.logger.log(`Client ${client.id} (user ${client.data.userId}) connected`);
       await this.redisService.getClient().incr('metrics:ws:connections');
     } catch (error) {
       this.logger.warn(`Disconnecting unauthenticated/cross-tenant client ${client.id}`);
@@ -45,27 +45,64 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   /**
-   * Push a stored message to a tenant's connected clients. Exposed so the HTTP
-   * send path reaches the same audience as a gateway-originated send.
+   * Push a stored message to the conversation's room.
+   * Delivery is strictly scoped to participants who have joined conversation_<id>.
    */
-  broadcastMessage(tenantId: string, message: any): void {
+  broadcastMessage(conversationIdOrTenant: string, message: any): void {
     if (!this.server || !message) return;
-    this.server.to(`tenant_${tenantId}`).emit('new_message', message);
+    const conversationId = message.conversation_id || conversationIdOrTenant;
+    this.server.to(`conversation_${conversationId}`).emit('new_message', message);
+  }
+
+  @SubscribeMessage('join_conversation')
+  async handleJoinConversation(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() payload: { conversationId: string }
+  ) {
+    const { tenantId, userId, role } = client.data;
+    if (!tenantId || !userId || !payload?.conversationId) {
+      client.emit('chat_error', { message: 'Authentication required or invalid conversation' });
+      return;
+    }
+
+    try {
+      await this.chatService.assertParticipantAccess(tenantId, payload.conversationId, userId, role);
+      const roomName = `conversation_${payload.conversationId}`;
+      await client.join(roomName);
+      this.logger.log(`Client ${client.id} (user ${userId}) joined room ${roomName}`);
+      client.emit('joined_conversation', { conversationId: payload.conversationId });
+    } catch (e: any) {
+      this.logger.warn(`User ${userId} denied joining conversation ${payload.conversationId}: ${e.message}`);
+      client.emit('chat_error', { conversationId: payload?.conversationId, message: e.message });
+    }
+  }
+
+  @SubscribeMessage('leave_conversation')
+  async handleLeaveConversation(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() payload: { conversationId: string }
+  ) {
+    if (payload?.conversationId) {
+      const roomName = `conversation_${payload.conversationId}`;
+      await client.leave(roomName);
+      client.emit('left_conversation', { conversationId: payload.conversationId });
+    }
   }
 
   @SubscribeMessage('send_message')
   async handleSendMessage(@ConnectedSocket() client: Socket, @MessageBody() payload: any) {
     const { tenantId, userId, role } = client.data;
-    if (!tenantId || !userId) return;
+    if (!tenantId || !userId || !payload?.conversationId) return;
 
     try {
-      // Primary Driver flow: Validate, Save to Supabase, then Broadcast to connected workers via Redis pub/sub.
+      // Primary Driver flow: Validate, Save to Supabase, then Broadcast to conversation room.
       const savedMessage = await this.chatService.saveMessage(tenantId, payload.conversationId, userId, payload.content, role);
 
-      this.broadcastMessage(tenantId, savedMessage);
+      this.broadcastMessage(payload.conversationId, savedMessage);
     } catch (e: any) {
       this.logger.error(`Error sending message: ${e.message}`, e);
       client.emit('send_error', { conversationId: payload?.conversationId, message: e.message });
     }
   }
 }
+

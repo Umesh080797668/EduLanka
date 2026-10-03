@@ -129,7 +129,16 @@ export function useRealtimeChat(conversationId: string) {
             socketRef.current = socket;
 
             socket.on('connect', () => {
-                if (isMounted) setConnectionStatus('socket');
+                if (isMounted) {
+                    setConnectionStatus('socket');
+                    socket.emit('join_conversation', { conversationId });
+                }
+            });
+
+            socket.io.on('reconnect', () => {
+                if (isMounted) {
+                    socket.emit('join_conversation', { conversationId });
+                }
             });
 
             socket.on('new_message', (msg: Message) => {
@@ -156,6 +165,7 @@ export function useRealtimeChat(conversationId: string) {
 
         return () => {
             isMounted = false;
+            socketRef.current?.emit('leave_conversation', { conversationId });
             socketRef.current?.disconnect();
             socketRef.current = null;
             if (channelRef.current) {

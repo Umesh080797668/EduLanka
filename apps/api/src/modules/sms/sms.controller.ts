@@ -47,13 +47,22 @@ export class SmsController {
         // Safety Fallback handling missing body parses in fastify natively
         const params = req.body || {};
 
-        if (authToken && twilioSignature) {
+        if (authToken) {
+            if (!twilioSignature) {
+                this.logger.warn('Twilio webhook rejected: missing x-twilio-signature header');
+                return res.status(HttpStatus.FORBIDDEN).send('Missing X-Twilio-Signature header');
+            }
+
             const isValid = twilio.validateRequest(authToken, twilioSignature, targetUrl, params);
             if (!isValid) {
                 this.logger.warn('Invalid Twilio Signature intercepted from Gateway Webhook!');
                 return res.status(HttpStatus.FORBIDDEN).send('Invalid Signature');
             }
         } else {
+            if (process.env.NODE_ENV === 'production') {
+                this.logger.error('Twilio webhook rejected: TWILIO_AUTH_TOKEN is not configured in production');
+                return res.status(HttpStatus.SERVICE_UNAVAILABLE).send('Webhook unconfigured');
+            }
             this.logger.warn('Skipping Twilio Webhook Signature Validation (missing DEV config)');
         }
 
