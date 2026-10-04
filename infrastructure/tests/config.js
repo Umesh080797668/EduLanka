@@ -17,10 +17,10 @@ export const SYSTEM_TENANT_ID = __ENV.SYSTEM_TENANT_ID || 'a1b2c3d4-0000-0000-00
 const PILOT_PASSWORD = __ENV.PILOT_PASSWORD || 'PilotUser123!';
 
 export const CREDENTIALS = {
-    SCHOOL_ADMIN: { email: __ENV.ADMIN_EMAIL || 'admin@pilot.edulanka.lk', password: PILOT_PASSWORD, tenantId: TENANT_ID },
-    TEACHER: { email: __ENV.TEACHER_EMAIL || 'teacher@pilot.edulanka.lk', password: PILOT_PASSWORD, tenantId: TENANT_ID },
-    STUDENT: { email: __ENV.STUDENT_EMAIL || 'student@pilot.edulanka.lk', password: PILOT_PASSWORD, tenantId: TENANT_ID },
-    PARENT: { email: __ENV.PARENT_EMAIL || 'parent@pilot.edulanka.lk', password: PILOT_PASSWORD, tenantId: TENANT_ID },
+    SCHOOL_ADMIN: { email: __ENV.ADMIN_EMAIL || 'admin@royal.lk', password: PILOT_PASSWORD, tenantId: TENANT_ID },
+    TEACHER: { email: __ENV.TEACHER_EMAIL || 'teacher@royal.lk', password: PILOT_PASSWORD, tenantId: TENANT_ID },
+    STUDENT: { email: __ENV.STUDENT_EMAIL || 'student@royal.lk', password: PILOT_PASSWORD, tenantId: TENANT_ID },
+    PARENT: { email: __ENV.PARENT_EMAIL || 'parent@royal.lk', password: PILOT_PASSWORD, tenantId: TENANT_ID },
     SUPER_ADMIN: {
         email: __ENV.SUPER_ADMIN_EMAIL || 'superadmin@edulanka.lk',
         password: __ENV.SUPER_ADMIN_PASSWORD || 'SystemAdmin123!',

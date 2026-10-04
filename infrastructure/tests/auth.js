@@ -13,14 +13,14 @@ export function loginAs(role) {
 
     const res = http.post(
         `${BASE_URL}/auth/login`,
-        JSON.stringify({ email: creds.email, password: creds.password, tenantId: creds.tenantId }),
+        JSON.stringify({ email: creds.email, password: creds.password }),
         { headers: { 'Content-Type': 'application/json' }, tags: { name: 'auth_login', role } },
     );
 
     const ok = check(res, {
         [`${role} login succeeds (200)`]: (r) => r.status === 200,
         [`${role} login returns accessToken`]: (r) => {
-            try { return !!r.json('data.access_token'); } catch { return false; }
+            try { return !!(r.json('data.accessToken') || r.json('data.access_token')); } catch { return false; }
         },
     });
 
@@ -30,9 +30,10 @@ export function loginAs(role) {
 
     const body = res.json();
     return {
-        accessToken: body.data.access_token,
-        refreshToken: body.data.refresh_token,
-        tenantId: creds.tenantId,
+        accessToken: body.data.accessToken || body.data.access_token,
+        refreshToken: body.data.refreshToken || body.data.refresh_token,
+        tenantId: body.data.user?.tenantId || creds.tenantId,
+        userId: body.data.user?.id,
         role,
     };
 }

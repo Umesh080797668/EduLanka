@@ -106,6 +106,15 @@ const makeSupabase = (opts?: {
                 return makeChain(null);
             },
         },
+        createAuthClient: () => ({
+            auth: {
+                signInWithPassword: jest.fn().mockResolvedValue(
+                    o.signInError
+                        ? { data: { user: null }, error: { message: 'bad creds' } }
+                        : { data: { user: authUser }, error: null },
+                ),
+            },
+        }),
         getTenantClient: () => ({
             from: () => (o.noUser ? makeChain(null) : makeChain(userRow)),
         }),

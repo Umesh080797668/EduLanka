@@ -1,3 +1,6 @@
+import * as dotenv from 'dotenv';
+dotenv.config();
+
 import helmet from '@fastify/helmet';
 import compression from '@fastify/compress';
 import { VersioningType, ValidationPipe, Logger } from '@nestjs/common';

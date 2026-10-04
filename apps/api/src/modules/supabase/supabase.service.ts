@@ -45,6 +45,21 @@ export class SupabaseService implements OnModuleInit {
     }
 
     /**
+     * Returns an isolated Supabase client for password authentication.
+     * Prevents mutating the singleton adminClient's session state.
+     */
+    createAuthClient(): AnySupabaseClient {
+        const url = this.configService.get('supabase.url', { infer: true })!;
+        const key = this.configService.get('supabase.serviceRoleKey', { infer: true })!;
+        return createClient(url, key, {
+            auth: {
+                autoRefreshToken: false,
+                persistSession: false,
+            },
+        }) as AnySupabaseClient;
+    }
+
+    /**
      * Sprint 7 Architecture: Returns a proxied service-role client.
      * All .from('table') queries natively automatically inject .eq('tenant_id', tenantId)
      * enforcing Data Partitioning at the Node.js layer seamlessly.

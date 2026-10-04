@@ -60,9 +60,9 @@ export const options = {
 
 export function setup() {
     console.log('[Setup] Logging in pilot roles for Chat & SMS load test...');
-    const adminSession = loginAs(CREDENTIALS.SCHOOL_ADMIN);
-    const teacherSession = loginAs(CREDENTIALS.TEACHER);
-    const parentSession = loginAs(CREDENTIALS.PARENT);
+    const adminSession = loginAs('SCHOOL_ADMIN');
+    const teacherSession = loginAs('TEACHER');
+    const parentSession = loginAs('PARENT');
 
     // Fetch conversation thread or create one between teacher and parent
     let conversationId = null;
@@ -70,9 +70,21 @@ export function setup() {
         name: 'load_chat_get_conversations',
         expectedStatuses: [200, 404],
     });
-    const convs = safeJson(convListRes);
+    const resBody = safeJson(convListRes);
+    const convs = Array.isArray(resBody) ? resBody : resBody?.data;
     if (Array.isArray(convs) && convs.length > 0) {
         conversationId = convs[0].id;
+    }
+
+    if (!conversationId && parentSession.userId) {
+        const startRes = post('/chat/conversations/direct', teacherSession, {
+            recipientId: parentSession.userId,
+        }, {
+            name: 'load_chat_init_conversation',
+            expectedStatuses: [200, 201, 400],
+        });
+        const startBody = safeJson(startRes);
+        conversationId = startBody?.data?.id || startBody?.id;
     }
 
     return {
@@ -109,11 +121,12 @@ export function chatFlow(data) {
     chatLatency.add(histRes.timings.duration);
 
     // 2. Dispatch rapid message to exercise atomic Redis rate limiter
-    const msgRes = post(`/chat/conversations/${convId}/messages`, session, {
+    const msgRes = post('/chat/messages', session, {
+        conversationId: convId,
         content: `Load test message VU=${__VU} ITER=${__ITER} ts=${Date.now()}`,
     }, {
         name: 'chat_send_message',
-        expectedStatuses: [201, 400, 403, 429],
+        expectedStatuses: [200, 201, 400, 403, 429],
     });
     chatLatency.add(msgRes.timings.duration);
 
@@ -131,22 +144,20 @@ export function chatFlow(data) {
  */
 export function smsBlastFlow(data) {
     const session = data.adminSession;
-    const testRecipients = [
-        `+9477100${String(__VU).padStart(2, '0')}${String(__ITER % 100).padStart(2, '0')}`,
-        `+9477200${String(__VU).padStart(2, '0')}${String(__ITER % 100).padStart(2, '0')}`,
-    ];
 
     // 1. Check current SMS Quota state
-    get('/sms/quotas', session, {
+    get('/tenants/stats', session, {
         name: 'sms_get_quota',
         expectedStatuses: [200, 403, 404],
     });
 
-    // 2. Dispatch batch SMS through the Redis reservation lifecycle
-    const blastRes = post('/sms/send-bulk', session, {
-        recipients: testRecipients,
-        message: `[EduLanka Emergency Alert] High-concurrency queue test from VU ${__VU}.`,
-        isSafetyCritical: false,
+    // 2. Dispatch batch notice exercising the Redis reservation lifecycle and SMS worker
+    const blastRes = post('/notices', session, {
+        title: `Load Test Alert VU ${__VU}`,
+        content_html: `<p>Emergency notice queue test Iteration ${__ITER}</p>`,
+        scope: 'SCHOOL_WIDE',
+        priority: 'HIGH',
+        send_sms: true,
     }, {
         name: 'sms_dispatch_bulk',
         expectedStatuses: [200, 201, 400, 403, 429],

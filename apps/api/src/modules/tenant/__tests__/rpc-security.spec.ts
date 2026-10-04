@@ -15,9 +15,22 @@ const SUPABASE_SERVICE_ROLE_KEY =
     process.env.SUPABASE_SERVICE_ROLE_KEY
     || 'invalid-service-role-key-placeholder-wrong-secret';
 
-jest.setTimeout(25000);
+const shouldRun =
+    !!SUPABASE_URL
+    && !SUPABASE_URL.includes('yourproject')
+    && !SUPABASE_URL.includes('invalid')
+    && !!SUPABASE_SERVICE_ROLE_KEY
+    && !SUPABASE_SERVICE_ROLE_KEY.includes('invalid')
+    && !!SUPABASE_ANON_KEY
+    && !SUPABASE_ANON_KEY.includes('invalid');
 
-describe('RPC Security Isolation (Real Database Anon Key Defense)', () => {
+if (!shouldRun) {
+    console.warn('Skipping RPC Security Isolation test: Live Supabase credentials not found in environment');
+}
+
+jest.setTimeout(60000);
+
+(shouldRun ? describe : describe.skip)('RPC Security Isolation (Real Database Anon Key Defense)', () => {
     let anonClient: SupabaseClient;
     let serviceClient: SupabaseClient;
 

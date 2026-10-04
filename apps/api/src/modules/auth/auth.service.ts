@@ -90,7 +90,10 @@ export class AuthService {
             .eq('id', tenantId)
             .maybeSingle();
 
-        if (tenantError || !tenantData) throw new NotFoundException('Tenant not found');
+        if (tenantError || !tenantData) {
+            this.logger.error(`resolveTenantUser failed: tenantId=${tenantId}, error=${tenantError?.message}, data=${JSON.stringify(tenantData)}`);
+            throw new NotFoundException('Tenant not found');
+        }
         if (tenantData.status !== 'ACTIVE') throw new UnauthorizedException('Tenant is not active');
 
         const tenantClient = this.supabaseService.getTenantClient(tenantId);
@@ -241,7 +244,7 @@ export class AuthService {
             }
         }
 
-        const { data, error } = await this.supabaseService.adminClient.auth.signInWithPassword(authPayload);
+        const { data, error } = await this.supabaseService.createAuthClient().auth.signInWithPassword(authPayload);
 
         if (error) {
             console.error("signInWithPassword Error:", error.message, error.name, error.status);
