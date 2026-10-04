@@ -215,7 +215,7 @@ describe('Disaster Mode (TenantService)', () => {
 
             expect(mockSmsService.sendBatchSms).toHaveBeenCalledWith(
                 expect.any(Array),
-                expect.stringContaining('[அவசர அறிவிப்பு]'),
+                expect.stringContaining('[அவசர அறிவித்தல்]'),
                 'tenant-uuid-1',
                 expect.any(Object)
             );

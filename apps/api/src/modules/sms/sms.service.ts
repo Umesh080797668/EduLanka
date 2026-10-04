@@ -109,6 +109,7 @@ export class SmsService {
                 noticeId: options.noticeId,
                 disasterEventId: options.disasterEventId,
                 segmentCount: segments.segmentCount,
+                reserved: !options.bypassQuota,
             },
             opts: {
                 attempts: 5,

@@ -37,23 +37,23 @@ export function DisasterModeModal({
     if (language === 'SI') {
         const siMap: Record<string, string> = {
             FLOOD: 'ගංවතුර තත්ත්වය',
-            CYCLONE: 'සුළි සුළං අනතුරු ඇඟවීම',
-            LANDSLIDE: 'නායයාමේ අවදානම',
-            CIVIL_PUBLIC_HEALTH: 'මහජන සෞඛ්‍ය හදිසි තත්ත්වය',
-            OTHER: 'හදිසි පාසල් නිවාඩුව',
+            CYCLONE: 'සුළි සුළං අවදානම',
+            LANDSLIDE: 'නායයෑමේ අවදානම',
+            CIVIL_PUBLIC_HEALTH: 'හදිසි මහජන සෞඛ්‍ය/ආරක්ෂක හේතු',
+            OTHER: 'හදිසි ආපදා තත්ත්වය',
         };
-        previewReason = siMap[reason] || 'හදිසි පාසල් නිවාඩුව';
-        previewText = `[හදිසි නිවේදනය] ${schoolDisplayName}: ${previewReason} හේතුවෙන් පාසල වසා ඇත. නැවත ආරම්භය: ${reopenDisplay}. ආරක්ෂිතව සිටින්න.`;
+        previewReason = siMap[reason] || 'හදිසි ආපදා තත්ත්වය';
+        previewText = `[හදිසි නිවේදනය] ${schoolDisplayName}: ${previewReason} හේතුවෙන් පාසල තාවකාලිකව වසා තැබේ. නැවත ආරම්භය: ${reopenDisplay}. ආරක්ෂිතව සිටින්න.`;
     } else if (language === 'TA') {
         const taMap: Record<string, string> = {
             FLOOD: 'வெள்ளப் பெருக்கு',
             CYCLONE: 'சூறாவளி எச்சரிக்கை',
             LANDSLIDE: 'மண்சரிவு அபாயம்',
-            CIVIL_PUBLIC_HEALTH: 'பொது சுகாதார அவசரநிலை',
-            OTHER: 'அவசர விடுமுறை',
+            CIVIL_PUBLIC_HEALTH: 'பொதுச் சுகாதார அவசரநிலை',
+            OTHER: 'அவசர அனர்த்த நிலைமை',
         };
-        previewReason = taMap[reason] || 'அவசர விடுமுறை';
-        previewText = `[அவசர அறிவிப்பு] ${schoolDisplayName}: ${previewReason} காரணமாக பாடசாலை மூடப்பட்டுள்ளது. மீள ஆரம்பம்: ${reopenDisplay}. பாதுகாப்பாக இருக்கவும்.`;
+        previewReason = taMap[reason] || 'அவசர அனர்த்த நிலைமை';
+        previewText = `[அவசர அறிவித்தல்] ${schoolDisplayName}: ${previewReason} காரணமாக பாடசாலை தற்காலிகமாக மூடப்பட்டுள்ளது. மீள ஆரம்பம்: ${reopenDisplay}. பாதுகாப்பாக இருக்கவும்.`;
     } else {
         const enMap: Record<string, string> = {
             FLOOD: 'Flood conditions',

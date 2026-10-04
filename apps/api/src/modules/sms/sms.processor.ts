@@ -15,6 +15,7 @@ export interface SmsJobPayload {
     disasterEventId?: string;
     segmentCount?: number;
     twilioSid?: string;
+    reserved?: boolean;
 }
 
 @Processor('sms-gateway')
@@ -44,7 +45,7 @@ export class SmsProcessor extends WorkerHost {
     async process(job: Job<SmsJobPayload, any, string>): Promise<any> {
         this.logger.log(`Processing SMS Job ${job.id} (attempt ${job.attemptsMade + 1}) targeting ${job.data.to}`);
 
-        const { to, message, tenantId, noticeId, disasterEventId, segmentCount } = job.data;
+        const { to, message, tenantId, noticeId, disasterEventId, segmentCount, reserved } = job.data;
         const db = this.supabaseService.adminClient;
 
         if (!this.client) {
@@ -95,8 +96,10 @@ export class SmsProcessor extends WorkerHost {
                 throw new Error(`DB insert failure: ${dbError.message}`);
             }
 
-            // Release quota reservation now that this SMS is recorded in the DB usage view
-            await this.releaseQuotaReservation(tenantId, segmentCount);
+            // Release quota reservation now that this SMS is recorded in the DB usage view (only if quota was reserved)
+            if (reserved) {
+                await this.releaseQuotaReservation(tenantId, segmentCount);
+            }
 
             return { sid };
         } catch (error: any) {
@@ -118,8 +121,10 @@ export class SmsProcessor extends WorkerHost {
                     status: 'FAILED',
                     error_code: error.code?.toString() || 'TWILIO_API_ERROR'
                 });
-                // Release reservation on permanent failure
-                await this.releaseQuotaReservation(tenantId, segmentCount);
+                // Release reservation on permanent failure (only if quota was reserved)
+                if (reserved) {
+                    await this.releaseQuotaReservation(tenantId, segmentCount);
+                }
             }
 
             // Allow BullMQ to exponentially backtrack

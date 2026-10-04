@@ -683,8 +683,11 @@ export class NoticesService {
             throw new NotFoundException('Notice not found.');
         }
 
-        if (callerRole === UserRole.TEACHER && notice.author_id !== callerId) {
-            throw new ForbiddenException('You can only view acknowledgments for notices you authored.');
+        const isAdmin = callerRole === UserRole.SCHOOL_ADMIN || callerRole === UserRole.SUPER_ADMIN;
+        const isAuthor = notice.author_id === callerId;
+
+        if (!isAdmin && !isAuthor) {
+            throw new ForbiddenException('Only administrators and the notice author can view acknowledgments.');
         }
 
         const { data: reads, error } = await client

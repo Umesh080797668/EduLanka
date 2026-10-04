@@ -216,6 +216,8 @@ export class TenantService {
         if (classesReq.error) this.logger.error('classesReq map err: ' + classesReq.error.message);
 
         return {
+            name: tenant.name,
+            schoolName: tenant.name,
             users: usersReq.count || 0,
             classes: classesReq.count || 0,
             policies: 0, // No specific policy table exists right now
@@ -308,6 +310,9 @@ export class TenantService {
         });
 
         if (rpcErr) {
+            if (rpcErr.message?.includes('TENANT_NOT_FOUND')) {
+                throw new NotFoundException('Tenant not found.');
+            }
             if (rpcErr.code === '23505' || rpcErr.message?.includes('DISASTER_ALREADY_ACTIVE')) {
                 throw new ConflictException('Disaster Mode is already active for this school.');
             }
@@ -345,23 +350,23 @@ export class TenantService {
                 if (lang === 'SI') {
                     const siReasons: Record<string, string> = {
                         [DisasterReason.FLOOD]: 'ගංවතුර තත්ත්වය',
-                        [DisasterReason.CYCLONE]: 'සුළි සුළං අනතුරු ඇඟවීම',
-                        [DisasterReason.LANDSLIDE]: 'නායයාමේ අවදානම',
-                        [DisasterReason.CIVIL_PUBLIC_HEALTH]: 'මහජන සෞඛ්‍ය හදිසි තත්ත්වය',
-                        [DisasterReason.OTHER]: 'හදිසි පාසල් නිවාඩුව',
+                        [DisasterReason.CYCLONE]: 'සුළි සුළං අවදානම',
+                        [DisasterReason.LANDSLIDE]: 'නායයෑමේ අවදානම',
+                        [DisasterReason.CIVIL_PUBLIC_HEALTH]: 'හදිසි මහජන සෞඛ්‍ය/ආරක්ෂක හේතු',
+                        [DisasterReason.OTHER]: 'හදිසි ආපදා තත්ත්වය',
                     };
-                    const friendlyReason = siReasons[dto.reason] || 'හදිසි පාසල් නිවාඩුව';
-                    message = `[හදිසි නිවේදනය] ${tenant.name}: ${friendlyReason} හේතුවෙන් පාසල වසා ඇත. නැවත ආරම්භය: ${reopenDate}. ආරක්ෂිතව සිටින්න.`;
+                    const friendlyReason = siReasons[dto.reason] || 'හදිසි ආපදා තත්ත්වය';
+                    message = `[හදිසි නිවේදනය] ${tenant.name}: ${friendlyReason} හේතුවෙන් පාසල තාවකාලිකව වසා තැබේ. නැවත ආරම්භය: ${reopenDate}. ආරක්ෂිතව සිටින්න.`;
                 } else if (lang === 'TA') {
                     const taReasons: Record<string, string> = {
                         [DisasterReason.FLOOD]: 'வெள்ளப் பெருக்கு',
                         [DisasterReason.CYCLONE]: 'சூறாவளி எச்சரிக்கை',
                         [DisasterReason.LANDSLIDE]: 'மண்சரிவு அபாயம்',
-                        [DisasterReason.CIVIL_PUBLIC_HEALTH]: 'பொது சுகாதார அவசரநிலை',
-                        [DisasterReason.OTHER]: 'அவசர விடுமுறை',
+                        [DisasterReason.CIVIL_PUBLIC_HEALTH]: 'பொதுச் சுகாதார அவசரநிலை',
+                        [DisasterReason.OTHER]: 'அவசர அனர்த்த நிலைமை',
                     };
-                    const friendlyReason = taReasons[dto.reason] || 'அவசர விடுமுறை';
-                    message = `[அவசர அறிவிப்பு] ${tenant.name}: ${friendlyReason} காரணமாக பாடசாலை மூடப்பட்டுள்ளது. மீள ஆரம்பம்: ${reopenDate}. பாதுகாப்பாக இருக்கவும்.`;
+                    const friendlyReason = taReasons[dto.reason] || 'அவசர அனர்த்த நிலைமை';
+                    message = `[அவசர அறிவித்தல்] ${tenant.name}: ${friendlyReason} காரணமாக பாடசாலை தற்காலிகமாக மூடப்பட்டுள்ளது. மீள ஆரம்பம்: ${reopenDate}. பாதுகாப்பாக இருக்கவும்.`;
                 } else {
                     const enReasons: Record<string, string> = {
                         [DisasterReason.FLOOD]: 'Flood conditions',
@@ -444,6 +449,9 @@ export class TenantService {
         });
 
         if (rpcErr) {
+            if (rpcErr.message?.includes('TENANT_NOT_FOUND')) {
+                throw new NotFoundException('Tenant not found.');
+            }
             if (rpcErr.message?.includes('DISASTER_NOT_ACTIVE')) {
                 throw new ConflictException('Disaster Mode is not currently active for this school.');
             }

@@ -469,6 +469,54 @@ describe('NoticesService', () => {
       expect(result.totalReads).toBe(1);
       expect(result.readers[0].fullName).toBe('Parent One');
     });
+
+    it('should reject non-author teachers from viewing notice acknowledgments', async () => {
+      mockTenantFrom.mockImplementation((table: string) => {
+        if (table === 'notices') {
+          return {
+            select: jest.fn().mockReturnValue({
+              eq: jest.fn().mockReturnValue({
+                maybeSingle: jest.fn().mockResolvedValue({
+                  data: { id: 'notice_1', author_id: 'user_admin', scope: 'SCHOOL_WIDE', title: 'Test' },
+                  error: null,
+                }),
+              }),
+            }),
+          };
+        }
+        return { select: jest.fn().mockReturnThis(), eq: jest.fn().mockReturnThis() };
+      });
+
+      await expect(
+        service.getNoticeAcknowledgments('tenant_1', 'notice_1', 'other_teacher', UserRole.TEACHER)
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('should reject students and parents from viewing notice acknowledgments', async () => {
+      mockTenantFrom.mockImplementation((table: string) => {
+        if (table === 'notices') {
+          return {
+            select: jest.fn().mockReturnValue({
+              eq: jest.fn().mockReturnValue({
+                maybeSingle: jest.fn().mockResolvedValue({
+                  data: { id: 'notice_1', author_id: 'user_admin', scope: 'SCHOOL_WIDE', title: 'Test' },
+                  error: null,
+                }),
+              }),
+            }),
+          };
+        }
+        return { select: jest.fn().mockReturnThis(), eq: jest.fn().mockReturnThis() };
+      });
+
+      await expect(
+        service.getNoticeAcknowledgments('tenant_1', 'notice_1', 'student_1', UserRole.STUDENT)
+      ).rejects.toThrow(ForbiddenException);
+
+      await expect(
+        service.getNoticeAcknowledgments('tenant_1', 'notice_1', 'parent_1', UserRole.PARENT)
+      ).rejects.toThrow(ForbiddenException);
+    });
   });
 
   describe('broadcastGlobalNotice', () => {

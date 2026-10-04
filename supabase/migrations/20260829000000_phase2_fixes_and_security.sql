@@ -64,6 +64,10 @@ BEGIN
     WHERE id = p_tenant_id
     FOR UPDATE;
 
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'TENANT_NOT_FOUND' USING ERRCODE = 'P0002';
+    END IF;
+
     IF v_is_active IS TRUE THEN
         RAISE EXCEPTION 'DISASTER_ALREADY_ACTIVE' USING ERRCODE = '23505';
     END IF;
@@ -133,6 +137,10 @@ BEGIN
     FROM public.tenants
     WHERE id = p_tenant_id
     FOR UPDATE;
+
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'TENANT_NOT_FOUND' USING ERRCODE = 'P0002';
+    END IF;
 
     IF v_is_active IS NOT TRUE THEN
         RAISE EXCEPTION 'DISASTER_NOT_ACTIVE' USING ERRCODE = 'P0002';
@@ -210,7 +218,24 @@ END;
 $$;
 
 -- Alter default privileges so future public functions are not auto-granted to anon/authenticated
-ALTER DEFAULT PRIVILEGES IN SCHEMA public REVOKE EXECUTE ON FUNCTIONS FROM anon, authenticated;
+-- Explicitly cover both the current executing role and standard Supabase administrative roles
+DO $$
+DECLARE
+    v_role TEXT;
+BEGIN
+    EXECUTE 'ALTER DEFAULT PRIVILEGES IN SCHEMA public REVOKE EXECUTE ON FUNCTIONS FROM anon, authenticated;';
+
+    FOR v_role IN SELECT unnest(ARRAY['postgres', 'authenticated', 'anon', 'service_role']) LOOP
+        IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = v_role) THEN
+            BEGIN
+                EXECUTE format('ALTER DEFAULT PRIVILEGES FOR ROLE %I IN SCHEMA public REVOKE EXECUTE ON FUNCTIONS FROM anon, authenticated;', v_role);
+            EXCEPTION WHEN insufficient_privilege THEN
+                NULL;
+            END;
+        END IF;
+    END LOOP;
+END;
+$$;
 
 -- 6. Fix monthly_sms_usage view to sum actual segments and exclude failures from total_dispatched
 DROP VIEW IF EXISTS public.tenant_sms_quotas CASCADE;

@@ -106,6 +106,7 @@ export class NoticesController {
     }
 
     @Get(':id/acknowledgments')
+    @Roles(UserRole.SCHOOL_ADMIN, UserRole.SUPER_ADMIN, UserRole.TEACHER)
     @ApiOperation({ summary: 'View readers who acknowledged a notice' })
     async getAcknowledgments(@Req() req: any, @Param('id') id: string) {
         return this.noticesService.getNoticeAcknowledgments(
