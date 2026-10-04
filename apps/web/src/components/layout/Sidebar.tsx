@@ -149,6 +149,7 @@ const NAV: Record<Role, NavSection[]> = {
             items: [
                 { nameKey: 'smsGateway', href: '/system-admin/sms', icon: MessageSquare },
                 { nameKey: 'inquiries', href: '/system-admin/inquiries', icon: MessagesSquare },
+                { nameKey: 'maintenance', href: '/system-admin/maintenance', icon: Bell },
             ],
         },
         {

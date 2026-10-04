@@ -2,7 +2,6 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { io, Socket } from 'socket.io-client';
 
 import { apiClient } from '@/lib/api-client';
-import { createSupabaseBrowserClient } from '@/lib/supabase/client';
 
 export type Message = {
     id: string;
@@ -18,7 +17,7 @@ export type Message = {
     is_read?: boolean;
 };
 
-export type ConnectionStatus = 'connecting' | 'socket' | 'supabase' | 'disconnected';
+export type ConnectionStatus = 'connecting' | 'socket' | 'polling' | 'disconnected';
 
 interface MessagePage {
     conversationId: string;
@@ -58,6 +57,8 @@ function upsert(list: Message[], next: Message): Message[] {
  * socket is used purely as an inbound transport; sending goes over HTTP so a
  * refusal (muted, not a participant) surfaces as a real error.
  *
+ * Falls back to 4s HTTP polling if the WebSocket drops or fails to connect.
+ *
  * Callers should key the component by `conversationId` — this hook does not
  * reset itself when the id changes.
  */
@@ -68,33 +69,45 @@ export function useRealtimeChat(conversationId: string) {
     const [historyError, setHistoryError] = useState<string | null>(null);
     const [hasMore, setHasMore] = useState(false);
     const [loadingOlder, setLoadingOlder] = useState(false);
+    const [typingUserIds, setTypingUserIds] = useState<string[]>([]);
 
     const socketRef = useRef<Socket | null>(null);
-    const channelRef = useRef<any>(null);
-    const supabase = createSupabaseBrowserClient();
+    const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
+    const typingTimersRef = useRef<Map<string, NodeJS.Timeout>>(new Map());
 
     useEffect(() => {
         let isMounted = true;
 
-        const engageSupabaseFallback = () => {
-            if (channelRef.current) return; // already running
-            channelRef.current = supabase
-                .channel(`chat_${conversationId}`)
-                .on(
-                    'postgres_changes',
-                    {
-                        event: 'INSERT',
-                        schema: 'public',
-                        table: 'chat_messages',
-                        filter: `conversation_id=eq.${conversationId}`,
-                    },
-                    (payload) => {
-                        if (isMounted) setMessages((prev) => upsert(prev, payload.new as Message));
-                    },
-                )
-                .subscribe((status: string) => {
-                    if (status === 'SUBSCRIBED' && isMounted) setConnectionStatus('supabase');
-                });
+        const stopPollingFallback = () => {
+            if (pollIntervalRef.current) {
+                clearInterval(pollIntervalRef.current);
+                pollIntervalRef.current = null;
+            }
+        };
+
+        const engagePollingFallback = () => {
+            if (pollIntervalRef.current) return;
+            if (isMounted) setConnectionStatus('polling');
+            pollIntervalRef.current = setInterval(async () => {
+                if (!isMounted) return;
+                try {
+                    const page = await apiClient.get<MessagePage>(
+                        `/chat/conversations/${conversationId}/messages?limit=25`,
+                        { skipGlobalToast: true },
+                    );
+                    if (isMounted && page?.messages) {
+                        setMessages((prev) => {
+                            let next = prev;
+                            for (const msg of page.messages) {
+                                next = upsert(next, msg);
+                            }
+                            return next;
+                        });
+                    }
+                } catch {
+                    // Ignore polling errors quietly
+                }
+            }, 4000);
         };
 
         const start = async () => {
@@ -124,12 +137,13 @@ export function useRealtimeChat(conversationId: string) {
                         .catch(() => cb({}));
                 },
                 transports: ['websocket'],
-                reconnectionAttempts: 3, // then fall back to Supabase Realtime
+                reconnectionAttempts: 3,
             });
             socketRef.current = socket;
 
             socket.on('connect', () => {
                 if (isMounted) {
+                    stopPollingFallback();
                     setConnectionStatus('socket');
                     socket.emit('join_conversation', { conversationId });
                 }
@@ -137,6 +151,8 @@ export function useRealtimeChat(conversationId: string) {
 
             socket.io.on('reconnect', () => {
                 if (isMounted) {
+                    stopPollingFallback();
+                    setConnectionStatus('socket');
                     socket.emit('join_conversation', { conversationId });
                 }
             });
@@ -147,17 +163,61 @@ export function useRealtimeChat(conversationId: string) {
                 }
             });
 
+            socket.on('message_read', (data: { conversationId: string; messageId: string; userId: string }) => {
+                if (data?.conversationId === conversationId && isMounted) {
+                    setMessages((prev) =>
+                        prev.map((m) => {
+                            if (m.id === data.messageId) {
+                                const readBy = new Set(m.read_by || []);
+                                readBy.add(data.userId);
+                                return {
+                                    ...m,
+                                    read_by: Array.from(readBy),
+                                    is_read: true,
+                                };
+                            }
+                            return m;
+                        }),
+                    );
+                }
+            });
+
+            socket.on('user_typing', (data: { conversationId: string; userId: string; isTyping: boolean }) => {
+                if (data?.conversationId !== conversationId || !data.userId || !isMounted) return;
+
+                const existingTimer = typingTimersRef.current.get(data.userId);
+                if (existingTimer) {
+                    clearTimeout(existingTimer);
+                    typingTimersRef.current.delete(data.userId);
+                }
+
+                if (data.isTyping) {
+                    setTypingUserIds((prev) => (prev.includes(data.userId) ? prev : [...prev, data.userId]));
+                    const timer = setTimeout(() => {
+                        if (isMounted) {
+                            setTypingUserIds((prev) => prev.filter((id) => id !== data.userId));
+                        }
+                        typingTimersRef.current.delete(data.userId);
+                    }, 3000);
+                    typingTimersRef.current.set(data.userId, timer);
+                } else {
+                    setTypingUserIds((prev) => prev.filter((id) => id !== data.userId));
+                }
+            });
+
             socket.on('disconnect', () => {
-                if (isMounted) setConnectionStatus('connecting');
+                if (isMounted) {
+                    setConnectionStatus('connecting');
+                    engagePollingFallback();
+                }
             });
 
             socket.on('connect_error', () => {
-                engageSupabaseFallback();
+                engagePollingFallback();
             });
 
             socket.io.on('reconnect_failed', () => {
-                // Neither driver came up; sending still works over HTTP.
-                if (isMounted && !channelRef.current) setConnectionStatus('disconnected');
+                engagePollingFallback();
             });
         };
 
@@ -165,15 +225,14 @@ export function useRealtimeChat(conversationId: string) {
 
         return () => {
             isMounted = false;
+            stopPollingFallback();
+            typingTimersRef.current.forEach((t) => clearTimeout(t));
+            typingTimersRef.current.clear();
             socketRef.current?.emit('leave_conversation', { conversationId });
             socketRef.current?.disconnect();
             socketRef.current = null;
-            if (channelRef.current) {
-                supabase.removeChannel(channelRef.current);
-                channelRef.current = null;
-            }
         };
-    }, [conversationId, supabase]);
+    }, [conversationId]);
 
     const oldestAt = messages.length > 0 ? messages[0]!.created_at : null;
 
@@ -220,6 +279,13 @@ export function useRealtimeChat(conversationId: string) {
         );
     }, []);
 
+    const sendTyping = useCallback(
+        (isTyping: boolean) => {
+            socketRef.current?.emit('typing', { conversationId, isTyping });
+        },
+        [conversationId],
+    );
+
     return {
         messages,
         connectionStatus,
@@ -230,5 +296,7 @@ export function useRealtimeChat(conversationId: string) {
         loadingOlder,
         loadOlder,
         setPinned,
+        typingUserIds,
+        sendTyping,
     };
 }

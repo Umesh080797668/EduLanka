@@ -35,8 +35,11 @@ interface TenantRow {
     address_city: string | null;
     address_district: string | null;
     address_province: string | null;
-    address_postal: string | null;
+    address_postal?: string | null;
     sms_approved: boolean;
+    disaster_mode?: boolean;
+    disaster_reason?: string | null;
+    disaster_resume_date?: string | null;
     created_at: string;
     updated_at: string;
 }
@@ -67,6 +70,9 @@ export class TenantService {
             contactEmail: row.contact_email,
             phoneNumber: row.phone_number ?? undefined,
             smsApproved: row.sms_approved ?? false,
+            disasterMode: row.disaster_mode ?? false,
+            disasterReason: (row.disaster_reason as DisasterReason) ?? undefined,
+            disasterResumeDate: row.disaster_resume_date ?? undefined,
             address: row.address_city
                 ? {
                     street: row.address_street ?? undefined,
@@ -213,7 +219,10 @@ export class TenantService {
             users: usersReq.count || 0,
             classes: classesReq.count || 0,
             policies: 0, // No specific policy table exists right now
-            status: tenant.status === TenantStatus.ACTIVE ? 'Healthy' : tenant.status
+            status: tenant.status === TenantStatus.ACTIVE ? 'Healthy' : tenant.status,
+            disasterMode: Boolean(tenant.disasterMode),
+            disasterReason: (tenant as any).disasterReason || null,
+            disasterResumeDate: (tenant as any).disasterResumeDate || null,
         };
     }
 
@@ -289,38 +298,29 @@ export class TenantService {
 
         if (!tenant) throw new NotFoundException('Tenant context unavailable.');
 
-        // 1. Record in disaster_events history table (persisting for Phase 5/6 reporting)
-        const { data: disasterEvent, error: insertErr } = await this.supabase.adminClient
-            .from('disaster_events')
-            .insert({
-                tenant_id: tenant.id,
-                triggered_by: caller.sub,
-                reason: dto.reason,
-                details: dto.details || null,
-                expected_resume_date: dto.resumeDate ? new Date(dto.resumeDate).toISOString() : null,
-                is_active: true,
-            })
-            .select()
-            .single();
+        // 1. Atomically activate via stored procedure to prevent duplicate activation races
+        const { data: eventData, error: rpcErr } = await this.supabase.adminClient.rpc('activate_disaster_mode', {
+            p_tenant_id: tenant.id,
+            p_triggered_by: caller.sub,
+            p_reason: dto.reason,
+            p_details: dto.details || null,
+            p_resume_date: dto.resumeDate ? new Date(dto.resumeDate).toISOString() : null,
+        });
 
-        if (insertErr || !disasterEvent) {
-            this.logger.error(`Failed to insert disaster event: ${insertErr?.message}`);
+        if (rpcErr) {
+            if (rpcErr.code === '23505' || rpcErr.message?.includes('DISASTER_ALREADY_ACTIVE')) {
+                throw new ConflictException('Disaster Mode is already active for this school.');
+            }
+            this.logger.error(`Failed to activate disaster mode: ${rpcErr.message}`);
             throw new InternalServerErrorException('Failed to record disaster event');
         }
 
-        // 2. Atomically update tenant status
-        await this.supabase.adminClient
-            .from('tenants')
-            .update({
-                disaster_mode: true,
-                disaster_reason: dto.reason,
-                disaster_resume_date: dto.resumeDate || null,
-            })
-            .eq('id', tenant.id);
+        const disasterEvent = eventData as any;
+        const eventId = disasterEvent?.id;
 
         this.logger.warn(`Disaster Mode ACTIVATED for ${tenant.name} (${dto.reason})!`);
 
-        // 3. Emergency SMS blast for paid tiers (Community tier strictly excluded per blueprint)
+        // 2. Emergency SMS blast for paid tiers (Community tier strictly excluded per blueprint)
         let smsQueued = 0;
         if (tenant.plan !== TenantPlan.COMMUNITY) {
             const { data: parents } = await this.supabase.getTenantClient(tenant.id)
@@ -334,13 +334,23 @@ export class TenantService {
                 .filter((p): p is string => Boolean(p));
 
             if (phoneNumbers.length > 0) {
-                const message = `[🚨 ${tenant.name} EMERGENCY 🚨] Disaster Mode engaged due to ${dto.reason}. Expected resume: ${dto.resumeDate ? new Date(dto.resumeDate).toLocaleDateString() : 'Unknown'}. Please access offline portals now.`;
+                const friendlyReasons: Record<string, string> = {
+                    [DisasterReason.FLOOD]: 'Flood conditions',
+                    [DisasterReason.CYCLONE]: 'Cyclone alert',
+                    [DisasterReason.LANDSLIDE]: 'Landslide warning',
+                    [DisasterReason.CIVIL_PUBLIC_HEALTH]: 'Health and safety emergency',
+                    [DisasterReason.OTHER]: 'Emergency closure',
+                };
+                const friendlyReason = friendlyReasons[dto.reason] || 'Emergency closure';
+                const reopenDate = dto.resumeDate ? dto.resumeDate.slice(0, 10) : 'further notice';
+                const message = `[EMERGENCY] ${tenant.name}: School closed due to ${friendlyReason}. Expected to reopen on ${reopenDate}. Please stay safe.`;
+
                 const smsResult = await this.smsService.sendBatchSms(
                     phoneNumbers,
                     message,
                     tenant.id,
                     {
-                        disasterEventId: disasterEvent.id,
+                        disasterEventId: eventId,
                         bypassQuota: true,
                         isSafetyCritical: true,
                     }
@@ -351,12 +361,12 @@ export class TenantService {
                     await this.supabase.adminClient
                         .from('disaster_events')
                         .update({ sms_queued_count: smsQueued })
-                        .eq('id', disasterEvent.id);
+                        .eq('id', eventId);
                 }
             }
         }
 
-        // 4. Audit Log activation for ALL tiers (including Community)
+        // 3. Audit Log activation for ALL tiers (including Community)
         await this.auditLogs.logAction({
             tenantId: tenant.id,
             actorId: caller.sub,
@@ -367,14 +377,14 @@ export class TenantService {
             newValues: {
                 disaster_mode: true,
                 disaster_reason: dto.reason,
-                disaster_event_id: disasterEvent.id,
+                disaster_event_id: eventId,
                 disaster_resume_date: dto.resumeDate || null,
                 sms_dispatched: smsQueued,
                 bypassed_quotas: true,
             },
         });
 
-        return { active: true, eventId: disasterEvent.id, smsQueued };
+        return { active: true, eventId, smsQueued };
     }
 
     /**
@@ -397,33 +407,24 @@ export class TenantService {
 
         if (!tenant) throw new NotFoundException('Tenant context unavailable.');
 
-        const now = new Date().toISOString();
+        // 1. Atomically deactivate via stored procedure
+        const { error: rpcErr } = await this.supabase.adminClient.rpc('deactivate_disaster_mode', {
+            p_tenant_id: tenant.id,
+            p_deactivated_by: caller.sub,
+            p_note: dto.note || null,
+        });
 
-        // 1. Mark active disaster events as deactivated
-        await this.supabase.adminClient
-            .from('disaster_events')
-            .update({
-                is_active: false,
-                deactivated_at: now,
-                deactivated_by: caller.sub,
-                updated_at: now,
-            })
-            .eq('tenant_id', tenant.id)
-            .eq('is_active', true);
-
-        // 2. Clear disaster mode on tenant row
-        await this.supabase.adminClient
-            .from('tenants')
-            .update({
-                disaster_mode: false,
-                disaster_reason: null,
-                disaster_resume_date: null,
-            })
-            .eq('id', tenant.id);
+        if (rpcErr) {
+            if (rpcErr.message?.includes('DISASTER_NOT_ACTIVE')) {
+                throw new ConflictException('Disaster Mode is not currently active for this school.');
+            }
+            this.logger.error(`Failed to deactivate disaster mode: ${rpcErr.message}`);
+            throw new InternalServerErrorException('Failed to deactivate disaster mode');
+        }
 
         this.logger.log(`Disaster Mode DEACTIVATED for ${tenant.name}.`);
 
-        // 3. Audit Log deactivation for ALL tiers
+        // 2. Audit Log deactivation for ALL tiers
         await this.auditLogs.logAction({
             tenantId: tenant.id,
             actorId: caller.sub,

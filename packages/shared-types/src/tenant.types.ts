@@ -47,6 +47,9 @@ export interface Tenant {
     contactEmail: string;
     phoneNumber?: string;
     smsApproved?: boolean; // System Admin controlled — whether SMS features are enabled for this tenant
+    disasterMode?: boolean;
+    disasterReason?: DisasterReason;
+    disasterResumeDate?: string;
     address?: TenantAddress;
     createdAt: string; // ISO-8601
     updatedAt: string;

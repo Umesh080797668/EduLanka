@@ -28,7 +28,7 @@ const CONNECTION: Record<
     { tone: string; key: 'connSocket' | 'connFallback' | 'connConnecting' | 'connDisconnected' }
 > = {
     socket: { tone: 'bg-success', key: 'connSocket' },
-    supabase: { tone: 'bg-warning', key: 'connFallback' },
+    polling: { tone: 'bg-warning', key: 'connFallback' },
     disconnected: { tone: 'bg-destructive', key: 'connDisconnected' },
 };
 
@@ -53,6 +53,7 @@ export default function MessageThread({
     const scrollRef = React.useRef<HTMLDivElement>(null);
     const readRef = React.useRef<Set<string>>(new Set());
     const lastIdRef = React.useRef<string | null>(null);
+    const typingTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
 
     const {
         messages,
@@ -64,7 +65,36 @@ export default function MessageThread({
         loadingOlder,
         loadOlder,
         setPinned,
+        typingUserIds,
+        sendTyping,
     } = useRealtimeChat(conversationId);
+
+    const otherTypingUsers = React.useMemo(
+        () => typingUserIds.filter((id) => id !== me),
+        [typingUserIds, me],
+    );
+
+    const typingText = React.useMemo(() => {
+        if (otherTypingUsers.length === 0) return null;
+        if (otherTypingUsers.length === 1) {
+            const id = otherTypingUsers[0];
+            const sender =
+                messages.find((m) => m.sender_id === id)?.sender_name ||
+                members?.find((p) => p.user_id === id)?.full_name;
+            return sender ? `${sender} ${t('typing')}` : t('typing');
+        }
+        return t('severalTyping');
+    }, [otherTypingUsers, messages, members, t]);
+
+    React.useEffect(() => {
+        if (typingText && scrollRef.current) {
+            const isNearBottom =
+                scrollRef.current.scrollHeight - scrollRef.current.scrollTop - scrollRef.current.clientHeight < 100;
+            if (isNearBottom) {
+                scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+            }
+        }
+    }, [typingText]);
 
     React.useEffect(() => {
         // Only chase the bottom when something arrived at the *end*; prepending an
@@ -86,9 +116,23 @@ export default function MessageThread({
         });
     }, [messages, me]);
 
+    const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        setInputText(e.target.value);
+        sendTyping(true);
+        if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+        typingTimeoutRef.current = setTimeout(() => {
+            sendTyping(false);
+        }, 2000);
+    };
+
     const handleSend = async () => {
         const text = inputText.trim();
         if (!text || sending) return;
+        if (typingTimeoutRef.current) {
+            clearTimeout(typingTimeoutRef.current);
+            typingTimeoutRef.current = null;
+        }
+        sendTyping(false);
         setSending(true);
         try {
             await sendMessage(text);
@@ -212,7 +256,7 @@ export default function MessageThread({
 
                         {messages.map((msg, idx) => {
                             const isMe = msg.sender_id === me;
-                            const isRead = !!msg.is_read;
+                            const isRead = !!msg.is_read || (Array.isArray(msg.read_by) && msg.read_by.some((id) => id !== me));
                             const prev = idx > 0 ? messages[idx - 1] : undefined;
                             // A run of messages from one sender gets a single
                             // avatar and name, like every messenger the parents
@@ -310,6 +354,17 @@ export default function MessageThread({
                                 </div>
                             );
                         })}
+
+                        {typingText && (
+                            <div className="flex items-center gap-2 py-1 text-xs text-muted-foreground animate-pulse">
+                                <span className="flex gap-1">
+                                    <span className="size-1.5 rounded-full bg-muted-foreground animate-bounce [animation-delay:-0.3s]" />
+                                    <span className="size-1.5 rounded-full bg-muted-foreground animate-bounce [animation-delay:-0.15s]" />
+                                    <span className="size-1.5 rounded-full bg-muted-foreground animate-bounce" />
+                                </span>
+                                <span className="italic">{typingText}</span>
+                            </div>
+                        )}
                     </>
                 )}
             </div>
@@ -325,7 +380,7 @@ export default function MessageThread({
                 >
                     <Input
                         value={inputText}
-                        onChange={(e) => setInputText(e.target.value)}
+                        onChange={handleInputChange}
                         placeholder={t('typeAMessage')}
                         aria-label={t('typeAMessage')}
                         autoComplete="off"

@@ -3,6 +3,7 @@ import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { SmsJobPayload } from './sms.processor';
 import { SupabaseService } from '../supabase/supabase.service';
+import { RedisService } from '../redis/redis.service';
 import { calculateSmsSegments } from '../../common/utils/sms-segments';
 
 export interface SendSmsOptions {
@@ -18,7 +19,8 @@ export class SmsService {
 
     constructor(
         @InjectQueue('sms-gateway') private readonly smsQueue: Queue<SmsJobPayload>,
-        private readonly supabaseService: SupabaseService
+        private readonly supabaseService: SupabaseService,
+        private readonly redisService: RedisService
     ) { }
 
     /**
@@ -37,6 +39,8 @@ export class SmsService {
 
         const segments = calculateSmsSegments(message);
         const totalSegments = uniqueRecipients.length * segments.segmentCount;
+        const billingMonth = new Date().toISOString().slice(0, 7);
+        const reservationKey = `sms:reserved:${tenantId}:${billingMonth}`;
 
         // Quota and overage check
         if (!options.bypassQuota) {
@@ -54,19 +58,39 @@ export class SmsService {
                 throw new ForbiddenException('SMS notifications are strictly unavailable for the Community tier.');
             }
 
+            // Read reserved segments in Redis from concurrent in-flight batches
+            let reservedSegments = 0;
+            try {
+                const redis = this.redisService.getClient();
+                reservedSegments = parseInt((await redis.get(reservationKey)) || '0', 10);
+            } catch (err: any) {
+                this.logger.warn(`Redis quota reservation check failed: ${err.message}`);
+            }
+
             // Per blueprint §7: Paid tiers include a monthly bundle; usage beyond the bundle is billed as overage.
             // A safety hard ceiling (5x monthly bundle or at least 5000 messages) prevents catastrophic runaway billing.
             const safetyCeiling = Math.max(quota.monthly_quota * 5, 5000);
-            if (quota.current_month_usage + totalSegments > safetyCeiling) {
+            const projectedUsage = quota.current_month_usage + reservedSegments + totalSegments;
+
+            if (projectedUsage > safetyCeiling) {
                 this.logger.warn(
-                    `SMS batch dispatch blocked for Tenant ${tenantId}: projected usage (${quota.current_month_usage + totalSegments}) exceeds safety ceiling (${safetyCeiling})!`
+                    `SMS batch dispatch blocked for Tenant ${tenantId}: projected usage (${projectedUsage}) exceeds safety ceiling (${safetyCeiling})!`
                 );
                 return { success: false, queuedCount: 0, segmentCount: segments.segmentCount, reason: 'OVERAGE_HARD_LIMIT_EXCEEDED' };
             }
 
-            if (quota.current_month_usage + totalSegments > quota.monthly_quota) {
+            // Reserve quota segments in Redis immediately before enqueuing to prevent race condition overshoots
+            try {
+                const redis = this.redisService.getClient();
+                await redis.incrby(reservationKey, totalSegments);
+                await redis.expire(reservationKey, 3600);
+            } catch (err: any) {
+                this.logger.warn(`Redis quota reservation increment failed: ${err.message}`);
+            }
+
+            if (projectedUsage > quota.monthly_quota) {
                 this.logger.log(
-                    `Tenant ${tenantId} is operating in billable SMS overage: current ${quota.current_month_usage}, quota ${quota.monthly_quota}, adding ${totalSegments} segments.`
+                    `Tenant ${tenantId} is operating in billable SMS overage: current ${quota.current_month_usage}, reserved ${reservedSegments}, quota ${quota.monthly_quota}, adding ${totalSegments} segments.`
                 );
             }
         }

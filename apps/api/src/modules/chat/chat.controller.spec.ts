@@ -14,9 +14,16 @@ describe('ChatController', () => {
   beforeEach(async () => {
     chatService = {
       saveMessage: jest.fn(),
+      removeParticipant: jest.fn().mockResolvedValue({ success: true }),
+      markAsRead: jest.fn().mockResolvedValue({ success: true, conversationId: 'conv_123', data: { read_by: ['user_1'] } }),
+      deleteConversation: jest.fn().mockResolvedValue({ success: true }),
+      leaveConversation: jest.fn().mockResolvedValue({ success: true }),
     };
     gateway = {
       broadcastMessage: jest.fn(),
+      broadcastReadReceipt: jest.fn(),
+      evictUserFromConversation: jest.fn(),
+      evictAllFromConversation: jest.fn(),
     };
     jwtService = {
       signAsync: jest.fn(),
@@ -70,6 +77,50 @@ describe('ChatController', () => {
       );
       expect(gateway.broadcastMessage).toHaveBeenCalledWith('conv_123', mockSaved);
       expect(result).toEqual(mockSaved);
+    });
+  });
+
+  describe('evictions and read receipts', () => {
+    const mockReq = {
+      user: { tenantId: 'tenant_1', sub: 'user_caller', role: 'MODERATOR' },
+    };
+
+    it('should evict removed participant from conversation room', async () => {
+      await controller.removeParticipant(mockReq, {
+        conversationId: 'conv_123',
+        participantUserId: 'user_bad',
+      });
+
+      expect(chatService.removeParticipant).toHaveBeenCalledWith('tenant_1', 'conv_123', 'user_bad', 'MODERATOR');
+      expect(gateway.evictUserFromConversation).toHaveBeenCalledWith('conv_123', 'user_bad');
+    });
+
+    it('should evict caller when leaving conversation', async () => {
+      await controller.leaveConversation(mockReq, 'conv_123');
+
+      expect(chatService.leaveConversation).toHaveBeenCalledWith('tenant_1', 'conv_123', 'user_caller');
+      expect(gateway.evictUserFromConversation).toHaveBeenCalledWith('conv_123', 'user_caller');
+    });
+
+    it('should evict everyone when deleting conversation for everyone', async () => {
+      await controller.deleteConversation(mockReq, 'conv_123', 'everyone');
+
+      expect(chatService.deleteConversation).toHaveBeenCalledWith('tenant_1', 'conv_123', 'user_caller', 'everyone');
+      expect(gateway.evictAllFromConversation).toHaveBeenCalledWith('conv_123');
+    });
+
+    it('should evict caller only when deleting conversation for me', async () => {
+      await controller.deleteConversation(mockReq, 'conv_123', 'me');
+
+      expect(chatService.deleteConversation).toHaveBeenCalledWith('tenant_1', 'conv_123', 'user_caller', 'me');
+      expect(gateway.evictUserFromConversation).toHaveBeenCalledWith('conv_123', 'user_caller');
+    });
+
+    it('should broadcast read receipt when message is marked as read', async () => {
+      await controller.markAsRead(mockReq, 'msg_999');
+
+      expect(chatService.markAsRead).toHaveBeenCalledWith('tenant_1', 'msg_999', 'user_caller');
+      expect(gateway.broadcastReadReceipt).toHaveBeenCalledWith('conv_123', 'msg_999', 'user_caller');
     });
   });
 });

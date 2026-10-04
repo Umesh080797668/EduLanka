@@ -160,13 +160,20 @@ export class ChatController {
     async removeParticipant(@Req() req: any, @Body() body: { conversationId: string, participantUserId: string }) {
         const tenantId = req.user.tenantId;
         const role = req.user.role;
-        return this.chatService.removeParticipant(tenantId, body.conversationId, body.participantUserId, role);
+        const res = await this.chatService.removeParticipant(tenantId, body.conversationId, body.participantUserId, role);
+        this.gateway.evictUserFromConversation(body.conversationId, body.participantUserId);
+        return res;
     }
 
     @Post('messages/:id/read')
     async markAsRead(@Req() req: any, @Param('id') messageId: string) {
         const tenantId = req.user.tenantId;
-        return this.chatService.markAsRead(tenantId, messageId, this.callerId(req));
+        const callerId = this.callerId(req);
+        const res = await this.chatService.markAsRead(tenantId, messageId, callerId);
+        if (res?.conversationId) {
+            this.gateway.broadcastReadReceipt(res.conversationId, messageId, callerId);
+        }
+        return res.data ?? res;
     }
 
     // =========================================================================
@@ -185,23 +192,33 @@ export class ChatController {
         @Param('id') conversationId: string,
         @Query('scope') scope: 'me' | 'everyone' = 'me',
     ) {
-        return this.chatService.deleteConversation(
+        const callerId = this.callerId(req);
+        const res = await this.chatService.deleteConversation(
             req.user.tenantId,
             conversationId,
-            this.callerId(req),
+            callerId,
             scope,
         );
+        if (scope === 'everyone') {
+            this.gateway.evictAllFromConversation(conversationId);
+        } else {
+            this.gateway.evictUserFromConversation(conversationId, callerId);
+        }
+        return res;
     }
 
     /** Leave a GROUP conversation (not allowed on DIRECT threads). */
     @Post('conversations/:id/leave')
     @HttpCode(HttpStatus.OK)
     async leaveConversation(@Req() req: any, @Param('id') conversationId: string) {
-        return this.chatService.leaveConversation(
+        const callerId = this.callerId(req);
+        const res = await this.chatService.leaveConversation(
             req.user.tenantId,
             conversationId,
-            this.callerId(req),
+            callerId,
         );
+        this.gateway.evictUserFromConversation(conversationId, callerId);
+        return res;
     }
 
     /** Mute a conversation for the calling user only. */

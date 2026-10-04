@@ -21,7 +21,7 @@ export function DisasterModeModal({
 }: DisasterModeModalProps) {
     const t = useTranslations('DisasterMode');
     const tc = useTranslations('Common');
-    const [reason, setReason] = useState('Flood');
+    const [reason, setReason] = useState('FLOOD');
     const [resumeDate, setResumeDate] = useState('');
     const [confirming, setConfirming] = useState(false);
 
@@ -57,13 +57,13 @@ export function DisasterModeModal({
                             value={reason}
                             onChange={(e) => setReason(e.target.value)}
                         >
-                            <option value="Flood">{t('flood')}</option>
-                            <option value="Cyclone">{t('cyclone')}</option>
-                            <option value="Landslide">{t('landslide')}</option>
-                            <option value="Civil/Public Health">
+                            <option value="FLOOD">{t('flood')}</option>
+                            <option value="CYCLONE">{t('cyclone')}</option>
+                            <option value="LANDSLIDE">{t('landslide')}</option>
+                            <option value="CIVIL_PUBLIC_HEALTH">
                                 {t('publicHealth')}
                             </option>
-                            <option value="Other">{t('other')}</option>
+                            <option value="OTHER">{t('other')}</option>
                         </Select>
                     </Field>
 

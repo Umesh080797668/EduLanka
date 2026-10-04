@@ -13,11 +13,7 @@ import { JwtService } from '@nestjs/jwt';
 import { ChatService } from './chat.service';
 import { RedisService } from '../redis/redis.service';
 
-const allowedOrigins = process.env.ALLOWED_ORIGINS
-  ? process.env.ALLOWED_ORIGINS.split(',').map((s) => s.trim()).filter(Boolean)
-  : '*';
-
-@WebSocketGateway({ cors: { origin: allowedOrigins } })
+@WebSocketGateway()
 export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @WebSocketServer()
   server!: Server;
@@ -38,6 +34,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       client.data.tenantId = payload.tenantId;
       client.data.userId = payload.sub || payload.userId;
       client.data.role = payload.role;
+      client.data.userName = payload.name || payload.email || undefined;
       client.data.authenticated = true;
 
       // Join user-specific room for direct socket messaging if needed
@@ -48,6 +45,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       client.data.counted = true;
     } catch (error: any) {
       this.logger.warn(`Disconnecting unauthenticated/invalid chat client ${client.id}: ${error?.message}`);
+      await this.redisService.getClient().incr('metrics:ws:errors').catch(() => { });
       client.disconnect();
     }
   }
@@ -70,6 +68,34 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     this.server.to(`conversation_${conversationId}`).emit('new_message', message);
   }
 
+  /**
+   * Broadcast live read receipt to the conversation's room.
+   */
+  broadcastReadReceipt(conversationId: string, messageId: string, userId: string): void {
+    if (!this.server || !conversationId) return;
+    this.server.to(`conversation_${conversationId}`).emit('message_read', {
+      conversationId,
+      messageId,
+      userId,
+    });
+  }
+
+  /**
+   * Evict a user's active sockets from a conversation room (e.g. after remove/leave).
+   */
+  evictUserFromConversation(conversationId: string, userId: string): void {
+    if (!this.server) return;
+    this.server.in(`user_${userId}`).socketsLeave(`conversation_${conversationId}`);
+  }
+
+  /**
+   * Evict all active sockets from a conversation room (e.g. on delete for everyone).
+   */
+  evictAllFromConversation(conversationId: string): void {
+    if (!this.server) return;
+    this.server.socketsLeave(`conversation_${conversationId}`);
+  }
+
   @SubscribeMessage('join_conversation')
   async handleJoinConversation(
     @ConnectedSocket() client: Socket,
@@ -89,6 +115,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       client.emit('joined_conversation', { conversationId: payload.conversationId });
     } catch (e: any) {
       this.logger.warn(`User ${userId} denied joining conversation ${payload.conversationId}: ${e.message}`);
+      await this.redisService.getClient().incr('metrics:ws:errors').catch(() => { });
       client.emit('chat_error', { conversationId: payload?.conversationId, message: e.message });
     }
   }
@@ -105,6 +132,19 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     }
   }
 
+  @SubscribeMessage('typing')
+  handleTyping(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() payload: { conversationId: string; isTyping: boolean }
+  ) {
+    if (!payload?.conversationId) return;
+    client.to(`conversation_${payload.conversationId}`).emit('user_typing', {
+      conversationId: payload.conversationId,
+      userId: client.data.userId,
+      isTyping: Boolean(payload.isTyping),
+    });
+  }
+
   @SubscribeMessage('send_message')
   async handleSendMessage(@ConnectedSocket() client: Socket, @MessageBody() payload: any) {
     const { tenantId, userId, role } = client.data;
@@ -113,46 +153,10 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       return;
     }
 
-    // 1. Content validation
     const content = payload?.content;
-    if (!content || typeof content !== 'string' || !content.trim()) {
-      client.emit('send_error', {
-        conversationId: payload.conversationId,
-        message: 'Message content cannot be empty.',
-      });
-      return;
-    }
-
-    if (content.length > 4000) {
-      client.emit('send_error', {
-        conversationId: payload.conversationId,
-        message: 'Message content exceeds maximum length of 4000 characters.',
-      });
-      return;
-    }
-
-    // 2. Chat Flood Control: Rate limit (max 5 messages per 3 seconds per user)
-    try {
-      const redis = this.redisService.getClient();
-      const rateKey = `ratelimit:chat:ws:${userId}`;
-      const msgCount = await redis.incr(rateKey);
-      if (msgCount === 1) {
-        await redis.expire(rateKey, 3);
-      }
-      if (msgCount > 5) {
-        this.logger.warn(`Rate limit triggered on chat for user ${userId} (${msgCount} messages in 3s)`);
-        client.emit('send_error', {
-          conversationId: payload.conversationId,
-          message: 'Rate limit exceeded: too many messages sent. Please slow down.',
-        });
-        return;
-      }
-    } catch (e: any) {
-      this.logger.warn(`Chat rate limit check bypassed: ${e?.message}`);
-    }
 
     try {
-      // Primary Driver flow: Validate, Save to Supabase, then Broadcast to conversation room.
+      // Primary Driver flow: Validate, Save to Supabase (with atomic rate limit), then Broadcast.
       const savedMessage = await this.chatService.saveMessage(
         tenantId,
         payload.conversationId,
@@ -164,7 +168,9 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       this.broadcastMessage(payload.conversationId, savedMessage);
     } catch (e: any) {
       this.logger.error(`Error sending message: ${e.message}`, e);
+      await this.redisService.getClient().incr('metrics:ws:errors').catch(() => { });
       client.emit('send_error', { conversationId: payload.conversationId, message: e.message });
     }
   }
 }
+

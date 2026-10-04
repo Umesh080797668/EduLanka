@@ -31,7 +31,7 @@ export class SmsProcessor extends WorkerHost {
         const accountSid = this.configService.get('twilio.accountSid', { infer: true });
         const authToken = this.configService.get('twilio.authToken', { infer: true });
         this.fromNumber = this.configService.get('twilio.fromNumber', { infer: true });
-        this.senderId = process.env.TWILIO_SENDER_ID || 'EduLanka';
+        this.senderId = this.configService.get('twilio.senderId', { infer: true }) || process.env.TWILIO_SENDER_ID || undefined;
 
         if (accountSid && authToken && (this.fromNumber || this.senderId)) {
             this.client = new Twilio(accountSid, authToken);
@@ -55,15 +55,20 @@ export class SmsProcessor extends WorkerHost {
             // Idempotency: If this job previously called Twilio successfully and then failed inserting into DB,
             // do NOT call Twilio a second time (prevents duplicate SMS to parent).
             if (!sid) {
-                const publicUrl = this.configService.get('app.publicUrl', { infer: true });
-                // Use Alphanumeric Sender ID when available; fallback to Twilio fromNumber
+                const webhookUrl = this.configService.get('twilio.webhookUrl', { infer: true })
+                    || `${this.configService.get('app.publicUrl', { infer: true })}/api/v1/sms/webhook`;
+                // Use Alphanumeric Sender ID only when explicitly configured; otherwise fallback to fromNumber
                 const fromAddress = this.senderId || this.fromNumber;
+
+                if (!fromAddress) {
+                    throw new Error('Neither TWILIO_FROM_NUMBER nor TWILIO_SENDER_ID is configured.');
+                }
 
                 const result = await this.client.messages.create({
                     body: message,
                     from: fromAddress,
                     to,
-                    statusCallback: `${publicUrl}/api/v1/sms/webhook`
+                    statusCallback: webhookUrl,
                 });
 
                 sid = result.sid;

@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { NoticesService } from './notices.service';
 import { SupabaseService } from '../supabase/supabase.service';
 import { SmsService } from '../sms/sms.service';
+import { NotificationsGateway } from '../notifications/notifications.gateway';
 import { ForbiddenException } from '@nestjs/common';
 import { UserRole } from '@edu-lanka/shared-types';
 
@@ -9,11 +10,16 @@ describe('NoticesService', () => {
   let service: NoticesService;
   let supabaseService: any;
   let smsService: jest.Mocked<Partial<SmsService>>;
+  let mockNotificationsGateway: any;
   let mockTenantFrom: jest.Mock;
 
   beforeEach(async () => {
     smsService = {
       sendSms: jest.fn().mockResolvedValue({ success: true, queued: true }),
+    };
+
+    mockNotificationsGateway = {
+      sendNotification: jest.fn(),
     };
 
     mockTenantFrom = jest.fn().mockImplementation((table: string) => {
@@ -78,6 +84,7 @@ describe('NoticesService', () => {
         NoticesService,
         { provide: SupabaseService, useValue: supabaseService },
         { provide: SmsService, useValue: smsService },
+        { provide: NotificationsGateway, useValue: mockNotificationsGateway },
       ],
     }).compile();
 
@@ -198,6 +205,176 @@ describe('NoticesService', () => {
 
       expect(result).toBeDefined();
       expect(result.id).toBe('notice_1');
+    });
+
+    it('should throw ForbiddenException if teacher profile does not exist', async () => {
+      mockTenantFrom.mockImplementation((table: string) => {
+        if (table === 'teachers') {
+          return {
+            select: jest.fn().mockReturnValue({
+              eq: jest.fn().mockReturnValue({
+                maybeSingle: jest.fn().mockResolvedValue({ data: null }),
+              }),
+            }),
+          };
+        }
+        return { select: jest.fn().mockReturnThis(), eq: jest.fn().mockReturnThis() };
+      });
+
+      await expect(
+        service.createNotice(
+          'tenant_1',
+          'user_fake_teacher',
+          {
+            title: 'Class Homework',
+            content_html: '<p>Homework</p>',
+            scope: 'CLASS_SPECIFIC',
+            target_class_id: 'class_1',
+          },
+          UserRole.TEACHER
+        )
+      ).rejects.toThrow(new ForbiddenException('Teacher profile not found.'));
+    });
+
+    it('should forbid teacher from creating GRADE_LEVEL notice for grade they do not teach', async () => {
+      mockTenantFrom.mockImplementation((table: string) => {
+        if (table === 'teachers') {
+          return {
+            select: jest.fn().mockReturnValue({
+              eq: jest.fn().mockReturnValue({
+                maybeSingle: jest.fn().mockResolvedValue({ data: { id: 'teacher_1' } }),
+              }),
+            }),
+          };
+        }
+        if (table === 'class_teachers') {
+          return {
+            select: jest.fn().mockReturnValue({
+              eq: jest.fn().mockResolvedValue({
+                data: [{ class_id: 'class_1', classes: { grade: 7 } }],
+              }),
+            }),
+          };
+        }
+        return { select: jest.fn().mockReturnThis(), eq: jest.fn().mockReturnThis() };
+      });
+
+      await expect(
+        service.createNotice(
+          'tenant_1',
+          'user_teacher',
+          {
+            title: 'Grade 10 Notice',
+            content_html: '<p>Grade 10 exam</p>',
+            scope: 'GRADE_LEVEL',
+            target_grade: 10,
+          },
+          UserRole.TEACHER
+        )
+      ).rejects.toThrow(new ForbiddenException('You do not teach any classes in grade 10.'));
+    });
+
+    it('should allow teacher to create GRADE_LEVEL notice for grade they teach', async () => {
+      mockTenantFrom.mockImplementation((table: string) => {
+        if (table === 'teachers') {
+          return {
+            select: jest.fn().mockReturnValue({
+              eq: jest.fn().mockReturnValue({
+                maybeSingle: jest.fn().mockResolvedValue({ data: { id: 'teacher_1' } }),
+              }),
+            }),
+          };
+        }
+        if (table === 'class_teachers') {
+          return {
+            select: jest.fn().mockReturnValue({
+              eq: jest.fn().mockResolvedValue({
+                data: [{ class_id: 'class_1', classes: { grade: 10 } }],
+              }),
+            }),
+          };
+        }
+        if (table === 'notices') {
+          return {
+            insert: jest.fn().mockReturnValue({
+              select: jest.fn().mockReturnValue({
+                single: jest.fn().mockResolvedValue({
+                  data: { id: 'notice_g10', title: 'Grade 10 Notice', scope: 'GRADE_LEVEL' },
+                  error: null,
+                }),
+              }),
+            }),
+          };
+        }
+        return { select: jest.fn().mockReturnThis(), eq: jest.fn().mockReturnThis() };
+      });
+
+      const result = await service.createNotice(
+        'tenant_1',
+        'user_teacher',
+        {
+          title: 'Grade 10 Notice',
+          content_html: '<p>Grade 10 exam</p>',
+          scope: 'GRADE_LEVEL',
+          target_grade: 10,
+        },
+        UserRole.TEACHER
+      );
+
+      expect(result).toBeDefined();
+      expect(result.id).toBe('notice_g10');
+    });
+  });
+
+  describe('updateNotice and archiveNotice permissions', () => {
+    it('should forbid teacher from updating notice authored by someone else', async () => {
+      mockTenantFrom.mockImplementation((table: string) => {
+        if (table === 'notices') {
+          return {
+            select: jest.fn().mockReturnValue({
+              eq: jest.fn().mockReturnValue({
+                single: jest.fn().mockResolvedValue({
+                  data: { id: 'notice_other', author_id: 'user_other_teacher' },
+                  error: null,
+                }),
+              }),
+            }),
+          };
+        }
+        return { select: jest.fn().mockReturnThis(), eq: jest.fn().mockReturnThis() };
+      });
+
+      await expect(
+        service.updateNotice(
+          'tenant_1',
+          'notice_other',
+          'user_teacher',
+          { title: 'Hacked Title' },
+          UserRole.TEACHER
+        )
+      ).rejects.toThrow(new ForbiddenException('You can only edit notices that you authored.'));
+    });
+
+    it('should forbid teacher from archiving notice authored by someone else', async () => {
+      mockTenantFrom.mockImplementation((table: string) => {
+        if (table === 'notices') {
+          return {
+            select: jest.fn().mockReturnValue({
+              eq: jest.fn().mockReturnValue({
+                single: jest.fn().mockResolvedValue({
+                  data: { id: 'notice_other', author_id: 'user_other_teacher', is_archived: false },
+                  error: null,
+                }),
+              }),
+            }),
+          };
+        }
+        return { select: jest.fn().mockReturnThis(), eq: jest.fn().mockReturnThis() };
+      });
+
+      await expect(
+        service.archiveNotice('tenant_1', 'notice_other', 'user_teacher', UserRole.TEACHER)
+      ).rejects.toThrow(new ForbiddenException('You can only archive notices that you authored.'));
     });
   });
 

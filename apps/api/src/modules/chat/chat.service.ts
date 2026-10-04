@@ -1,5 +1,6 @@
 import { Injectable, Logger, ForbiddenException, BadRequestException } from '@nestjs/common';
 import { SupabaseService } from '../supabase/supabase.service';
+import { RedisService } from '../redis/redis.service';
 import { UserRole } from '@edu-lanka/shared-types';
 
 /**
@@ -26,7 +27,10 @@ interface MessagePageOptions {
 export class ChatService {
     private readonly logger = new Logger(ChatService.name);
 
-    constructor(private readonly supabaseService: SupabaseService) { }
+    constructor(
+        private readonly supabaseService: SupabaseService,
+        private readonly redisService: RedisService,
+    ) { }
 
     /** School and platform admins moderate every thread in their tenant. */
     private isModerator(role?: string): boolean {
@@ -111,6 +115,23 @@ export class ChatService {
         }
         if (content.length > 4000) {
             throw new BadRequestException('Message content exceeds maximum length of 4000 characters.');
+        }
+
+        // Chat flood control: atomic Redis rate limit (max 5 messages per 3 seconds per user)
+        try {
+            const redis = this.redisService.getClient();
+            const rateKey = `ratelimit:chat:user:${senderId}`;
+            const msgCount = await redis.incr(rateKey);
+            if (msgCount === 1) {
+                await redis.expire(rateKey, 3);
+            }
+            if (msgCount > 5) {
+                this.logger.warn(`Rate limit triggered on chat for user ${senderId} (${msgCount} messages in 3s)`);
+                throw new BadRequestException('Rate limit exceeded: too many messages sent. Please slow down.');
+            }
+        } catch (e: any) {
+            if (e instanceof BadRequestException) throw e;
+            this.logger.warn(`Chat rate limit check bypassed: ${e?.message}`);
         }
 
         const client = this.supabaseService.getTenantClient(tenantId);
@@ -787,13 +808,19 @@ export class ChatService {
 
     async markAsRead(tenantId: string, messageId: string, userId: string) {
         const client = this.supabaseService.getTenantClient(tenantId);
+        const { data: msg } = await client
+            .from('chat_messages')
+            .select('conversation_id')
+            .eq('id', messageId)
+            .maybeSingle();
+
         const { data, error } = await client
             .from('chat_read_receipts')
             .insert({ tenant_id: tenantId, message_id: messageId, user_id: userId })
             .select()
             .maybeSingle();
         if (error && error.code !== '23505') throw error; // Ignore duplicates
-        return data;
+        return { data, conversationId: msg?.conversation_id };
     }
 
     // =========================================================================

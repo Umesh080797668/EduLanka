@@ -2,6 +2,7 @@ import {
     Controller,
     Post,
     Get,
+    Patch,
     Delete,
     Body,
     Req,
@@ -18,14 +19,13 @@ import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { UserRole } from '@edu-lanka/shared-types';
+import {
+    CreateNoticeDto,
+    UpdateNoticeDto,
+    CreateMaintenanceNoticeDto,
+} from './dto/notices.dto';
 
-export class CreateMaintenanceNoticeDto {
-    title!: string;
-    message!: string;
-    severity?: 'INFO' | 'WARNING' | 'CRITICAL';
-    scheduledStart?: string;
-    scheduledEnd?: string;
-}
+export { CreateMaintenanceNoticeDto };
 
 // Global prefix ('api') + URI versioning (default '1') already yield /api/v1/notices.
 @ApiTags('notices')
@@ -38,7 +38,7 @@ export class NoticesController {
     @Post()
     @Roles(UserRole.SCHOOL_ADMIN, UserRole.SUPER_ADMIN, UserRole.TEACHER)
     @ApiOperation({ summary: 'Create a new notice' })
-    async createNotice(@Req() req: any, @Body() body: any) {
+    async createNotice(@Req() req: any, @Body() body: CreateNoticeDto) {
         return this.noticesService.createNotice(req.user.tenantId, req.user.sub, body, req.user.role);
     }
 
@@ -47,9 +47,44 @@ export class NoticesController {
     async getNotices(
         @Req() req: any,
         @Query('classId') classId?: string,
-        @Query('gradeId') gradeId?: string
+        @Query('gradeId') gradeId?: string,
+        @Query('includeArchived') includeArchived?: string
     ) {
-        return this.noticesService.getNotices(req.user.tenantId, req.user.sub, req.user.role, classId, gradeId);
+        return this.noticesService.getNotices(
+            req.user.tenantId,
+            req.user.sub,
+            req.user.role,
+            classId,
+            gradeId,
+            includeArchived === 'true'
+        );
+    }
+
+    @Patch(':id')
+    @Roles(UserRole.SCHOOL_ADMIN, UserRole.SUPER_ADMIN, UserRole.TEACHER)
+    @ApiOperation({ summary: 'Update an existing notice' })
+    async updateNotice(
+        @Req() req: any,
+        @Param('id') id: string,
+        @Body() body: UpdateNoticeDto
+    ) {
+        return this.noticesService.updateNotice(req.user.tenantId, id, req.user.sub, body, req.user.role);
+    }
+
+    @Patch(':id/archive')
+    @Roles(UserRole.SCHOOL_ADMIN, UserRole.SUPER_ADMIN, UserRole.TEACHER)
+    @HttpCode(HttpStatus.OK)
+    @ApiOperation({ summary: 'Archive a notice' })
+    async archiveNotice(@Req() req: any, @Param('id') id: string) {
+        return this.noticesService.archiveNotice(req.user.tenantId, id, req.user.sub, req.user.role);
+    }
+
+    @Delete(':id')
+    @Roles(UserRole.SCHOOL_ADMIN, UserRole.SUPER_ADMIN, UserRole.TEACHER)
+    @HttpCode(HttpStatus.OK)
+    @ApiOperation({ summary: 'Delete a notice' })
+    async deleteNotice(@Req() req: any, @Param('id') id: string) {
+        return this.noticesService.deleteNotice(req.user.tenantId, id, req.user.sub, req.user.role);
     }
 
     @Post('broadcast')
@@ -75,6 +110,13 @@ export class NoticesController {
     @ApiOperation({ summary: 'Retrieve active platform maintenance notices' })
     async getActiveMaintenanceNotices() {
         return this.noticesService.getActiveMaintenanceNotices();
+    }
+
+    @Get('maintenance')
+    @Roles(UserRole.SUPER_ADMIN)
+    @ApiOperation({ summary: 'Retrieve all platform maintenance notices (history)' })
+    async getAllMaintenanceNotices() {
+        return this.noticesService.getAllMaintenanceNotices();
     }
 
     @Post('maintenance')

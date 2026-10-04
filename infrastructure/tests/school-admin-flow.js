@@ -17,6 +17,8 @@ export function schoolAdminFlow(data) {
     get('/parents', session, { name: 'admin_list_parents' });
     get('/classes', session, { name: 'admin_list_classes' });
     get('/school-policy', session, { name: 'admin_get_policy', expectedStatuses: [200, 403, 404] });
+    get('/notices/maintenance/active', session, { name: 'admin_active_maintenance', expectedStatuses: [200, 403, 404] });
+    get('/tenants/disaster-mode/history', session, { name: 'admin_disaster_history', expectedStatuses: [200, 403, 404] });
     sleep(0.5);
 
     // Write path: create a class for this iteration
@@ -65,6 +67,23 @@ export function schoolAdminFlow(data) {
 
     // Tutorial completion stats — Sprint 6 admin dashboard widget
     get('/institution-admin/tutorials/stats', session, { name: 'admin_tutorial_stats', expectedStatuses: [200, 403, 404, 500] });
+
+    // Disaster Mode drill — low frequency admin action
+    if (Math.random() < 0.05) {
+        const tomorrow = new Date(Date.now() + 86400000).toISOString().split('T')[0];
+        const activateRes = post('/tenants/disaster-mode/activate', session, {
+            reason: 'FLOOD',
+            details: 'Automated k6 resilience drill',
+            resumeDate: tomorrow,
+        }, { name: 'admin_disaster_activate', expectedStatuses: [200, 201, 400, 403, 409] });
+
+        if (activateRes && (activateRes.status === 200 || activateRes.status === 201)) {
+            sleep(0.3);
+            post('/tenants/disaster-mode/deactivate', session, {
+                note: 'Drill concluded by runner',
+            }, { name: 'admin_disaster_deactivate', expectedStatuses: [200, 201, 400, 403, 409] });
+        }
+    }
 
     sleep(1 + Math.random());
 }

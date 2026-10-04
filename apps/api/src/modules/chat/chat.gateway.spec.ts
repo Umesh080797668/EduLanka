@@ -40,6 +40,10 @@ describe('ChatGateway', () => {
       to: jest.fn().mockReturnValue({
         emit: jest.fn(),
       }),
+      in: jest.fn().mockReturnValue({
+        socketsLeave: jest.fn(),
+      }),
+      socketsLeave: jest.fn(),
       emit: jest.fn(),
     } as any;
   });
@@ -163,6 +167,75 @@ describe('ChatGateway', () => {
 
       expect(chatService.saveMessage).toHaveBeenCalledWith('t1', 'conv_1', 'u1', 'test', 'TEACHER');
       expect(broadcastSpy).toHaveBeenCalledWith('conv_1', saved);
+    });
+
+    it('should increment metrics:ws:errors on send_message failure', async () => {
+      const mockClient: any = {
+        id: 'client_1',
+        data: { tenantId: 't1', userId: 'u1', role: 'TEACHER' },
+        emit: jest.fn(),
+      };
+
+      (chatService.saveMessage as jest.Mock).mockRejectedValue(new Error('Rate limit exceeded'));
+
+      await gateway.handleSendMessage(mockClient, {
+        conversationId: 'conv_1',
+        content: 'test',
+      });
+
+      expect((redisService.getClient as jest.Mock)().incr).toHaveBeenCalledWith('metrics:ws:errors');
+      expect(mockClient.emit).toHaveBeenCalledWith('send_error', {
+        conversationId: 'conv_1',
+        message: 'Rate limit exceeded',
+      });
+    });
+  });
+
+  describe('eviction and room management', () => {
+    it('should evict specific user active sockets from conversation room', () => {
+      gateway.evictUserFromConversation('conv_123', 'user_789');
+
+      expect(gateway.server.in).toHaveBeenCalledWith('user_user_789');
+      expect(gateway.server.in('user_user_789').socketsLeave).toHaveBeenCalledWith('conversation_conv_123');
+    });
+
+    it('should evict all active sockets from conversation room', () => {
+      gateway.evictAllFromConversation('conv_123');
+
+      expect(gateway.server.socketsLeave).toHaveBeenCalledWith('conversation_conv_123');
+    });
+  });
+
+  describe('broadcastReadReceipt', () => {
+    it('should emit message_read event to the conversation room', () => {
+      gateway.broadcastReadReceipt('conv_123', 'msg_456', 'user_789');
+
+      expect(gateway.server.to).toHaveBeenCalledWith('conversation_conv_123');
+      expect(gateway.server.to('conversation_conv_123').emit).toHaveBeenCalledWith('message_read', {
+        conversationId: 'conv_123',
+        messageId: 'msg_456',
+        userId: 'user_789',
+      });
+    });
+  });
+
+  describe('handleTyping', () => {
+    it('should broadcast user_typing to other room participants', () => {
+      const mockClient: any = {
+        data: { userId: 'user_sender' },
+        to: jest.fn().mockReturnValue({
+          emit: jest.fn(),
+        }),
+      };
+
+      gateway.handleTyping(mockClient, { conversationId: 'conv_123', isTyping: true });
+
+      expect(mockClient.to).toHaveBeenCalledWith('conversation_conv_123');
+      expect(mockClient.to('conversation_conv_123').emit).toHaveBeenCalledWith('user_typing', {
+        conversationId: 'conv_123',
+        userId: 'user_sender',
+        isTyping: true,
+      });
     });
   });
 });

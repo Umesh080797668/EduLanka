@@ -37,7 +37,25 @@ export class RedisIoAdapter extends IoAdapter {
     }
 
     createIOServer(port: number, options?: ServerOptions): any {
-        const server = super.createIOServer(port, options);
+        const configService = this.app.get(ConfigService);
+        const allowed = configService.get<string[]>('app.allowedOrigins', []);
+        const nodeEnv = configService.get<string>('app.nodeEnv', 'development');
+
+        const corsOptions = {
+            origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
+                if (!origin || nodeEnv === 'development' || allowed.includes('*') || allowed.includes(origin)) {
+                    callback(null, true);
+                } else {
+                    callback(new Error(`CORS blocked origin: ${origin}`));
+                }
+            },
+            credentials: true,
+        };
+
+        const server = super.createIOServer(port, {
+            ...options,
+            cors: corsOptions,
+        });
         server.adapter(this.adapterConstructor);
         return server;
     }

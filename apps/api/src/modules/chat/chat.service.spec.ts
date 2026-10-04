@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ChatService } from './chat.service';
 import { SupabaseService } from '../supabase/supabase.service';
+import { RedisService } from '../redis/redis.service';
 import { BadRequestException } from '@nestjs/common';
 import { UserRole } from '@edu-lanka/shared-types';
 
@@ -8,6 +9,8 @@ describe('ChatService', () => {
   let service: ChatService;
   let supabaseService: any;
   let mockTenantClient: any;
+  let redisService: any;
+  let mockRedisClient: any;
 
   beforeEach(async () => {
     mockTenantClient = {
@@ -24,10 +27,20 @@ describe('ChatService', () => {
       adminClient: mockTenantClient,
     };
 
+    mockRedisClient = {
+      incr: jest.fn().mockResolvedValue(1),
+      expire: jest.fn().mockResolvedValue(1),
+    };
+
+    redisService = {
+      getClient: jest.fn().mockReturnValue(mockRedisClient),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         ChatService,
         { provide: SupabaseService, useValue: supabaseService },
+        { provide: RedisService, useValue: redisService },
       ],
     }).compile();
 
@@ -67,6 +80,14 @@ describe('ChatService', () => {
         sender_id: 'user-1',
         content: 'Valid test message',
       });
+    });
+
+    it('should reject message when rate limit is exceeded (> 5 messages in 3s)', async () => {
+      mockRedisClient.incr.mockResolvedValueOnce(6);
+
+      await expect(
+        service.saveMessage('tenant-1', 'conv-1', 'user-1', 'Rapid message', UserRole.STUDENT)
+      ).rejects.toThrow(BadRequestException);
     });
   });
 });

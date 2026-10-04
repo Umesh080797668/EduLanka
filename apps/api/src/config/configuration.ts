@@ -30,6 +30,8 @@ export const configuration = () => ({
         accountSid: process.env['TWILIO_ACCOUNT_SID'] as string | undefined,
         authToken: process.env['TWILIO_AUTH_TOKEN'] as string | undefined,
         fromNumber: process.env['TWILIO_FROM_NUMBER'] as string | undefined,
+        senderId: process.env['TWILIO_SENDER_ID'] as string | undefined,
+        webhookUrl: process.env['TWILIO_WEBHOOK_URL'] as string | undefined,
     },
 });
 

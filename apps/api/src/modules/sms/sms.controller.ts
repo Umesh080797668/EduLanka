@@ -49,7 +49,8 @@ export class SmsController {
         const authToken = this.configService.get('twilio.authToken', { infer: true }) || '';
         const twilioSignature = req.headers['x-twilio-signature'] as string;
 
-        const targetUrl = `${this.configService.get('app.publicUrl', { infer: true })}/api/v1/sms/webhook`;
+        const targetUrl = this.configService.get('twilio.webhookUrl', { infer: true })
+            || `${this.configService.get('app.publicUrl', { infer: true })}/api/v1/sms/webhook`;
 
         // Safety Fallback handling missing body parses in fastify natively
         const params = req.body || {};
@@ -123,19 +124,14 @@ export class SmsController {
 
                     this.logger.log(`Webhook updated TWILIO_SID: [${sid}] => ${dbStatus}`);
 
-                    // 2. Link delivery stats to disaster_events for Phase 5/6 tracking
+                    // 2. Link delivery stats to disaster_events via atomic RPC to prevent lost updates
                     if (isNewTerminalStatus && logEntry.disaster_event_id) {
-                        const countField = dbStatus === 'DELIVERED' ? 'sms_delivered_count' : 'sms_failed_count';
-                        const { data: event } = await db.from('disaster_events')
-                            .select(countField)
-                            .eq('id', logEntry.disaster_event_id)
-                            .maybeSingle();
-
-                        if (event) {
-                            const updatedCount = ((event as any)[countField] || 0) + 1;
-                            await db.from('disaster_events')
-                                .update({ [countField]: updatedCount, updated_at: new Date().toISOString() })
-                                .eq('id', logEntry.disaster_event_id);
+                        const { error: rpcErr } = await db.rpc('increment_disaster_sms_count', {
+                            p_event_id: logEntry.disaster_event_id,
+                            p_status: dbStatus,
+                        });
+                        if (rpcErr) {
+                            this.logger.error(`Failed to increment disaster sms count: ${rpcErr.message}`);
                         }
                     }
                 } else {

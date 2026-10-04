@@ -8,6 +8,7 @@ import {
     Building,
     ChevronRight,
     Compass,
+    History,
     Settings,
     ShieldCheck,
     Users,
@@ -21,6 +22,7 @@ import { DisasterModeModal } from '@/components/DisasterModeModal';
 import { HelpButton } from '@/components/HelpButton';
 import { TutorialProvider } from '@/components/TutorialProvider';
 import { Badge } from '@/components/ui/Badge';
+import { ConfirmDialog, Dialog } from '@/components/ui/Dialog';
 import {
     Card,
     CardContent,
@@ -68,6 +70,10 @@ export default function InstitutionAdminDashboard() {
     const [stats, setStats] = useState<any>(null);
     const [tutorials, setTutorials] = useState<TutorialStat[]>([]);
     const [isDisasterModalOpen, setDisasterModalOpen] = useState(false);
+    const [isDeactivateOpen, setDeactivateOpen] = useState(false);
+    const [isHistoryOpen, setHistoryOpen] = useState(false);
+    const [historyList, setHistoryList] = useState<any[]>([]);
+    const [loadingHistory, setLoadingHistory] = useState(false);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
@@ -96,7 +102,7 @@ export default function InstitutionAdminDashboard() {
 
     const triggerDisasterMode = async (reason: string, resumeDate: string) => {
         try {
-            await apiClient.post('/tenants/disaster-mode', { reason, resumeDate });
+            await apiClient.post('/tenants/disaster-mode/activate', { reason, resumeDate });
             toast.success(t('disasterSuccess'), {
                 description: t('disasterSuccessDesc'),
             });
@@ -107,6 +113,33 @@ export default function InstitutionAdminDashboard() {
                 description: e?.response?.data?.message || t('disasterFailedDesc'),
             });
             setDisasterModalOpen(false);
+        }
+    };
+
+    const handleDeactivate = async () => {
+        try {
+            await apiClient.post('/tenants/disaster-mode/deactivate', {});
+            toast.success(t('deactivateSuccess'));
+            setDeactivateOpen(false);
+            setTimeout(() => window.location.reload(), 1500);
+        } catch (e: any) {
+            toast.error(t('deactivateFailed'), {
+                description: e?.response?.data?.message,
+            });
+            setDeactivateOpen(false);
+        }
+    };
+
+    const openHistory = async () => {
+        setLoadingHistory(true);
+        try {
+            const data = await apiClient.get<any[]>('/tenants/disaster-mode/history');
+            setHistoryList(Array.isArray(data) ? data : []);
+            setHistoryOpen(true);
+        } catch (e: any) {
+            toast.error(e?.message || 'Could not load history');
+        } finally {
+            setLoadingHistory(false);
         }
     };
 
@@ -187,24 +220,53 @@ export default function InstitutionAdminDashboard() {
                         </div>
 
                         {/* Emergency protocol — deliberately visually separated. */}
-                        <div className="flex max-w-sm gap-4 rounded-card border border-danger/30 bg-danger/15 p-4 backdrop-blur-md">
-                            <span className="grid size-11 shrink-0 place-items-center rounded-input bg-danger/25 text-danger-200">
-                                <AlertTriangle className="size-6" />
-                            </span>
-                            <div>
-                                <h2 className="text-sm font-semibold text-white">
-                                    {t('disasterModeTitle')}
-                                </h2>
-                                <p className="mt-1 text-xs leading-relaxed text-white/70">
-                                    {t('disasterModeDesc')}
-                                </p>
+                        <div className="flex max-w-sm flex-col justify-between rounded-card border border-danger/30 bg-danger/15 p-4 backdrop-blur-md">
+                            <div className="flex gap-4">
+                                <span className="grid size-11 shrink-0 place-items-center rounded-input bg-danger/25 text-danger-200">
+                                    <AlertTriangle className="size-6" />
+                                </span>
+                                <div>
+                                    <h2 className="text-sm font-semibold text-white">
+                                        {stats?.disasterMode ? t('disasterActiveTitle') : t('disasterModeTitle')}
+                                    </h2>
+                                    <p className="mt-1 text-xs leading-relaxed text-white/70">
+                                        {stats?.disasterMode
+                                            ? t('disasterActiveDesc', {
+                                                reason: stats.disasterReason || 'Emergency',
+                                                date: stats.disasterResumeDate || 'TBD',
+                                            })
+                                            : t('disasterModeDesc')}
+                                    </p>
+                                </div>
+                            </div>
+                            <div className="mt-3 flex gap-2">
+                                {stats?.disasterMode ? (
+                                    <button
+                                        id="disaster-mode-deactivate-action"
+                                        type="button"
+                                        onClick={() => setDeactivateOpen(true)}
+                                        className="inline-flex h-8 flex-1 items-center justify-center rounded-input bg-danger-600 px-3 text-xs font-semibold uppercase tracking-wide text-white transition-colors hover:bg-danger-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+                                    >
+                                        {t('deactivateProtocol')}
+                                    </button>
+                                ) : (
+                                    <button
+                                        id="disaster-mode-quick-action"
+                                        type="button"
+                                        onClick={() => setDisasterModalOpen(true)}
+                                        className="inline-flex h-8 flex-1 items-center justify-center rounded-input bg-danger-600 px-3 text-xs font-semibold uppercase tracking-wide text-white transition-colors hover:bg-danger-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+                                    >
+                                        {t('engageProtocol')}
+                                    </button>
+                                )}
                                 <button
-                                    id="disaster-mode-quick-action"
+                                    id="disaster-history-action"
                                     type="button"
-                                    onClick={() => setDisasterModalOpen(true)}
-                                    className="mt-3 inline-flex h-8 w-full items-center justify-center rounded-input bg-danger-600 px-3 text-xs font-semibold uppercase tracking-wide text-white transition-colors hover:bg-danger-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+                                    onClick={openHistory}
+                                    className="inline-flex h-8 items-center justify-center rounded-input border border-white/20 bg-white/10 px-3 text-xs font-semibold text-white transition-colors hover:bg-white/20 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
                                 >
-                                    {t('engageProtocol')}
+                                    <History className="mr-1 size-3.5" />
+                                    {t('disasterHistory')}
                                 </button>
                             </div>
                         </div>
@@ -287,8 +349,8 @@ export default function InstitutionAdminDashboard() {
                                                     row.completionPercentage >= 75
                                                         ? 'success'
                                                         : row.completionPercentage >= 40
-                                                          ? 'warning'
-                                                          : 'primary'
+                                                            ? 'warning'
+                                                            : 'primary'
                                                 }
                                                 label={
                                                     <>
@@ -372,6 +434,57 @@ export default function InstitutionAdminDashboard() {
                     onClose={() => setDisasterModalOpen(false)}
                     onConfirm={triggerDisasterMode}
                 />
+
+                <ConfirmDialog
+                    open={isDeactivateOpen}
+                    onClose={() => setDeactivateOpen(false)}
+                    onConfirm={handleDeactivate}
+                    icon={<AlertTriangle />}
+                    title={t('deactivateTitle')}
+                    description={t('deactivateBody')}
+                    confirmLabel={t('deactivateProtocol')}
+                    cancelLabel="Cancel"
+                />
+
+                <Dialog
+                    open={isHistoryOpen}
+                    onClose={() => setHistoryOpen(false)}
+                    icon={<History />}
+                    title={t('disasterHistory')}
+                    description="Log of historical emergency school closures and SMS notifications."
+                >
+                    <div className="max-h-96 space-y-3 overflow-y-auto">
+                        {loadingHistory ? (
+                            <p className="py-4 text-center text-sm text-muted-foreground">Loading history...</p>
+                        ) : historyList.length === 0 ? (
+                            <p className="py-4 text-center text-sm text-muted-foreground">No historical disaster closures recorded.</p>
+                        ) : (
+                            historyList.map((item) => (
+                                <div key={item.id} className="rounded-input border border-border p-3 text-sm">
+                                    <div className="flex items-center justify-between">
+                                        <Badge tone={item.is_active ? 'danger' : 'neutral'} size="sm">
+                                            {item.is_active ? 'ACTIVE' : 'RESOLVED'}
+                                        </Badge>
+                                        <span className="text-xs text-muted-foreground">
+                                            {new Date(item.activated_at).toLocaleDateString()}
+                                        </span>
+                                    </div>
+                                    <p className="mt-2 font-medium">Reason: {item.reason}</p>
+                                    {item.expected_resume_date && (
+                                        <p className="text-xs text-muted-foreground">
+                                            Expected resume: {new Date(item.expected_resume_date).toLocaleDateString()}
+                                        </p>
+                                    )}
+                                    <div className="mt-2 flex gap-4 text-xs text-muted-foreground">
+                                        <span>SMS Queued: {item.sms_queued_count ?? 0}</span>
+                                        <span>Delivered: {item.sms_delivered_count ?? 0}</span>
+                                        <span>Failed: {item.sms_failed_count ?? 0}</span>
+                                    </div>
+                                </div>
+                            ))
+                        )}
+                    </div>
+                </Dialog>
             </div>
         </TutorialProvider>
     );

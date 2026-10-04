@@ -14,14 +14,7 @@ import { UserRole } from '@edu-lanka/shared-types';
 import { SupabaseService } from '../supabase/supabase.service';
 import { RedisService } from '../redis/redis.service';
 
-const allowedOrigins = process.env.ALLOWED_ORIGINS
-  ? process.env.ALLOWED_ORIGINS.split(',').map((s) => s.trim()).filter(Boolean)
-  : '*';
-
 @WebSocketGateway({
-  cors: {
-    origin: allowedOrigins,
-  },
   transports: ['websocket', 'polling'], // Hybrid strategy
 })
 export class NotificationsGateway implements OnGatewayConnection, OnGatewayDisconnect, OnModuleInit {

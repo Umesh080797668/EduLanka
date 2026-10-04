@@ -1,8 +1,16 @@
-import { Injectable, ForbiddenException, BadRequestException, Logger } from '@nestjs/common';
+import {
+    Injectable,
+    ForbiddenException,
+    BadRequestException,
+    NotFoundException,
+    Logger,
+} from '@nestjs/common';
 import { UserRole } from '@edu-lanka/shared-types';
 import { SupabaseService } from '../supabase/supabase.service';
 import { SmsService } from '../sms/sms.service';
+import { NotificationsGateway } from '../notifications/notifications.gateway';
 import { sanitizeNoticeHtml, noticeHtmlToText } from '../../common/utils/sanitize-html';
+import { CreateNoticeDto, UpdateNoticeDto } from './dto/notices.dto';
 
 @Injectable()
 export class NoticesService {
@@ -10,10 +18,11 @@ export class NoticesService {
 
     constructor(
         private readonly supabaseService: SupabaseService,
-        private readonly smsService: SmsService
+        private readonly smsService: SmsService,
+        private readonly notificationsGateway: NotificationsGateway,
     ) { }
 
-    async createNotice(tenantId: string, authorId: string, request: any, callerRole?: string) {
+    async createNotice(tenantId: string, authorId: string, request: CreateNoticeDto | any, callerRole?: string) {
         const adminClient = this.supabaseService.adminClient;
 
         const { data: tenant } = await adminClient
@@ -31,6 +40,8 @@ export class NoticesService {
             throw new ForbiddenException('Only System Administrators can bypass SMS quotas.');
         }
 
+        const client = this.supabaseService.getTenantClient(tenantId);
+
         // Security check: Teachers cannot create SCHOOL_WIDE/UNIVERSAL notices or send SMS
         if (callerRole === UserRole.TEACHER) {
             if (scope === 'SCHOOL_WIDE' || scope === 'UNIVERSAL') {
@@ -38,6 +49,46 @@ export class NoticesService {
             }
             if (send_sms) {
                 throw new ForbiddenException('Teachers are not permitted to trigger SMS notifications.');
+            }
+
+            const { data: teacher } = await client
+                .from('teachers')
+                .select('id')
+                .eq('user_id', authorId)
+                .maybeSingle();
+
+            if (!teacher?.id) {
+                throw new ForbiddenException('Teacher profile not found.');
+            }
+
+            if (scope === 'CLASS_SPECIFIC') {
+                if (!target_class_id) {
+                    throw new BadRequestException('target_class_id is required for CLASS_SPECIFIC notices.');
+                }
+                const { data: assignment } = await client
+                    .from('class_teachers')
+                    .select('id')
+                    .eq('teacher_id', teacher.id)
+                    .eq('class_id', target_class_id)
+                    .maybeSingle();
+
+                if (!assignment) {
+                    throw new ForbiddenException('You are not assigned to teach this class.');
+                }
+            } else if (scope === 'GRADE_LEVEL') {
+                if (target_grade === undefined || target_grade === null) {
+                    throw new BadRequestException('target_grade is required for GRADE_LEVEL notices.');
+                }
+                const parsedGrade = typeof target_grade === 'string' ? parseInt(target_grade, 10) : target_grade;
+                const { data: assignments } = await client
+                    .from('class_teachers')
+                    .select('class_id, classes(grade)')
+                    .eq('teacher_id', teacher.id);
+
+                const teachesGrade = (assignments ?? []).some((a: any) => a.classes?.grade === parsedGrade);
+                if (!teachesGrade) {
+                    throw new ForbiddenException(`You do not teach any classes in grade ${parsedGrade}.`);
+                }
             }
         }
 
@@ -59,30 +110,6 @@ export class NoticesService {
             }
         }
 
-        const client = this.supabaseService.getTenantClient(tenantId);
-
-        // If teacher creates class notice, verify teacher is assigned to that class
-        if (callerRole === UserRole.TEACHER && scope === 'CLASS_SPECIFIC' && target_class_id) {
-            const { data: teacher } = await client
-                .from('teachers')
-                .select('id')
-                .eq('user_id', authorId)
-                .maybeSingle();
-
-            if (teacher?.id) {
-                const { data: assignment } = await client
-                    .from('class_teachers')
-                    .select('id')
-                    .eq('teacher_id', teacher.id)
-                    .eq('class_id', target_class_id)
-                    .maybeSingle();
-
-                if (!assignment) {
-                    throw new ForbiddenException('You are not assigned to teach this class.');
-                }
-            }
-        }
-
         const { data, error } = await client
             .from('notices')
             .insert({
@@ -91,11 +118,11 @@ export class NoticesService {
                 title,
                 content_html: safeContent,
                 scope,
-                target_grade: target_grade ? parseInt(target_grade) : null,
+                target_grade: target_grade !== undefined && target_grade !== null ? (typeof target_grade === 'string' ? parseInt(target_grade, 10) : target_grade) : null,
                 target_class_id: target_class_id || null,
-                priority,
-                attachments,
-                expires_at: expires_at || null
+                priority: priority || 'NORMAL',
+                attachments: attachments || null,
+                expires_at: expires_at || null,
             })
             .select()
             .single();
@@ -203,12 +230,22 @@ export class NoticesService {
      * Prevents students/parents/teachers from querying arbitrary class/grade notices.
      * Defaults to school-wide + enrolled/assigned classes & grades when params are omitted.
      */
-    async getNotices(tenantId: string, userId: string, userRole: string, classId?: string, gradeId?: string) {
+    async getNotices(
+        tenantId: string,
+        userId: string,
+        userRole: string,
+        classId?: string,
+        gradeId?: string,
+        includeArchived = false
+    ) {
         const client = this.supabaseService.getTenantClient(tenantId);
         const parsedGrade = gradeId ? parseInt(gradeId, 10) : undefined;
 
         let query = client.from('notices').select('*, author:users(full_name, role, avatar_url)');
         query = query.or('expires_at.is.null,expires_at.gt.' + new Date().toISOString());
+        if (!includeArchived) {
+            query = query.or('is_archived.is.null,is_archived.eq.false');
+        }
 
         if (userRole === UserRole.SUPER_ADMIN || userRole === UserRole.SCHOOL_ADMIN) {
             // Admins have school-wide visibility; respect query filters if provided
@@ -437,6 +474,190 @@ export class NoticesService {
         return data ?? [];
     }
 
+    async getAllMaintenanceNotices() {
+        const { data, error } = await this.supabaseService.adminClient
+            .from('system_maintenance_notices')
+            .select('*')
+            .order('scheduled_start', { ascending: false });
+
+        if (error) {
+            this.logger.error(`Failed to fetch all maintenance notices: ${error.message}`);
+            return [];
+        }
+        return data ?? [];
+    }
+
+    async updateNotice(
+        tenantId: string,
+        noticeId: string,
+        authorId: string,
+        dto: UpdateNoticeDto,
+        callerRole?: string
+    ) {
+        const client = this.supabaseService.getTenantClient(tenantId);
+        const { data: existing, error: fetchError } = await client
+            .from('notices')
+            .select('*')
+            .eq('id', noticeId)
+            .single();
+
+        if (fetchError || !existing) {
+            throw new NotFoundException('Notice not found.');
+        }
+
+        if (callerRole === UserRole.TEACHER && existing.author_id !== authorId) {
+            throw new ForbiddenException('You can only edit notices that you authored.');
+        }
+
+        const updates: any = {};
+        if (dto.title !== undefined) updates.title = dto.title;
+        if (dto.content_html !== undefined) {
+            const safeContent = sanitizeNoticeHtml(dto.content_html);
+            if (!safeContent) {
+                throw new BadRequestException('Notice content cannot be empty.');
+            }
+            updates.content_html = safeContent;
+        }
+        if (dto.priority !== undefined) updates.priority = dto.priority;
+        if (dto.attachments !== undefined) updates.attachments = dto.attachments;
+        if (dto.expires_at !== undefined) updates.expires_at = dto.expires_at || null;
+
+        const nextScope = dto.scope !== undefined ? dto.scope : existing.scope;
+        const nextGrade = dto.target_grade !== undefined ? dto.target_grade : existing.target_grade;
+        const nextClassId = dto.target_class_id !== undefined ? dto.target_class_id : existing.target_class_id;
+
+        if (callerRole === UserRole.TEACHER) {
+            if (nextScope === 'SCHOOL_WIDE' || nextScope === 'UNIVERSAL') {
+                throw new ForbiddenException('Teachers cannot set notices to school-wide.');
+            }
+            const { data: teacher } = await client
+                .from('teachers')
+                .select('id')
+                .eq('user_id', authorId)
+                .maybeSingle();
+
+            if (!teacher?.id) {
+                throw new ForbiddenException('Teacher profile not found.');
+            }
+
+            if (nextScope === 'CLASS_SPECIFIC' && nextClassId) {
+                const { data: assignment } = await client
+                    .from('class_teachers')
+                    .select('id')
+                    .eq('teacher_id', teacher.id)
+                    .eq('class_id', nextClassId)
+                    .maybeSingle();
+
+                if (!assignment) {
+                    throw new ForbiddenException('You are not assigned to teach this class.');
+                }
+            } else if (nextScope === 'GRADE_LEVEL' && nextGrade !== undefined && nextGrade !== null) {
+                const parsedGrade = typeof nextGrade === 'string' ? parseInt(nextGrade, 10) : nextGrade;
+                const { data: assignments } = await client
+                    .from('class_teachers')
+                    .select('class_id, classes(grade)')
+                    .eq('teacher_id', teacher.id);
+
+                const teachesGrade = (assignments ?? []).some((a: any) => a.classes?.grade === parsedGrade);
+                if (!teachesGrade) {
+                    throw new ForbiddenException(`You do not teach any classes in grade ${parsedGrade}.`);
+                }
+            }
+        }
+
+        if (dto.scope !== undefined) updates.scope = dto.scope;
+        if (dto.target_grade !== undefined) {
+            updates.target_grade = typeof dto.target_grade === 'string' ? parseInt(dto.target_grade, 10) : dto.target_grade;
+        }
+        if (dto.target_class_id !== undefined) updates.target_class_id = dto.target_class_id || null;
+
+        updates.updated_at = new Date().toISOString();
+
+        const { data, error } = await client
+            .from('notices')
+            .update(updates)
+            .eq('id', noticeId)
+            .select()
+            .single();
+
+        if (error) {
+            this.logger.error(`Failed to update notice ${noticeId}: ${error.message}`);
+            throw error;
+        }
+
+        return data;
+    }
+
+    async archiveNotice(
+        tenantId: string,
+        noticeId: string,
+        userId: string,
+        callerRole?: string
+    ) {
+        const client = this.supabaseService.getTenantClient(tenantId);
+        const { data: existing, error: fetchError } = await client
+            .from('notices')
+            .select('id, author_id, is_archived')
+            .eq('id', noticeId)
+            .single();
+
+        if (fetchError || !existing) {
+            throw new NotFoundException('Notice not found.');
+        }
+
+        if (callerRole === UserRole.TEACHER && existing.author_id !== userId) {
+            throw new ForbiddenException('You can only archive notices that you authored.');
+        }
+
+        const { data, error } = await client
+            .from('notices')
+            .update({ is_archived: true, updated_at: new Date().toISOString() })
+            .eq('id', noticeId)
+            .select()
+            .single();
+
+        if (error) {
+            this.logger.error(`Failed to archive notice ${noticeId}: ${error.message}`);
+            throw error;
+        }
+
+        return { success: true, notice: data };
+    }
+
+    async deleteNotice(
+        tenantId: string,
+        noticeId: string,
+        userId: string,
+        callerRole?: string
+    ) {
+        const client = this.supabaseService.getTenantClient(tenantId);
+        const { data: existing, error: fetchError } = await client
+            .from('notices')
+            .select('id, author_id')
+            .eq('id', noticeId)
+            .single();
+
+        if (fetchError || !existing) {
+            throw new NotFoundException('Notice not found.');
+        }
+
+        if (callerRole === UserRole.TEACHER && existing.author_id !== userId) {
+            throw new ForbiddenException('You can only delete notices that you authored.');
+        }
+
+        const { error } = await client
+            .from('notices')
+            .delete()
+            .eq('id', noticeId);
+
+        if (error) {
+            this.logger.error(`Failed to delete notice ${noticeId}: ${error.message}`);
+            throw error;
+        }
+
+        return { success: true, deletedId: noticeId };
+    }
+
     async createMaintenanceNotice(authorId: string, dto: any) {
         if (!dto.title || !dto.message) {
             throw new BadRequestException('Title and message are required.');
@@ -461,22 +682,19 @@ export class NoticesService {
             throw error;
         }
 
-        // Broadcast in-app banner to all connected clients via Supabase Realtime channel
+        // Broadcast in-app banner to all connected clients via NotificationsGateway
+        const notificationPayload = {
+            id: data.id,
+            title: `[Maintenance] ${data.title}`,
+            message: data.message,
+            timestamp: data.scheduled_start,
+            type: data.severity === 'CRITICAL' ? 'critical' : data.severity === 'WARNING' ? 'warning' : 'info',
+        };
+
         try {
-            const channel = this.supabaseService.adminClient.channel('system_notifications');
-            await channel.send({
-                type: 'broadcast',
-                event: 'system_notification',
-                payload: {
-                    id: data.id,
-                    title: `[Maintenance] ${data.title}`,
-                    message: data.message,
-                    timestamp: data.scheduled_start,
-                    type: data.severity === 'CRITICAL' ? 'critical' : data.severity === 'WARNING' ? 'warning' : 'info',
-                },
-            });
+            this.notificationsGateway.sendNotification(notificationPayload);
         } catch (err: any) {
-            this.logger.warn(`Could not broadcast maintenance notice to channel: ${err.message}`);
+            this.logger.warn(`Could not broadcast maintenance notice: ${err.message}`);
         }
 
         return data;
