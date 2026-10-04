@@ -76,6 +76,10 @@ export class ActivateDisasterModeDto {
     @IsString()
     @IsOptional()
     resumeDate?: string;
+
+    @IsEnum(['EN', 'SI', 'TA'])
+    @IsOptional()
+    language?: 'EN' | 'SI' | 'TA' = 'EN';
 }
 
 export class DeactivateDisasterModeDto {

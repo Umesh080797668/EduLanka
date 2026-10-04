@@ -220,9 +220,10 @@ describe('ChatGateway', () => {
   });
 
   describe('handleTyping', () => {
-    it('should broadcast user_typing to other room participants', () => {
+    it('should broadcast user_typing to other room participants when socket is in room', () => {
       const mockClient: any = {
         data: { userId: 'user_sender' },
+        rooms: new Set(['conversation_conv_123']),
         to: jest.fn().mockReturnValue({
           emit: jest.fn(),
         }),
@@ -236,6 +237,20 @@ describe('ChatGateway', () => {
         userId: 'user_sender',
         isTyping: true,
       });
+    });
+
+    it('should drop user_typing when socket is not in the conversation room', () => {
+      const mockClient: any = {
+        data: { userId: 'user_sender' },
+        rooms: new Set(),
+        to: jest.fn().mockReturnValue({
+          emit: jest.fn(),
+        }),
+      };
+
+      gateway.handleTyping(mockClient, { conversationId: 'conv_123', isTyping: true });
+
+      expect(mockClient.to).not.toHaveBeenCalled();
     });
   });
 });

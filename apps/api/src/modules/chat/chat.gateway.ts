@@ -53,7 +53,16 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   async handleDisconnect(client: Socket) {
     this.logger.log(`Client disconnected from chat: ${client.id}`);
     if (client.data?.counted) {
-      await this.redisService.getClient().decr('metrics:ws:chat:connections');
+      const DECR_LUA = `
+        local current = redis.call('get', KEYS[1])
+        if current and tonumber(current) > 0 then
+          return redis.call('decr', KEYS[1])
+        else
+          redis.call('set', KEYS[1], 0)
+          return 0
+        end
+      `;
+      await this.redisService.getClient().eval(DECR_LUA, 1, 'metrics:ws:chat:connections').catch(() => { });
       client.data.counted = false;
     }
   }
@@ -138,7 +147,22 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     @MessageBody() payload: { conversationId: string; isTyping: boolean }
   ) {
     if (!payload?.conversationId) return;
-    client.to(`conversation_${payload.conversationId}`).emit('user_typing', {
+    const roomName = `conversation_${payload.conversationId}`;
+
+    // 1. Verify socket is joined to the conversation room
+    if (!client.rooms.has(roomName)) {
+      return;
+    }
+
+    // 2. Throttle typing events: at most once every 500ms per socket conversation
+    const now = Date.now();
+    const throttleKey = `last_typing_${payload.conversationId}`;
+    if (client.data[throttleKey] && now - client.data[throttleKey] < 500) {
+      return;
+    }
+    client.data[throttleKey] = now;
+
+    client.to(roomName).emit('user_typing', {
       conversationId: payload.conversationId,
       userId: client.data.userId,
       isTyping: Boolean(payload.isTyping),

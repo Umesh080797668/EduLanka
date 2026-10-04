@@ -100,9 +100,9 @@ export default function InstitutionAdminDashboard() {
         fetchStats();
     }, []);
 
-    const triggerDisasterMode = async (reason: string, resumeDate: string) => {
+    const triggerDisasterMode = async (reason: string, resumeDate: string, language: 'EN' | 'SI' | 'TA' = 'EN') => {
         try {
-            await apiClient.post('/tenants/disaster-mode/activate', { reason, resumeDate });
+            await apiClient.post('/tenants/disaster-mode/activate', { reason, resumeDate, language });
             toast.success(t('disasterSuccess'), {
                 description: t('disasterSuccessDesc'),
             });
@@ -433,6 +433,7 @@ export default function InstitutionAdminDashboard() {
                     isOpen={isDisasterModalOpen}
                     onClose={() => setDisasterModalOpen(false)}
                     onConfirm={triggerDisasterMode}
+                    schoolName={stats?.name || stats?.tenantName}
                 />
 
                 <ConfirmDialog

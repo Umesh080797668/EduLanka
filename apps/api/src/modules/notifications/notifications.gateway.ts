@@ -79,7 +79,16 @@ export class NotificationsGateway implements OnGatewayConnection, OnGatewayDisco
   async handleDisconnect(client: Socket) {
     this.logger.log(`Client disconnected from notifications: ${client.id}`);
     if (client.data?.counted) {
-      await this.redisService.getClient().decr('metrics:ws:notifications:connections');
+      const DECR_LUA = `
+        local current = redis.call('get', KEYS[1])
+        if current and tonumber(current) > 0 then
+          return redis.call('decr', KEYS[1])
+        else
+          redis.call('set', KEYS[1], 0)
+          return 0
+        end
+      `;
+      await this.redisService.getClient().eval(DECR_LUA, 1, 'metrics:ws:notifications:connections').catch(() => { });
       client.data.counted = false;
     }
   }

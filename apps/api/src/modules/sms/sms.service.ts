@@ -58,39 +58,40 @@ export class SmsService {
                 throw new ForbiddenException('SMS notifications are strictly unavailable for the Community tier.');
             }
 
-            // Read reserved segments in Redis from concurrent in-flight batches
-            let reservedSegments = 0;
-            try {
-                const redis = this.redisService.getClient();
-                reservedSegments = parseInt((await redis.get(reservationKey)) || '0', 10);
-            } catch (err: any) {
-                this.logger.warn(`Redis quota reservation check failed: ${err.message}`);
-            }
-
             // Per blueprint §7: Paid tiers include a monthly bundle; usage beyond the bundle is billed as overage.
             // A safety hard ceiling (5x monthly bundle or at least 5000 messages) prevents catastrophic runaway billing.
             const safetyCeiling = Math.max(quota.monthly_quota * 5, 5000);
-            const projectedUsage = quota.current_month_usage + reservedSegments + totalSegments;
+
+            // Reserve quota segments in Redis upfront with atomic INCRBY to prevent race conditions
+            let newReserved = totalSegments;
+            const redis = this.redisService.getClient();
+            try {
+                newReserved = await redis.incrby(reservationKey, totalSegments);
+                // Set 15-minute safety TTL on the reservation key
+                if (newReserved === totalSegments) {
+                    await redis.expire(reservationKey, 900);
+                }
+            } catch (err: any) {
+                this.logger.warn(`Redis quota reservation increment failed: ${err.message}`);
+            }
+
+            const projectedUsage = quota.current_month_usage + newReserved;
 
             if (projectedUsage > safetyCeiling) {
+                // Roll back reservation immediately
+                try {
+                    await redis.decrby(reservationKey, totalSegments);
+                } catch (decrErr) { /* ignore */ }
+
                 this.logger.warn(
                     `SMS batch dispatch blocked for Tenant ${tenantId}: projected usage (${projectedUsage}) exceeds safety ceiling (${safetyCeiling})!`
                 );
                 return { success: false, queuedCount: 0, segmentCount: segments.segmentCount, reason: 'OVERAGE_HARD_LIMIT_EXCEEDED' };
             }
 
-            // Reserve quota segments in Redis immediately before enqueuing to prevent race condition overshoots
-            try {
-                const redis = this.redisService.getClient();
-                await redis.incrby(reservationKey, totalSegments);
-                await redis.expire(reservationKey, 3600);
-            } catch (err: any) {
-                this.logger.warn(`Redis quota reservation increment failed: ${err.message}`);
-            }
-
             if (projectedUsage > quota.monthly_quota) {
                 this.logger.log(
-                    `Tenant ${tenantId} is operating in billable SMS overage: current ${quota.current_month_usage}, reserved ${reservedSegments}, quota ${quota.monthly_quota}, adding ${totalSegments} segments.`
+                    `Tenant ${tenantId} is operating in billable SMS overage: current ${quota.current_month_usage}, reserved ${newReserved}, quota ${quota.monthly_quota}, adding ${totalSegments} segments.`
                 );
             }
         }
@@ -120,7 +121,18 @@ export class SmsService {
             },
         }));
 
-        await this.smsQueue.addBulk(jobs);
+        try {
+            await this.smsQueue.addBulk(jobs);
+        } catch (queueErr: any) {
+            if (!options.bypassQuota) {
+                try {
+                    const redis = this.redisService.getClient();
+                    await redis.decrby(reservationKey, totalSegments);
+                } catch (decrErr) { /* ignore */ }
+            }
+            this.logger.error(`Failed to enqueue SMS batch for Tenant ${tenantId}: ${queueErr.message}`);
+            throw queueErr;
+        }
 
         return { success: true, queuedCount: uniqueRecipients.length, segmentCount: segments.segmentCount };
     }

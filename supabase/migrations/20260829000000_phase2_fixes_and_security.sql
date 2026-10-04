@@ -4,13 +4,38 @@
 --   1. Harden views (tenant_sms_quotas, monthly_sms_usage) with security_invoker
 --      and revoke access from anon and authenticated to prevent RLS bypass.
 --   2. Fix monthly_sms_usage to count actual billable segment_count excluding FAILED.
---   3. Partial unique index on disaster_events(tenant_id) WHERE is_active.
---   4. Atomic stored procedures for disaster mode activation & deactivation.
+--   3. Partial unique index on disaster_events(tenant_id) WHERE is_active (with pre-cleanup).
+--   4. Atomic stored procedures for disaster mode activation & deactivation (with DISASTER_NOT_ACTIVE check).
 --   5. Atomic stored procedure for disaster SMS delivery count increment.
---   6. Revoke permissions from anon/authenticated on legacy tenant_% schemas.
+--   6. Revoke function execution privileges from PUBLIC, anon, authenticated on all RPC functions.
+--   7. Alter default privileges to revoke EXECUTE on functions from anon, authenticated.
+--   8. Revoke permissions from anon/authenticated on legacy tenant_% schemas.
 -- =============================================================================
 
--- 1. Partial Unique Index to prevent concurrent / duplicate active disaster events
+-- 1. Clean up duplicate active events (keep only the latest active event per tenant)
+--    This prevents the unique index creation from failing on legacy data.
+WITH ranked_events AS (
+    SELECT id, tenant_id,
+           ROW_NUMBER() OVER (PARTITION BY tenant_id ORDER BY activated_at DESC NULLS LAST, created_at DESC) as rn
+    FROM public.disaster_events
+    WHERE is_active = true
+)
+UPDATE public.disaster_events
+SET is_active = false,
+    deactivated_at = COALESCE(deactivated_at, now()),
+    details = CASE 
+        WHEN details IS NOT NULL THEN details || ' | Deactivated during duplicate index preparation'
+        ELSE 'Deactivated during duplicate index preparation'
+    END,
+    updated_at = now()
+WHERE id IN (
+    SELECT id FROM ranked_events WHERE rn > 1
+);
+
+-- Ensure disaster_mode column exists on public.tenants
+ALTER TABLE public.tenants ADD COLUMN IF NOT EXISTS disaster_mode BOOLEAN NOT NULL DEFAULT false;
+
+-- Partial Unique Index to prevent concurrent / duplicate active disaster events
 CREATE UNIQUE INDEX IF NOT EXISTS idx_disaster_events_active_tenant 
     ON public.disaster_events(tenant_id) 
     WHERE is_active = true;
@@ -33,7 +58,7 @@ DECLARE
     v_event_id UUID;
     v_event JSONB;
 BEGIN
-    -- Check if disaster mode is already active
+    -- Check if disaster mode is already active on the tenant
     SELECT disaster_mode INTO v_is_active
     FROM public.tenants
     WHERE id = p_tenant_id
@@ -76,7 +101,7 @@ BEGIN
     SET 
         disaster_mode = true,
         disaster_reason = p_reason,
-        disaster_resume_date = CASE WHEN p_resume_date IS NOT NULL THEN p_resume_date::TEXT ELSE NULL END,
+        disaster_resume_date = p_resume_date,
         updated_at = now()
     WHERE id = p_tenant_id;
 
@@ -100,8 +125,19 @@ SECURITY DEFINER
 SET search_path = public, pg_temp
 AS $$
 DECLARE
+    v_is_active BOOLEAN;
     v_now TIMESTAMPTZ := now();
 BEGIN
+    -- Verify that Disaster Mode is actually active for this school
+    SELECT disaster_mode INTO v_is_active
+    FROM public.tenants
+    WHERE id = p_tenant_id
+    FOR UPDATE;
+
+    IF v_is_active IS NOT TRUE THEN
+        RAISE EXCEPTION 'DISASTER_NOT_ACTIVE' USING ERRCODE = 'P0002';
+    END IF;
+
     -- 1. Deactivate active disaster events
     UPDATE public.disaster_events
     SET 
@@ -154,7 +190,29 @@ BEGIN
 END;
 $$;
 
--- 5. Fix monthly_sms_usage view to sum actual segments and exclude failures from total_dispatched
+-- 5. Revoke execute privileges on RPC functions from PUBLIC, anon, and authenticated
+REVOKE ALL ON FUNCTION public.activate_disaster_mode(UUID, UUID, TEXT, TEXT, TIMESTAMPTZ) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.deactivate_disaster_mode(UUID, UUID, TEXT) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.increment_disaster_sms_count(UUID, TEXT) FROM PUBLIC, anon, authenticated;
+
+GRANT EXECUTE ON FUNCTION public.activate_disaster_mode(UUID, UUID, TEXT, TEXT, TIMESTAMPTZ) TO service_role;
+GRANT EXECUTE ON FUNCTION public.deactivate_disaster_mode(UUID, UUID, TEXT) TO service_role;
+GRANT EXECUTE ON FUNCTION public.increment_disaster_sms_count(UUID, TEXT) TO service_role;
+
+-- Revoke exec_sql if exists to eliminate arbitrary SQL vulnerability
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM pg_proc WHERE proname = 'exec_sql') THEN
+        EXECUTE 'REVOKE ALL ON FUNCTION public.exec_sql(TEXT) FROM PUBLIC, anon, authenticated;';
+        EXECUTE 'GRANT EXECUTE ON FUNCTION public.exec_sql(TEXT) TO service_role;';
+    END IF;
+END;
+$$;
+
+-- Alter default privileges so future public functions are not auto-granted to anon/authenticated
+ALTER DEFAULT PRIVILEGES IN SCHEMA public REVOKE EXECUTE ON FUNCTIONS FROM anon, authenticated;
+
+-- 6. Fix monthly_sms_usage view to sum actual segments and exclude failures from total_dispatched
 DROP VIEW IF EXISTS public.tenant_sms_quotas CASCADE;
 DROP VIEW IF EXISTS public.monthly_sms_usage CASCADE;
 
@@ -168,16 +226,16 @@ SELECT
 FROM public.sms_logs
 GROUP BY tenant_id, DATE_TRUNC('month', created_at);
 
--- 6. Recreate tenant_sms_quotas view
+-- 7. Recreate tenant_sms_quotas view
+--    Fix: Join active students strictly against active users so inactive students are not counted.
 CREATE OR REPLACE VIEW public.tenant_sms_quotas AS
 WITH active_students AS (
     SELECT 
-        t.id AS tenant_id,
+        s.tenant_id,
         COUNT(s.id) AS student_count
-    FROM public.tenants t
-    LEFT JOIN public.students s ON s.tenant_id = t.id
-    LEFT JOIN public.users u ON u.id = s.user_id AND u.is_active = true
-    GROUP BY t.id
+    FROM public.students s
+    JOIN public.users u ON u.id = s.user_id AND u.is_active = true
+    GROUP BY s.tenant_id
 )
 SELECT 
     t.id AS tenant_id,
@@ -219,7 +277,7 @@ LEFT JOIN public.monthly_sms_usage u
     ON t.id = u.tenant_id 
     AND u.billing_month = DATE_TRUNC('month', NOW());
 
--- 7. View Security: SET security_invoker = true and REVOKE from anon and authenticated
+-- 8. View Security: SET security_invoker = true and REVOKE from anon and authenticated
 ALTER VIEW public.monthly_sms_usage SET (security_invoker = true);
 ALTER VIEW public.tenant_sms_quotas SET (security_invoker = true);
 
@@ -228,7 +286,7 @@ REVOKE ALL ON public.tenant_sms_quotas FROM anon, authenticated;
 GRANT SELECT ON public.monthly_sms_usage TO service_role;
 GRANT SELECT ON public.tenant_sms_quotas TO service_role;
 
--- 8. Lock down legacy tenant_% schemas if any exist
+-- 9. Lock down legacy tenant_% schemas if any exist
 DO $$
 DECLARE
     r RECORD;
@@ -246,7 +304,6 @@ BEGIN
 END;
 $$;
 
--- 9. Add is_archived to notices
+-- 10. Add is_archived to notices
 ALTER TABLE public.notices 
 ADD COLUMN IF NOT EXISTS is_archived BOOLEAN NOT NULL DEFAULT false;
-

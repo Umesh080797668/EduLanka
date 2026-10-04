@@ -3,8 +3,9 @@ import { NoticesService } from './notices.service';
 import { SupabaseService } from '../supabase/supabase.service';
 import { SmsService } from '../sms/sms.service';
 import { NotificationsGateway } from '../notifications/notifications.gateway';
-import { ForbiddenException } from '@nestjs/common';
+import { ForbiddenException, BadRequestException } from '@nestjs/common';
 import { UserRole } from '@edu-lanka/shared-types';
+import { NoticeScope } from './dto/notices.dto';
 
 describe('NoticesService', () => {
   let service: NoticesService;
@@ -375,6 +376,98 @@ describe('NoticesService', () => {
       await expect(
         service.archiveNotice('tenant_1', 'notice_other', 'user_teacher', UserRole.TEACHER)
       ).rejects.toThrow(new ForbiddenException('You can only archive notices that you authored.'));
+    });
+
+    it('should reject update to CLASS_SPECIFIC without target_class_id', async () => {
+      mockTenantFrom.mockImplementation((table: string) => {
+        if (table === 'notices') {
+          return {
+            select: jest.fn().mockReturnValue({
+              eq: jest.fn().mockReturnValue({
+                single: jest.fn().mockResolvedValue({
+                  data: { id: 'notice_1', author_id: 'user_admin', scope: 'SCHOOL_WIDE' },
+                  error: null,
+                }),
+              }),
+            }),
+          };
+        }
+        return { select: jest.fn().mockReturnThis(), eq: jest.fn().mockReturnThis() };
+      });
+
+      await expect(
+        service.updateNotice(
+          'tenant_1',
+          'notice_1',
+          'user_admin',
+          { scope: NoticeScope.CLASS_SPECIFIC },
+          UserRole.SCHOOL_ADMIN
+        )
+      ).rejects.toThrow(new BadRequestException('Target class ID is required for class-specific notices.'));
+    });
+
+    it('should reject update to GRADE_LEVEL without target_grade', async () => {
+      mockTenantFrom.mockImplementation((table: string) => {
+        if (table === 'notices') {
+          return {
+            select: jest.fn().mockReturnValue({
+              eq: jest.fn().mockReturnValue({
+                single: jest.fn().mockResolvedValue({
+                  data: { id: 'notice_1', author_id: 'user_admin', scope: 'SCHOOL_WIDE' },
+                  error: null,
+                }),
+              }),
+            }),
+          };
+        }
+        return { select: jest.fn().mockReturnThis(), eq: jest.fn().mockReturnThis() };
+      });
+
+      await expect(
+        service.updateNotice(
+          'tenant_1',
+          'notice_1',
+          'user_admin',
+          { scope: NoticeScope.GRADE_LEVEL },
+          UserRole.SCHOOL_ADMIN
+        )
+      ).rejects.toThrow(new BadRequestException('Target grade is required for grade-level notices.'));
+    });
+  });
+
+  describe('getNoticeAcknowledgments', () => {
+    it('should return read count and reader list for notice author or admin', async () => {
+      mockTenantFrom.mockImplementation((table: string) => {
+        if (table === 'notices') {
+          return {
+            select: jest.fn().mockReturnValue({
+              eq: jest.fn().mockReturnValue({
+                maybeSingle: jest.fn().mockResolvedValue({
+                  data: { id: 'notice_1', author_id: 'user_admin', scope: 'SCHOOL_WIDE', title: 'Test' },
+                  error: null,
+                }),
+              }),
+            }),
+          };
+        }
+        if (table === 'notice_reads') {
+          return {
+            select: jest.fn().mockReturnValue({
+              eq: jest.fn().mockResolvedValue({
+                data: [
+                  { read_at: '2026-10-04T10:00:00Z', user_id: 'user_parent_1', users: { id: 'user_parent_1', full_name: 'Parent One', role: 'PARENT' } },
+                ],
+                error: null,
+              }),
+            }),
+          };
+        }
+        return { select: jest.fn().mockReturnThis(), eq: jest.fn().mockReturnThis() };
+      });
+
+      const result = await service.getNoticeAcknowledgments('tenant_1', 'notice_1', 'user_admin', UserRole.SCHOOL_ADMIN);
+      expect(result.totalReads).toBe(1);
+      expect(result.readers[0].fullName).toBe('Parent One');
     });
   });
 

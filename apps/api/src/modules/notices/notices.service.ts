@@ -526,6 +526,14 @@ export class NoticesService {
         const nextGrade = dto.target_grade !== undefined ? dto.target_grade : existing.target_grade;
         const nextClassId = dto.target_class_id !== undefined ? dto.target_class_id : existing.target_class_id;
 
+        // Enforce required target constraints on scope changes to prevent orphaned notices
+        if (nextScope === 'CLASS_SPECIFIC' && !nextClassId) {
+            throw new BadRequestException('Target class ID is required for class-specific notices.');
+        }
+        if (nextScope === 'GRADE_LEVEL' && (nextGrade === undefined || nextGrade === null)) {
+            throw new BadRequestException('Target grade is required for grade-level notices.');
+        }
+
         if (callerRole === UserRole.TEACHER) {
             if (nextScope === 'SCHOOL_WIDE' || nextScope === 'UNIVERSAL') {
                 throw new ForbiddenException('Teachers cannot set notices to school-wide.');
@@ -656,6 +664,49 @@ export class NoticesService {
         }
 
         return { success: true, deletedId: noticeId };
+    }
+
+    async getNoticeAcknowledgments(
+        tenantId: string,
+        noticeId: string,
+        callerId: string,
+        callerRole?: string
+    ) {
+        const client = this.supabaseService.getTenantClient(tenantId);
+        const { data: notice, error: noticeErr } = await client
+            .from('notices')
+            .select('id, author_id, scope, title')
+            .eq('id', noticeId)
+            .maybeSingle();
+
+        if (noticeErr || !notice) {
+            throw new NotFoundException('Notice not found.');
+        }
+
+        if (callerRole === UserRole.TEACHER && notice.author_id !== callerId) {
+            throw new ForbiddenException('You can only view acknowledgments for notices you authored.');
+        }
+
+        const { data: reads, error } = await client
+            .from('notice_reads')
+            .select('read_at, user_id, users(id, full_name, role)')
+            .eq('notice_id', noticeId);
+
+        if (error) {
+            this.logger.error(`Failed to fetch notice acknowledgments: ${error.message}`);
+            throw error;
+        }
+
+        return {
+            noticeId,
+            totalReads: reads?.length || 0,
+            readers: (reads || []).map((r: any) => ({
+                userId: r.user_id,
+                fullName: r.users?.full_name,
+                role: r.users?.role,
+                readAt: r.read_at,
+            })),
+        };
     }
 
     async createMaintenanceNotice(authorId: string, dto: any) {

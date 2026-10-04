@@ -23,6 +23,7 @@ import {
     CreateNoticeDto,
     UpdateNoticeDto,
     CreateMaintenanceNoticeDto,
+    BroadcastNoticeDto,
 } from './dto/notices.dto';
 
 export { CreateMaintenanceNoticeDto };
@@ -90,11 +91,11 @@ export class NoticesController {
     @Post('broadcast')
     @Roles(UserRole.SUPER_ADMIN)
     @ApiOperation({ summary: 'Dispatch cross-tenant announcement' })
-    async dispatchBroadcast(@Req() req: any, @Body() request: any) {
+    async dispatchBroadcast(@Req() req: any, @Body() dto: BroadcastNoticeDto) {
         if (req.user.role !== UserRole.SUPER_ADMIN) {
             throw new ForbiddenException('Strictly System Administrator privilege isolated.');
         }
-        return this.noticesService.broadcastGlobalNotice(req.user.sub, request);
+        return this.noticesService.broadcastGlobalNotice(req.user.sub, dto);
     }
 
     @Post(':id/read')
@@ -102,6 +103,17 @@ export class NoticesController {
     @ApiOperation({ summary: 'Mark notice as read' })
     async markAsRead(@Req() req: any, @Param('id') id: string) {
         return this.noticesService.markAsRead(req.user.tenantId, id, req.user.sub);
+    }
+
+    @Get(':id/acknowledgments')
+    @ApiOperation({ summary: 'View readers who acknowledged a notice' })
+    async getAcknowledgments(@Req() req: any, @Param('id') id: string) {
+        return this.noticesService.getNoticeAcknowledgments(
+            req.user.tenantId,
+            id,
+            req.user.sub,
+            req.user.role,
+        );
     }
 
     // ── System Maintenance Notices (Platform-wide downtime & upgrades) ─────────

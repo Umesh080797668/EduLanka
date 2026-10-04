@@ -53,8 +53,8 @@ describe('Shared Types Enums', () => {
     });
 
     describe('tenant.types.ts', () => {
-        it('TenantPlan handles Free and Pro tiers', () => {
-            expect(Object.values(TenantPlan)).toEqual(['FREE', 'PRO']);
+        it('TenantPlan handles tier levels', () => {
+            expect(Object.values(TenantPlan)).toEqual(['COMMUNITY', 'STARTER', 'GROWTH', 'INSTITUTIONAL']);
         });
 
         it('TenantStatus has valid application lifecycle states', () => {

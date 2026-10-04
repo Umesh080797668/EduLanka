@@ -2,7 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { ChatService } from './chat.service';
 import { SupabaseService } from '../supabase/supabase.service';
 import { RedisService } from '../redis/redis.service';
-import { BadRequestException } from '@nestjs/common';
+import { BadRequestException, NotFoundException, ForbiddenException, HttpException, HttpStatus } from '@nestjs/common';
 import { UserRole } from '@edu-lanka/shared-types';
 
 describe('ChatService', () => {
@@ -30,6 +30,7 @@ describe('ChatService', () => {
     mockRedisClient = {
       incr: jest.fn().mockResolvedValue(1),
       expire: jest.fn().mockResolvedValue(1),
+      eval: jest.fn().mockResolvedValue(1),
     };
 
     redisService = {
@@ -82,12 +83,42 @@ describe('ChatService', () => {
       });
     });
 
-    it('should reject message when rate limit is exceeded (> 5 messages in 3s)', async () => {
-      mockRedisClient.incr.mockResolvedValueOnce(6);
+    it('should reject message when rate limit is exceeded (> 5 messages in 3s) with 429', async () => {
+      mockRedisClient.eval.mockResolvedValueOnce(6);
 
       await expect(
         service.saveMessage('tenant-1', 'conv-1', 'user-1', 'Rapid message', UserRole.STUDENT)
-      ).rejects.toThrow(BadRequestException);
+      ).rejects.toThrow(new HttpException('Rate limit exceeded: too many messages sent. Please slow down.', HttpStatus.TOO_MANY_REQUESTS));
+    });
+  });
+
+  describe('markAsRead', () => {
+    it('should throw NotFoundException if message does not exist', async () => {
+      mockTenantClient.maybeSingle.mockResolvedValueOnce({ data: null, error: null });
+
+      await expect(
+        service.markAsRead('tenant-1', 'nonexistent-msg', 'user-1')
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('should throw ForbiddenException if user is not a participant in the conversation', async () => {
+      mockTenantClient.maybeSingle
+        .mockResolvedValueOnce({ data: { id: 'msg-1', conversation_id: 'conv-1' }, error: null }) // message lookup
+        .mockResolvedValueOnce({ data: null, error: null }); // participant lookup fails
+
+      await expect(
+        service.markAsRead('tenant-1', 'msg-1', 'unauthorized-user')
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('should record read receipt when user is a verified participant', async () => {
+      mockTenantClient.maybeSingle
+        .mockResolvedValueOnce({ data: { id: 'msg-1', conversation_id: 'conv-1' }, error: null }) // message lookup
+        .mockResolvedValueOnce({ data: { user_id: 'user-1', conversation_id: 'conv-1' }, error: null }) // participant lookup
+        .mockResolvedValueOnce({ data: { id: 'receipt-1' }, error: null }); // insert receipt
+
+      const result = await service.markAsRead('tenant-1', 'msg-1', 'user-1');
+      expect(result).toEqual({ data: { id: 'receipt-1' }, conversationId: 'conv-1' });
     });
   });
 });

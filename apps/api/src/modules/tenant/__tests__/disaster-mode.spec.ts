@@ -179,6 +179,54 @@ describe('Disaster Mode (TenantService)', () => {
             });
         });
 
+        it('should dispatch localized Sinhala SMS when language is SI', async () => {
+            await service.activateDisasterMode(
+                {
+                    reason: DisasterReason.FLOOD,
+                    resumeDate: '2026-10-10',
+                    language: 'SI',
+                },
+                schoolAdminCaller
+            );
+
+            expect(mockSmsService.sendBatchSms).toHaveBeenCalledWith(
+                expect.any(Array),
+                expect.stringContaining('[හදිසි නිවේදනය]'),
+                'tenant-uuid-1',
+                expect.any(Object)
+            );
+            expect(mockSmsService.sendBatchSms).toHaveBeenCalledWith(
+                expect.any(Array),
+                expect.stringContaining('ගංවතුර තත්ත්වය'),
+                'tenant-uuid-1',
+                expect.any(Object)
+            );
+        });
+
+        it('should dispatch localized Tamil SMS when language is TA', async () => {
+            await service.activateDisasterMode(
+                {
+                    reason: DisasterReason.CYCLONE,
+                    resumeDate: '2026-10-10',
+                    language: 'TA',
+                },
+                schoolAdminCaller
+            );
+
+            expect(mockSmsService.sendBatchSms).toHaveBeenCalledWith(
+                expect.any(Array),
+                expect.stringContaining('[அவசர அறிவிப்பு]'),
+                'tenant-uuid-1',
+                expect.any(Object)
+            );
+            expect(mockSmsService.sendBatchSms).toHaveBeenCalledWith(
+                expect.any(Array),
+                expect.stringContaining('சூறாவளி எச்சரிக்கை'),
+                'tenant-uuid-1',
+                expect.any(Object)
+            );
+        });
+
         it('should throw ConflictException 409 when disaster mode is already active', async () => {
             mockSupabase.adminClient.rpc.mockResolvedValueOnce({
                 data: null,

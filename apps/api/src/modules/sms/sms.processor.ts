@@ -5,6 +5,7 @@ import { Twilio } from 'twilio';
 import { ConfigService } from '@nestjs/config';
 import { AppConfiguration } from '../../config/configuration';
 import { SupabaseService } from '../supabase/supabase.service';
+import { RedisService } from '../redis/redis.service';
 
 export interface SmsJobPayload {
     to: string;
@@ -25,7 +26,8 @@ export class SmsProcessor extends WorkerHost {
 
     constructor(
         private readonly configService: ConfigService<AppConfiguration>,
-        private readonly supabaseService: SupabaseService
+        private readonly supabaseService: SupabaseService,
+        private readonly redisService: RedisService
     ) {
         super();
         const accountSid = this.configService.get('twilio.accountSid', { infer: true });
@@ -93,6 +95,9 @@ export class SmsProcessor extends WorkerHost {
                 throw new Error(`DB insert failure: ${dbError.message}`);
             }
 
+            // Release quota reservation now that this SMS is recorded in the DB usage view
+            await this.releaseQuotaReservation(tenantId, segmentCount);
+
             return { sid };
         } catch (error: any) {
             this.logger.error(`SMS Worker Failure for Job ${job.id} (attempt ${job.attemptsMade + 1}): ${error.message}`);
@@ -113,10 +118,32 @@ export class SmsProcessor extends WorkerHost {
                     status: 'FAILED',
                     error_code: error.code?.toString() || 'TWILIO_API_ERROR'
                 });
+                // Release reservation on permanent failure
+                await this.releaseQuotaReservation(tenantId, segmentCount);
             }
 
             // Allow BullMQ to exponentially backtrack
             throw error;
+        }
+    }
+
+    private async releaseQuotaReservation(tenantId: string, segmentCount?: number) {
+        try {
+            const billingMonth = new Date().toISOString().slice(0, 7);
+            const reservationKey = `sms:reserved:${tenantId}:${billingMonth}`;
+            const segmentsToRelease = segmentCount || 1;
+            const RELEASE_LUA = `
+                local current = redis.call('get', KEYS[1])
+                if current and tonumber(current) > 0 then
+                    local newval = math.max(0, tonumber(current) - tonumber(ARGV[1]))
+                    redis.call('set', KEYS[1], newval)
+                    return newval
+                end
+                return 0
+            `;
+            await this.redisService.getClient().eval(RELEASE_LUA, 1, reservationKey, segmentsToRelease);
+        } catch (err: any) {
+            this.logger.warn(`Failed to release quota reservation for tenant ${tenantId}: ${err.message}`);
         }
     }
 

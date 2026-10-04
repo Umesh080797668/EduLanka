@@ -130,3 +130,17 @@ export class CreateMaintenanceNoticeDto {
     @IsString()
     scheduledEnd?: string;
 }
+
+export class BroadcastNoticeDto {
+    @IsString()
+    @IsNotEmpty()
+    title!: string;
+
+    @IsString()
+    @IsNotEmpty()
+    content_html!: string;
+
+    @IsOptional()
+    @IsBoolean()
+    send_sms?: boolean;
+}

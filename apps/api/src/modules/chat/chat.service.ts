@@ -1,4 +1,4 @@
-import { Injectable, Logger, ForbiddenException, BadRequestException } from '@nestjs/common';
+import { Injectable, Logger, ForbiddenException, BadRequestException, NotFoundException, HttpException, HttpStatus } from '@nestjs/common';
 import { SupabaseService } from '../supabase/supabase.service';
 import { RedisService } from '../redis/redis.service';
 import { UserRole } from '@edu-lanka/shared-types';
@@ -117,20 +117,27 @@ export class ChatService {
             throw new BadRequestException('Message content exceeds maximum length of 4000 characters.');
         }
 
-        // Chat flood control: atomic Redis rate limit (max 5 messages per 3 seconds per user)
+        // Chat flood control: atomic Redis rate limit via Lua (max 5 messages per 3 seconds per user)
         try {
             const redis = this.redisService.getClient();
             const rateKey = `ratelimit:chat:user:${senderId}`;
-            const msgCount = await redis.incr(rateKey);
-            if (msgCount === 1) {
-                await redis.expire(rateKey, 3);
-            }
+            const RATE_LIMIT_LUA = `
+                local current = redis.call('incr', KEYS[1])
+                if current == 1 then
+                    redis.call('expire', KEYS[1], ARGV[1])
+                end
+                return current
+            `;
+            const msgCount = Number(await redis.eval(RATE_LIMIT_LUA, 1, rateKey, 3));
             if (msgCount > 5) {
                 this.logger.warn(`Rate limit triggered on chat for user ${senderId} (${msgCount} messages in 3s)`);
-                throw new BadRequestException('Rate limit exceeded: too many messages sent. Please slow down.');
+                throw new HttpException(
+                    'Rate limit exceeded: too many messages sent. Please slow down.',
+                    HttpStatus.TOO_MANY_REQUESTS,
+                );
             }
         } catch (e: any) {
-            if (e instanceof BadRequestException) throw e;
+            if (e instanceof HttpException) throw e;
             this.logger.warn(`Chat rate limit check bypassed: ${e?.message}`);
         }
 
@@ -814,13 +821,20 @@ export class ChatService {
             .eq('id', messageId)
             .maybeSingle();
 
+        if (!msg) {
+            throw new NotFoundException('Message not found.');
+        }
+
+        // Enforce that caller is a verified participant of this conversation
+        await this.assertParticipant(client, msg.conversation_id, userId);
+
         const { data, error } = await client
             .from('chat_read_receipts')
             .insert({ tenant_id: tenantId, message_id: messageId, user_id: userId })
             .select()
             .maybeSingle();
         if (error && error.code !== '23505') throw error; // Ignore duplicates
-        return { data, conversationId: msg?.conversation_id };
+        return { data, conversationId: msg.conversation_id };
     }
 
     // =========================================================================

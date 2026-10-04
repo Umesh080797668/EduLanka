@@ -283,7 +283,7 @@ export class TenantService {
      * triggers emergency SMS blast to parents, and audit-logs for all tiers.
      */
     async activateDisasterMode(
-        dto: { reason: DisasterReason; details?: string; resumeDate?: string },
+        dto: { reason: DisasterReason; details?: string; resumeDate?: string; language?: 'EN' | 'SI' | 'TA' },
         caller: JwtPayload
     ): Promise<{ active: boolean; eventId: string; smsQueued: number }> {
         if (caller.role !== UserRole.SCHOOL_ADMIN && caller.role !== UserRole.SUPER_ADMIN) {
@@ -334,16 +334,45 @@ export class TenantService {
                 .filter((p): p is string => Boolean(p));
 
             if (phoneNumbers.length > 0) {
-                const friendlyReasons: Record<string, string> = {
-                    [DisasterReason.FLOOD]: 'Flood conditions',
-                    [DisasterReason.CYCLONE]: 'Cyclone alert',
-                    [DisasterReason.LANDSLIDE]: 'Landslide warning',
-                    [DisasterReason.CIVIL_PUBLIC_HEALTH]: 'Health and safety emergency',
-                    [DisasterReason.OTHER]: 'Emergency closure',
-                };
-                const friendlyReason = friendlyReasons[dto.reason] || 'Emergency closure';
-                const reopenDate = dto.resumeDate ? dto.resumeDate.slice(0, 10) : 'further notice';
-                const message = `[EMERGENCY] ${tenant.name}: School closed due to ${friendlyReason}. Expected to reopen on ${reopenDate}. Please stay safe.`;
+                const lang = dto.language || 'EN';
+                const reopenDate = dto.resumeDate ? dto.resumeDate.slice(0, 10) : (
+                    lang === 'SI' ? 'නැවත දැනුම් දෙන තුරු' :
+                    lang === 'TA' ? 'மறு அறிவித்தல் வரை' :
+                    'further notice'
+                );
+
+                let message = '';
+                if (lang === 'SI') {
+                    const siReasons: Record<string, string> = {
+                        [DisasterReason.FLOOD]: 'ගංවතුර තත්ත්වය',
+                        [DisasterReason.CYCLONE]: 'සුළි සුළං අනතුරු ඇඟවීම',
+                        [DisasterReason.LANDSLIDE]: 'නායයාමේ අවදානම',
+                        [DisasterReason.CIVIL_PUBLIC_HEALTH]: 'මහජන සෞඛ්‍ය හදිසි තත්ත්වය',
+                        [DisasterReason.OTHER]: 'හදිසි පාසල් නිවාඩුව',
+                    };
+                    const friendlyReason = siReasons[dto.reason] || 'හදිසි පාසල් නිවාඩුව';
+                    message = `[හදිසි නිවේදනය] ${tenant.name}: ${friendlyReason} හේතුවෙන් පාසල වසා ඇත. නැවත ආරම්භය: ${reopenDate}. ආරක්ෂිතව සිටින්න.`;
+                } else if (lang === 'TA') {
+                    const taReasons: Record<string, string> = {
+                        [DisasterReason.FLOOD]: 'வெள்ளப் பெருக்கு',
+                        [DisasterReason.CYCLONE]: 'சூறாவளி எச்சரிக்கை',
+                        [DisasterReason.LANDSLIDE]: 'மண்சரிவு அபாயம்',
+                        [DisasterReason.CIVIL_PUBLIC_HEALTH]: 'பொது சுகாதார அவசரநிலை',
+                        [DisasterReason.OTHER]: 'அவசர விடுமுறை',
+                    };
+                    const friendlyReason = taReasons[dto.reason] || 'அவசர விடுமுறை';
+                    message = `[அவசர அறிவிப்பு] ${tenant.name}: ${friendlyReason} காரணமாக பாடசாலை மூடப்பட்டுள்ளது. மீள ஆரம்பம்: ${reopenDate}. பாதுகாப்பாக இருக்கவும்.`;
+                } else {
+                    const enReasons: Record<string, string> = {
+                        [DisasterReason.FLOOD]: 'Flood conditions',
+                        [DisasterReason.CYCLONE]: 'Cyclone alert',
+                        [DisasterReason.LANDSLIDE]: 'Landslide warning',
+                        [DisasterReason.CIVIL_PUBLIC_HEALTH]: 'Health and safety emergency',
+                        [DisasterReason.OTHER]: 'Emergency closure',
+                    };
+                    const friendlyReason = enReasons[dto.reason] || 'Emergency closure';
+                    message = `[EMERGENCY] ${tenant.name}: School closed due to ${friendlyReason}. Expected to reopen on ${reopenDate}. Please stay safe.`;
+                }
 
                 const smsResult = await this.smsService.sendBatchSms(
                     phoneNumbers,
