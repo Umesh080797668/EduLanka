@@ -43,9 +43,7 @@ async function bootstrap() {
             });
             if (rpcErr) throw new Error(`Schema Provisioning Failed: ${rpcErr.message}`);
 
-            console.log('Reloading PostgREST cache...');
-            await supabase.adminClient.rpc('exec_sql', { sql: "NOTIFY pgrst, 'reload schema'" });
-            await new Promise((r) => setTimeout(r, 6000));
+            await new Promise((r) => setTimeout(r, 1000));
 
             pilotTenantId = newTenant.id;
         } else {

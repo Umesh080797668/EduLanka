@@ -105,6 +105,13 @@ export class NoticesController {
         return this.noticesService.markAsRead(req.user.tenantId, id, req.user.sub);
     }
 
+    @Post(':id/acknowledge')
+    @HttpCode(HttpStatus.OK)
+    @ApiOperation({ summary: 'Explicitly acknowledge a notice' })
+    async acknowledgeNotice(@Req() req: any, @Param('id') id: string) {
+        return this.noticesService.acknowledgeNotice(req.user.tenantId, id, req.user.sub);
+    }
+
     @Get(':id/acknowledgments')
     @Roles(UserRole.SCHOOL_ADMIN, UserRole.SUPER_ADMIN, UserRole.TEACHER)
     @ApiOperation({ summary: 'View readers who acknowledged a notice' })

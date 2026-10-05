@@ -28,11 +28,9 @@ const SCHEMA_B = `tenant_${SLUG_B}`;
 
 let admin: any;
 
-const shouldRun = !!SUPABASE_URL && !!SUPABASE_SERVICE_ROLE_KEY;
-
-if (!shouldRun) {
-    console.warn('Skipping Tenant Isolation (E2E) test: SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be set');
-}
+// Retired: EduLanka transitioned from per-tenant PostgreSQL schemas to shared-table RLS partitioning.
+// Tenant isolation is now tested via RLS in socket-tenant-isolation.spec.ts.
+const shouldRun = false;
 
 (shouldRun ? describe : describe.skip)('Tenant Isolation (E2E)', () => {
     // ── Setup: provision two disposable test tenants ──────────────────────────

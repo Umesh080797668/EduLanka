@@ -44,9 +44,7 @@ async function bootstrap() {
             });
             if (rpcErr) throw new Error(`Schema Provisioning Failed: ${rpcErr.message}`);
 
-            console.log('Reloading PostgREST cache...');
-            await supabase.adminClient.rpc('exec_sql', { sql: "NOTIFY pgrst, 'reload schema'" });
-            await new Promise((r) => setTimeout(r, 6000));
+            await new Promise((r) => setTimeout(r, 1000));
 
             rootTenantId = newTenant.id;
         } else {
@@ -79,19 +77,16 @@ async function bootstrap() {
             console.log('Utilizing existing auth identity.');
         }
 
-        // 3. Bind Role inside the Tenant schema using exec_sql to bypass PostgREST unexposed schema issues
-        const insertSql = `
-            DO $$
-            BEGIN
-                IF NOT EXISTS (SELECT 1 FROM "tenant_${tenantSlug}".users WHERE user_id = '${authUid}') THEN
-                    INSERT INTO "tenant_${tenantSlug}".users (user_id, email, full_name, role, is_active)
-                    VALUES ('${authUid}', '${email}', 'Global System Administrator', '${UserRole.SUPER_ADMIN}', true);
-                END IF;
-            END
-            $$;
-        `;
-        const { error: insertErr } = await supabase.adminClient.rpc('exec_sql', { sql: insertSql });
-        if (insertErr) throw new Error(`Failed binding user in schema via SQL: ${insertErr.message}`);
+        // 3. Bind Role inside users table
+        const { error: insertErr } = await supabase.adminClient.from('users').upsert({
+            user_id: authUid,
+            tenant_id: rootTenantId,
+            email,
+            full_name: 'Global System Administrator',
+            role: UserRole.SUPER_ADMIN,
+            is_active: true,
+        }, { onConflict: 'user_id' });
+        if (insertErr) throw new Error(`Failed binding user as SUPER_ADMIN: ${insertErr.message}`);
         console.log('User identity successfully bound as SUPER_ADMIN.');
 
         console.log(`

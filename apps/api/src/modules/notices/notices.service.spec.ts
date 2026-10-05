@@ -3,7 +3,7 @@ import { NoticesService } from './notices.service';
 import { SupabaseService } from '../supabase/supabase.service';
 import { SmsService } from '../sms/sms.service';
 import { NotificationsGateway } from '../notifications/notifications.gateway';
-import { ForbiddenException, BadRequestException } from '@nestjs/common';
+import { ForbiddenException, BadRequestException, NotFoundException } from '@nestjs/common';
 import { UserRole } from '@edu-lanka/shared-types';
 import { NoticeScope } from './dto/notices.dto';
 
@@ -443,7 +443,7 @@ describe('NoticesService', () => {
             select: jest.fn().mockReturnValue({
               eq: jest.fn().mockReturnValue({
                 maybeSingle: jest.fn().mockResolvedValue({
-                  data: { id: 'notice_1', author_id: 'user_admin', scope: 'SCHOOL_WIDE', title: 'Test' },
+                  data: { id: 'notice_1', author_id: 'user_admin', scope: 'SCHOOL_WIDE', title: 'Test', requires_acknowledgment: true },
                   error: null,
                 }),
               }),
@@ -455,7 +455,12 @@ describe('NoticesService', () => {
             select: jest.fn().mockReturnValue({
               eq: jest.fn().mockResolvedValue({
                 data: [
-                  { read_at: '2026-10-04T10:00:00Z', user_id: 'user_parent_1', users: { id: 'user_parent_1', full_name: 'Parent One', role: 'PARENT' } },
+                  {
+                    read_at: '2026-10-04T10:00:00Z',
+                    acknowledged_at: '2026-10-04T10:05:00Z',
+                    user_id: 'user_parent_1',
+                    users: { id: 'user_parent_1', full_name: 'Parent One', role: 'PARENT' },
+                  },
                 ],
                 error: null,
               }),
@@ -467,7 +472,61 @@ describe('NoticesService', () => {
 
       const result = await service.getNoticeAcknowledgments('tenant_1', 'notice_1', 'user_admin', UserRole.SCHOOL_ADMIN);
       expect(result.totalReads).toBe(1);
-      expect(result.readers[0].fullName).toBe('Parent One');
+      expect(result.totalAcknowledged).toBe(1);
+      expect(result.requiresAcknowledgment).toBe(true);
+      expect(result.acknowledgments[0].fullName).toBe('Parent One');
+      expect(result.acknowledgments[0].acknowledgedAt).toBe('2026-10-04T10:05:00Z');
+      expect(result.readers[0].isAcknowledged).toBe(true);
+    });
+
+    it('should distinguish read-only from acknowledged users', async () => {
+      mockTenantFrom.mockImplementation((table: string) => {
+        if (table === 'notices') {
+          return {
+            select: jest.fn().mockReturnValue({
+              eq: jest.fn().mockReturnValue({
+                maybeSingle: jest.fn().mockResolvedValue({
+                  data: { id: 'notice_1', author_id: 'user_admin', scope: 'SCHOOL_WIDE', title: 'Policy Update', requires_acknowledgment: true },
+                  error: null,
+                }),
+              }),
+            }),
+          };
+        }
+        if (table === 'notice_reads') {
+          return {
+            select: jest.fn().mockReturnValue({
+              eq: jest.fn().mockResolvedValue({
+                data: [
+                  {
+                    read_at: '2026-10-04T10:00:00Z',
+                    acknowledged_at: '2026-10-04T10:05:00Z',
+                    user_id: 'user_parent_1',
+                    users: { id: 'user_parent_1', full_name: 'Parent One', role: 'PARENT' },
+                  },
+                  {
+                    read_at: '2026-10-04T10:02:00Z',
+                    acknowledged_at: null,
+                    user_id: 'user_parent_2',
+                    users: { id: 'user_parent_2', full_name: 'Parent Two', role: 'PARENT' },
+                  },
+                ],
+                error: null,
+              }),
+            }),
+          };
+        }
+        return { select: jest.fn().mockReturnThis(), eq: jest.fn().mockReturnThis() };
+      });
+
+      const result = await service.getNoticeAcknowledgments('tenant_1', 'notice_1', 'user_admin', UserRole.SCHOOL_ADMIN);
+      expect(result.totalReads).toBe(2);
+      expect(result.totalAcknowledged).toBe(1);
+      expect(result.acknowledgments).toHaveLength(1);
+      expect(result.acknowledgments[0].fullName).toBe('Parent One');
+      expect(result.readers).toHaveLength(2);
+      expect(result.readers[1].isAcknowledged).toBe(false);
+      expect(result.readers[1].acknowledgedAt).toBeNull();
     });
 
     it('should reject non-author teachers from viewing notice acknowledgments', async () => {
@@ -516,6 +575,64 @@ describe('NoticesService', () => {
       await expect(
         service.getNoticeAcknowledgments('tenant_1', 'notice_1', 'parent_1', UserRole.PARENT)
       ).rejects.toThrow(ForbiddenException);
+    });
+  });
+
+  describe('acknowledgeNotice', () => {
+    it('should record both read_at and acknowledged_at for the user', async () => {
+      const mockUpsert = jest.fn().mockResolvedValue({ error: null });
+      mockTenantFrom.mockImplementation((table: string) => {
+        if (table === 'notices') {
+          return {
+            select: jest.fn().mockReturnValue({
+              eq: jest.fn().mockReturnValue({
+                maybeSingle: jest.fn().mockResolvedValue({
+                  data: { id: 'notice_1', requires_acknowledgment: true },
+                  error: null,
+                }),
+              }),
+            }),
+          };
+        }
+        if (table === 'notice_reads') {
+          return {
+            upsert: mockUpsert,
+          };
+        }
+        return { select: jest.fn().mockReturnThis(), eq: jest.fn().mockReturnThis() };
+      });
+
+      const res = await service.acknowledgeNotice('tenant_1', 'notice_1', 'user_parent_1');
+      expect(res.success).toBe(true);
+      expect(res.is_acknowledged).toBe(true);
+      expect(mockUpsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          notice_id: 'notice_1',
+          user_id: 'user_parent_1',
+          read_at: expect.any(String),
+          acknowledged_at: expect.any(String),
+        }),
+        { onConflict: 'notice_id,user_id' },
+      );
+    });
+
+    it('should throw NotFoundException if notice does not exist', async () => {
+      mockTenantFrom.mockImplementation((table: string) => {
+        if (table === 'notices') {
+          return {
+            select: jest.fn().mockReturnValue({
+              eq: jest.fn().mockReturnValue({
+                maybeSingle: jest.fn().mockResolvedValue({ data: null, error: null }),
+              }),
+            }),
+          };
+        }
+        return { select: jest.fn().mockReturnThis(), eq: jest.fn().mockReturnThis() };
+      });
+
+      await expect(
+        service.acknowledgeNotice('tenant_1', 'notice_fake', 'user_1')
+      ).rejects.toThrow(NotFoundException);
     });
   });
 

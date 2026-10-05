@@ -68,6 +68,10 @@ export class CreateNoticeDto {
     @IsOptional()
     @IsBoolean()
     bypass_quota?: boolean;
+
+    @IsOptional()
+    @IsBoolean()
+    requires_acknowledgment?: boolean;
 }
 
 export class UpdateNoticeDto {
@@ -107,6 +111,10 @@ export class UpdateNoticeDto {
     @IsOptional()
     @IsString()
     expires_at?: string;
+
+    @IsOptional()
+    @IsBoolean()
+    requires_acknowledgment?: boolean;
 }
 
 export class CreateMaintenanceNoticeDto {

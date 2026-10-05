@@ -51,12 +51,24 @@ export default function NoticeFeed() {
     }, []);
 
     const markAsRead = async (id: string) => {
-        setAcking(id);
         try {
             await apiClient.post(`/notices/${id}/read`, {}, { skipGlobalToast: true });
             setNotices((prev) =>
                 prev.map((n) => (n.id === id ? { ...n, is_read: true } : n)),
             );
+        } catch {
+            // Silently ignore read tracking failure
+        }
+    };
+
+    const acknowledgeNotice = async (id: string) => {
+        setAcking(id);
+        try {
+            await apiClient.post(`/notices/${id}/acknowledge`, {}, { skipGlobalToast: true });
+            setNotices((prev) =>
+                prev.map((n) => (n.id === id ? { ...n, is_read: true, is_acknowledged: true } : n)),
+            );
+            toast.success(t('acknowledged'));
         } catch (err: any) {
             toast.error(t('ackFailed'), { description: err.message });
         } finally {
@@ -116,9 +128,16 @@ export default function NoticeFeed() {
                             <h3 className="text-base font-bold leading-snug tracking-tight text-foreground">
                                 {notice.title}
                             </h3>
-                            <Badge tone={priority.tone} size="sm" className="shrink-0">
-                                {t(`priority_${notice.priority}`)}
-                            </Badge>
+                            <div className="flex items-center gap-1.5 shrink-0">
+                                {notice.requires_acknowledgment && (
+                                    <Badge tone="warning" size="sm">
+                                        {t('requiresAck')}
+                                    </Badge>
+                                )}
+                                <Badge tone={priority.tone} size="sm">
+                                    {t(`priority_${notice.priority}`)}
+                                </Badge>
+                            </div>
                         </header>
 
                         {/*
@@ -154,19 +173,36 @@ export default function NoticeFeed() {
                                 </div>
                             </div>
 
-                            {notice.is_read ? (
-                                <Badge tone="success" size="sm">
-                                    <Check className="size-3.5" />
-                                    {t('acknowledged')}
-                                </Badge>
+                            {notice.requires_acknowledgment ? (
+                                notice.is_acknowledged ? (
+                                    <Badge tone="success" size="sm">
+                                        <Check className="size-3.5" />
+                                        {t('acknowledged')}
+                                    </Badge>
+                                ) : (
+                                    <Button
+                                        size="sm"
+                                        loading={acking === notice.id}
+                                        onClick={() => acknowledgeNotice(notice.id)}
+                                    >
+                                        {t('acknowledge')}
+                                    </Button>
+                                )
                             ) : (
-                                <Button
-                                    size="sm"
-                                    loading={acking === notice.id}
-                                    onClick={() => markAsRead(notice.id)}
-                                >
-                                    {t('acknowledge')}
-                                </Button>
+                                notice.is_read ? (
+                                    <span className="inline-flex items-center gap-1 text-xs text-muted-foreground font-medium">
+                                        <Check className="size-3 text-muted-foreground" />
+                                        {t('read')}
+                                    </span>
+                                ) : (
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => markAsRead(notice.id)}
+                                    >
+                                        {t('markAsRead')}
+                                    </Button>
+                                )
                             )}
                         </footer>
                     </motion.article>

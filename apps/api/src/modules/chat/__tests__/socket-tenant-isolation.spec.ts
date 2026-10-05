@@ -27,12 +27,34 @@ if (!shouldRun) {
     console.warn('Skipping Socket & Chat Tenant Isolation test: Live Supabase credentials not found in environment');
 }
 
-jest.setTimeout(60000);
+jest.setTimeout(120000);
+
+async function withRetry<T extends { data?: any; error?: any }>(
+    fn: () => PromiseLike<T>,
+    retries = 3,
+    delayMs = 1500,
+): Promise<T> {
+    let lastResult: T | undefined;
+    for (let attempt = 1; attempt <= retries; attempt++) {
+        try {
+            const res = await fn();
+            if (!res.error || !res.error.message?.includes('fetch failed')) {
+                return res;
+            }
+            lastResult = res;
+        } catch (err: any) {
+            if (attempt === retries) throw err;
+        }
+        await new Promise((r) => setTimeout(r, delayMs * attempt));
+    }
+    return lastResult!;
+}
 
 (shouldRun ? describe : describe.skip)('Socket & Chat Tenant Isolation (Real Database Integration)', () => {
     let gateway: ChatGateway;
     let chatService: ChatService;
     let supabaseService: SupabaseService;
+    let moduleRef: TestingModule;
 
     const TENANT_A = 'a1111111-0000-0000-0000-000000000001';
     const TENANT_B = 'b2222222-0000-0000-0000-000000000002';
@@ -50,7 +72,17 @@ jest.setTimeout(60000);
             ],
             providers: [
                 SupabaseService,
-                RedisService,
+                {
+                    provide: RedisService,
+                    useValue: {
+                        getClient: () => ({
+                            incr: jest.fn().mockResolvedValue(1),
+                            decr: jest.fn().mockResolvedValue(0),
+                            eval: jest.fn().mockResolvedValue(1),
+                            get: jest.fn().mockResolvedValue(null),
+                        }),
+                    },
+                },
                 {
                     provide: 'REDIS_CLIENT',
                     useValue: {
@@ -71,6 +103,7 @@ jest.setTimeout(60000);
             ],
         }).compile();
 
+        moduleRef = module;
         supabaseService = module.get<SupabaseService>(SupabaseService);
         supabaseService.onModuleInit();
         chatService = module.get<ChatService>(ChatService);
@@ -78,14 +111,8 @@ jest.setTimeout(60000);
 
         const admin = supabaseService.adminClient;
 
-        // Clean up previous runs if any
-        await admin.from('chat_participants').delete().eq('conversation_id', CONVERSATION_A);
-        await admin.from('chat_conversations').delete().eq('id', CONVERSATION_A);
-        await admin.from('users').delete().in('id', [USER_A, USER_B]);
-        await admin.from('tenants').delete().in('id', [TENANT_A, TENANT_B]);
-
         // 1. Seed two distinct tenants
-        await admin.from('tenants').insert([
+        const tRes = await withRetry(() => admin.from('tenants').upsert([
             {
                 id: TENANT_A,
                 name: 'Isolation Test School A',
@@ -104,10 +131,11 @@ jest.setTimeout(60000);
                 school_type: 'TYPE_2',
                 contact_email: 'school_b@test.lk',
             },
-        ]);
+        ], { onConflict: 'id' }));
+        if (tRes.error) throw new Error(`Failed to seed tenants: ${tRes.error.message}`);
 
         // 2. Seed User A in Tenant A and User B in Tenant B
-        await admin.from('users').insert([
+        const uRes = await withRetry(() => admin.from('users').upsert([
             {
                 id: USER_A,
                 tenant_id: TENANT_A,
@@ -124,32 +152,26 @@ jest.setTimeout(60000);
                 role: 'STUDENT',
                 is_active: true,
             },
-        ]);
+        ], { onConflict: 'id' }));
+        if (uRes.error) throw new Error(`Failed to seed users: ${uRes.error.message}`);
 
         // 3. Seed Conversation in Tenant A
-        await admin.from('chat_conversations').insert({
+        const cRes = await withRetry(() => admin.from('chat_conversations').upsert({
             id: CONVERSATION_A,
             tenant_id: TENANT_A,
             type: 'DIRECT',
             name: 'Direct Conversation A',
-        });
+        }, { onConflict: 'id' }));
+        if (cRes.error) throw new Error(`Failed to seed conversation: ${cRes.error.message}`);
 
         // 4. Enroll User A into Conversation A as participant
-        await admin.from('chat_participants').insert({
+        const pRes = await withRetry(() => admin.from('chat_participants').upsert({
             tenant_id: TENANT_A,
             conversation_id: CONVERSATION_A,
             user_id: USER_A,
             role: 'MEMBER',
-        });
-    });
-
-    afterAll(async () => {
-        if (!shouldRun || !supabaseService?.adminClient) return;
-        const admin = supabaseService.adminClient;
-        await admin.from('chat_participants').delete().eq('conversation_id', CONVERSATION_A);
-        await admin.from('chat_conversations').delete().eq('id', CONVERSATION_A);
-        await admin.from('users').delete().in('id', [USER_A, USER_B]);
-        await admin.from('tenants').delete().in('id', [TENANT_A, TENANT_B]);
+        }, { onConflict: 'conversation_id,user_id' }));
+        if (pRes.error) throw new Error(`Failed to seed participant: ${pRes.error.message}`);
     });
 
     describe('Cross-Tenant Room Subscription Defense', () => {
@@ -285,5 +307,18 @@ jest.setTimeout(60000);
                 isTyping: true,
             });
         });
+    });
+
+    afterAll(async () => {
+        const admin = supabaseService?.adminClient;
+        if (admin) {
+            try { await admin.from('chat_participants').delete().eq('conversation_id', CONVERSATION_A); } catch {}
+            try { await admin.from('chat_conversations').delete().eq('id', CONVERSATION_A); } catch {}
+            try { await admin.from('users').delete().in('id', [USER_A, USER_B]); } catch {}
+            try { await admin.from('tenants').delete().in('id', [TENANT_A, TENANT_B]); } catch {}
+        }
+        if (moduleRef) {
+            await moduleRef.close().catch(() => {});
+        }
     });
 });

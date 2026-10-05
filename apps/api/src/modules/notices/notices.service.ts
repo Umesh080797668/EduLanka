@@ -123,6 +123,7 @@ export class NoticesService {
                 priority: priority || 'NORMAL',
                 attachments: attachments || null,
                 expires_at: expires_at || null,
+                requires_acknowledgment: !!request.requires_acknowledgment,
             })
             .select()
             .single();
@@ -390,19 +391,71 @@ export class NoticesService {
             throw error;
         }
 
-        const { data: reads } = await client.from('notice_reads').select('notice_id').eq('user_id', userId);
-        const readIds = new Set(reads?.map(r => r.notice_id) || []);
+        const { data: reads } = await client
+            .from('notice_reads')
+            .select('notice_id, read_at, acknowledged_at')
+            .eq('user_id', userId);
+        const readsMap = new Map((reads || []).map((r: any) => [r.notice_id, r]));
 
-        return (data ?? []).map(n => ({ ...n, is_read: readIds.has(n.id) }));
+        return (data ?? []).map(n => {
+            const userRead = readsMap.get(n.id);
+            return {
+                ...n,
+                is_read: !!userRead,
+                read_at: userRead?.read_at || null,
+                is_acknowledged: !!userRead?.acknowledged_at,
+                acknowledged_at: userRead?.acknowledged_at || null,
+            };
+        });
     }
 
     async markAsRead(tenantId: string, noticeId: string, userId: string) {
         const client = this.supabaseService.getTenantClient(tenantId);
-        const { error } = await client.from('notice_reads').insert({ notice_id: noticeId, user_id: userId });
+        const { error } = await client.from('notice_reads').upsert(
+            { notice_id: noticeId, user_id: userId, read_at: new Date().toISOString() },
+            { onConflict: 'notice_id,user_id', ignoreDuplicates: true },
+        );
 
         if (error && error.code !== '23505') throw error;
 
-        return { success: true };
+        return { success: true, is_read: true };
+    }
+
+    async acknowledgeNotice(tenantId: string, noticeId: string, userId: string) {
+        const client = this.supabaseService.getTenantClient(tenantId);
+
+        const { data: notice, error: noticeErr } = await client
+            .from('notices')
+            .select('id, requires_acknowledgment')
+            .eq('id', noticeId)
+            .maybeSingle();
+
+        if (noticeErr || !notice) {
+            throw new NotFoundException('Notice not found.');
+        }
+
+        const now = new Date().toISOString();
+        const { error } = await client.from('notice_reads').upsert(
+            {
+                notice_id: noticeId,
+                user_id: userId,
+                read_at: now,
+                acknowledged_at: now,
+            },
+            { onConflict: 'notice_id,user_id' },
+        );
+
+        if (error) {
+            this.logger.error(`Failed to acknowledge notice: ${error.message}`);
+            throw error;
+        }
+
+        return {
+            success: true,
+            is_read: true,
+            is_acknowledged: true,
+            acknowledged_at: now,
+        };
     }
 
     /**
@@ -578,6 +631,7 @@ export class NoticesService {
             updates.target_grade = typeof dto.target_grade === 'string' ? parseInt(dto.target_grade, 10) : dto.target_grade;
         }
         if (dto.target_class_id !== undefined) updates.target_class_id = dto.target_class_id || null;
+        if (dto.requires_acknowledgment !== undefined) updates.requires_acknowledgment = dto.requires_acknowledgment;
 
         updates.updated_at = new Date().toISOString();
 
@@ -675,7 +729,7 @@ export class NoticesService {
         const client = this.supabaseService.getTenantClient(tenantId);
         const { data: notice, error: noticeErr } = await client
             .from('notices')
-            .select('id, author_id, scope, title')
+            .select('id, author_id, scope, title, requires_acknowledgment')
             .eq('id', noticeId)
             .maybeSingle();
 
@@ -692,7 +746,7 @@ export class NoticesService {
 
         const { data: reads, error } = await client
             .from('notice_reads')
-            .select('read_at, user_id, users(id, full_name, role)')
+            .select('read_at, acknowledged_at, user_id, users(id, full_name, role)')
             .eq('notice_id', noticeId);
 
         if (error) {
@@ -700,14 +754,30 @@ export class NoticesService {
             throw error;
         }
 
+        const totalReads = reads?.length || 0;
+        const acknowledgedList = (reads || []).filter((r: any) => !!r.acknowledged_at);
+        const totalAcknowledged = acknowledgedList.length;
+
         return {
             noticeId,
-            totalReads: reads?.length || 0,
+            title: notice.title,
+            requiresAcknowledgment: !!notice.requires_acknowledgment,
+            totalReads,
+            totalAcknowledged,
+            acknowledgments: acknowledgedList.map((r: any) => ({
+                userId: r.user_id,
+                fullName: r.users?.full_name,
+                role: r.users?.role,
+                readAt: r.read_at,
+                acknowledgedAt: r.acknowledged_at,
+            })),
             readers: (reads || []).map((r: any) => ({
                 userId: r.user_id,
                 fullName: r.users?.full_name,
                 role: r.users?.role,
                 readAt: r.read_at,
+                isAcknowledged: !!r.acknowledged_at,
+                acknowledgedAt: r.acknowledged_at || null,
             })),
         };
     }
