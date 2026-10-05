@@ -28,19 +28,26 @@ const makeJwtService = (overrides?: Partial<JwtService>) =>
             role: UserRole.TEACHER,
             email: 'teacher@school.lk',
             jti: 'refresh-jti-abc',
+            type: 'refresh',
         } satisfies JwtPayload),
         ...overrides,
     }) as unknown as JwtService;
 
-const makeRedis = (overrides?: {
-    storeRefreshToken?: jest.Mock;
-    isRefreshTokenValid?: jest.Mock;
-    revokeRefreshToken?: jest.Mock;
-}): RedisService =>
+const makeRedis = (overrides?: Partial<RedisService>): RedisService =>
     ({
+        getClient: jest.fn().mockReturnValue({
+            incr: jest.fn().mockResolvedValue(1),
+            expire: jest.fn().mockResolvedValue(1),
+            del: jest.fn().mockResolvedValue(1),
+        }),
         storeRefreshToken: jest.fn().mockResolvedValue(undefined),
         isRefreshTokenValid: jest.fn().mockResolvedValue(true),
         revokeRefreshToken: jest.fn().mockResolvedValue(undefined),
+        revokeAllUserRefreshTokens: jest.fn().mockResolvedValue(undefined),
+        isTokenRevoked: jest.fn().mockResolvedValue(false),
+        cacheUserActive: jest.fn().mockResolvedValue(undefined),
+        getCachedUserActive: jest.fn().mockResolvedValue(null),
+        invalidateUserActiveCache: jest.fn().mockResolvedValue(undefined),
         ...overrides,
     }) as unknown as RedisService;
 
@@ -104,6 +111,7 @@ const makeSupabase = (opts?: {
             from: (table: string) => {
                 if (table === 'platform_admins') return makeChain(null);
                 if (table === 'tenants') return o.noTenant ? makeChain(null) : makeChain(tenantRow);
+                if (table === 'users') return o.noUser ? makeChain(null) : makeChain(userRow);
                 return makeChain(null);
             },
         },

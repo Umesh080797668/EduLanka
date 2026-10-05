@@ -12,6 +12,7 @@ import {
     Logger,
 } from '@nestjs/common';
 
+import { RedisService } from '../redis/redis.service';
 import { SupabaseService } from '../supabase/supabase.service';
 
 import { CreateUserDto } from './dto/create-user.dto';
@@ -23,6 +24,7 @@ export class UsersService {
 
     constructor(
         private readonly supabase: SupabaseService,
+        private readonly redisService: RedisService,
     ) { }
 
     private guardAdmin(caller: JwtPayload): void {
@@ -261,6 +263,12 @@ export class UsersService {
 
         if (error) throw new InternalServerErrorException(`Failed to set user activation to ${isActive}`);
         if (!data) throw new NotFoundException(`User ${id} not found`);
+
+        // Invalidate active cache and revoke sessions if deactivated
+        await this.redisService.cacheUserActive(id, isActive, 60);
+        if (!isActive) {
+            await this.redisService.revokeAllUserRefreshTokens(id);
+        }
 
         // Automatically resolve pending inquiries if the account is being reactivated
         if (isActive) {

@@ -26,6 +26,10 @@ class AuthManager {
         }
     }
 
+    setToken(token: string) {
+        this.token = token;
+    }
+
     getToken(): string { return this.token; }
     getTenantId(): string { return this.tenantId; }
     getRole(): string { return this.role; }

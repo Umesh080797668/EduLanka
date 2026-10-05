@@ -10,6 +10,8 @@ import {
     InternalServerErrorException,
     ForbiddenException,
     ConflictException,
+    HttpException,
+    HttpStatus,
     Logger,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -72,8 +74,8 @@ export class AuthService {
         const refreshEx = parseDurationToSeconds(this.refreshExpiresIn);
 
         const [accessToken, refreshToken] = await Promise.all([
-            this.jwtService.signAsync({ ...payload, jti: accessJti }, { expiresIn: accessEx }),
-            this.jwtService.signAsync({ ...payload, jti: refreshJti }, { expiresIn: refreshEx }),
+            this.jwtService.signAsync({ ...payload, type: 'access', jti: accessJti }, { expiresIn: accessEx }),
+            this.jwtService.signAsync({ ...payload, type: 'refresh', jti: refreshJti }, { expiresIn: refreshEx }),
         ]);
 
         const refreshTtl = parseDurationToSeconds(this.refreshExpiresIn);
@@ -121,12 +123,49 @@ export class AuthService {
     // ── Public API ─────────────────────────────────────────────────────────────
 
     async submitInquiry(dto: CreateInquiryDto): Promise<{ success: boolean }> {
+        // Rate limit inquiries per user
+        const inqRateLimitKey = `edulanka:ratelimit:inquiry:${dto.userId}`;
+        const inqCount = await this.redisService.getClient().incr(inqRateLimitKey);
+        if (inqCount === 1) {
+            await this.redisService.getClient().expire(inqRateLimitKey, 3600);
+        }
+        if (inqCount > 3) {
+            throw new HttpException('Too many appeal submissions. Please try again later.', HttpStatus.TOO_MANY_REQUESTS);
+        }
+
+        // 1. Verify tenant exists and is active
+        const { data: tenant } = await this.supabaseService.adminClient
+            .from('tenants')
+            .select('id, status')
+            .eq('id', dto.tenantId)
+            .maybeSingle();
+
+        if (!tenant || tenant.status !== 'ACTIVE') {
+            throw new NotFoundException('Institution not found or not active');
+        }
+
+        // 2. Verify user exists in that tenant and is actually deactivated
+        const { data: user, error: userError } = await this.supabaseService.adminClient
+            .from('users')
+            .select('id, role, is_active')
+            .eq('id', dto.userId)
+            .eq('tenant_id', dto.tenantId)
+            .maybeSingle();
+
+        if (userError || !user) {
+            throw new BadRequestException('User record does not exist in the specified institution');
+        }
+
+        if (user.is_active) {
+            throw new BadRequestException('Active accounts cannot submit deactivation appeals');
+        }
+
         const { error } = await this.supabaseService.adminClient
             .from('deactivation_inquiries')
             .insert({
                 tenant_id: dto.tenantId,
                 user_id: dto.userId,
-                role: dto.role,
+                role: user.role || dto.role,
                 message: dto.message,
                 status: 'PENDING'
             });
@@ -206,9 +245,20 @@ export class AuthService {
      * POST /auth/login
      * Validate credentials via Supabase, confirm tenant membership, issue JWT pair.
      */
-    async login(identifier: string, password: string): Promise<any> {
+    async login(identifier: string, password: string, tenantId?: string): Promise<any> {
         if (!identifier || !password) {
             throw new BadRequestException('Identifier and password are required');
+        }
+
+        // Identifier brute-force protection: max 5 attempts per minute
+        const normalizedId = identifier.toLowerCase().trim();
+        const rateLimitKey = `edulanka:ratelimit:login:${normalizedId}`;
+        const attempts = await this.redisService.getClient().incr(rateLimitKey);
+        if (attempts === 1) {
+            await this.redisService.getClient().expire(rateLimitKey, 60);
+        }
+        if (attempts > 5) {
+            throw new HttpException('Too many login attempts for this account. Please wait 1 minute before retrying.', HttpStatus.TOO_MANY_REQUESTS);
         }
 
         const authPayload: any = { password };
@@ -216,25 +266,43 @@ export class AuthService {
         if (identifier.includes('@')) {
             authPayload.email = identifier;
         } else {
-            // First check Phone in users natively matching EXACT identifiers
-            const { data: phoneMatch } = await this.supabaseService.adminClient
+            // First check Phone in users matching identifier
+            let phoneQuery = this.supabaseService.adminClient
                 .from('users')
-                .select('email, phone_number')
-                .eq('phone_number', identifier)
-                .maybeSingle();
+                .select('email, phone_number, tenant_id')
+                .eq('phone_number', identifier);
 
-            if (phoneMatch) {
+            if (tenantId) {
+                phoneQuery = phoneQuery.eq('tenant_id', tenantId);
+            }
+
+            const { data: phoneMatches } = await phoneQuery;
+
+            if (phoneMatches && phoneMatches.length > 0) {
+                if (phoneMatches.length > 1 && !tenantId) {
+                    throw new BadRequestException('Multiple accounts match this phone number. Please specify your school.');
+                }
+                const phoneMatch = phoneMatches[0];
                 if (phoneMatch.email) authPayload.email = phoneMatch.email;
                 else authPayload.phone = phoneMatch.phone_number;
             } else {
                 // Check Admission No natively joining back up to the users properties
-                const { data: studentMatch } = await this.supabaseService.adminClient
+                let studentQuery = this.supabaseService.adminClient
                     .from('students')
-                    .select('users!inner(email, phone_number)')
-                    .eq('admission_no', identifier)
-                    .maybeSingle();
+                    .select('tenant_id, users!inner(email, phone_number)')
+                    .eq('admission_no', identifier);
 
-                if (studentMatch && studentMatch.users) {
+                if (tenantId) {
+                    studentQuery = studentQuery.eq('tenant_id', tenantId);
+                }
+
+                const { data: studentMatches } = await studentQuery;
+
+                if (studentMatches && studentMatches.length > 0) {
+                    if (studentMatches.length > 1 && !tenantId) {
+                        throw new BadRequestException('Multiple schools have a student with this admission number. Please select your school.');
+                    }
+                    const studentMatch = studentMatches[0];
                     const mappedUser: any = Array.isArray(studentMatch.users) ? studentMatch.users[0] : studentMatch.users;
                     if (mappedUser.email) authPayload.email = mappedUser.email;
                     else authPayload.phone = mappedUser.phone_number;
@@ -247,10 +315,12 @@ export class AuthService {
 
         const { data, error } = await this.supabaseService.createAuthClient().auth.signInWithPassword(authPayload);
 
-        if (error) {
+        if (error || !data.user) {
             throw new UnauthorizedException('Invalid credentials');
         }
-        if (!data.user) throw new UnauthorizedException('Invalid credentials');
+
+        // Login succeeded, clear per-identifier failure counter
+        await this.redisService.getClient().del(rateLimitKey);
 
         const authUser = data.user;
 
@@ -273,14 +343,18 @@ export class AuthService {
         }
 
         // 2. Resolve normal tenant users based on user_metadata
-        const tenantId = authUser.user_metadata?.tenant_id;
-        if (!tenantId) {
+        const userTenantId = authUser.user_metadata?.tenant_id;
+        if (!userTenantId) {
             throw new UnauthorizedException('User is not associated with any tenant');
         }
 
-        const { userId, role: userRole } = await this.resolveTenantUser(tenantId, authUser.id);
+        if (tenantId && userTenantId !== tenantId) {
+            throw new UnauthorizedException('User credentials do not belong to the selected school');
+        }
 
-        const tokens = await this.issueTokenPair({ sub: userId, tenantId, role: userRole, email: authUser.email ?? authUser.phone ?? identifier });
+        const { userId, role: userRole } = await this.resolveTenantUser(userTenantId, authUser.id);
+
+        const tokens = await this.issueTokenPair({ sub: userId, tenantId: userTenantId, role: userRole, email: authUser.email ?? authUser.phone ?? identifier });
         return {
             accessToken: tokens.accessToken,
             refreshToken: tokens.refreshToken,
@@ -288,7 +362,7 @@ export class AuthService {
             user: {
                 id: userId,
                 role: userRole,
-                tenantId
+                tenantId: userTenantId
             }
         };
     }
@@ -299,9 +373,17 @@ export class AuthService {
      * Only SCHOOL_ADMIN and SUPER_ADMIN can call this (enforced by RolesGuard on the controller).
      */
     async signup(dto: SignupDto, caller: JwtPayload): Promise<any> {
-        // — ensure caller can only provision within their own tenant unless SUPER_ADMIN
+        // Enforce privilege checks
         if (caller.role !== UserRole.SUPER_ADMIN && caller.tenantId !== dto.tenantId) {
             throw new ForbiddenException('Cannot create users in a different tenant');
+        }
+
+        if (dto.role === UserRole.SUPER_ADMIN && caller.role !== UserRole.SUPER_ADMIN) {
+            throw new ForbiddenException('Only platform super administrators can provision a SUPER_ADMIN');
+        }
+
+        if (caller.role === UserRole.SCHOOL_ADMIN && dto.role !== UserRole.TEACHER && dto.role !== UserRole.STUDENT && dto.role !== UserRole.PARENT && dto.role !== UserRole.SCHOOL_ADMIN) {
+            throw new ForbiddenException('School administrators cannot provision this role');
         }
 
         // 1. Resolve tenant
@@ -379,9 +461,9 @@ export class AuthService {
      * Allows public self-registration if the tenant policy allows it.
      */
     async selfRegister(dto: SignupDto): Promise<any> {
-        // Disallow creating system/admin roles via public endpoint
-        if (dto.role === UserRole.SUPER_ADMIN || dto.role === UserRole.SCHOOL_ADMIN) {
-            throw new ForbiddenException('Cannot self-register as an administrator');
+        // Public self-registration is strictly restricted to Students and Parents
+        if (dto.role !== UserRole.STUDENT && dto.role !== UserRole.PARENT) {
+            throw new ForbiddenException('Public self-registration is only permitted for Students and Parents');
         }
 
         // 1. Resolve tenant
@@ -466,8 +548,34 @@ export class AuthService {
      * POST /auth/forgot-password
      * Trigger Supabase password-reset email. Always returns success to prevent user enumeration.
      */
-    async forgotPassword(email: string, tenantId: string): Promise<{ message: string }> {
-        const redirectTo = `${this.configService.get('app.publicUrl', { infer: true }) ?? 'http://localhost:3000'}/reset-password?tenantId=${tenantId}`;
+    async forgotPassword(email: string, tenantId?: string): Promise<{ message: string }> {
+        let validTenantId: string | null = null;
+
+        if (tenantId) {
+            const { data: tenant } = await this.supabaseService.adminClient
+                .from('tenants')
+                .select('id, status')
+                .eq('id', tenantId)
+                .maybeSingle();
+
+            if (tenant && tenant.status === 'ACTIVE') {
+                const { data: userInTenant } = await this.supabaseService.adminClient
+                    .from('users')
+                    .select('id')
+                    .eq('tenant_id', tenantId)
+                    .eq('email', email)
+                    .maybeSingle();
+
+                if (userInTenant) {
+                    validTenantId = tenant.id;
+                }
+            }
+        }
+
+        const publicUrl = this.configService.get('app.publicUrl', { infer: true }) ?? 'http://localhost:3000';
+        const redirectTo = validTenantId
+            ? `${publicUrl}/reset-password?tenantId=${validTenantId}`
+            : `${publicUrl}/reset-password`;
 
         // Fire-and-forget — we intentionally don't surface errors to prevent user enumeration
         const { error } = await this.supabaseService.adminClient.auth.resetPasswordForEmail(email, {
@@ -526,7 +634,9 @@ export class AuthService {
 
         const email = authUser.user.email;
 
-        const { error: signInErr } = await this.supabaseService.adminClient.auth.signInWithPassword({
+        // Use isolated auth client so shared admin client session is never polluted
+        const authClient = this.supabaseService.createAuthClient();
+        const { error: signInErr } = await authClient.auth.signInWithPassword({
             email,
             password: currentPassword,
         });
@@ -542,6 +652,9 @@ export class AuthService {
         if (updateErr) {
             throw new BadRequestException(`Password update failed: ${updateErr.message}`);
         }
+
+        // Revoke all existing refresh tokens for this user
+        await this.redisService.revokeAllUserRefreshTokens(userId);
 
         return { success: true, message: 'Password has been updated successfully.' };
     }
@@ -559,12 +672,23 @@ export class AuthService {
             throw new UnauthorizedException('Invalid or expired refresh token');
         }
 
+        if (payload.type !== 'refresh') {
+            throw new UnauthorizedException('Invalid token type: expected refresh token');
+        }
+
         const jti = payload.jti;
         if (!jti) throw new UnauthorizedException('Refresh token has no jti claim');
 
         const valid = await this.redisService.isRefreshTokenValid(jti);
         if (!valid) {
             throw new UnauthorizedException('Refresh token has been revoked or expired');
+        }
+
+        // Verify user active status
+        const isActive = await this.isUserActive(payload.sub, payload.role);
+        if (!isActive) {
+            await this.redisService.revokeRefreshToken(jti);
+            throw new UnauthorizedException('User account is deactivated');
         }
 
         // Rotate: revoke old, issue new
@@ -604,13 +728,8 @@ export class AuthService {
     async getPublicTenants(): Promise<any[]> {
         const { data, error } = await this.supabaseService.adminClient
             .from('tenants')
-            .select(`
-                id,
-                name,
-                school_policy!inner(allow_self_enrollment)
-            `)
+            .select('id, name')
             .eq('status', 'ACTIVE')
-            .eq('school_policy.allow_self_enrollment', true)
             .order('name');
 
         if (error) {
@@ -622,5 +741,33 @@ export class AuthService {
             id: t.id,
             name: t.name
         }));
+    }
+
+    /**
+     * Check if a user account is active, using Redis cache with 60s TTL.
+     */
+    async isUserActive(userId: string, role?: UserRole): Promise<boolean> {
+        const cached = await this.redisService.getCachedUserActive(userId);
+        if (cached !== null) return cached;
+
+        let isActive = true;
+        if (role === UserRole.SUPER_ADMIN) {
+            const { data } = await this.supabaseService.adminClient
+                .from('platform_admins')
+                .select('id')
+                .eq('id', userId)
+                .maybeSingle();
+            isActive = Boolean(data);
+        } else {
+            const { data } = await this.supabaseService.adminClient
+                .from('users')
+                .select('is_active')
+                .eq('id', userId)
+                .maybeSingle();
+            isActive = Boolean(data?.is_active);
+        }
+
+        await this.redisService.cacheUserActive(userId, isActive, 60);
+        return isActive;
     }
 }

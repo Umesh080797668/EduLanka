@@ -70,4 +70,39 @@ describe('apiClient', () => {
 
         await expect(apiClient.delete('/server-fail')).rejects.toThrow('Internal Server Error');
     });
+
+    it('should attempt token refresh once on 401 and retry original request', async () => {
+        // 1st request gets 401
+        (global.fetch as jest.Mock).mockResolvedValueOnce({
+            ok: false,
+            status: 401,
+            text: async () => JSON.stringify({ error: { message: 'Token expired' } }),
+        });
+        // 2nd request is POST /auth/refresh
+        (global.fetch as jest.Mock).mockResolvedValueOnce({
+            ok: true,
+            status: 200,
+            json: async () => ({ success: true, data: { accessToken: 'new-refreshed-jwt' } }),
+        });
+        // 3rd request is the retried original request with new token
+        (global.fetch as jest.Mock).mockResolvedValueOnce({
+            ok: true,
+            status: 200,
+            text: async () => JSON.stringify({ success: true, data: { status: 'success after refresh' } }),
+        });
+
+        const result = await apiClient.get<{ status: string }>('/protected-data');
+
+        expect(result).toEqual({ status: 'success after refresh' });
+        expect(global.fetch).toHaveBeenCalledTimes(3);
+        expect(global.fetch).toHaveBeenNthCalledWith(2, '/api/v1/auth/refresh', expect.objectContaining({
+            method: 'POST',
+            credentials: 'include',
+        }));
+        expect(global.fetch).toHaveBeenNthCalledWith(3, '/api/v1/protected-data', expect.objectContaining({
+            headers: expect.objectContaining({
+                Authorization: 'Bearer new-refreshed-jwt',
+            }),
+        }));
+    });
 });

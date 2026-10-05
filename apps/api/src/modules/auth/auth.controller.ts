@@ -13,6 +13,8 @@ import {
     Param,
     ParseUUIDPipe,
     Res,
+    Req,
+    UnauthorizedException,
 } from '@nestjs/common';
 import {
     ApiTags,
@@ -22,7 +24,8 @@ import {
     ApiBearerAuth,
     ApiNoContentResponse,
 } from '@nestjs/swagger';
-import { FastifyReply } from 'fastify';
+import { Throttle, ThrottlerGuard } from '@nestjs/throttler';
+import { FastifyReply, FastifyRequest } from 'fastify';
 
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
@@ -45,21 +48,49 @@ import { UpdateInquiryStatusDto } from './dto/update-inquiry-status.dto';
 export class AuthController {
     constructor(private readonly authService: AuthService) { }
 
+    private extractCookie(req: FastifyRequest, name: string): string | undefined {
+        const cookieHeader = req?.headers?.cookie;
+        if (!cookieHeader) return undefined;
+        const match = cookieHeader.match(new RegExp(`(?:^|;\\s*)${name}=([^;]+)`));
+        return match ? decodeURIComponent(match[1]) : undefined;
+    }
+
+    private setAuthCookies(res: FastifyReply, tokens: { accessToken: string; refreshToken: string }) {
+        const isProduction = process.env.NODE_ENV === 'production';
+        const secureFlag = isProduction ? 'Secure; ' : '';
+        void res.header('Set-Cookie', [
+            `token=${tokens.accessToken}; HttpOnly; ${secureFlag}SameSite=Lax; Path=/; Max-Age=900`,
+            `refreshToken=${tokens.refreshToken}; HttpOnly; ${secureFlag}SameSite=Lax; Path=/; Max-Age=604800`,
+        ]);
+    }
+
+    private clearAuthCookies(res: FastifyReply) {
+        const isProduction = process.env.NODE_ENV === 'production';
+        const secureFlag = isProduction ? 'Secure; ' : '';
+        void res.header('Set-Cookie', [
+            `token=; HttpOnly; ${secureFlag}SameSite=Lax; Path=/; Max-Age=0`,
+            `refreshToken=; HttpOnly; ${secureFlag}SameSite=Lax; Path=/; Max-Age=0`,
+        ]);
+    }
+
     // ── POST /auth/login ────────────────────────────────────────────────────────
     @Post('login')
     @Version('1')
     @HttpCode(HttpStatus.OK)
+    @UseGuards(ThrottlerGuard)
+    @Throttle({ auth: { limit: 5, ttl: 60000 } })
     @ApiOperation({ summary: 'Authenticate and receive a JWT access + refresh token pair' })
     @ApiOkResponse({ description: 'Token pair issued successfully' })
-    async login(@Body() dto: LoginDto, @Res({ passthrough: true }) res: FastifyReply) {
+    async login(
+        @Body() dto: LoginDto,
+        @Req() req: FastifyRequest,
+        @Res({ passthrough: true }) res: FastifyReply,
+    ) {
         const targetIdentifier = dto.identifier || dto.email || '';
-        const tokens = await this.authService.login(targetIdentifier, dto.password);
+        const tenantId = dto.tenantId || (req.headers['x-tenant-id'] as string | undefined)?.trim();
+        const tokens = await this.authService.login(targetIdentifier, dto.password, tenantId);
 
-        void res.header('Set-Cookie', [
-            `token=${tokens.accessToken}; HttpOnly; Secure; SameSite=Lax; Path=/`,
-            `refreshToken=${tokens.refreshToken}; HttpOnly; Secure; SameSite=Lax; Path=/`
-        ]);
-
+        this.setAuthCookies(res, tokens);
         return tokens;
     }
 
@@ -75,11 +106,7 @@ export class AuthController {
     async signup(@Body() dto: SignupDto, @CurrentUser() caller: JwtPayload, @Res({ passthrough: true }) res: FastifyReply) {
         const tokens = await this.authService.signup(dto, caller);
 
-        void res.header('Set-Cookie', [
-            `token=${tokens.accessToken}; HttpOnly; Secure; SameSite=Lax; Path=/`,
-            `refreshToken=${tokens.refreshToken}; HttpOnly; Secure; SameSite=Lax; Path=/`
-        ]);
-
+        this.setAuthCookies(res, tokens);
         return tokens;
     }
 
@@ -87,16 +114,14 @@ export class AuthController {
     @Post('self-register')
     @Version('1')
     @HttpCode(HttpStatus.CREATED)
+    @UseGuards(ThrottlerGuard)
+    @Throttle({ auth: { limit: 5, ttl: 60000 } })
     @ApiOperation({ summary: 'Create a new user if tenant allows self-enrollment (public)' })
     @ApiCreatedResponse({ description: 'User created and token pair issued' })
     async selfRegister(@Body() dto: SignupDto, @Res({ passthrough: true }) res: FastifyReply) {
         const tokens = await this.authService.selfRegister(dto);
 
-        void res.header('Set-Cookie', [
-            `token=${tokens.accessToken}; HttpOnly; Secure; SameSite=Lax; Path=/`,
-            `refreshToken=${tokens.refreshToken}; HttpOnly; Secure; SameSite=Lax; Path=/`
-        ]);
-
+        this.setAuthCookies(res, tokens);
         return tokens;
     }
 
@@ -104,6 +129,8 @@ export class AuthController {
     @Post('forgot-password')
     @Version('1')
     @HttpCode(HttpStatus.OK)
+    @UseGuards(ThrottlerGuard)
+    @Throttle({ auth: { limit: 5, ttl: 60000 } })
     @ApiOperation({ summary: 'Trigger a password-reset email (Supabase Auth)' })
     @ApiOkResponse({ description: 'Reset email sent (if address is registered)' })
     forgotPassword(@Body() dto: ForgotPasswordDto) {
@@ -138,14 +165,18 @@ export class AuthController {
     @HttpCode(HttpStatus.OK)
     @ApiOperation({ summary: 'Rotate the refresh token and receive a new token pair' })
     @ApiOkResponse({ description: 'New token pair issued' })
-    async refresh(@Body() dto: RefreshTokenDto, @Res({ passthrough: true }) res: FastifyReply) {
-        const tokens = await this.authService.refreshTokens(dto.refreshToken);
+    async refresh(
+        @Body() dto: RefreshTokenDto,
+        @Req() req: FastifyRequest,
+        @Res({ passthrough: true }) res: FastifyReply,
+    ) {
+        const token = dto?.refreshToken || this.extractCookie(req, 'refreshToken');
+        if (!token) {
+            throw new UnauthorizedException('Refresh token is required');
+        }
+        const tokens = await this.authService.refreshTokens(token);
 
-        void res.header('Set-Cookie', [
-            `token=${tokens.accessToken}; HttpOnly; Secure; SameSite=Lax; Path=/`,
-            `refreshToken=${tokens.refreshToken}; HttpOnly; Secure; SameSite=Lax; Path=/`
-        ]);
-
+        this.setAuthCookies(res, tokens);
         return tokens;
     }
 
@@ -160,21 +191,22 @@ export class AuthController {
     async logout(
         @CurrentUser() user: JwtPayload,
         @Body() dto: LogoutDto,
-        @Res({ passthrough: true }) res: FastifyReply
+        @Req() req: FastifyRequest,
+        @Res({ passthrough: true }) res: FastifyReply,
     ) {
-        if (dto?.refreshToken) {
-            await this.authService.logout(user, dto.refreshToken);
+        const token = dto?.refreshToken || this.extractCookie(req, 'refreshToken');
+        if (token) {
+            await this.authService.logout(user, token);
         }
-        void res.header('Set-Cookie', [
-            'token=; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=0',
-            'refreshToken=; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=0'
-        ]);
+        this.clearAuthCookies(res);
     }
 
     // ── POST /auth/inquiries ───────────────────────────────────────────────────
     @Post('inquiries')
     @Version('1')
     @HttpCode(HttpStatus.CREATED)
+    @UseGuards(ThrottlerGuard)
+    @Throttle({ auth: { limit: 5, ttl: 60000 } })
     @ApiOperation({ summary: 'Submit an inquiry/appeal from a deactivated user account' })
     @ApiCreatedResponse({ description: 'Inquiry successfully submitted' })
     submitInquiry(@Body() dto: CreateInquiryDto) {

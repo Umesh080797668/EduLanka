@@ -35,6 +35,9 @@ export default function LoginPage() {
     const [password, setPassword] = useState('');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [schools, setSchools] = useState<Array<{ id: string; name: string }>>([]);
+    const [selectedTenantId, setSelectedTenantId] = useState('');
+    const [showSchoolSelect, setShowSchoolSelect] = useState(false);
 
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -42,9 +45,17 @@ export default function LoginPage() {
         setError(null);
 
         try {
+            const loginPayload: { identifier: string; password: string; tenantId?: string } = {
+                identifier,
+                password,
+            };
+            if (selectedTenantId) {
+                loginPayload.tenantId = selectedTenantId;
+            }
+
             const data = await apiClient.post<any>(
                 '/auth/login',
-                { identifier, password },
+                loginPayload,
                 { skipGlobalToast: true },
             );
 
@@ -57,6 +68,15 @@ export default function LoginPage() {
             router.push(PORTAL_BY_ROLE[role] ?? '/dashboard');
         } catch (err: any) {
             const backendMessage = err.message || t('networkError');
+
+            if (backendMessage.toLowerCase().includes('school')) {
+                setShowSchoolSelect(true);
+                if (schools.length === 0) {
+                    void apiClient.get<Array<{ id: string; name: string }>>('/auth/tenants', { skipGlobalToast: true })
+                        .then(res => { if (Array.isArray(res)) setSchools(res); })
+                        .catch(() => {});
+                }
+            }
 
             // The API encodes the suspension payload after a pipe.
             if (backendMessage.startsWith('User account is deactivated|')) {
@@ -79,6 +99,18 @@ export default function LoginPage() {
             toast.error(t('invalidCreds'), { description: backendMessage });
         } finally {
             setLoading(false);
+        }
+    };
+
+    const handleIdentifierChange = (value: string) => {
+        setIdentifier(value);
+        if (!value.includes('@') && value.trim().length > 1) {
+            setShowSchoolSelect(true);
+            if (schools.length === 0) {
+                void apiClient.get<Array<{ id: string; name: string }>>('/auth/tenants', { skipGlobalToast: true })
+                    .then(res => { if (Array.isArray(res)) setSchools(res); })
+                    .catch(() => {});
+            }
         }
     };
 
@@ -110,10 +142,28 @@ export default function LoginPage() {
                             autoComplete="username"
                             autoFocus
                             value={identifier}
-                            onChange={(e) => setIdentifier(e.target.value)}
+                            onChange={(e) => handleIdentifierChange(e.target.value)}
                             placeholder={t('identifierPlaceholder')}
                         />
                     </Field>
+
+                    {showSchoolSelect && (
+                        <Field label="School (Optional / Admission No.)" htmlFor="school-select">
+                            <select
+                                id="school-select"
+                                value={selectedTenantId}
+                                onChange={(e) => setSelectedTenantId(e.target.value)}
+                                className="w-full rounded-input border border-input bg-background px-3 py-2 text-sm text-foreground focus-visible:outline-2 focus-visible:outline-primary"
+                            >
+                                <option value="">Select your school...</option>
+                                {schools.map((s) => (
+                                    <option key={s.id} value={s.id}>
+                                        {s.name}
+                                    </option>
+                                ))}
+                            </select>
+                        </Field>
+                    )}
 
                     <div className="space-y-1.5">
                         <div className="flex items-baseline justify-between gap-3">

@@ -13,6 +13,43 @@ interface RequestOptions extends RequestInit {
     skipGlobalToast?: boolean;
 }
 
+let refreshPromise: Promise<string | null> | null = null;
+
+async function attemptTokenRefresh(): Promise<string | null> {
+    if (typeof window === 'undefined') return null;
+
+    if (!refreshPromise) {
+        refreshPromise = (async () => {
+            try {
+                const res = await fetch(`${API_BASE_URL}/auth/refresh`, {
+                    method: 'POST',
+                    credentials: 'include',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({}),
+                });
+
+                if (!res.ok) {
+                    return null;
+                }
+
+                const json = await res.json();
+                const newAccessToken = json?.data?.accessToken || json?.accessToken;
+                if (newAccessToken) {
+                    authManager.setToken(newAccessToken);
+                    return newAccessToken;
+                }
+                return null;
+            } catch {
+                return null;
+            } finally {
+                refreshPromise = null;
+            }
+        })();
+    }
+
+    return refreshPromise;
+}
+
 /**
  * Typed fetch wrapper targeting the EduLanka NestJS API.
  * Handles auth headers, tenant scoping, and response envelope unwrapping.
@@ -46,14 +83,23 @@ async function apiFetch<T>(
     });
 
     if (response.status === 401) {
-        if (typeof window !== 'undefined') {
+        const isAuthRoute = path.includes('/auth/login') || path.includes('/auth/refresh');
+
+        if (!isAuthRoute && typeof window !== 'undefined') {
+            const newToken = await attemptTokenRefresh();
+            if (newToken) {
+                return apiFetch<T>(path, {
+                    ...options,
+                    token: newToken,
+                });
+            }
+
             authManager.clearAuth();
-            // `(auth)` is a route group, so the real path is /{locale}/login —
-            // '/auth/login' would 404. Keep whatever locale the user is on.
             const segment = window.location.pathname.split('/')[1] ?? '';
             const prefix = ['en', 'si', 'ta'].includes(segment) ? `/${segment}` : '';
             window.location.href = `${prefix}/login`;
         }
+
         throw new Error('Session expired. Please sign in again.');
     }
 

@@ -19,6 +19,7 @@ export interface JwtPayload {
     tenantId: string; // school tenant UUID
     role: UserRole;
     email: string;
+    type?: 'access' | 'refresh'; // token category
     jti?: string; // JWT ID — used for refresh-token denylist lookups
     iat?: number;
     exp?: number;

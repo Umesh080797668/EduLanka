@@ -20,4 +20,9 @@ export class LoginDto {
     @MinLength(8)
     password!: string;
 
+    /** School Tenant ID (required if admission number is shared across schools) */
+    @ApiPropertyOptional({ example: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890' })
+    @IsString()
+    @IsOptional()
+    tenantId?: string;
 }

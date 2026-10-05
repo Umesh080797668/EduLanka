@@ -96,6 +96,11 @@ import { UsersModule } from './modules/users/users.module';
                         ttl: 900000, // 15 mins
                         limit: 50000,
                     },
+                    {
+                        name: 'auth',
+                        ttl: 60000, // 1 min
+                        limit: 5,   // 5 attempts per minute
+                    },
                 ],
                 storage: new ThrottlerStorageRedisService(
                     config.get<string>('redis.url') || `redis://${config.get<string>('redis.password') ? `:${config.get<string>('redis.password')}@` : ''}${config.get<string>('redis.host')}:${config.get<number>('redis.port')}`
