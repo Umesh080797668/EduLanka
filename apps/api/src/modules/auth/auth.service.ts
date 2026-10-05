@@ -250,16 +250,29 @@ export class AuthService {
             throw new BadRequestException('Identifier and password are required');
         }
 
-        // Identifier brute-force protection: max 5 attempts per minute
+        // Identifier brute-force protection: max 5 failed attempts per minute
         const normalizedId = identifier.toLowerCase().trim();
         const rateLimitKey = `edulanka:ratelimit:login:${normalizedId}`;
-        const attempts = await this.redisService.getClient().incr(rateLimitKey);
-        if (attempts === 1) {
-            await this.redisService.getClient().expire(rateLimitKey, 60);
+        try {
+            const currentAttempts = await this.redisService.getClient().get(rateLimitKey);
+            if (currentAttempts && parseInt(currentAttempts, 10) >= 5) {
+                throw new HttpException('Too many login attempts for this account. Please wait 1 minute before retrying.', HttpStatus.TOO_MANY_REQUESTS);
+            }
+        } catch (err) {
+            if (err instanceof HttpException) throw err;
+            // non-fatal redis read failure
         }
-        if (attempts > 5) {
-            throw new HttpException('Too many login attempts for this account. Please wait 1 minute before retrying.', HttpStatus.TOO_MANY_REQUESTS);
-        }
+
+        const recordFailure = async () => {
+            try {
+                const count = await this.redisService.getClient().incr(rateLimitKey);
+                if (count === 1) {
+                    await this.redisService.getClient().expire(rateLimitKey, 60);
+                }
+            } catch {
+                // non-fatal
+            }
+        };
 
         const authPayload: any = { password };
 
@@ -316,11 +329,16 @@ export class AuthService {
         const { data, error } = await this.supabaseService.createAuthClient().auth.signInWithPassword(authPayload);
 
         if (error || !data.user) {
+            await recordFailure();
             throw new UnauthorizedException('Invalid credentials');
         }
 
         // Login succeeded, clear per-identifier failure counter
-        await this.redisService.getClient().del(rateLimitKey);
+        try {
+            await this.redisService.getClient().del(rateLimitKey);
+        } catch {
+            // non-fatal
+        }
 
         const authUser = data.user;
 
