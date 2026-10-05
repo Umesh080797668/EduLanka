@@ -1,6 +1,8 @@
 // =============================================================================
 // Teachers Module DTOs
 // =============================================================================
+import { SubjectArea } from '@edu-lanka/shared-types';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
     IsNotEmpty,
     IsString,
@@ -11,8 +13,6 @@ import {
     ArrayMaxSize,
     Matches,
 } from 'class-validator';
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { SubjectArea } from '@edu-lanka/shared-types';
 
 export class CreateTeacherDto {
     @ApiProperty({ example: 'Nimal Jayawardena' })

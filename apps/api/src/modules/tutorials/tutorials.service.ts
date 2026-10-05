@@ -1,8 +1,10 @@
-import { Injectable, NotFoundException, InternalServerErrorException } from '@nestjs/common';
-import { SupabaseService } from '../supabase/supabase.service';
-import { CreateTutorialDto } from './dto/tutorial.dto';
 import { UserRole } from '@edu-lanka/shared-types';
 import type { JwtPayload } from '@edu-lanka/shared-types';
+import { Injectable, NotFoundException, InternalServerErrorException } from '@nestjs/common';
+
+import { SupabaseService } from '../supabase/supabase.service';
+
+import { CreateTutorialDto } from './dto/tutorial.dto';
 
 @Injectable()
 export class TutorialsService {
@@ -227,5 +229,17 @@ export class TutorialsService {
         }
 
         return { success: true, data: stats };
+    }
+
+    async getAllTutorials() {
+        const { data, error } = await this.supabase.adminClient
+            .from('tutorials')
+            .select('*, tutorial_steps(*)')
+            .order('created_at', { ascending: false });
+
+        if (error) {
+            throw new InternalServerErrorException('Failed to fetch tutorials: ' + error.message);
+        }
+        return data ?? [];
     }
 }

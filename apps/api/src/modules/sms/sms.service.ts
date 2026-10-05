@@ -1,10 +1,12 @@
-import { Injectable, Logger, ForbiddenException } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bullmq';
+import { Injectable, Logger, ForbiddenException } from '@nestjs/common';
 import { Queue } from 'bullmq';
-import { SmsJobPayload } from './sms.processor';
-import { SupabaseService } from '../supabase/supabase.service';
-import { RedisService } from '../redis/redis.service';
+
 import { calculateSmsSegments } from '../../common/utils/sms-segments';
+import { RedisService } from '../redis/redis.service';
+import { SupabaseService } from '../supabase/supabase.service';
+
+import { SmsJobPayload } from './sms.processor';
 
 export interface SendSmsOptions {
     noticeId?: string;

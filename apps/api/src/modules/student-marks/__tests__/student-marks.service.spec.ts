@@ -1,9 +1,12 @@
-import { Test, TestingModule } from '@nestjs/testing';
-import { StudentMarksService } from '../student-marks.service';
+import { UserRole } from '@edu-lanka/shared-types';
+import { Logger, ForbiddenException, InternalServerErrorException } from '@nestjs/common';
+import type { TestingModule } from '@nestjs/testing';
+import { Test } from '@nestjs/testing';
+
 import { SupabaseService } from '../../supabase/supabase.service';
 import { TenantService } from '../../tenant/tenant.service';
-import { Logger, ForbiddenException, InternalServerErrorException } from '@nestjs/common';
-import { UserRole } from '@edu-lanka/shared-types';
+import { StudentMarksService } from '../student-marks.service';
+
 
 describe('StudentMarksService', () => {
     let service: StudentMarksService;

@@ -1,3 +1,4 @@
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
     IsInt,
     IsNotEmpty,
@@ -7,7 +8,6 @@ import {
     Min,
     Max,
 } from 'class-validator';
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class CreateGradeDto {
     @ApiProperty({ description: 'Grade level (1-15)', example: 10 })

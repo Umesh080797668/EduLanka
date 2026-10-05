@@ -1,9 +1,13 @@
-import { Test, TestingModule } from '@nestjs/testing';
-import { ChatService } from './chat.service';
-import { SupabaseService } from '../supabase/supabase.service';
-import { RedisService } from '../redis/redis.service';
-import { BadRequestException, NotFoundException, ForbiddenException, HttpException, HttpStatus } from '@nestjs/common';
 import { UserRole } from '@edu-lanka/shared-types';
+import { BadRequestException, NotFoundException, ForbiddenException, HttpException, HttpStatus } from '@nestjs/common';
+import type { TestingModule } from '@nestjs/testing';
+import { Test } from '@nestjs/testing';
+
+import { RedisService } from '../redis/redis.service';
+import { SupabaseService } from '../supabase/supabase.service';
+
+import { ChatService } from './chat.service';
+
 
 describe('ChatService', () => {
   let service: ChatService;

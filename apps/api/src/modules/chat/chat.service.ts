@@ -1,7 +1,8 @@
-import { Injectable, Logger, ForbiddenException, BadRequestException, NotFoundException, HttpException, HttpStatus } from '@nestjs/common';
-import { SupabaseService } from '../supabase/supabase.service';
-import { RedisService } from '../redis/redis.service';
 import { UserRole } from '@edu-lanka/shared-types';
+import { Injectable, Logger, ForbiddenException, BadRequestException, NotFoundException, HttpException, HttpStatus } from '@nestjs/common';
+
+import { RedisService } from '../redis/redis.service';
+import { SupabaseService } from '../supabase/supabase.service';
 
 /**
  * Newest-first slice of messages used to derive inbox previews and unread
@@ -336,7 +337,7 @@ export class ChatService {
                         .in('class_id', classIds);
 
                     for (const student of students ?? []) {
-                        if ((student as any).user_id) ids.add((student as any).user_id);
+                        if ((student).user_id) ids.add((student).user_id);
                     }
 
                     const studentIds = (students ?? []).map((s: any) => s.id);
@@ -347,7 +348,7 @@ export class ChatService {
                             .in('student_id', studentIds);
 
                         for (const guardian of guardians ?? []) {
-                            if ((guardian as any).user_id) ids.add((guardian as any).user_id);
+                            if ((guardian).user_id) ids.add((guardian).user_id);
                         }
                     }
                 }

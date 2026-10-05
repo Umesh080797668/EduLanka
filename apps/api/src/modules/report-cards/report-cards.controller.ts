@@ -1,9 +1,11 @@
+import type { JwtPayload } from '@edu-lanka/shared-types';
 import { Controller, Get, Param, ParseUUIDPipe, ParseIntPipe, UseGuards, Res } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiResponse } from '@nestjs/swagger';
+
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { TenantGuard } from '../../common/guards/tenant.guard';
-import { CurrentUser } from '../../common/decorators/current-user.decorator';
-import type { JwtPayload } from '@edu-lanka/shared-types';
+
 import { ReportCardsService } from './report-cards.service';
 
 @ApiTags('Report Cards')

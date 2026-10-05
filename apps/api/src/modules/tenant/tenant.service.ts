@@ -15,10 +15,11 @@ import {
     Logger,
 } from '@nestjs/common';
 
-import { SupabaseService } from '../supabase/supabase.service';
-import type { CreateTenantDto } from './tenant.controller';
 import { AuditLogsService } from '../audit-logs/audit-logs.service';
 import { SmsService } from '../sms/sms.service';
+import { SupabaseService } from '../supabase/supabase.service';
+
+import type { CreateTenantDto } from './tenant.controller';
 
 /** Shape returned from public.tenants Supabase query */
 interface TenantRow {
@@ -320,7 +321,7 @@ export class TenantService {
             throw new InternalServerErrorException('Failed to record disaster event');
         }
 
-        const disasterEvent = eventData as any;
+        const disasterEvent = eventData;
         const eventId = disasterEvent?.id;
 
         this.logger.warn(`Disaster Mode ACTIVATED for ${tenant.name} (${dto.reason})!`);

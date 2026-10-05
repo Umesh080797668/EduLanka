@@ -1,6 +1,8 @@
 import { Controller, Get, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
+
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+
 import { UploadService } from './upload.service';
 
 @ApiTags('upload')

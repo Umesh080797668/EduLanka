@@ -1,9 +1,12 @@
-import { Test, TestingModule } from '@nestjs/testing';
+import { ForbiddenException } from '@nestjs/common';
+import { JwtService } from '@nestjs/jwt';
+import type { TestingModule } from '@nestjs/testing';
+import { Test } from '@nestjs/testing';
+
+import { RedisService } from '../redis/redis.service';
+
 import { ChatGateway } from './chat.gateway';
 import { ChatService } from './chat.service';
-import { JwtService } from '@nestjs/jwt';
-import { RedisService } from '../redis/redis.service';
-import { ForbiddenException } from '@nestjs/common';
 
 describe('ChatGateway', () => {
   let gateway: ChatGateway;

@@ -1,6 +1,9 @@
-import { Test, TestingModule } from '@nestjs/testing';
-import { SupabaseService } from '../supabase.service';
 import { ConfigService } from '@nestjs/config';
+import type { TestingModule } from '@nestjs/testing';
+import { Test } from '@nestjs/testing';
+
+import { SupabaseService } from '../supabase.service';
+
 
 jest.mock('@supabase/supabase-js', () => {
     const mockFromObj = {

@@ -1,8 +1,12 @@
-import { Test, TestingModule } from '@nestjs/testing';
-import { NotificationsGateway } from './notifications.gateway';
-import { SupabaseService } from '../supabase/supabase.service';
-import { RedisService } from '../redis/redis.service';
 import { JwtService } from '@nestjs/jwt';
+import type { TestingModule } from '@nestjs/testing';
+import { Test } from '@nestjs/testing';
+
+import { RedisService } from '../redis/redis.service';
+import { SupabaseService } from '../supabase/supabase.service';
+
+import { NotificationsGateway } from './notifications.gateway';
+
 
 describe('NotificationsGateway', () => {
   let gateway: NotificationsGateway;

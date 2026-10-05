@@ -219,9 +219,134 @@ export default function SystemAdminDashboard() {
                     }
                     icon={<Network />}
                     tone={observabilityStats ? 'success' : 'neutral'}
-                    hint={observabilityStats ? t('connectedSockets') : t('healthDesc')}
+                    hint={
+                        observabilityStats
+                            ? `${observabilityStats.websockets?.chat_connections ?? 0} chat · ${observabilityStats.websockets?.notification_connections ?? 0} notif`
+                            : t('healthDesc')
+                    }
                 />
             </motion.div>
+
+            {/* ── Observability & Gateway Metrics ────────────────────────────── */}
+            {observabilityStats && (
+                <motion.div
+                    initial={{ opacity: 0, y: 12 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.3, delay: 0.08 }}
+                    className="grid gap-4 md:grid-cols-2"
+                >
+                    <Card>
+                        <CardHeader className="flex-row items-center justify-between pb-2">
+                            <div>
+                                <CardTitle as="h2" className="flex items-center gap-2 text-base">
+                                    <Network className="size-4 text-brand-600 dark:text-brand-400" />
+                                    {t('socketGatewayDetail')}
+                                </CardTitle>
+                                <p className="text-xs text-muted-foreground mt-0.5">
+                                    {t('observabilityDesc')}
+                                </p>
+                            </div>
+                            <Badge
+                                tone={(observabilityStats.websockets?.error_count ?? 0) > 0 ? 'danger' : 'success'}
+                                variant="soft"
+                                size="sm"
+                            >
+                                {(observabilityStats.websockets?.error_count ?? 0) > 0
+                                    ? `${observabilityStats.websockets?.error_count} ${t('socketErrors')}`
+                                    : t('allGatewaysHealthy')}
+                            </Badge>
+                        </CardHeader>
+                        <CardContent className="pt-2">
+                            <div className="grid grid-cols-3 gap-3 rounded-lg border border-border/60 bg-muted/30 p-3 text-center">
+                                <div>
+                                    <p className="text-xs font-medium text-muted-foreground">{t('chatSockets')}</p>
+                                    <p className="mt-1 text-xl font-bold tracking-tight text-foreground">
+                                        {observabilityStats.websockets?.chat_connections ?? 0}
+                                    </p>
+                                </div>
+                                <div>
+                                    <p className="text-xs font-medium text-muted-foreground">{t('notificationSockets')}</p>
+                                    <p className="mt-1 text-xl font-bold tracking-tight text-foreground">
+                                        {observabilityStats.websockets?.notification_connections ?? 0}
+                                    </p>
+                                </div>
+                                <div>
+                                    <p className="text-xs font-medium text-muted-foreground">{t('socketErrors')}</p>
+                                    <p className={`mt-1 text-xl font-bold tracking-tight ${(observabilityStats.websockets?.error_count ?? 0) > 0 ? 'text-danger-600 dark:text-danger-400' : 'text-foreground'}`}>
+                                        {observabilityStats.websockets?.error_count ?? 0}
+                                    </p>
+                                </div>
+                            </div>
+                            <div className="mt-3 flex items-center justify-between text-xs text-muted-foreground">
+                                <span className="flex items-center gap-1.5">
+                                    <Activity className="size-3.5 text-success" />
+                                    {t('uptime')}:
+                                </span>
+                                <span className="font-mono font-medium text-foreground">
+                                    {observabilityStats.uptime_seconds
+                                        ? t('uptimeFormat', {
+                                            hours: Math.floor(observabilityStats.uptime_seconds / 3600),
+                                            minutes: Math.floor((observabilityStats.uptime_seconds % 3600) / 60),
+                                            seconds: Math.floor(observabilityStats.uptime_seconds % 60),
+                                        })
+                                        : '—'}
+                                </span>
+                            </div>
+                        </CardContent>
+                    </Card>
+
+                    <Card>
+                        <CardHeader className="flex-row items-center justify-between pb-2">
+                            <div>
+                                <CardTitle as="h2" className="flex items-center gap-2 text-base">
+                                    <RadioTower className="size-4 text-accent-600 dark:text-accent-400" />
+                                    {t('smsQueueTitle')}
+                                </CardTitle>
+                                <p className="text-xs text-muted-foreground mt-0.5">
+                                    BullMQ queue workers and asynchronous SMS dispatches.
+                                </p>
+                            </div>
+                            <Badge tone="info" variant="soft" size="sm">
+                                BullMQ
+                            </Badge>
+                        </CardHeader>
+                        <CardContent className="pt-2">
+                            <div className="grid grid-cols-4 gap-2 rounded-lg border border-border/60 bg-muted/30 p-3 text-center">
+                                <div>
+                                    <p className="text-xs font-medium text-muted-foreground">{t('smsWaiting')}</p>
+                                    <p className="mt-1 text-lg font-bold tracking-tight text-foreground">
+                                        {observabilityStats.sms_queue?.waiting ?? 0}
+                                    </p>
+                                </div>
+                                <div>
+                                    <p className="text-xs font-medium text-muted-foreground">{t('smsActive')}</p>
+                                    <p className="mt-1 text-lg font-bold tracking-tight text-brand-600 dark:text-brand-400">
+                                        {observabilityStats.sms_queue?.active ?? 0}
+                                    </p>
+                                </div>
+                                <div>
+                                    <p className="text-xs font-medium text-muted-foreground">{t('smsCompleted')}</p>
+                                    <p className="mt-1 text-lg font-bold tracking-tight text-success-600 dark:text-success-400">
+                                        {observabilityStats.sms_queue?.completed ?? 0}
+                                    </p>
+                                </div>
+                                <div>
+                                    <p className="text-xs font-medium text-muted-foreground">{t('smsFailed')}</p>
+                                    <p className={`mt-1 text-lg font-bold tracking-tight ${(observabilityStats.sms_queue?.failed ?? 0) > 0 ? 'text-danger-600 dark:text-danger-400' : 'text-foreground'}`}>
+                                        {observabilityStats.sms_queue?.failed ?? 0}
+                                    </p>
+                                </div>
+                            </div>
+                            <div className="mt-3 flex items-center justify-between text-xs text-muted-foreground">
+                                <span>Delayed / Retrying:</span>
+                                <span className="font-mono font-medium text-foreground">
+                                    {observabilityStats.sms_queue?.delayed ?? 0}
+                                </span>
+                            </div>
+                        </CardContent>
+                    </Card>
+                </motion.div>
+            )}
 
             {/* ── Adoption analytics ────────────────────────────────────────── */}
             <motion.div

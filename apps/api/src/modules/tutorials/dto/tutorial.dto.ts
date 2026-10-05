@@ -1,6 +1,6 @@
-import { IsString, IsNotEmpty, IsBoolean, IsArray, ValidateNested, IsOptional, IsNumber, IsEnum } from 'class-validator';
-import { Type } from 'class-transformer';
 import { UserRole } from '@edu-lanka/shared-types';
+import { Type } from 'class-transformer';
+import { IsString, IsNotEmpty, IsBoolean, IsArray, ValidateNested, IsOptional, IsNumber, IsEnum } from 'class-validator';
 
 export class CreateTutorialStepDto {
     @IsNumber()

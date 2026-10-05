@@ -1,4 +1,5 @@
 import { TenantContextMiddleware } from '../tenant-context.middleware';
+
 import { Logger, BadRequestException, NotFoundException } from '@nestjs/common';
 
 jest.mock('@supabase/supabase-js', () => ({
@@ -26,7 +27,7 @@ describe('TenantContextMiddleware', () => {
             get: jest.fn().mockReturnValue('mock-val'),
         };
 
-        middleware = new TenantContextMiddleware(mockConfigService as any);
+        middleware = new TenantContextMiddleware(mockConfigService);
         mockSupabase = (createClient as jest.Mock)();
 
         mockRequest = {

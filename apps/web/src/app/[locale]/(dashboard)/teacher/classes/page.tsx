@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { motion } from 'framer-motion';
-import { BookOpen, ChevronRight, FileEdit, Users } from 'lucide-react';
+import { BookOpen, FileEdit, Users } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 
 import { Link } from '@/i18n/routing';
@@ -104,48 +104,51 @@ export default function TeacherClassesPage() {
                     >
                         {filteredClasses.map((cls) => (
                             <motion.div key={cls.id} variants={itemVariants}>
-                                <Link
-                                    href={`/teacher/classes/${cls.id}/grades`}
-                                    className="block h-full rounded-card focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+                                <Card
+                                    flush
+                                    className="group flex h-full flex-col shadow-sm transition-shadow hover:shadow"
                                 >
-                                    <Card
-                                        interactive
-                                        flush
-                                        className="group flex h-full flex-col"
-                                    >
-                                        <CardContent className="flex-1 pt-5">
-                                            <span className="grid size-12 place-items-center rounded-card bg-primary-subtle text-primary">
-                                                <BookOpen className="size-6" />
+                                    <CardContent className="flex-1 pt-5">
+                                        <span className="grid size-12 place-items-center rounded-card bg-primary-subtle text-primary">
+                                            <BookOpen className="size-6" />
+                                        </span>
+
+                                        <h3 className="mt-4 text-lg font-semibold tracking-tight text-foreground">
+                                            {cls.grades?.level} {cls.section}
+                                        </h3>
+                                        <p className="mt-0.5 text-sm text-muted-foreground">
+                                            {t('classYear')} {cls.year}
+                                        </p>
+
+                                        <div className="mt-4 flex items-center gap-2 rounded-input border border-border bg-muted/50 px-3 py-2 text-[13px] text-muted-foreground">
+                                            <Users className="size-4 shrink-0" />
+                                            <span>
+                                                {typeof cls.students?.length === 'number'
+                                                    ? t('studentsEnrolled', {
+                                                        count: cls.students.length,
+                                                    })
+                                                    : t('rosterAvailable')}
                                             </span>
+                                        </div>
+                                    </CardContent>
 
-                                            <h3 className="mt-4 text-lg font-semibold tracking-tight text-foreground transition-colors group-hover:text-primary">
-                                                {cls.grades?.level} {cls.section}
-                                            </h3>
-                                            <p className="mt-0.5 text-sm text-muted-foreground">
-                                                {t('classYear')} {cls.year}
-                                            </p>
-
-                                            <div className="mt-4 flex items-center gap-2 rounded-input border border-border bg-muted/50 px-3 py-2 text-[13px] text-muted-foreground">
-                                                <Users className="size-4 shrink-0" />
-                                                <span>
-                                                    {typeof cls.students?.length === 'number'
-                                                        ? t('studentsEnrolled', {
-                                                            count: cls.students.length,
-                                                        })
-                                                        : t('rosterAvailable')}
-                                                </span>
-                                            </div>
-                                        </CardContent>
-
-                                        <CardFooter className="bg-muted/40">
-                                            <span className="flex w-full items-center justify-center gap-2 rounded-input border border-border bg-card py-2.5 text-[13px] font-semibold text-primary transition-colors group-hover:border-primary/40 group-hover:bg-primary-subtle">
-                                                <FileEdit className="size-4" />
-                                                {t('enterGradesAction')}
-                                                <ChevronRight className="size-4" />
-                                            </span>
-                                        </CardFooter>
-                                    </Card>
-                                </Link>
+                                    <CardFooter className="bg-muted/40 gap-2 p-3">
+                                        <Link
+                                            href={`/teacher/classes/${cls.id}/roster`}
+                                            className="flex flex-1 items-center justify-center gap-1.5 rounded-input border border-border bg-card py-2 text-xs font-semibold text-foreground transition-colors hover:bg-muted"
+                                        >
+                                            <Users className="size-3.5" />
+                                            {t('viewRosterAction')}
+                                        </Link>
+                                        <Link
+                                            href={`/teacher/classes/${cls.id}/grades`}
+                                            className="flex flex-1 items-center justify-center gap-1.5 rounded-input bg-brand-600 py-2 text-xs font-semibold text-white transition-colors hover:bg-brand-700"
+                                        >
+                                            <FileEdit className="size-3.5" />
+                                            {t('enterGradesAction')}
+                                        </Link>
+                                    </CardFooter>
+                                </Card>
                             </motion.div>
                         ))}
                     </motion.div>

@@ -1,12 +1,13 @@
 import type { JwtPayload } from '@edu-lanka/shared-types';
 import { DisasterReason, TenantPlan, UserRole } from '@edu-lanka/shared-types';
 import { ConflictException, ForbiddenException } from '@nestjs/common';
-import { Test, TestingModule } from '@nestjs/testing';
+import type { TestingModule } from '@nestjs/testing';
+import { Test } from '@nestjs/testing';
 
-import { TenantService } from '../tenant.service';
-import { SupabaseService } from '../../supabase/supabase.service';
 import { AuditLogsService } from '../../audit-logs/audit-logs.service';
 import { SmsService } from '../../sms/sms.service';
+import { SupabaseService } from '../../supabase/supabase.service';
+import { TenantService } from '../tenant.service';
 
 describe('Disaster Mode (TenantService)', () => {
     let service: TenantService;

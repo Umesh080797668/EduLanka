@@ -1,6 +1,8 @@
 // =============================================================================
 // School Policy Service
 // =============================================================================
+import type { JwtPayload } from '@edu-lanka/shared-types';
+import { UserRole } from '@edu-lanka/shared-types';
 import {
     Injectable,
     NotFoundException,
@@ -8,9 +10,9 @@ import {
     InternalServerErrorException,
     Logger,
 } from '@nestjs/common';
-import type { JwtPayload } from '@edu-lanka/shared-types';
-import { UserRole } from '@edu-lanka/shared-types';
+
 import { SupabaseService } from '../supabase/supabase.service';
+
 import { UpdatePolicyDto } from './dto/policy.dto';
 
 @Injectable()

@@ -1,6 +1,8 @@
 // =============================================================================
 // Students Module DTOs
 // =============================================================================
+import { Gender, ALStream, InstructionMedium } from '@edu-lanka/shared-types';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
     IsNotEmpty,
     IsString,
@@ -10,8 +12,6 @@ import {
     MaxLength,
     Matches,
 } from 'class-validator';
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { Gender, ALStream, InstructionMedium } from '@edu-lanka/shared-types';
 
 export class CreateStudentDto {
     @ApiProperty({ example: 'Kasun Perera' })

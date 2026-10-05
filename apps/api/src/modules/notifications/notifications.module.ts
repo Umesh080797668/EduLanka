@@ -1,7 +1,9 @@
 import { Module } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
-import { NotificationsGateway } from './notifications.gateway';
+
 import { SupabaseModule } from '../supabase/supabase.module';
+
+import { NotificationsGateway } from './notifications.gateway';
 
 @Module({
   imports: [SupabaseModule, JwtModule.register({})],

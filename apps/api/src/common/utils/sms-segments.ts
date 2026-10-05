@@ -19,6 +19,7 @@ export function calculateSmsSegments(text: string): {
     }
 
     // Standard GSM 03.38 basic character set + extension characters
+    // eslint-disable-next-line no-control-regex, no-useless-escape
     const isGsm7 = /^[@£$¥èéùìòÇ\nØø\rÅåΔ_ΦΓΛΩΠΨΣΘΞ\x1B\x0c^{}\[~\]\\|\u20ACÆæßÉ !"#%&'()*+,\-.\/0-9:;<=>?A-ZÄÖÑÜ§¿a-zäöñüà]*$/.test(text);
     const charCount = Array.from(text).length;
 

@@ -1,6 +1,8 @@
 import { Module } from '@nestjs/common';
+
 import { SupabaseModule } from '../supabase/supabase.module';
 import { TenantModule } from '../tenant/tenant.module';
+
 import { ParentsController } from './parents.controller';
 import { ParentsService } from './parents.service';
 

@@ -1,7 +1,9 @@
-import { Test, TestingModule } from '@nestjs/testing';
-import { ClassesService } from '../classes.service';
-import { SupabaseService } from '../../supabase/supabase.service';
+import type { TestingModule } from '@nestjs/testing';
+import { Test } from '@nestjs/testing';
+
 import { ChatService } from '../../chat/chat.service';
+import { SupabaseService } from '../../supabase/supabase.service';
+import { ClassesService } from '../classes.service';
 
 describe('ClassesService', () => {
   let service: ClassesService;

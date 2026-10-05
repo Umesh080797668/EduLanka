@@ -7,10 +7,9 @@ import {
     UserRole,
 } from '@edu-lanka/shared-types';
 import { ForbiddenException, ConflictException, NotFoundException } from '@nestjs/common';
-import { Test, TestingModule } from '@nestjs/testing';
+import type { TestingModule } from '@nestjs/testing';
+import { Test } from '@nestjs/testing';
 
-import { TenantService } from '../tenant.service';
-import { SupabaseService } from '../../supabase/supabase.service';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -98,6 +97,8 @@ const buildMockSupabase = (overrides?: {
 
 import { AuditLogsService } from '../../audit-logs/audit-logs.service';
 import { SmsService } from '../../sms/sms.service';
+import { SupabaseService } from '../../supabase/supabase.service';
+import { TenantService } from '../tenant.service';
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
 

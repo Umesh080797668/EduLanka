@@ -1,16 +1,18 @@
+import { UserRole } from '@edu-lanka/shared-types';
+import type { JwtPayload } from '@edu-lanka/shared-types';
 import {
     Controller, Get, Post, Body, Param, UseGuards, HttpCode, HttpStatus
 } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
-import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
-import { TenantGuard } from '../../common/guards/tenant.guard';
-import { RolesGuard } from '../../common/guards/roles.guard';
-import { Roles } from '../../common/decorators/roles.decorator';
+
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
-import { UserRole } from '@edu-lanka/shared-types';
-import type { JwtPayload } from '@edu-lanka/shared-types';
-import { TutorialsService } from './tutorials.service';
+import { Roles } from '../../common/decorators/roles.decorator';
+import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+import { RolesGuard } from '../../common/guards/roles.guard';
+import { TenantGuard } from '../../common/guards/tenant.guard';
+
 import { CreateTutorialDto, UpdateTutorialStatusDto } from './dto/tutorial.dto';
+import { TutorialsService } from './tutorials.service';
 
 @ApiTags('tutorials')
 @Controller()
@@ -86,5 +88,14 @@ export class TutorialsController {
     @ApiOperation({ summary: 'Get global tutorial statistics (Super Admin)' })
     getGlobalStats() {
         return this.tutorialsService.getGlobalStats();
+    }
+
+    @Get('system-admin/tutorials')
+    @UseGuards(JwtAuthGuard, RolesGuard)
+    @Roles(UserRole.SUPER_ADMIN)
+    @ApiBearerAuth()
+    @ApiOperation({ summary: 'Get all global tutorials with steps (Super Admin)' })
+    getAllTutorials() {
+        return this.tutorialsService.getAllTutorials();
     }
 }

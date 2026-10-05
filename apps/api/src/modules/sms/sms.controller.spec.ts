@@ -1,9 +1,12 @@
-import { Test, TestingModule } from '@nestjs/testing';
-import { SmsController } from './sms.controller';
-import { ConfigService } from '@nestjs/config';
-import { SupabaseService } from '../supabase/supabase.service';
 import { HttpStatus } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import type { TestingModule } from '@nestjs/testing';
+import { Test } from '@nestjs/testing';
 import * as twilio from 'twilio';
+
+import { SupabaseService } from '../supabase/supabase.service';
+
+import { SmsController } from './sms.controller';
 
 jest.mock('twilio');
 

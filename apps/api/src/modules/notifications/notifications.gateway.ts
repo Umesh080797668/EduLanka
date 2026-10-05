@@ -1,3 +1,6 @@
+import { UserRole } from '@edu-lanka/shared-types';
+import { Logger, OnModuleInit } from '@nestjs/common';
+import { JwtService } from '@nestjs/jwt';
 import {
   WebSocketGateway,
   WebSocketServer,
@@ -8,11 +11,9 @@ import {
   ConnectedSocket,
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
-import { Logger, OnModuleInit } from '@nestjs/common';
-import { JwtService } from '@nestjs/jwt';
-import { UserRole } from '@edu-lanka/shared-types';
-import { SupabaseService } from '../supabase/supabase.service';
+
 import { RedisService } from '../redis/redis.service';
+import { SupabaseService } from '../supabase/supabase.service';
 
 @WebSocketGateway({
   transports: ['websocket', 'polling'], // Hybrid strategy

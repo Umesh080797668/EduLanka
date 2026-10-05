@@ -14,7 +14,6 @@ import {
     ParseUUIDPipe,
     Res,
 } from '@nestjs/common';
-import { FastifyReply } from 'fastify';
 import {
     ApiTags,
     ApiOperation,
@@ -23,19 +22,23 @@ import {
     ApiBearerAuth,
     ApiNoContentResponse,
 } from '@nestjs/swagger';
+import { FastifyReply } from 'fastify';
 
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
+
 import { AuthService } from './auth.service';
+import { ChangePasswordDto } from './dto/change-password.dto';
+import { CreateInquiryDto } from './dto/create-inquiry.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { LoginDto } from './dto/login.dto';
+import { LogoutDto } from './dto/logout.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { SignupDto } from './dto/signup.dto';
 import { UpdateInquiryStatusDto } from './dto/update-inquiry-status.dto';
-import { CreateInquiryDto } from './dto/create-inquiry.dto';
 
 @ApiTags('auth')
 @Controller('auth')
@@ -52,7 +55,7 @@ export class AuthController {
         const targetIdentifier = dto.identifier || dto.email || '';
         const tokens = await this.authService.login(targetIdentifier, dto.password);
 
-        res.header('Set-Cookie', [
+        void res.header('Set-Cookie', [
             `token=${tokens.accessToken}; HttpOnly; Secure; SameSite=Lax; Path=/`,
             `refreshToken=${tokens.refreshToken}; HttpOnly; Secure; SameSite=Lax; Path=/`
         ]);
@@ -72,7 +75,7 @@ export class AuthController {
     async signup(@Body() dto: SignupDto, @CurrentUser() caller: JwtPayload, @Res({ passthrough: true }) res: FastifyReply) {
         const tokens = await this.authService.signup(dto, caller);
 
-        res.header('Set-Cookie', [
+        void res.header('Set-Cookie', [
             `token=${tokens.accessToken}; HttpOnly; Secure; SameSite=Lax; Path=/`,
             `refreshToken=${tokens.refreshToken}; HttpOnly; Secure; SameSite=Lax; Path=/`
         ]);
@@ -89,7 +92,7 @@ export class AuthController {
     async selfRegister(@Body() dto: SignupDto, @Res({ passthrough: true }) res: FastifyReply) {
         const tokens = await this.authService.selfRegister(dto);
 
-        res.header('Set-Cookie', [
+        void res.header('Set-Cookie', [
             `token=${tokens.accessToken}; HttpOnly; Secure; SameSite=Lax; Path=/`,
             `refreshToken=${tokens.refreshToken}; HttpOnly; Secure; SameSite=Lax; Path=/`
         ]);
@@ -117,6 +120,18 @@ export class AuthController {
         return this.authService.resetPassword(dto.accessToken, dto.newPassword);
     }
 
+    // ── POST /auth/change-password ─────────────────────────────────────────────
+    @Post('change-password')
+    @Version('1')
+    @HttpCode(HttpStatus.OK)
+    @UseGuards(JwtAuthGuard)
+    @ApiBearerAuth()
+    @ApiOperation({ summary: 'Change password for authenticated user' })
+    @ApiOkResponse({ description: 'Password changed successfully' })
+    changePassword(@Body() dto: ChangePasswordDto, @CurrentUser() user: JwtPayload) {
+        return this.authService.changePassword(user.sub, dto.currentPassword, dto.newPassword);
+    }
+
     // ── POST /auth/refresh ─────────────────────────────────────────────────────
     @Post('refresh')
     @Version('1')
@@ -126,7 +141,7 @@ export class AuthController {
     async refresh(@Body() dto: RefreshTokenDto, @Res({ passthrough: true }) res: FastifyReply) {
         const tokens = await this.authService.refreshTokens(dto.refreshToken);
 
-        res.header('Set-Cookie', [
+        void res.header('Set-Cookie', [
             `token=${tokens.accessToken}; HttpOnly; Secure; SameSite=Lax; Path=/`,
             `refreshToken=${tokens.refreshToken}; HttpOnly; Secure; SameSite=Lax; Path=/`
         ]);
@@ -142,8 +157,18 @@ export class AuthController {
     @ApiBearerAuth()
     @ApiOperation({ summary: 'Revoke the refresh token (logout)' })
     @ApiNoContentResponse({ description: 'Logged out — refresh token revoked' })
-    async logout(@CurrentUser() user: JwtPayload, @Body() dto: RefreshTokenDto) {
-        await this.authService.logout(user, dto.refreshToken);
+    async logout(
+        @CurrentUser() user: JwtPayload,
+        @Body() dto: LogoutDto,
+        @Res({ passthrough: true }) res: FastifyReply
+    ) {
+        if (dto?.refreshToken) {
+            await this.authService.logout(user, dto.refreshToken);
+        }
+        void res.header('Set-Cookie', [
+            'token=; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=0',
+            'refreshToken=; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=0'
+        ]);
     }
 
     // ── POST /auth/inquiries ───────────────────────────────────────────────────

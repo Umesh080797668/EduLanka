@@ -1,8 +1,11 @@
-import { Test, TestingModule } from '@nestjs/testing';
-import { ReportCardsService } from '../report-cards.service';
+import { UserRole } from '@edu-lanka/shared-types';
+import type { TestingModule } from '@nestjs/testing';
+import { Test } from '@nestjs/testing';
+
 import { SupabaseService } from '../../supabase/supabase.service';
 import { TenantService } from '../../tenant/tenant.service';
-import { UserRole } from '@edu-lanka/shared-types';
+import { ReportCardsService } from '../report-cards.service';
+
 
 describe('ReportCardsService', () => {
     let service: ReportCardsService;

@@ -3,6 +3,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import Redis from 'ioredis';
 
 import type { AppConfiguration } from '../../config/configuration';
+
 import { RedisService } from './redis.service';
 
 /**

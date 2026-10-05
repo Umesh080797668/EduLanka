@@ -67,6 +67,7 @@ const itemVariants: any = {
 
 export default function InstitutionAdminDashboard() {
     const t = useTranslations('InstitutionAdminDashboard');
+    const tDisaster = useTranslations('DisasterMode');
     const [stats, setStats] = useState<any>(null);
     const [tutorials, setTutorials] = useState<TutorialStat[]>([]);
     const [isDisasterModalOpen, setDisasterModalOpen] = useState(false);
@@ -75,6 +76,18 @@ export default function InstitutionAdminDashboard() {
     const [historyList, setHistoryList] = useState<any[]>([]);
     const [loadingHistory, setLoadingHistory] = useState(false);
     const [loading, setLoading] = useState(true);
+
+    const formatReason = (reason?: string) => {
+        if (!reason) return tDisaster('emergency');
+        switch (reason.toUpperCase()) {
+            case 'FLOOD': return tDisaster('flood');
+            case 'CYCLONE': return tDisaster('cyclone');
+            case 'LANDSLIDE': return tDisaster('landslide');
+            case 'CIVIL_PUBLIC_HEALTH': return tDisaster('publicHealth');
+            case 'OTHER': return tDisaster('other');
+            default: return reason;
+        }
+    };
 
     useEffect(() => {
         const fetchStats = async () => {
@@ -102,7 +115,7 @@ export default function InstitutionAdminDashboard() {
 
     const triggerDisasterMode = async (reason: string, resumeDate: string, language: 'EN' | 'SI' | 'TA' = 'EN') => {
         try {
-            await apiClient.post('/tenants/disaster-mode/activate', { reason, resumeDate, language });
+            await apiClient.post('/tenants/disaster-mode/activate', { reason, resumeDate, language }, { skipGlobalToast: true });
             toast.success(t('disasterSuccess'), {
                 description: t('disasterSuccessDesc'),
             });
@@ -110,7 +123,7 @@ export default function InstitutionAdminDashboard() {
             setTimeout(() => window.location.reload(), 1500);
         } catch (e: any) {
             toast.error(t('disasterFailed'), {
-                description: e?.response?.data?.message || t('disasterFailedDesc'),
+                description: e?.message || t('disasterFailedDesc'),
             });
             setDisasterModalOpen(false);
         }
@@ -118,13 +131,13 @@ export default function InstitutionAdminDashboard() {
 
     const handleDeactivate = async () => {
         try {
-            await apiClient.post('/tenants/disaster-mode/deactivate', {});
+            await apiClient.post('/tenants/disaster-mode/deactivate', {}, { skipGlobalToast: true });
             toast.success(t('deactivateSuccess'));
             setDeactivateOpen(false);
             setTimeout(() => window.location.reload(), 1500);
         } catch (e: any) {
             toast.error(t('deactivateFailed'), {
-                description: e?.response?.data?.message,
+                description: e?.message,
             });
             setDeactivateOpen(false);
         }
@@ -232,8 +245,8 @@ export default function InstitutionAdminDashboard() {
                                     <p className="mt-1 text-xs leading-relaxed text-white/70">
                                         {stats?.disasterMode
                                             ? t('disasterActiveDesc', {
-                                                reason: stats.disasterReason || 'Emergency',
-                                                date: stats.disasterResumeDate || 'TBD',
+                                                reason: formatReason(stats.disasterReason),
+                                                date: stats.disasterResumeDate || tDisaster('tbd'),
                                             })
                                             : t('disasterModeDesc')}
                                     </p>

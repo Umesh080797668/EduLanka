@@ -1,8 +1,7 @@
-import { Injectable, BadRequestException, NotFoundException, Logger } from '@nestjs/common';
+import { Injectable, BadRequestException, NotFoundException, Logger , NestMiddleware } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { createClient } from '@supabase/supabase-js';
 import type { FastifyRequest } from 'fastify';
-import { NestMiddleware } from '@nestjs/common';
 
 import type { AppConfiguration } from '../../config/configuration';
 
@@ -64,7 +63,7 @@ export class TenantContextMiddleware implements NestMiddleware {
         const isSuperAdminTenantRoute =
             (req.method === 'POST' && path === '/api/v1/tenants') ||
             (req.method === 'GET' && path === '/api/v1/tenants') ||
-            (req.method === 'PATCH' && path.match(/^.*\/api\/v1\/tenants\/[^\/]+\/status$/));
+            (req.method === 'PATCH' && path.match(/^.*\/api\/v1\/tenants\/[^/]+\/status$/));
 
         if (isSuperAdminTenantRoute) {
             return next();

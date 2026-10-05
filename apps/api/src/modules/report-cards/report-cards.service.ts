@@ -1,6 +1,7 @@
-import { Injectable, Logger, InternalServerErrorException, NotFoundException, ForbiddenException } from '@nestjs/common';
 import type { JwtPayload } from '@edu-lanka/shared-types';
 import { UserRole } from '@edu-lanka/shared-types';
+import { Injectable, Logger, InternalServerErrorException, NotFoundException, ForbiddenException } from '@nestjs/common';
+
 import { SupabaseService } from '../supabase/supabase.service';
 import { TenantService } from '../tenant/tenant.service';
 
@@ -63,7 +64,7 @@ export class ReportCardsService {
                 doc.fontSize(20).text(`EduLanka Report Card - ${tenant.name}`, { align: 'center' });
                 doc.moveDown();
 
-                doc.fontSize(12).text(`Student Name: ${(student.users as any)?.full_name ?? 'Unknown'}`);
+                doc.fontSize(12).text(`Student Name: ${(student.users)?.full_name ?? 'Unknown'}`);
                 doc.text(`Admission Number: ${student.admission_no}`);
                 doc.text(`Academic Year: ${year}   |   Term: ${term}`);
                 doc.moveDown();

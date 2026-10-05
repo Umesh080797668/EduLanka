@@ -1,3 +1,5 @@
+import type { JwtPayload } from '@edu-lanka/shared-types';
+import { UserRole } from '@edu-lanka/shared-types';
 import {
     Injectable,
     NotFoundException,
@@ -6,9 +8,9 @@ import {
     Logger,
     ForbiddenException,
 } from '@nestjs/common';
-import type { JwtPayload } from '@edu-lanka/shared-types';
-import { UserRole } from '@edu-lanka/shared-types';
+
 import { SupabaseService } from '../supabase/supabase.service';
+
 import { CreateGradeDto, UpdateGradeDto } from './dto/grade.dto';
 
 @Injectable()

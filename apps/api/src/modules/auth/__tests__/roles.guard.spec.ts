@@ -1,7 +1,8 @@
 
 import { UserRole } from '@edu-lanka/shared-types';
-import { ExecutionContext, ForbiddenException } from '@nestjs/common';
-import { Reflector } from '@nestjs/core';
+import type { ExecutionContext} from '@nestjs/common';
+import { ForbiddenException } from '@nestjs/common';
+import type { Reflector } from '@nestjs/core';
 
 import { ROLES_KEY } from '../../../common/decorators/roles.decorator';
 import { RolesGuard } from '../../../common/guards/roles.guard';

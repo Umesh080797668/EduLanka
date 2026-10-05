@@ -1,6 +1,8 @@
 // =============================================================================
 // Classes Module DTOs
 // =============================================================================
+import { SubjectArea, InstructionMedium } from '@edu-lanka/shared-types';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
     IsInt,
     IsNotEmpty,
@@ -12,8 +14,6 @@ import {
     Max,
     Length,
 } from 'class-validator';
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { SubjectArea, InstructionMedium } from '@edu-lanka/shared-types';
 
 export class CreateClassDto {
     @ApiProperty({ description: 'Grade UUID referencing grades table' })

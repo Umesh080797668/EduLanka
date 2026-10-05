@@ -1,8 +1,10 @@
 import { Module } from '@nestjs/common';
-import { ReportCardsController } from './report-cards.controller';
-import { ReportCardsService } from './report-cards.service';
+
 import { SupabaseModule } from '../supabase/supabase.module';
 import { TenantModule } from '../tenant/tenant.module';
+
+import { ReportCardsController } from './report-cards.controller';
+import { ReportCardsService } from './report-cards.service';
 
 @Module({
     imports: [SupabaseModule, TenantModule],

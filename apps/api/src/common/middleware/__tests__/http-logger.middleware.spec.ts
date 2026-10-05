@@ -1,5 +1,6 @@
-import { HttpLoggerMiddleware } from '../http-logger.middleware';
 import { Logger } from '@nestjs/common';
+
+import { HttpLoggerMiddleware } from '../http-logger.middleware';
 
 describe('HttpLoggerMiddleware', () => {
     let middleware: HttpLoggerMiddleware;

@@ -1,5 +1,5 @@
-import { IsNumber, IsString, Min, Max, IsInt } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
+import { IsNumber, IsString, Min, Max, IsInt } from 'class-validator';
 
 export class CreateMarkDto {
     @ApiProperty({ description: 'ID of the student' })

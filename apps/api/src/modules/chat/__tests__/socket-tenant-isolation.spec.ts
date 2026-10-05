@@ -1,14 +1,18 @@
-import { Test, TestingModule } from '@nestjs/testing';
-import { ConfigModule } from '@nestjs/config';
-import { ForbiddenException } from '@nestjs/common';
-import { JwtService } from '@nestjs/jwt';
-import * as dotenv from 'dotenv';
 import * as path from 'path';
+
+import { ForbiddenException } from '@nestjs/common';
+import { ConfigModule } from '@nestjs/config';
+import { JwtService } from '@nestjs/jwt';
+import type { TestingModule } from '@nestjs/testing';
+import { Test } from '@nestjs/testing';
+import * as dotenv from 'dotenv';
+
+
+import { configuration } from '../../../config/configuration';
+import { RedisService } from '../../redis/redis.service';
+import { SupabaseService } from '../../supabase/supabase.service';
 import { ChatGateway } from '../chat.gateway';
 import { ChatService } from '../chat.service';
-import { SupabaseService } from '../../supabase/supabase.service';
-import { RedisService } from '../../redis/redis.service';
-import { configuration } from '../../../config/configuration';
 
 // Load environment variables from api .env file if present
 dotenv.config({ path: path.resolve(__dirname, '../../../../.env') });
@@ -312,10 +316,10 @@ async function withRetry<T extends { data?: any; error?: any }>(
     afterAll(async () => {
         const admin = supabaseService?.adminClient;
         if (admin) {
-            try { await admin.from('chat_participants').delete().eq('conversation_id', CONVERSATION_A); } catch {}
-            try { await admin.from('chat_conversations').delete().eq('id', CONVERSATION_A); } catch {}
-            try { await admin.from('users').delete().in('id', [USER_A, USER_B]); } catch {}
-            try { await admin.from('tenants').delete().in('id', [TENANT_A, TENANT_B]); } catch {}
+            try { await admin.from('chat_participants').delete().eq('conversation_id', CONVERSATION_A); } catch { /* ignore */ }
+            try { await admin.from('chat_conversations').delete().eq('id', CONVERSATION_A); } catch { /* ignore */ }
+            try { await admin.from('users').delete().in('id', [USER_A, USER_B]); } catch { /* ignore */ }
+            try { await admin.from('tenants').delete().in('id', [TENANT_A, TENANT_B]); } catch { /* ignore */ }
         }
         if (moduleRef) {
             await moduleRef.close().catch(() => {});

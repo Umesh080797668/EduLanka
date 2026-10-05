@@ -1,6 +1,8 @@
 // =============================================================================
 // School Policy Module DTOs
 // =============================================================================
+import { InstructionMedium } from '@edu-lanka/shared-types';
+import { ApiPropertyOptional } from '@nestjs/swagger';
 import {
     IsBoolean,
     IsEnum,
@@ -11,8 +13,6 @@ import {
     Min,
     Matches,
 } from 'class-validator';
-import { ApiPropertyOptional } from '@nestjs/swagger';
-import { InstructionMedium } from '@edu-lanka/shared-types';
 
 export class UpdatePolicyDto {
     @ApiPropertyOptional({ description: 'Academic year', example: 2026 })

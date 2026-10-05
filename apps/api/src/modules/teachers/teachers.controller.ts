@@ -1,17 +1,19 @@
 // =============================================================================
 // Teachers Controller
 // =============================================================================
+import type { JwtPayload } from '@edu-lanka/shared-types';
 import {
     Controller, Get, Post, Patch, Delete,
     Body, Param, ParseUUIDPipe, UseGuards, HttpCode, HttpStatus,
 } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
+
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { TenantGuard } from '../../common/guards/tenant.guard';
-import { CurrentUser } from '../../common/decorators/current-user.decorator';
-import type { JwtPayload } from '@edu-lanka/shared-types';
-import { TeachersService } from './teachers.service';
+
 import { CreateTeacherDto, UpdateTeacherDto } from './dto/teacher.dto';
+import { TeachersService } from './teachers.service';
 
 @ApiTags('teachers')
 @ApiBearerAuth()

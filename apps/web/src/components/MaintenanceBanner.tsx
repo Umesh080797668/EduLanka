@@ -38,7 +38,22 @@ export default function MaintenanceBanner() {
     }, []);
 
     React.useEffect(() => {
-        fetchNotices();
+        let isMounted = true;
+
+        const loadInitial = async () => {
+            try {
+                const data = await apiClient.get<MaintenanceNotice[]>('/notices/maintenance/active', {
+                    skipGlobalToast: true,
+                });
+                if (isMounted && Array.isArray(data)) {
+                    setNotices(data.filter((n) => n.is_active));
+                }
+            } catch {
+                // Ignore failure silently
+            }
+        };
+
+        void loadInitial();
 
         // ---------------- Realtime listener ----------------
         const notificationMethod = process.env.NEXT_PUBLIC_NOTIFICATION_METHOD || 'socket.io';
@@ -78,7 +93,10 @@ export default function MaintenanceBanner() {
             }
         }
 
-        return cleanup;
+        return () => {
+            isMounted = false;
+            cleanup();
+        };
     }, [fetchNotices]);
 
     const activeNotice = notices.find((n) => !dismissedIds.has(n.id));

@@ -1,6 +1,9 @@
-import { Test, TestingModule } from '@nestjs/testing';
-import { RedisService } from '../redis.service';
 import { Logger } from '@nestjs/common';
+import type { TestingModule } from '@nestjs/testing';
+import { Test } from '@nestjs/testing';
+
+import { RedisService } from '../redis.service';
+
 
 describe('RedisService', () => {
     let service: RedisService;

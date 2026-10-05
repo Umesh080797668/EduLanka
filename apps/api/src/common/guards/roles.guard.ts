@@ -1,4 +1,4 @@
-import type { JwtPayload } from '@edu-lanka/shared-types';
+import type { JwtPayload , UserRole } from '@edu-lanka/shared-types';
 import {
     Injectable,
     CanActivate,
@@ -9,7 +9,6 @@ import { Reflector } from '@nestjs/core';
 import type { FastifyRequest } from 'fastify';
 
 import { ROLES_KEY } from '../decorators/roles.decorator';
-import type { UserRole } from '@edu-lanka/shared-types';
 
 /**
  * RolesGuard — enforces role-based access control.
@@ -46,7 +45,7 @@ export class RolesGuard implements CanActivate {
             throw new ForbiddenException('No authenticated user found');
         }
 
-        if (!requiredRoles.includes(user.role as UserRole)) {
+        if (!requiredRoles.includes(user.role)) {
             throw new ForbiddenException(
                 `Role '${user.role}' is not authorised for this resource. Required: [${requiredRoles.join(', ')}]`,
             );

@@ -4,6 +4,7 @@ import Header from '@/components/layout/Header';
 import RouteGuard from './RouteGuard';
 import { SidebarProvider } from '@/components/layout/SidebarContext';
 import MaintenanceBanner from '@/components/MaintenanceBanner';
+import DisasterBanner from '@/components/DisasterBanner';
 
 export const metadata: Metadata = {
     title: 'Dashboard',
@@ -22,6 +23,7 @@ export default function DashboardLayout({
                     <Sidebar />
                     <div className="flex min-w-0 flex-1 flex-col">
                         <MaintenanceBanner />
+                        <DisasterBanner />
                         <Header />
                         {/* id is the target of the root layout's skip-to-content link. */}
                         <main

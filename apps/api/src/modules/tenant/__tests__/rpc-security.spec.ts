@@ -1,6 +1,9 @@
-import { createClient, SupabaseClient } from '@supabase/supabase-js';
-import * as dotenv from 'dotenv';
 import * as path from 'path';
+
+import type { SupabaseClient } from '@supabase/supabase-js';
+import { createClient } from '@supabase/supabase-js';
+import * as dotenv from 'dotenv';
+
 
 // Load environment variables from api and web .env files if present
 dotenv.config({ path: path.resolve(__dirname, '../../../../.env') });

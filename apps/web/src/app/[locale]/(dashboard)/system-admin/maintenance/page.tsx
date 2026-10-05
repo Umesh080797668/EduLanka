@@ -71,8 +71,33 @@ export default function SystemAdminMaintenancePage() {
     }, [t]);
 
     React.useEffect(() => {
-        fetchNotices();
-    }, [fetchNotices]);
+        let isMounted = true;
+
+        const loadInitial = async () => {
+            try {
+                const data = await apiClient.get<MaintenanceNotice[]>('/notices/maintenance', {
+                    skipGlobalToast: true,
+                });
+                if (isMounted) {
+                    setNotices(Array.isArray(data) ? data : []);
+                }
+            } catch (e: any) {
+                if (isMounted) {
+                    toast.error(t('loadFailed'), { description: e?.message });
+                }
+            } finally {
+                if (isMounted) {
+                    setLoading(false);
+                }
+            }
+        };
+
+        void loadInitial();
+
+        return () => {
+            isMounted = false;
+        };
+    }, [t]);
 
     const activeNotices = React.useMemo(() => notices.filter((n) => n.is_active), [notices]);
 

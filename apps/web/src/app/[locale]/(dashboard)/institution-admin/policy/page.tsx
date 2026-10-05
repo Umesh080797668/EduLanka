@@ -3,7 +3,9 @@
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import {
+    BarChart3,
     Building2,
+    Calendar,
     Clock,
     Languages,
     MapPin,
@@ -383,6 +385,58 @@ export default function SchoolPolicyPage() {
                             </div>
                         </CardContent>
                     </Card>
+
+                    {/* ── Grading Calendar & Feature Limits ──────────────── */}
+                    <div className="grid gap-6 md:grid-cols-2">
+                        {/* Grading intervals */}
+                        <Card id="grading-interval-setting">
+                            <CardHeader>
+                                <CardTitle as="h2" className="flex items-center gap-2">
+                                    <Calendar className="size-4 text-primary" />
+                                    {t('gradingIntervals')}
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent className="space-y-4">
+                                <Field label={t('gradingStructure')} htmlFor="grading-structure">
+                                    <Select id="grading-structure" defaultValue="3_TERMS">
+                                        <option value="3_TERMS">{t('standard3Terms')}</option>
+                                        <option value="2_SEMESTERS">{t('semesters2')}</option>
+                                    </Select>
+                                </Field>
+                                <div className="rounded-input border border-border bg-muted/40 p-3 text-xs text-muted-foreground">
+                                    Active Academic Year: <strong>{formData.academic_year || 2026}</strong> — 3 Terms
+                                </div>
+                            </CardContent>
+                        </Card>
+
+                        {/* Tenant limits */}
+                        <Card id="tenant-limits">
+                            <CardHeader>
+                                <CardTitle as="h2" className="flex items-center gap-2">
+                                    <BarChart3 className="size-4 text-info" />
+                                    {t('tenantLimits')}
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent className="space-y-3">
+                                <div className="flex items-center justify-between py-1 border-b border-border">
+                                    <span className="text-sm font-medium text-foreground">{t('subscriptionTier')}</span>
+                                    <Badge tone="primary">{tenant?.plan || 'COMMUNITY'}</Badge>
+                                </div>
+                                <div className="flex items-center justify-between py-1 border-b border-border">
+                                    <span className="text-sm font-medium text-foreground">{t('studentCap')}</span>
+                                    <span className="text-sm text-muted-foreground">
+                                        {tenant?.plan === 'INSTITUTIONAL' ? t('unlimited') : t('freeTierCap')}
+                                    </span>
+                                </div>
+                                <div className="flex items-center justify-between py-1">
+                                    <span className="text-sm font-medium text-foreground">{t('smsFeature')}</span>
+                                    <Badge tone={smsApproved ? 'success' : 'neutral'}>
+                                        {smsApproved ? t('approved') : t('notApproved')}
+                                    </Badge>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    </div>
 
                     <div className="flex justify-end">
                         <Button

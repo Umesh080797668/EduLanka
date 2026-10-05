@@ -1,6 +1,8 @@
 // =============================================================================
 // Students Service
 // =============================================================================
+import type { JwtPayload } from '@edu-lanka/shared-types';
+import { UserRole } from '@edu-lanka/shared-types';
 import {
     Injectable,
     NotFoundException,
@@ -9,10 +11,10 @@ import {
     InternalServerErrorException,
     Logger,
 } from '@nestjs/common';
-import type { JwtPayload } from '@edu-lanka/shared-types';
-import { UserRole } from '@edu-lanka/shared-types';
-import { SupabaseService } from '../supabase/supabase.service';
+
 import { ChatService } from '../chat/chat.service';
+import { SupabaseService } from '../supabase/supabase.service';
+
 import { CreateStudentDto, UpdateStudentDto, AssignClassDto } from './dto/student.dto';
 
 @Injectable()
@@ -47,7 +49,7 @@ export class StudentsService {
         );
 
         let identityEmail = dto.email;
-        let identityPhone = dto.phoneNumber;
+        const identityPhone = dto.phoneNumber;
 
         const authPayload: any = {
             password: dto.temporaryPassword,
@@ -174,7 +176,7 @@ export class StudentsService {
         const userMap = new Map();
         if (usersData) usersData.forEach((u: any) => userMap.set(u.id, u));
 
-        let students = data ?? [];
+        const students = data ?? [];
         students.forEach((s: any) => {
             s.classes = classMap.get(s.class_id);
             s.users = userMap.get(s.user_id);

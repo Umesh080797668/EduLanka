@@ -1,6 +1,8 @@
 // =============================================================================
 // Classes Service
 // =============================================================================
+import type { JwtPayload } from '@edu-lanka/shared-types';
+import { UserRole } from '@edu-lanka/shared-types';
 import {
     Injectable,
     NotFoundException,
@@ -9,10 +11,10 @@ import {
     InternalServerErrorException,
     Logger,
 } from '@nestjs/common';
-import type { JwtPayload } from '@edu-lanka/shared-types';
-import { UserRole } from '@edu-lanka/shared-types';
-import { SupabaseService } from '../supabase/supabase.service';
+
 import { ChatService } from '../chat/chat.service';
+import { SupabaseService } from '../supabase/supabase.service';
+
 import { CreateClassDto, UpdateClassDto, AssignTeacherDto } from './dto/class.dto';
 
 @Injectable()
@@ -133,7 +135,7 @@ export class ClassesService {
 
         const { data, error } = await db
             .from('classes')
-            .select('*, class_teachers(id, is_homeroom, subject, teacher_id, teachers(id, user_id, users(full_name, email))), students(id, admission_no, users(full_name, email))')
+            .select('*, class_teachers(id, is_homeroom, subject, teacher_id, teachers(id, user_id, users(full_name, email))), students(id, admission_no, gender, users(full_name, email, phone_number))')
             .eq('id', id)
             .maybeSingle();
 

@@ -1,6 +1,8 @@
 // =============================================================================
 // Users Service
 // =============================================================================
+import type { JwtPayload } from '@edu-lanka/shared-types';
+import { UserRole } from '@edu-lanka/shared-types';
 import {
     Injectable,
     NotFoundException,
@@ -9,9 +11,9 @@ import {
     InternalServerErrorException,
     Logger,
 } from '@nestjs/common';
-import type { JwtPayload } from '@edu-lanka/shared-types';
-import { UserRole } from '@edu-lanka/shared-types';
+
 import { SupabaseService } from '../supabase/supabase.service';
+
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 
@@ -201,7 +203,26 @@ export class UsersService {
     }
 
     async update(id: string, dto: UpdateUserDto, caller: JwtPayload) {
-        this.guardAdmin(caller);
+        if (id !== caller.sub) {
+            this.guardAdmin(caller);
+        }
+
+        if (caller.role === UserRole.SUPER_ADMIN && id === caller.sub) {
+            const { data, error } = await this.supabase.adminClient
+                .from('platform_admins')
+                .update({
+                    ...(dto.fullName && { full_name: dto.fullName }),
+                    ...(dto.phoneNumber !== undefined && { phone_number: dto.phoneNumber }),
+                })
+                .eq('id', id)
+                .select()
+                .maybeSingle();
+
+            if (error) throw new InternalServerErrorException('Failed to update platform admin profile: ' + error.message);
+            if (!data) throw new NotFoundException(`Platform admin ${id} not found`);
+            return data;
+        }
+
         const slug = caller.tenantId;
         const db = this.supabase.getTenantClient(slug);
 

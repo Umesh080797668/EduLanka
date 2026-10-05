@@ -1,6 +1,8 @@
 // =============================================================================
 // Teachers Service
 // =============================================================================
+import type { JwtPayload } from '@edu-lanka/shared-types';
+import { UserRole } from '@edu-lanka/shared-types';
 import {
     Injectable,
     NotFoundException,
@@ -9,9 +11,9 @@ import {
     InternalServerErrorException,
     Logger,
 } from '@nestjs/common';
-import type { JwtPayload } from '@edu-lanka/shared-types';
-import { UserRole } from '@edu-lanka/shared-types';
+
 import { SupabaseService } from '../supabase/supabase.service';
+
 import { CreateTeacherDto, UpdateTeacherDto } from './dto/teacher.dto';
 
 @Injectable()
@@ -196,7 +198,7 @@ export class TeachersService {
 
         if (error) throw new InternalServerErrorException('Failed to fetch teacher classes');
 
-        let classList = data ?? [];
+        const classList = data ?? [];
         if (classList.length > 0) {
             const classIds = classList.map((ct: any) => ct.class_id);
             const { data: classData } = await db.from('classes').select('*').in('id', classIds);

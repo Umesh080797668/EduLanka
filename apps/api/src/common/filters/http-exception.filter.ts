@@ -7,10 +7,10 @@ import {
     HttpStatus,
     Logger,
 } from '@nestjs/common';
+import { HttpAdapterHost } from '@nestjs/core';
 import type { FastifyRequest } from 'fastify';
 
 
-import { HttpAdapterHost } from '@nestjs/core';
 
 /**
  * Global HTTP exception filter.

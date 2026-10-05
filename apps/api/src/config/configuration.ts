@@ -16,7 +16,7 @@ export const configuration = () => ({
         serviceRoleKey: process.env['SUPABASE_SERVICE_ROLE_KEY'] as string,
     },
     redis: {
-        url: process.env['REDIS_URL'] as string | undefined,
+        url: process.env['REDIS_URL'],
         host: process.env['REDIS_HOST'] ?? 'localhost',
         port: parseInt(process.env['REDIS_PORT'] ?? '6379', 10),
         password: process.env['REDIS_PASSWORD'] ?? '',
@@ -27,11 +27,11 @@ export const configuration = () => ({
         refreshExpiresIn: process.env['JWT_REFRESH_EXPIRES_IN'] ?? '7d',
     },
     twilio: {
-        accountSid: process.env['TWILIO_ACCOUNT_SID'] as string | undefined,
-        authToken: process.env['TWILIO_AUTH_TOKEN'] as string | undefined,
-        fromNumber: process.env['TWILIO_FROM_NUMBER'] as string | undefined,
-        senderId: process.env['TWILIO_SENDER_ID'] as string | undefined,
-        webhookUrl: process.env['TWILIO_WEBHOOK_URL'] as string | undefined,
+        accountSid: process.env['TWILIO_ACCOUNT_SID'],
+        authToken: process.env['TWILIO_AUTH_TOKEN'],
+        fromNumber: process.env['TWILIO_FROM_NUMBER'],
+        senderId: process.env['TWILIO_SENDER_ID'],
+        webhookUrl: process.env['TWILIO_WEBHOOK_URL'],
     },
 });
 

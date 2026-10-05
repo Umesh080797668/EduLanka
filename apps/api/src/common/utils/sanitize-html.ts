@@ -51,6 +51,7 @@ const BARE_AMPERSAND = /&(?!(?:[a-zA-Z][a-zA-Z0-9]{1,31}|#\d{1,7}|#[xX][0-9a-fA-
  * `java&#9;script:` and `java script:` must both collapse before the scheme is
  * read — otherwise a prefix test sees a harmless-looking `java`.
  */
+// eslint-disable-next-line no-control-regex
 const URL_NOISE = /[\u0000-\u0020\u007f-\u009f]/g;
 
 /**
@@ -78,7 +79,7 @@ function isSafeUrl(value: string): boolean {
     if (!normalized) return false;
     // A scheme is only present when the colon precedes any `/`, `?` or `#`.
     const scheme = /^([a-z][a-z0-9+.-]*):/.exec(normalized);
-    if (scheme) return /^(?:https?|mailto|tel)$/.test(scheme[1]!);
+    if (scheme) return /^(?:https?|mailto|tel)$/.test(scheme[1]);
     return true; // relative path, protocol-relative `//host`, or `#fragment`
 }
 
@@ -105,7 +106,7 @@ function buildAttributes(tag: string, raw: string): string {
 
     let match: RegExpExecArray | null;
     while ((match = ATTR.exec(raw)) !== null) {
-        const name = match[1]!.toLowerCase();
+        const name = match[1].toLowerCase();
         if (!allowed.includes(name)) continue;
 
         const value = match[2] ?? match[3] ?? match[4] ?? '';
@@ -149,7 +150,7 @@ export function sanitizeNoticeHtml(input: unknown): string {
         out += escapeText(html.slice(cursor, match.index));
         cursor = match.index + match[0].length;
 
-        const name = match[2]!.toLowerCase();
+        const name = match[2].toLowerCase();
         if (!ALLOWED_TAGS.has(name)) continue; // unwrap — children still render
 
         out += match[1]

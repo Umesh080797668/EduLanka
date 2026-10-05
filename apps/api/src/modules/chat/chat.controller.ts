@@ -1,9 +1,10 @@
 import { Controller, Get, Post, Delete, Body, Req, UseGuards, Param, Query, HttpCode, HttpStatus } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import { ChatService } from './chat.service';
-import { ChatGateway } from './chat.gateway';
 import { AuthGuard } from '@nestjs/passport';
 import { ThrottlerGuard } from '@nestjs/throttler';
+
+import { ChatGateway } from './chat.gateway';
+import { ChatService } from './chat.service';
 
 /**
  * Handshake tickets are deliberately short-lived: they exist only to survive the

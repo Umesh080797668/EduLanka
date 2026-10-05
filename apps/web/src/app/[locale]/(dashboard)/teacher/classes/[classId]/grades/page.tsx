@@ -53,6 +53,26 @@ export default function TeacherGradesPage() {
     const [term, setTerm] = useState(1);
     const [year, setYear] = useState(new Date().getFullYear());
     const [pageLoading, setPageLoading] = useState(true);
+    const [finalizing, setFinalizing] = useState(false);
+    const [isFinalized, setIsFinalized] = useState(false);
+
+    const handleFinalizeTerm = async () => {
+        if (!confirm(t('finalizeConfirm'))) return;
+        setFinalizing(true);
+        try {
+            await apiClient.post(
+                `/student-marks/class/${classId}/finalize?term=${term}&year=${year}`,
+                {},
+                { skipGlobalToast: true },
+            );
+            setIsFinalized(true);
+            toast.success(t('finalizeTermSuccess'));
+        } catch (e: any) {
+            toast.error(e?.message || 'Failed to finalize term');
+        } finally {
+            setFinalizing(false);
+        }
+    };
 
     useEffect(() => {
         const loadClassDetails = async () => {
@@ -193,15 +213,27 @@ export default function TeacherGradesPage() {
                             </Badge>
                         ) : undefined
                     }
+                    actions={
+                        <Button
+                            id="finalize-term-btn"
+                            variant={isFinalized ? 'outline' : 'secondary'}
+                            onClick={handleFinalizeTerm}
+                            loading={finalizing}
+                            disabled={pageLoading || students.length === 0}
+                            leadingIcon={<CheckCircle2 className="size-4" />}
+                        >
+                            {isFinalized ? t('saved') : t('finalizeTerm')}
+                        </Button>
+                    }
                 />
 
                 <div className="space-y-6">
                     {/* ── Entry context ─────────────────────────────────────── */}
                     <Card>
                         <CardContent className="grid gap-4 pt-5 sm:grid-cols-3">
-                            <Field label={t('subject')} htmlFor="subject">
+                            <Field label={t('subject')} htmlFor="subject-selector">
                                 <Select
-                                    id="subject"
+                                    id="subject-selector"
                                     value={subject}
                                     onChange={(e) => setSubject(e.target.value)}
                                 >
@@ -212,9 +244,9 @@ export default function TeacherGradesPage() {
                                 </Select>
                             </Field>
 
-                            <Field label={t('academicTerm')} htmlFor="term">
+                            <Field label={t('academicTerm')} htmlFor="term-selector">
                                 <Select
-                                    id="term"
+                                    id="term-selector"
                                     value={term}
                                     onChange={(e) => setTerm(Number(e.target.value))}
                                 >
@@ -252,7 +284,7 @@ export default function TeacherGradesPage() {
                             )}
                         </AnimatePresence>
 
-                        <TableWrap>
+                        <TableWrap id="marks-table">
                             <Table>
                                 <THead>
                                     <TR>

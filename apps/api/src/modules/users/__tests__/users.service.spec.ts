@@ -1,8 +1,10 @@
 
-import { Test, TestingModule } from '@nestjs/testing';
-import { UsersService } from '../users.service';
+import type { TestingModule } from '@nestjs/testing';
+import { Test } from '@nestjs/testing';
+
 import { SupabaseService } from '../../supabase/supabase.service';
 import { TenantService } from '../../tenant/tenant.service';
+import { UsersService } from '../users.service';
 
 describe('UsersService', () => {
   let service: UsersService;

@@ -1,9 +1,12 @@
-import { Test, TestingModule } from '@nestjs/testing';
-import { ParentsService } from '../parents.service';
+import { UserRole, ParentRelationship } from '@edu-lanka/shared-types';
+import { ForbiddenException, ConflictException, NotFoundException } from '@nestjs/common';
+import type { TestingModule } from '@nestjs/testing';
+import { Test } from '@nestjs/testing';
+
 import { SupabaseService } from '../../supabase/supabase.service';
 import { TenantService } from '../../tenant/tenant.service';
-import { ForbiddenException, ConflictException, NotFoundException } from '@nestjs/common';
-import { UserRole, ParentRelationship } from '@edu-lanka/shared-types';
+import { ParentsService } from '../parents.service';
+
 
 describe('ParentsService', () => {
   let service: ParentsService;

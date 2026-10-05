@@ -1,3 +1,4 @@
+import { UserRole } from '@edu-lanka/shared-types';
 import {
     Injectable,
     ForbiddenException,
@@ -5,11 +6,12 @@ import {
     NotFoundException,
     Logger,
 } from '@nestjs/common';
-import { UserRole } from '@edu-lanka/shared-types';
-import { SupabaseService } from '../supabase/supabase.service';
-import { SmsService } from '../sms/sms.service';
-import { NotificationsGateway } from '../notifications/notifications.gateway';
+
 import { sanitizeNoticeHtml, noticeHtmlToText } from '../../common/utils/sanitize-html';
+import { NotificationsGateway } from '../notifications/notifications.gateway';
+import { SmsService } from '../sms/sms.service';
+import { SupabaseService } from '../supabase/supabase.service';
+
 import { CreateNoticeDto, UpdateNoticeDto } from './dto/notices.dto';
 
 @Injectable()

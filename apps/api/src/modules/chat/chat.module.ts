@@ -1,9 +1,12 @@
 import { Module } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
-import { ChatService } from './chat.service';
+
+import { SupabaseModule } from '../supabase/supabase.module';
+
 import { ChatController } from './chat.controller';
 import { ChatGateway } from './chat.gateway';
-import { SupabaseModule } from '../supabase/supabase.module';
+import { ChatService } from './chat.service';
+
 
 @Module({
   imports: [SupabaseModule, JwtModule.register({})],

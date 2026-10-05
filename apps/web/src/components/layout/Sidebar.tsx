@@ -27,6 +27,7 @@ import {
 
 import { Link } from '@/i18n/routing';
 import { authManager } from '@/lib/auth-store';
+import { apiClient } from '@/lib/api-client';
 import { cn } from '@/lib/cn';
 import { Avatar } from '@/components/ui/Avatar';
 import { LanguageSwitcher } from '@/components/ui/LanguageSwitcher';
@@ -41,6 +42,7 @@ interface NavItem {
     icon: React.ElementType;
     /** Marks the item as an exact match so it doesn't stay lit on child routes. */
     exact?: boolean;
+    id?: string;
 }
 
 interface NavSection {
@@ -57,26 +59,30 @@ const NAV: Record<Role, NavSection[]> = {
     STUDENT: [
         {
             items: [
-                { nameKey: 'dashboard', href: '/student', icon: LayoutDashboard, exact: true },
-                { nameKey: 'gradesReports', href: '/student/grades', icon: GraduationCap },
-                { nameKey: 'chat', href: '/chat', icon: MessagesSquare },
+                { nameKey: 'dashboard', href: '/student', icon: LayoutDashboard, exact: true, id: 'nav-dashboard' },
+                { nameKey: 'gradesReports', href: '/student/grades', icon: GraduationCap, id: 'nav-grades' },
+                { nameKey: 'notices', href: '/notices', icon: Bell, id: 'nav-notices' },
+                { nameKey: 'chat', href: '/chat', icon: MessagesSquare, id: 'nav-chat' },
             ],
         },
     ],
     PARENT: [
         {
             items: [
-                { nameKey: 'dashboard', href: '/parent', icon: LayoutDashboard, exact: true },
-                { nameKey: 'chat', href: '/chat', icon: MessagesSquare },
+                { nameKey: 'dashboard', href: '/parent', icon: LayoutDashboard, exact: true, id: 'nav-dashboard' },
+                { nameKey: 'notices', href: '/notices', icon: Bell, id: 'nav-notices' },
+                { nameKey: 'chat', href: '/chat', icon: MessagesSquare, id: 'nav-chat' },
             ],
         },
     ],
     TEACHER: [
         {
             items: [
-                { nameKey: 'dashboard', href: '/teacher', icon: LayoutDashboard, exact: true },
-                { nameKey: 'classesGrades', href: '/teacher/classes', icon: BookOpen },
-                { nameKey: 'chat', href: '/chat', icon: MessagesSquare },
+                { nameKey: 'dashboard', href: '/teacher', icon: LayoutDashboard, exact: true, id: 'nav-dashboard' },
+                { nameKey: 'classes', href: '/teacher/classes', icon: BookOpen, id: 'nav-classes' },
+                { nameKey: 'gradebook', href: '/teacher/classes', icon: GraduationCap, id: 'nav-gradebook' },
+                { nameKey: 'notices', href: '/notices', icon: Bell, id: 'nav-notices' },
+                { nameKey: 'chat', href: '/chat', icon: MessagesSquare, id: 'nav-chat' },
             ],
         },
     ],
@@ -89,13 +95,14 @@ const NAV: Record<Role, NavSection[]> = {
                     href: '/institution-admin',
                     icon: LayoutDashboard,
                     exact: true,
+                    id: 'nav-dashboard',
                 },
             ],
         },
         {
             titleKey: 'sectionPeople',
             items: [
-                { nameKey: 'students', href: '/institution-admin/students', icon: Baby },
+                { nameKey: 'students', href: '/institution-admin/students', icon: Baby, id: 'nav-users' },
                 { nameKey: 'teachers', href: '/institution-admin/teachers', icon: UserCog },
                 { nameKey: 'parents', href: '/institution-admin/parents', icon: UserCheck },
             ],
@@ -114,7 +121,7 @@ const NAV: Record<Role, NavSection[]> = {
         {
             titleKey: 'sectionCommunication',
             items: [
-                { nameKey: 'notices', href: '/institution-admin/notices', icon: Bell },
+                { nameKey: 'notices', href: '/institution-admin/notices', icon: Bell, id: 'nav-notices' },
                 { nameKey: 'chat', href: '/chat', icon: MessagesSquare },
                 {
                     nameKey: 'inquiries',
@@ -126,7 +133,7 @@ const NAV: Record<Role, NavSection[]> = {
         {
             titleKey: 'sectionSettings',
             items: [
-                { nameKey: 'policy', href: '/institution-admin/policy', icon: Settings },
+                { nameKey: 'policy', href: '/institution-admin/policy', icon: Settings, id: 'nav-policies' },
             ],
         },
     ],
@@ -134,14 +141,15 @@ const NAV: Record<Role, NavSection[]> = {
         {
             titleKey: 'sectionOverview',
             items: [
-                { nameKey: 'dashboard', href: '/system-admin', icon: Server, exact: true },
+                { nameKey: 'dashboard', href: '/system-admin', icon: Server, exact: true, id: 'nav-dashboard' },
             ],
         },
         {
             titleKey: 'sectionPlatform',
             items: [
-                { nameKey: 'tenants', href: '/system-admin/tenants', icon: Building2 },
+                { nameKey: 'tenants', href: '/system-admin/tenants', icon: Building2, id: 'nav-tenants' },
                 { nameKey: 'users', href: '/system-admin/users', icon: Users },
+                { nameKey: 'tutorials', href: '/system-admin/tutorials', icon: BookOpen, id: 'nav-tutorials' },
             ],
         },
         {
@@ -149,7 +157,7 @@ const NAV: Record<Role, NavSection[]> = {
             items: [
                 { nameKey: 'smsGateway', href: '/system-admin/sms', icon: MessageSquare },
                 { nameKey: 'inquiries', href: '/system-admin/inquiries', icon: MessagesSquare },
-                { nameKey: 'maintenance', href: '/system-admin/maintenance', icon: Bell },
+                { nameKey: 'maintenance', href: '/system-admin/maintenance', icon: Bell, id: 'nav-infrastructure' },
             ],
         },
         {
@@ -166,6 +174,30 @@ const COLLAPSE_KEY = 'edulanka-sidebar-collapsed';
 /** Strips the leading locale segment so hrefs from `@/i18n/routing` compare cleanly. */
 function stripLocale(pathname: string): string {
     return pathname.replace(/^\/(?:en|si|ta)(?=\/|$)/, '') || '/';
+}
+
+export function getLoginRedirectUrl(pathname: string): string {
+    const segments = (pathname || '').split('/').filter(Boolean);
+    const firstSegment = segments[0];
+    const validLocales = ['en', 'si', 'ta'];
+    const currentLocale = validLocales.includes(firstSegment) ? firstSegment : 'en';
+    return `/${currentLocale}/login`;
+}
+
+export function performClientLogout(pathname: string) {
+    authManager.clearAuth();
+    if (typeof document !== 'undefined') {
+        document.cookie = 'token=; Path=/; Max-Age=0;';
+        document.cookie = 'refreshToken=; Path=/; Max-Age=0;';
+    }
+    const targetUrl = getLoginRedirectUrl(pathname);
+    if (typeof window !== 'undefined' && window.location) {
+        if (typeof window.location.assign === 'function') {
+            window.location.assign(targetUrl);
+        } else {
+            window.location.href = targetUrl;
+        }
+    }
 }
 
 export default function Sidebar() {
@@ -207,10 +239,13 @@ export default function Sidebar() {
             ? pathname === item.href
             : pathname === item.href || pathname.startsWith(`${item.href}/`);
 
-    const handleSignOut = () => {
-        authManager.clearAuth();
-        // Full reload so no stale client cache survives the session change.
-        window.location.href = '/login';
+    const handleSignOut = async () => {
+        try {
+            await apiClient.post('/auth/logout', {});
+        } catch {
+            // Ignore failure if already unauthenticated or offline
+        }
+        performClientLogout(rawPathname || '');
     };
 
     /** `mobile` forces the expanded layout inside the drawer. */
@@ -316,6 +351,7 @@ export default function Sidebar() {
                                     return (
                                         <li key={item.href + item.nameKey}>
                                             <Link
+                                                id={item.id}
                                                 href={item.href}
                                                 onClick={() => setIsOpen(false)}
                                                 aria-current={active ? 'page' : undefined}
@@ -360,17 +396,21 @@ export default function Sidebar() {
                     )}
                 >
                     {!isNarrow && role && (
-                        <div className="flex items-center gap-2.5 rounded-input bg-sidebar-accent px-2.5 py-2">
+                        <Link
+                            href="/profile"
+                            title={t('profile')}
+                            className="flex items-center gap-2.5 rounded-input bg-sidebar-accent px-2.5 py-2 transition-colors hover:bg-sidebar-accent/80"
+                        >
                             <Avatar name={displayName || roleLabel} size="sm" />
                             <div className="min-w-0 flex-1">
                                 <p className="truncate text-[11px] font-medium text-sidebar-muted">
                                     {t('signedInAs')}
                                 </p>
                                 <p className="truncate text-[13px] font-semibold capitalize text-white">
-                                    {roleLabel}
+                                    {displayName || roleLabel}
                                 </p>
                             </div>
-                        </div>
+                        </Link>
                     )}
 
                     {!isNarrow && (

@@ -1,15 +1,17 @@
 // =============================================================================
 // Classes Controller
 // =============================================================================
+import type { JwtPayload } from '@edu-lanka/shared-types';
 import {
     Controller, Get, Post, Patch, Delete, Query,
     Body, Param, UseGuards, HttpCode, HttpStatus,
 } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation, ApiQuery } from '@nestjs/swagger';
+
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { TenantGuard } from '../../common/guards/tenant.guard';
-import { CurrentUser } from '../../common/decorators/current-user.decorator';
-import type { JwtPayload } from '@edu-lanka/shared-types';
+
 import { ClassesService } from './classes.service';
 import { CreateClassDto, UpdateClassDto, AssignTeacherDto } from './dto/class.dto';
 

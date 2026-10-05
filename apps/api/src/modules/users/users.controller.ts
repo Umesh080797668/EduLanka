@@ -1,12 +1,14 @@
+import type { JwtPayload } from '@edu-lanka/shared-types';
 import { Controller, Get, Post, Patch, Delete, Body, Param, Query, ParseUUIDPipe, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation, ApiQuery } from '@nestjs/swagger';
+
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { TenantGuard } from '../../common/guards/tenant.guard';
-import { CurrentUser } from '../../common/decorators/current-user.decorator';
-import type { JwtPayload } from '@edu-lanka/shared-types';
-import { UsersService } from './users.service';
+
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
+import { UsersService } from './users.service';
 
 @ApiTags('users')
 @ApiBearerAuth()
@@ -19,6 +21,15 @@ export class UsersController {
     @ApiOperation({ summary: 'Get current user profile' })
     getMe(@CurrentUser() user: JwtPayload) {
         return this.usersService.getMe(user);
+    }
+
+    @Patch('me')
+    @ApiOperation({ summary: 'Update current user profile' })
+    updateMe(
+        @Body() dto: UpdateUserDto,
+        @CurrentUser() user: JwtPayload,
+    ) {
+        return this.usersService.update(user.sub, dto, user);
     }
 
     @Post()

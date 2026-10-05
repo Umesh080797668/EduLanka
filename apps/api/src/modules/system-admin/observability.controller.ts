@@ -1,8 +1,9 @@
+import { UserRole } from '@edu-lanka/shared-types';
 import { Controller, Get, UseGuards, Version } from '@nestjs/common';
+
+import { Roles } from '../../common/decorators/roles.decorator';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
-import { Roles } from '../../common/decorators/roles.decorator';
-import { UserRole } from '@edu-lanka/shared-types';
 import { RedisService } from '../redis/redis.service';
 import { SmsService } from '../sms/sms.service';
 

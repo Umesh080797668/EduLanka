@@ -1,10 +1,12 @@
+import { UserRole } from '@edu-lanka/shared-types';
 import { Controller, Get, Query, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
-import { AuditLogsService } from './audit-logs.service';
+
+import { Roles } from '../../common/decorators/roles.decorator';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
-import { Roles } from '../../common/decorators/roles.decorator';
-import { UserRole } from '@edu-lanka/shared-types';
+
+import { AuditLogsService } from './audit-logs.service';
 
 @ApiTags('audit-logs')
 @ApiBearerAuth()

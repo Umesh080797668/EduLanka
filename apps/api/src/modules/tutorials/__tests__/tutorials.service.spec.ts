@@ -1,8 +1,10 @@
-import { Test, TestingModule } from '@nestjs/testing';
-import { TutorialsService } from '../tutorials.service';
-import { SupabaseService } from '../../supabase/supabase.service';
-import { NotFoundException, InternalServerErrorException } from '@nestjs/common';
 import { UserRole } from '@edu-lanka/shared-types';
+import { NotFoundException, InternalServerErrorException } from '@nestjs/common';
+import type { TestingModule } from '@nestjs/testing';
+import { Test } from '@nestjs/testing';
+
+import { SupabaseService } from '../../supabase/supabase.service';
+import { TutorialsService } from '../tutorials.service';
 
 describe('TutorialsService', () => {
     let service: TutorialsService;

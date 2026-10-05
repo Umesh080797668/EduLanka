@@ -1,14 +1,16 @@
 // =============================================================================
 // School Policy Controller
 // =============================================================================
+import type { JwtPayload } from '@edu-lanka/shared-types';
 import { Controller, Get, Patch, Body, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
+
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { TenantGuard } from '../../common/guards/tenant.guard';
-import { CurrentUser } from '../../common/decorators/current-user.decorator';
-import type { JwtPayload } from '@edu-lanka/shared-types';
-import { SchoolPolicyService } from './school-policy.service';
+
 import { UpdatePolicyDto } from './dto/policy.dto';
+import { SchoolPolicyService } from './school-policy.service';
 
 @ApiTags('school-policy')
 @ApiBearerAuth()

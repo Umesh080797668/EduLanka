@@ -97,6 +97,6 @@ export class SupabaseService implements OnModuleInit {
                 }
                 return Reflect.get(target, prop, receiver);
             }
-        }) as AnySupabaseClient;
+        });
     }
 }

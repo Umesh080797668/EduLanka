@@ -1,11 +1,12 @@
 import { Processor, WorkerHost, OnWorkerEvent } from '@nestjs/bullmq';
 import { Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { Job } from 'bullmq';
 import { Twilio } from 'twilio';
-import { ConfigService } from '@nestjs/config';
+
 import { AppConfiguration } from '../../config/configuration';
-import { SupabaseService } from '../supabase/supabase.service';
 import { RedisService } from '../redis/redis.service';
+import { SupabaseService } from '../supabase/supabase.service';
 
 export interface SmsJobPayload {
     to: string;

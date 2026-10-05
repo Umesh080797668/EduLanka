@@ -1,3 +1,4 @@
+import { Type } from 'class-transformer';
 import {
     IsString,
     IsEnum,
@@ -10,7 +11,6 @@ import {
     Max,
     IsNotEmpty,
 } from 'class-validator';
-import { Type } from 'class-transformer';
 
 export enum NoticeScope {
     UNIVERSAL = 'UNIVERSAL',

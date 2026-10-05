@@ -1,11 +1,13 @@
+import type { JwtPayload } from '@edu-lanka/shared-types';
 import { Controller, Post, Get, Patch, Delete, Body, Param, UseGuards, ParseUUIDPipe } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
+
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { TenantGuard } from '../../common/guards/tenant.guard';
-import { CurrentUser } from '../../common/decorators/current-user.decorator';
-import type { JwtPayload } from '@edu-lanka/shared-types';
-import { GradesService } from './grades.service';
+
 import { CreateGradeDto, UpdateGradeDto } from './dto/grade.dto';
+import { GradesService } from './grades.service';
 
 @ApiTags('Grades')
 @ApiBearerAuth()

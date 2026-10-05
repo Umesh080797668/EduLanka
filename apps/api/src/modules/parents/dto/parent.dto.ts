@@ -1,9 +1,9 @@
 // =============================================================================
 // Parents Module DTOs
 // =============================================================================
-import { IsNotEmpty, IsEnum, IsOptional, IsString, Matches, ValidateIf } from 'class-validator';
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { ParentRelationship } from '@edu-lanka/shared-types';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { IsNotEmpty, IsEnum, IsOptional, IsString, Matches, ValidateIf } from 'class-validator';
 
 export class LinkStudentDto {
     @ApiProperty({ description: 'Student UUID to link to this parent' })

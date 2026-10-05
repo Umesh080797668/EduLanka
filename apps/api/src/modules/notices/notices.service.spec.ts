@@ -1,11 +1,16 @@
-import { Test, TestingModule } from '@nestjs/testing';
-import { NoticesService } from './notices.service';
-import { SupabaseService } from '../supabase/supabase.service';
-import { SmsService } from '../sms/sms.service';
-import { NotificationsGateway } from '../notifications/notifications.gateway';
-import { ForbiddenException, BadRequestException, NotFoundException } from '@nestjs/common';
 import { UserRole } from '@edu-lanka/shared-types';
+import { ForbiddenException, BadRequestException, NotFoundException } from '@nestjs/common';
+import type { TestingModule } from '@nestjs/testing';
+import { Test } from '@nestjs/testing';
+
+import { NotificationsGateway } from '../notifications/notifications.gateway';
+import { SmsService } from '../sms/sms.service';
+import { SupabaseService } from '../supabase/supabase.service';
+
 import { NoticeScope } from './dto/notices.dto';
+import { NoticesService } from './notices.service';
+
+
 
 describe('NoticesService', () => {
   let service: NoticesService;

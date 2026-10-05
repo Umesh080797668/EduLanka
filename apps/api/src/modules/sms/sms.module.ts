@@ -1,8 +1,9 @@
-import { Module, Global } from '@nestjs/common';
 import { BullModule } from '@nestjs/bullmq';
-import { SmsService } from './sms.service';
-import { SmsProcessor } from './sms.processor';
+import { Module, Global } from '@nestjs/common';
+
 import { SmsController } from './sms.controller';
+import { SmsProcessor } from './sms.processor';
+import { SmsService } from './sms.service';
 
 @Global()
 @Module({

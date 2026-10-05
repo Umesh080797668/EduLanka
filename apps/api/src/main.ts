@@ -1,8 +1,8 @@
 import * as dotenv from 'dotenv';
 dotenv.config();
 
-import helmet from '@fastify/helmet';
 import compression from '@fastify/compress';
+import helmet from '@fastify/helmet';
 import { VersioningType, ValidationPipe, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { NestFactory, HttpAdapterHost } from '@nestjs/core';
@@ -13,10 +13,10 @@ import {
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 
 import { AppModule } from './app.module';
-import { HttpExceptionFilter } from './common/filters/http-exception.filter';
-import { TransformInterceptor } from "./common/interceptors/transform.interceptor";
-import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
 import { RedisIoAdapter } from './common/adapters/redis-io.adapter';
+import { HttpExceptionFilter } from './common/filters/http-exception.filter';
+import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
+import { TransformInterceptor } from "./common/interceptors/transform.interceptor";
 
 async function bootstrap(): Promise<void> {
     const logger = new Logger('Bootstrap');

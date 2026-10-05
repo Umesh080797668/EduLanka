@@ -1,11 +1,13 @@
+import type { JwtPayload } from '@edu-lanka/shared-types';
 import { Controller, Post, Get, Body, Param, UseGuards, ParseUUIDPipe, ParseIntPipe, Query } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
+
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { TenantGuard } from '../../common/guards/tenant.guard';
-import { CurrentUser } from '../../common/decorators/current-user.decorator';
-import type { JwtPayload } from '@edu-lanka/shared-types';
-import { StudentMarksService } from './student-marks.service';
+
 import { CreateMarkDto } from './dto/student-marks.dto';
+import { StudentMarksService } from './student-marks.service';
 
 @ApiTags('Student Marks')
 @ApiBearerAuth()
@@ -40,5 +42,18 @@ export class StudentMarksController {
         @CurrentUser() caller: JwtPayload
     ) {
         return this.studentMarksService.getMarksByStudent(studentId, caller);
+    }
+
+    @Post('class/:classId/finalize')
+    @ApiOperation({ summary: 'Finalizes term marks for a class' })
+    @ApiResponse({ status: 200, description: 'Term finalized successfully' })
+    async finalizeTerm(
+        @Param('classId', ParseUUIDPipe) classId: string,
+        @Query('term', ParseIntPipe) term: number,
+        @Query('year') year: string,
+        @CurrentUser() caller: JwtPayload
+    ) {
+        const yr = year ? parseInt(year, 10) : new Date().getFullYear();
+        return this.studentMarksService.finalizeTerm(classId, term, yr, caller);
     }
 }

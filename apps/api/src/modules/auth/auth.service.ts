@@ -1,3 +1,5 @@
+import { randomUUID } from 'crypto';
+
 import type { JwtPayload } from '@edu-lanka/shared-types';
 import { UserRole } from '@edu-lanka/shared-types';
 import {
@@ -13,13 +15,13 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { createClient } from '@supabase/supabase-js';
-import { randomUUID } from 'crypto';
 
 import type { AppConfiguration } from '../../config/configuration';
 import { RedisService } from '../redis/redis.service';
 import { SupabaseService } from '../supabase/supabase.service';
-import type { SignupDto } from './dto/signup.dto';
+
 import type { CreateInquiryDto } from './dto/create-inquiry.dto';
+import type { SignupDto } from './dto/signup.dto';
 
 export interface TokenPair {
     accessToken: string;
@@ -31,7 +33,7 @@ export interface TokenPair {
 function parseDurationToSeconds(duration: string): number {
     const match = /^(\d+)([smhd])$/.exec(duration);
     if (!match) return 7 * 24 * 3600; // default 7 days
-    const value = parseInt(match[1]!, 10);
+    const value = parseInt(match[1], 10);
     switch (match[2]) {
         case 's': return value;
         case 'm': return value * 60;
@@ -138,7 +140,7 @@ export class AuthService {
     }
 
     async getInquiries(user: JwtPayload): Promise<any[]> {
-        const query = this.supabaseService.adminClient
+        let query = this.supabaseService.adminClient
             .from('deactivation_inquiries')
             .select(`
                 id,
@@ -152,8 +154,8 @@ export class AuthService {
             .order('created_at', { ascending: false });
 
         if (user.role !== UserRole.SUPER_ADMIN) {
-            query.eq('tenant_id', user.tenantId);
-            query.neq('role', UserRole.SCHOOL_ADMIN);
+            query = query.eq('tenant_id', user.tenantId);
+            query = query.neq('role', UserRole.SCHOOL_ADMIN);
         }
 
         const { data, error } = await query;
@@ -209,7 +211,7 @@ export class AuthService {
             throw new BadRequestException('Identifier and password are required');
         }
 
-        let authPayload: any = { password };
+        const authPayload: any = { password };
 
         if (identifier.includes('@')) {
             authPayload.email = identifier;
@@ -510,6 +512,38 @@ export class AuthService {
         }
 
         return { message: 'Password has been reset successfully.' };
+    }
+
+    /**
+     * POST /auth/change-password
+     * Authenticated user updates their password after verifying their current password.
+     */
+    async changePassword(userId: string, currentPassword: string, newPassword: string): Promise<{ success: boolean; message: string }> {
+        const { data: authUser, error: authUserErr } = await this.supabaseService.adminClient.auth.admin.getUserById(userId);
+        if (authUserErr || !authUser?.user?.email) {
+            throw new NotFoundException('User account not found');
+        }
+
+        const email = authUser.user.email;
+
+        const { error: signInErr } = await this.supabaseService.adminClient.auth.signInWithPassword({
+            email,
+            password: currentPassword,
+        });
+
+        if (signInErr) {
+            throw new BadRequestException('Current password does not match');
+        }
+
+        const { error: updateErr } = await this.supabaseService.adminClient.auth.admin.updateUserById(userId, {
+            password: newPassword,
+        });
+
+        if (updateErr) {
+            throw new BadRequestException(`Password update failed: ${updateErr.message}`);
+        }
+
+        return { success: true, message: 'Password has been updated successfully.' };
     }
 
     /**

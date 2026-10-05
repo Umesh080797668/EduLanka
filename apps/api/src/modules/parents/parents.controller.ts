@@ -1,17 +1,19 @@
 // =============================================================================
 // Parents Controller
 // =============================================================================
+import type { JwtPayload } from '@edu-lanka/shared-types';
 import {
     Controller, Get, Post, Delete,
     Body, Param, UseGuards, HttpCode, HttpStatus, Patch
 } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
+
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { TenantGuard } from '../../common/guards/tenant.guard';
-import { CurrentUser } from '../../common/decorators/current-user.decorator';
-import type { JwtPayload } from '@edu-lanka/shared-types';
-import { ParentsService } from './parents.service';
+
 import { LinkStudentDto, CreateParentDto, UpdateParentDto } from './dto/parent.dto';
+import { ParentsService } from './parents.service';
 
 @ApiTags('parents')
 @ApiBearerAuth()

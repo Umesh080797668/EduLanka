@@ -1,4 +1,4 @@
-import { UserRole } from '@edu-lanka/shared-types';
+import type { UserRole } from '@edu-lanka/shared-types';
 import { SetMetadata } from '@nestjs/common';
 
 export const ROLES_KEY = 'roles';

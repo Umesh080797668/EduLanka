@@ -116,6 +116,7 @@ export default function ParentGradesPage() {
                     description={t('reviewProgress')}
                     actions={
                         <Button
+                            id="download-report-btn"
                             onClick={handleDownload}
                             loading={downloading}
                             disabled={marks.length === 0}
@@ -130,9 +131,9 @@ export default function ParentGradesPage() {
                     {/* ── Filters ───────────────────────────────────────────── */}
                     <Card>
                         <CardContent className="grid gap-4 pt-5 sm:grid-cols-2">
-                            <Field label={t('academicTerm')} htmlFor="term">
+                            <Field label={t('academicTerm')} htmlFor="term-selector">
                                 <Select
-                                    id="term"
+                                    id="term-selector"
                                     value={term}
                                     onChange={(e) => setTerm(Number(e.target.value))}
                                 >
