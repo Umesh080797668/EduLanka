@@ -3,9 +3,9 @@ import { v2 as cloudinary } from 'cloudinary';
 
 @Injectable()
 export class UploadService {
-    getSignature() {
+    getSignature(tenantId?: string) {
         const timestamp = Math.round(new Date().getTime() / 1000);
-        const folder = 'edulanka/profiles'; // Store in a dedicated folder
+        const folder = tenantId ? `edulanka/${tenantId}/profiles` : 'edulanka/profiles';
 
         const secret = process.env.CLOUDINARY_API_SECRET;
         const apiKey = process.env.CLOUDINARY_API_KEY;

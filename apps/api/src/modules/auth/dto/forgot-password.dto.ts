@@ -1,13 +1,14 @@
-import { ApiProperty } from '@nestjs/swagger';
-import { IsEmail, IsString, IsNotEmpty } from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { IsEmail, IsString, IsOptional } from 'class-validator';
 
 export class ForgotPasswordDto {
     @ApiProperty({ example: 'john.doe@school.edu.lk' })
     @IsEmail()
     email!: string;
 
-    @ApiProperty({ description: 'Tenant UUID (used to build the reset redirect URL)' })
+    @ApiPropertyOptional({ description: 'Tenant UUID (optional)' })
     @IsString()
-    @IsNotEmpty()
-    tenantId!: string;
+    @IsOptional()
+    tenantId?: string;
 }
+

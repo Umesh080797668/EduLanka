@@ -11,6 +11,7 @@ import {
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
 
+import { AuthService } from '../auth/auth.service';
 import { RedisService } from '../redis/redis.service';
 
 import { ChatService } from './chat.service';
@@ -24,7 +25,8 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   constructor(
     private readonly chatService: ChatService,
     private readonly jwtService: JwtService,
-    private readonly redisService: RedisService
+    private readonly redisService: RedisService,
+    private readonly authService: AuthService,
   ) { }
 
   async handleConnection(client: Socket) {
@@ -33,8 +35,24 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       if (!token) throw new Error('No token provided');
 
       const payload = await this.jwtService.verifyAsync(token, { secret: process.env.JWT_SECRET });
+      if (!payload || payload.type !== 'access') {
+        throw new Error('Invalid token type: only access tokens allowed');
+      }
+
+      const userId = payload.sub || payload.userId;
+      if (!userId) throw new Error('Invalid token payload: missing sub/userId');
+
+      if (await this.redisService.isTokenRevoked(userId, payload.iat)) {
+        throw new Error('Token has been revoked');
+      }
+
+      const isActive = await this.authService.isUserActive(userId, payload.role);
+      if (!isActive) {
+        throw new Error('User account is deactivated');
+      }
+
       client.data.tenantId = payload.tenantId;
-      client.data.userId = payload.sub || payload.userId;
+      client.data.userId = userId;
       client.data.role = payload.role;
       client.data.userName = payload.name || payload.email || undefined;
       client.data.authenticated = true;

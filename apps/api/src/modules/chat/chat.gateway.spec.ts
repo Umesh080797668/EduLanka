@@ -3,6 +3,7 @@ import { JwtService } from '@nestjs/jwt';
 import type { TestingModule } from '@nestjs/testing';
 import { Test } from '@nestjs/testing';
 
+import { AuthService } from '../auth/auth.service';
 import { RedisService } from '../redis/redis.service';
 
 import { ChatGateway } from './chat.gateway';
@@ -13,6 +14,7 @@ describe('ChatGateway', () => {
   let chatService: jest.Mocked<Partial<ChatService>>;
   let jwtService: jest.Mocked<Partial<JwtService>>;
   let redisService: jest.Mocked<Partial<RedisService>>;
+  let authService: jest.Mocked<Partial<AuthService>>;
 
   beforeEach(async () => {
     chatService = {
@@ -27,6 +29,10 @@ describe('ChatGateway', () => {
         incr: jest.fn().mockResolvedValue(1),
         decr: jest.fn().mockResolvedValue(0),
       }),
+      isTokenRevoked: jest.fn().mockResolvedValue(false),
+    };
+    authService = {
+      isUserActive: jest.fn().mockResolvedValue(true),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -35,6 +41,7 @@ describe('ChatGateway', () => {
         { provide: ChatService, useValue: chatService },
         { provide: JwtService, useValue: jwtService },
         { provide: RedisService, useValue: redisService },
+        { provide: AuthService, useValue: authService },
       ],
     }).compile();
 
@@ -69,6 +76,8 @@ describe('ChatGateway', () => {
         tenantId: 'tenant_123',
         sub: 'user_456',
         role: 'TEACHER',
+        type: 'access',
+        iat: Math.floor(Date.now() / 1000),
       });
 
       await gateway.handleConnection(mockClient);
@@ -78,6 +87,66 @@ describe('ChatGateway', () => {
       expect(mockClient.data.role).toBe('TEACHER');
       expect(mockClient.join).toHaveBeenCalledWith('user_user_456');
       expect(mockClient.join).not.toHaveBeenCalledWith('tenant_tenant_123');
+    });
+
+    it('should disconnect client if token type is refresh or non-access', async () => {
+      const mockClient: any = {
+        id: 'client_refresh',
+        handshake: { auth: { token: 'refresh_jwt' } },
+        data: {},
+        disconnect: jest.fn(),
+      };
+
+      (jwtService.verifyAsync as jest.Mock).mockResolvedValue({
+        tenantId: 'tenant_123',
+        sub: 'user_456',
+        role: 'TEACHER',
+        type: 'refresh',
+      });
+
+      await gateway.handleConnection(mockClient);
+      expect(mockClient.disconnect).toHaveBeenCalled();
+    });
+
+    it('should disconnect client if token is revoked', async () => {
+      const mockClient: any = {
+        id: 'client_revoked',
+        handshake: { auth: { token: 'revoked_jwt' } },
+        data: {},
+        disconnect: jest.fn(),
+      };
+
+      (jwtService.verifyAsync as jest.Mock).mockResolvedValue({
+        tenantId: 'tenant_123',
+        sub: 'user_456',
+        role: 'TEACHER',
+        type: 'access',
+        iat: 100,
+      });
+      (redisService.isTokenRevoked as jest.Mock).mockResolvedValueOnce(true);
+
+      await gateway.handleConnection(mockClient);
+      expect(mockClient.disconnect).toHaveBeenCalled();
+    });
+
+    it('should disconnect client if user account is deactivated', async () => {
+      const mockClient: any = {
+        id: 'client_inactive',
+        handshake: { auth: { token: 'inactive_jwt' } },
+        data: {},
+        disconnect: jest.fn(),
+      };
+
+      (jwtService.verifyAsync as jest.Mock).mockResolvedValue({
+        tenantId: 'tenant_123',
+        sub: 'user_456',
+        role: 'TEACHER',
+        type: 'access',
+      });
+      (authService.isUserActive as jest.Mock).mockResolvedValueOnce(false);
+
+      await gateway.handleConnection(mockClient);
+      expect(mockClient.disconnect).toHaveBeenCalled();
     });
 
     it('should disconnect unauthenticated client', async () => {

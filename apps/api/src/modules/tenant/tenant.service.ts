@@ -129,6 +129,24 @@ export class TenantService {
             .update({ status: TenantStatus.ACTIVE })
             .eq('id', inserted.id);
 
+        // Auto-provision standard Sri Lankan national curriculum grades 1-13
+        const defaultGrades = Array.from({ length: 13 }, (_, i) => ({
+            tenant_id: inserted.id,
+            level: i + 1,
+            label: `Grade ${i + 1}`,
+        }));
+        const { error: gradesErr } = await this.supabase.adminClient
+            .from('grades_config')
+            .insert(defaultGrades);
+        if (gradesErr) {
+            this.logger.warn(`Failed to seed default grades for tenant ${inserted.id}: ${gradesErr.message}`);
+        }
+
+        // Auto-provision initial default school policy
+        await this.supabase.adminClient
+            .from('school_policy')
+            .insert({ tenant_id: inserted.id });
+
         await this.auditLogs.logAction({
             tenantId: inserted.id,
             actorId: caller.sub,
@@ -343,8 +361,8 @@ export class TenantService {
                 const lang = dto.language || 'EN';
                 const reopenDate = dto.resumeDate ? dto.resumeDate.slice(0, 10) : (
                     lang === 'SI' ? 'නැවත දැනුම් දෙන තුරු' :
-                    lang === 'TA' ? 'மறு அறிவித்தல் வரை' :
-                    'further notice'
+                        lang === 'TA' ? 'மறு அறிவித்தல் வரை' :
+                            'further notice'
                 );
 
                 let message = '';

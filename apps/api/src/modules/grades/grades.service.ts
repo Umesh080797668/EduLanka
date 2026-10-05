@@ -30,30 +30,30 @@ export class GradesService {
 
     async create(dto: CreateGradeDto, caller: JwtPayload) {
         this.guardAdmin(caller);
-        const slug = caller.tenantId;
-        const db = this.supabase.getTenantClient(slug);
+        const tenantId = caller.tenantId;
+        const db = this.supabase.getTenantClient(tenantId);
 
         const { data, error } = await db
             .from('grades_config')
             .insert({
+                tenant_id: tenantId,
                 level: dto.level,
-                name: dto.name,
-                curriculum_type: dto.curriculumType ?? 'GENERAL',
+                label: dto.name || `Grade ${dto.level}`,
             })
             .select()
             .single();
 
         if (error) {
-            if (error.code === '23505') throw new ConflictException('Grade with that level or name already exists');
+            if (error.code === '23505') throw new ConflictException('Grade with that level already exists');
             this.logger.error(`Failed to create grade: ${error.message}`);
             throw new InternalServerErrorException('Failed to create grade');
         }
-        return data;
+        return { ...data, name: data.label };
     }
 
     async findAll(caller: JwtPayload) {
-        const slug = caller.tenantId;
-        const db = this.supabase.getTenantClient(slug);
+        const tenantId = caller.tenantId;
+        const db = this.supabase.getTenantClient(tenantId);
 
         const { data, error } = await db
             .from('grades_config')
@@ -64,12 +64,12 @@ export class GradesService {
             this.logger.error(`Failed to list grades: ${error.message}`);
             throw new InternalServerErrorException('Failed to fetch grades');
         }
-        return data ?? [];
+        return (data ?? []).map((g: any) => ({ ...g, name: g.label }));
     }
 
     async findOne(id: string, caller: JwtPayload) {
-        const slug = caller.tenantId;
-        const db = this.supabase.getTenantClient(slug);
+        const tenantId = caller.tenantId;
+        const db = this.supabase.getTenantClient(tenantId);
 
         const { data, error } = await db
             .from('grades_config')
@@ -79,19 +79,17 @@ export class GradesService {
 
         if (error) throw new InternalServerErrorException('Failed to fetch grade');
         if (!data) throw new NotFoundException(`Grade ${id} not found`);
-        return data;
+        return { ...data, name: data.label };
     }
 
     async update(id: string, dto: UpdateGradeDto, caller: JwtPayload) {
         this.guardAdmin(caller);
-        const slug = caller.tenantId;
-        const db = this.supabase.getTenantClient(slug);
+        const tenantId = caller.tenantId;
+        const db = this.supabase.getTenantClient(tenantId);
 
         const updates: any = {};
         if (dto.level !== undefined) updates.level = dto.level;
-        if (dto.name !== undefined) updates.name = dto.name;
-        if (dto.curriculumType !== undefined) updates.curriculum_type = dto.curriculumType;
-        if (dto.isActive !== undefined) updates.is_active = dto.isActive;
+        if (dto.name !== undefined) updates.label = dto.name;
 
         const { data, error } = await db
             .from('grades_config')
@@ -101,17 +99,17 @@ export class GradesService {
             .maybeSingle();
 
         if (error) {
-            if (error.code === '23505') throw new ConflictException('Grade limit/name conflict');
+            if (error.code === '23505') throw new ConflictException('Grade level conflict');
             throw new InternalServerErrorException('Failed to update grade');
         }
         if (!data) throw new NotFoundException(`Grade ${id} not found`);
-        return data;
+        return { ...data, name: data.label };
     }
 
     async delete(id: string, caller: JwtPayload) {
         this.guardAdmin(caller);
-        const slug = caller.tenantId;
-        const db = this.supabase.getTenantClient(slug);
+        const tenantId = caller.tenantId;
+        const db = this.supabase.getTenantClient(tenantId);
 
         const { error, count } = await db
             .from('grades_config')

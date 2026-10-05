@@ -50,7 +50,14 @@ export class ClassesService {
         const slug = caller.tenantId;
         const db = this.supabase.getTenantClient(slug);
 
-        const { data: gradeConfig } = await db.from('grades_config').select('level').eq('id', dto.gradeId).single();
+        let gradeQuery = db.from('grades_config').select('level');
+        const numericId = parseInt(String(dto.gradeId), 10);
+        if (!isNaN(numericId)) {
+            gradeQuery = gradeQuery.or(`id.eq.${numericId},level.eq.${numericId}`);
+        } else {
+            gradeQuery = gradeQuery.eq('id', dto.gradeId);
+        }
+        const { data: gradeConfig } = await gradeQuery.maybeSingle();
         if (!gradeConfig) throw new NotFoundException('Grade configuration not found');
 
         const { data, error } = await db
@@ -188,6 +195,14 @@ export class ClassesService {
         const slug = caller.tenantId;
         const db = this.supabase.getTenantClient(slug);
 
+        // Verify class belongs to caller's tenant
+        const { data: cls } = await db.from('classes').select('id').eq('id', classId).eq('tenant_id', slug).maybeSingle();
+        if (!cls) throw new NotFoundException('Class not found in this school');
+
+        // Verify teacher belongs to caller's tenant
+        const { data: tch } = await db.from('teachers').select('id').eq('id', dto.teacherId).eq('tenant_id', slug).maybeSingle();
+        if (!tch) throw new NotFoundException('Teacher not found in this school');
+
         const { data, error } = await db
             .from('class_teachers')
             .insert({
@@ -213,6 +228,14 @@ export class ClassesService {
         this.guardAdmin(caller);
         const slug = caller.tenantId;
         const db = this.supabase.getTenantClient(slug);
+
+        // Verify class belongs to caller's tenant
+        const { data: cls } = await db.from('classes').select('id').eq('id', classId).eq('tenant_id', slug).maybeSingle();
+        if (!cls) throw new NotFoundException('Class not found in this school');
+
+        // Verify teacher belongs to caller's tenant
+        const { data: tch } = await db.from('teachers').select('id').eq('id', teacherId).eq('tenant_id', slug).maybeSingle();
+        if (!tch) throw new NotFoundException('Teacher not found in this school');
 
         const { error } = await db
             .from('class_teachers')

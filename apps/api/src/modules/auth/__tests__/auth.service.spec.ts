@@ -240,10 +240,11 @@ describe('AuthService', () => {
             role: UserRole.TEACHER,
         };
 
-        it('returns a token pair on successful signup', async () => {
+        it('returns user details on successful signup', async () => {
             const { service } = await buildModule(makeSupabase());
             const result = await service.signup(dto, adminCaller);
-            expect(result).toHaveProperty('accessToken');
+            expect(result).toHaveProperty('user');
+            expect(result.user.email).toBe(dto.email);
         });
 
         it('throws ForbiddenException when SCHOOL_ADMIN creates user in another tenant', async () => {
@@ -256,7 +257,7 @@ describe('AuthService', () => {
             const superCaller: JwtPayload = { ...adminCaller, role: UserRole.SUPER_ADMIN, tenantId: '' };
             const { service } = await buildModule(makeSupabase());
             const result = await service.signup({ ...dto, tenantId: 'tenant-uuid' }, superCaller);
-            expect(result).toHaveProperty('accessToken');
+            expect(result).toHaveProperty('user');
         });
 
         it('throws InternalServerErrorException on Supabase createUser failure', async () => {

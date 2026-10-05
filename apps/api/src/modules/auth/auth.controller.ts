@@ -27,6 +27,8 @@ import {
 import { Throttle } from '@nestjs/throttler';
 import { FastifyReply, FastifyRequest } from 'fastify';
 
+import { ConfigService } from '@nestjs/config';
+
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
@@ -43,10 +45,26 @@ import { ResetPasswordDto } from './dto/reset-password.dto';
 import { SignupDto } from './dto/signup.dto';
 import { UpdateInquiryStatusDto } from './dto/update-inquiry-status.dto';
 
+function parseDurationToSeconds(duration: string, defaultSeconds: number): number {
+    const match = /^(\d+)([smhd])$/.exec(duration);
+    if (!match) return defaultSeconds;
+    const value = parseInt(match[1], 10);
+    switch (match[2]) {
+        case 's': return value;
+        case 'm': return value * 60;
+        case 'h': return value * 3600;
+        case 'd': return value * 86400;
+        default: return defaultSeconds;
+    }
+}
+
 @ApiTags('auth')
 @Controller('auth')
 export class AuthController {
-    constructor(private readonly authService: AuthService) { }
+    constructor(
+        private readonly authService: AuthService,
+        private readonly configService: ConfigService,
+    ) { }
 
     private extractCookie(req: FastifyRequest, name: string): string | undefined {
         const cookieHeader = req?.headers?.cookie;
@@ -58,9 +76,12 @@ export class AuthController {
     private setAuthCookies(res: FastifyReply, tokens: { accessToken: string; refreshToken: string }) {
         const isProduction = process.env.NODE_ENV === 'production';
         const secureFlag = isProduction ? 'Secure; ' : '';
+        const accessTtl = parseDurationToSeconds(this.configService.get('jwt.expiresIn') ?? '15m', 900);
+        const refreshTtl = parseDurationToSeconds(this.configService.get('jwt.refreshExpiresIn') ?? '7d', 604800);
+
         void res.header('Set-Cookie', [
-            `token=${tokens.accessToken}; HttpOnly; ${secureFlag}SameSite=Lax; Path=/; Max-Age=900`,
-            `refreshToken=${tokens.refreshToken}; HttpOnly; ${secureFlag}SameSite=Lax; Path=/; Max-Age=604800`,
+            `token=${tokens.accessToken}; HttpOnly; ${secureFlag}SameSite=Lax; Path=/; Max-Age=${accessTtl}`,
+            `refreshToken=${tokens.refreshToken}; HttpOnly; ${secureFlag}SameSite=Lax; Path=/; Max-Age=${refreshTtl}`,
         ]);
     }
 
@@ -101,12 +122,9 @@ export class AuthController {
     @Roles(UserRole.SCHOOL_ADMIN, UserRole.SUPER_ADMIN)
     @ApiBearerAuth()
     @ApiOperation({ summary: 'Create a new user within a tenant (SCHOOL_ADMIN / SUPER_ADMIN only)' })
-    @ApiCreatedResponse({ description: 'User created and token pair issued' })
-    async signup(@Body() dto: SignupDto, @CurrentUser() caller: JwtPayload, @Res({ passthrough: true }) res: FastifyReply) {
-        const tokens = await this.authService.signup(dto, caller);
-
-        this.setAuthCookies(res, tokens);
-        return tokens;
+    @ApiCreatedResponse({ description: 'User created' })
+    async signup(@Body() dto: SignupDto, @CurrentUser() caller: JwtPayload) {
+        return this.authService.signup(dto, caller);
     }
 
     // ── POST /auth/self-register ───────────────────────────────────────────────

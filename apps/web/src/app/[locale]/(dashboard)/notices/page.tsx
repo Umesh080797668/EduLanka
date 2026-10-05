@@ -18,6 +18,7 @@ import { useTranslations } from 'next-intl';
 import { toast } from 'sonner';
 
 import { apiClient } from '@/lib/api-client';
+import { sanitizeNoticeHtml } from '@/lib/sanitize-html';
 import { HelpButton } from '@/components/HelpButton';
 import { TutorialProvider } from '@/components/TutorialProvider';
 import { Button } from '@/components/ui/Button';
@@ -409,7 +410,7 @@ export default function UniversalNoticesPage() {
                                             <CardContent className="pt-4 space-y-4">
                                                 <div
                                                     className="prose prose-sm dark:prose-invert max-w-none text-foreground/90 leading-relaxed"
-                                                    dangerouslySetInnerHTML={{ __html: n.content_html }}
+                                                    dangerouslySetInnerHTML={{ __html: sanitizeNoticeHtml(n.content_html) }}
                                                 />
 
                                                 <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-border/60">

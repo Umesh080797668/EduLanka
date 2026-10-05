@@ -9,6 +9,7 @@ import * as dotenv from 'dotenv';
 
 
 import { configuration } from '../../../config/configuration';
+import { AuthService } from '../../auth/auth.service';
 import { RedisService } from '../../redis/redis.service';
 import { SupabaseService } from '../../supabase/supabase.service';
 import { ChatGateway } from '../chat.gateway';
@@ -102,6 +103,12 @@ async function withRetry<T extends { data?: any; error?: any }>(
                     provide: JwtService,
                     useValue: {
                         verifyAsync: jest.fn(),
+                    },
+                },
+                {
+                    provide: AuthService,
+                    useValue: {
+                        isUserActive: jest.fn().mockResolvedValue(true),
                     },
                 },
             ],
@@ -322,7 +329,7 @@ async function withRetry<T extends { data?: any; error?: any }>(
             try { await admin.from('tenants').delete().in('id', [TENANT_A, TENANT_B]); } catch { /* ignore */ }
         }
         if (moduleRef) {
-            await moduleRef.close().catch(() => {});
+            await moduleRef.close().catch(() => { });
         }
     });
 });

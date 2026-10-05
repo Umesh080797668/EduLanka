@@ -2,6 +2,7 @@
 // Classes Controller
 // =============================================================================
 import type { JwtPayload } from '@edu-lanka/shared-types';
+import { UserRole } from '@edu-lanka/shared-types';
 import {
     Controller, Get, Post, Patch, Delete, Query,
     Body, Param, UseGuards, HttpCode, HttpStatus,
@@ -9,7 +10,9 @@ import {
 import { ApiTags, ApiBearerAuth, ApiOperation, ApiQuery } from '@nestjs/swagger';
 
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { Roles } from '../../common/decorators/roles.decorator';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+import { RolesGuard } from '../../common/guards/roles.guard';
 import { TenantGuard } from '../../common/guards/tenant.guard';
 
 import { ClassesService } from './classes.service';
@@ -17,12 +20,13 @@ import { CreateClassDto, UpdateClassDto, AssignTeacherDto } from './dto/class.dt
 
 @ApiTags('classes')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard, TenantGuard)
+@UseGuards(JwtAuthGuard, TenantGuard, RolesGuard)
 @Controller('classes')
 export class ClassesController {
     constructor(private readonly classesService: ClassesService) { }
 
     @Post()
+    @Roles(UserRole.SCHOOL_ADMIN, UserRole.SUPER_ADMIN)
     @HttpCode(HttpStatus.CREATED)
     @ApiOperation({ summary: 'Create a new class / section (admin only)' })
     create(@Body() dto: CreateClassDto, @CurrentUser() user: JwtPayload) {
@@ -43,6 +47,7 @@ export class ClassesController {
     }
 
     @Patch(':id')
+    @Roles(UserRole.SCHOOL_ADMIN, UserRole.SUPER_ADMIN)
     @ApiOperation({ summary: 'Update a class (admin only)' })
     update(
         @Param('id') id: string,
@@ -53,6 +58,7 @@ export class ClassesController {
     }
 
     @Delete(':id')
+    @Roles(UserRole.SCHOOL_ADMIN, UserRole.SUPER_ADMIN)
     @HttpCode(HttpStatus.NO_CONTENT)
     @ApiOperation({ summary: 'Delete a class (admin only)' })
     remove(@Param('id') id: string, @CurrentUser() user: JwtPayload) {
@@ -60,6 +66,7 @@ export class ClassesController {
     }
 
     @Post(':id/assign-teacher')
+    @Roles(UserRole.SCHOOL_ADMIN, UserRole.SUPER_ADMIN)
     @HttpCode(HttpStatus.CREATED)
     @ApiOperation({ summary: 'Assign a teacher to a class (admin only)' })
     assignTeacher(
@@ -71,6 +78,7 @@ export class ClassesController {
     }
 
     @Delete(':id/teachers/:teacherId')
+    @Roles(UserRole.SCHOOL_ADMIN, UserRole.SUPER_ADMIN)
     @HttpCode(HttpStatus.NO_CONTENT)
     @ApiOperation({ summary: 'Remove a teacher from a class (admin only)' })
     removeTeacher(

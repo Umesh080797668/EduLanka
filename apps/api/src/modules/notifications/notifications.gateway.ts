@@ -12,6 +12,7 @@ import {
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
 
+import { AuthService } from '../auth/auth.service';
 import { RedisService } from '../redis/redis.service';
 import { SupabaseService } from '../supabase/supabase.service';
 
@@ -29,6 +30,7 @@ export class NotificationsGateway implements OnGatewayConnection, OnGatewayDisco
     private readonly supabaseService: SupabaseService,
     private readonly redisService: RedisService,
     private readonly jwtService: JwtService,
+    private readonly authService: AuthService,
   ) { }
 
   onModuleInit() {
@@ -49,8 +51,24 @@ export class NotificationsGateway implements OnGatewayConnection, OnGatewayDisco
       const token = client.handshake.auth?.token || client.handshake.headers?.authorization?.split(' ')[1];
       if (token) {
         const payload = await this.jwtService.verifyAsync(token, { secret: process.env.JWT_SECRET });
+        if (!payload || payload.type !== 'access') {
+          throw new Error('Invalid token type: only access tokens allowed');
+        }
+
+        const userId = payload.sub || payload.userId;
+        if (!userId) throw new Error('Invalid token payload: missing sub/userId');
+
+        if (await this.redisService.isTokenRevoked(userId, payload.iat)) {
+          throw new Error('Token has been revoked');
+        }
+
+        const isActive = await this.authService.isUserActive(userId, payload.role);
+        if (!isActive) {
+          throw new Error('User account is deactivated');
+        }
+
         client.data.tenantId = payload.tenantId;
-        client.data.userId = payload.sub || payload.userId;
+        client.data.userId = userId;
         client.data.role = payload.role;
 
         if (client.data.tenantId) {
@@ -60,9 +78,11 @@ export class NotificationsGateway implements OnGatewayConnection, OnGatewayDisco
           await client.join(`user_${client.data.userId}`);
         }
       }
-    } catch {
-      // Connects unauthenticated (e.g. public visitor or fallback), client.data stays empty
-      this.logger.debug(`Client ${client.id} connected unauthenticated to notifications`);
+    } catch (error: any) {
+      this.logger.warn(`Disconnecting invalid notification client ${client.id}: ${error?.message}`);
+      await this.redisService.getClient().incr('metrics:ws:errors').catch(() => { });
+      client.disconnect();
+      return;
     }
 
     // Send a welcome system notification immediately (Socket.io only)

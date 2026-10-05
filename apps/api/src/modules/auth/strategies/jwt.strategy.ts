@@ -37,8 +37,8 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
      * Enforces token type (access only), revocation status, and active user state.
      */
     async validate(payload: JwtPayload): Promise<JwtPayload> {
-        // Enforce token type: refresh tokens must never be accepted as access tokens
-        if (payload.type && payload.type !== 'access') {
+        // Enforce token type: strictly require access token
+        if (payload.type !== 'access') {
             throw new UnauthorizedException('Invalid token type: expected access token');
         }
 

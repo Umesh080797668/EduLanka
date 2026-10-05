@@ -1,6 +1,8 @@
+import type { JwtPayload } from '@edu-lanka/shared-types';
 import { Controller, Get, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 
 import { UploadService } from './upload.service';
@@ -14,7 +16,7 @@ export class UploadController {
 
     @Get('signature')
     @ApiOperation({ summary: 'Get Cloudinary upload signature' })
-    getSignature() {
-        return this.uploadService.getSignature();
+    getSignature(@CurrentUser() user: JwtPayload) {
+        return this.uploadService.getSignature(user?.tenantId);
     }
 }

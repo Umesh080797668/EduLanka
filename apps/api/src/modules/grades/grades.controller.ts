@@ -1,9 +1,12 @@
 import type { JwtPayload } from '@edu-lanka/shared-types';
-import { Controller, Post, Get, Patch, Delete, Body, Param, UseGuards, ParseUUIDPipe } from '@nestjs/common';
+import { UserRole } from '@edu-lanka/shared-types';
+import { Controller, Post, Get, Patch, Delete, Body, Param, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { Roles } from '../../common/decorators/roles.decorator';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+import { RolesGuard } from '../../common/guards/roles.guard';
 import { TenantGuard } from '../../common/guards/tenant.guard';
 
 import { CreateGradeDto, UpdateGradeDto } from './dto/grade.dto';
@@ -11,12 +14,13 @@ import { GradesService } from './grades.service';
 
 @ApiTags('Grades')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard, TenantGuard)
+@UseGuards(JwtAuthGuard, TenantGuard, RolesGuard)
 @Controller('grades')
 export class GradesController {
     constructor(private readonly gradesService: GradesService) { }
 
     @Post()
+    @Roles(UserRole.SCHOOL_ADMIN, UserRole.SUPER_ADMIN)
     @ApiOperation({ summary: 'Create a new curriculum grade (Admin only)' })
     @ApiResponse({ status: 201, description: 'Created' })
     async create(@Body() dto: CreateGradeDto, @CurrentUser() caller: JwtPayload) {
@@ -33,15 +37,16 @@ export class GradesController {
     @Get(':id')
     @ApiOperation({ summary: 'Get grade details' })
     @ApiResponse({ status: 200, description: 'Success' })
-    async findOne(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() caller: JwtPayload) {
+    async findOne(@Param('id') id: string, @CurrentUser() caller: JwtPayload) {
         return this.gradesService.findOne(id, caller);
     }
 
     @Patch(':id')
+    @Roles(UserRole.SCHOOL_ADMIN, UserRole.SUPER_ADMIN)
     @ApiOperation({ summary: 'Update a grade metadata (Admin only)' })
     @ApiResponse({ status: 200, description: 'Updated' })
     async update(
-        @Param('id', ParseUUIDPipe) id: string,
+        @Param('id') id: string,
         @Body() dto: UpdateGradeDto,
         @CurrentUser() caller: JwtPayload,
     ) {
@@ -49,9 +54,10 @@ export class GradesController {
     }
 
     @Delete(':id')
+    @Roles(UserRole.SCHOOL_ADMIN, UserRole.SUPER_ADMIN)
     @ApiOperation({ summary: 'Delete a grade (Admin only)' })
     @ApiResponse({ status: 200, description: 'Deleted' })
-    async remove(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() caller: JwtPayload) {
+    async remove(@Param('id') id: string, @CurrentUser() caller: JwtPayload) {
         return this.gradesService.delete(id, caller);
     }
 }

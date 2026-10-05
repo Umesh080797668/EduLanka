@@ -2,6 +2,7 @@ import { JwtService } from '@nestjs/jwt';
 import type { TestingModule } from '@nestjs/testing';
 import { Test } from '@nestjs/testing';
 
+import { AuthService } from '../auth/auth.service';
 import { RedisService } from '../redis/redis.service';
 import { SupabaseService } from '../supabase/supabase.service';
 
@@ -12,6 +13,7 @@ describe('NotificationsGateway', () => {
   let gateway: NotificationsGateway;
   let jwtService: jest.Mocked<Partial<JwtService>>;
   let redisService: jest.Mocked<Partial<RedisService>>;
+  let authService: jest.Mocked<Partial<AuthService>>;
   let supabaseService: any;
 
   beforeEach(async () => {
@@ -23,6 +25,10 @@ describe('NotificationsGateway', () => {
         incr: jest.fn().mockResolvedValue(1),
         decr: jest.fn().mockResolvedValue(0),
       }),
+      isTokenRevoked: jest.fn().mockResolvedValue(false),
+    };
+    authService = {
+      isUserActive: jest.fn().mockResolvedValue(true),
     };
     supabaseService = {
       adminClient: {
@@ -39,6 +45,7 @@ describe('NotificationsGateway', () => {
         { provide: SupabaseService, useValue: supabaseService },
         { provide: RedisService, useValue: redisService },
         { provide: JwtService, useValue: jwtService },
+        { provide: AuthService, useValue: authService },
       ],
     }).compile();
 

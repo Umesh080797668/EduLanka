@@ -12,11 +12,11 @@ import {
     ConflictException,
     HttpException,
     HttpStatus,
+    ServiceUnavailableException,
     Logger,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
-import { createClient } from '@supabase/supabase-js';
 
 import type { AppConfiguration } from '../../config/configuration';
 import { RedisService } from '../redis/redis.service';
@@ -457,19 +457,13 @@ export class AuthService {
             throw new InternalServerErrorException('Failed to register user in tenant: ' + insertError?.message);
         }
 
-        const tokens = await this.issueTokenPair({
-            sub: newUser.id as string,
-            tenantId: dto.tenantId,
-            role: dto.role,
-            email: dto.email,
-        });
-
         return {
-            ...tokens,
             user: {
                 id: newUser.id as string,
                 role: dto.role,
-                tenantId: dto.tenantId
+                tenantId: dto.tenantId,
+                email: dto.email,
+                fullName: dto.fullName,
             }
         };
     }
@@ -612,30 +606,22 @@ export class AuthService {
      * Complete password reset using the access token from the email link.
      */
     async resetPassword(accessToken: string, newPassword: string): Promise<{ message: string }> {
-        // Build a Supabase client scoped to the user's session
-        const supabaseUrl = this.configService.get('supabase.url', { infer: true })!;
-        const supabaseKey = this.configService.get('supabase.serviceRoleKey', { infer: true })!;
-        const userClient = createClient(supabaseUrl, supabaseKey, {
-            auth: { autoRefreshToken: false, persistSession: false },
-        });
-
-        // Set the session so updateUser acts on behalf of the user
-        const { error: sessionError } = await userClient.auth.setSession({
-            access_token: accessToken,
-            refresh_token: '', // not needed for one-shot update
-        });
-
-        if (sessionError) {
+        // Validate reset token by retrieving user via adminClient
+        const { data: { user }, error: userErr } = await this.supabaseService.adminClient.auth.getUser(accessToken);
+        if (userErr || !user) {
             throw new UnauthorizedException('Invalid or expired reset token');
         }
 
-        const { error: updateError } = await userClient.auth.updateUser({
+        const { error: updateError } = await this.supabaseService.adminClient.auth.admin.updateUserById(user.id, {
             password: newPassword,
         });
 
         if (updateError) {
             throw new BadRequestException(`Password update failed: ${updateError.message}`);
         }
+
+        // Revoke all refresh tokens for this user upon password reset
+        await this.redisService.revokeAllUserRefreshTokens(user.id);
 
         return { message: 'Password has been reset successfully.' };
     }
@@ -746,8 +732,13 @@ export class AuthService {
     async getPublicTenants(): Promise<any[]> {
         const { data, error } = await this.supabaseService.adminClient
             .from('tenants')
-            .select('id, name')
+            .select(`
+                id,
+                name,
+                school_policy!inner(allow_self_enrollment)
+            `)
             .eq('status', 'ACTIVE')
+            .eq('school_policy.allow_self_enrollment', true)
             .order('name');
 
         if (error) {
@@ -770,18 +761,28 @@ export class AuthService {
 
         let isActive = true;
         if (role === UserRole.SUPER_ADMIN) {
-            const { data } = await this.supabaseService.adminClient
+            const { data, error } = await this.supabaseService.adminClient
                 .from('platform_admins')
                 .select('id')
                 .eq('id', userId)
                 .maybeSingle();
+
+            if (error) {
+                this.logger.error(`Error querying platform admin active status: ${error.message}`);
+                throw new ServiceUnavailableException('Database unavailable');
+            }
             isActive = Boolean(data);
         } else {
-            const { data } = await this.supabaseService.adminClient
+            const { data, error } = await this.supabaseService.adminClient
                 .from('users')
                 .select('is_active')
                 .eq('id', userId)
                 .maybeSingle();
+
+            if (error) {
+                this.logger.error(`Error querying user active status: ${error.message}`);
+                throw new ServiceUnavailableException('Database unavailable');
+            }
             isActive = Boolean(data?.is_active);
         }
 
