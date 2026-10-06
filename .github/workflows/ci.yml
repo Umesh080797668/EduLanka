@@ -57,3 +57,27 @@ jobs:
 
       - name: Build
         run: pnpm turbo run build
+
+      - name: Boot API & Verify Health Check
+        run: |
+          cd apps/api
+          API_PORT=8081
+          PORT=$API_PORT node dist/main.js &
+          API_PID=$!
+
+          SUCCESS=0
+          for i in {1..30}; do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" "http://localhost:${API_PORT}/api/v1/health" || true)
+            if [ "$STATUS" = "200" ]; then
+              echo "API booted successfully and /api/v1/health responded with HTTP 200 OK!"
+              SUCCESS=1
+              break
+            fi
+            sleep 1
+          done
+
+          kill $API_PID || true
+          if [ $SUCCESS -ne 1 ]; then
+            echo "API boot health check failed or timed out"
+            exit 1
+          fi
