@@ -288,7 +288,7 @@ describe('AuthService', () => {
             expect(result.message).toBeDefined();
         });
 
-        it('throws HttpException with 429 when rate limit is exceeded for an email', async () => {
+        it('throws HttpException with 429 when rate limit is exceeded for an email and IP', async () => {
             const redis = makeRedis({
                 getClient: (() => ({
                     get: jest.fn().mockResolvedValue('1'),
@@ -299,7 +299,7 @@ describe('AuthService', () => {
                 })) as any,
             });
             const { service } = await buildModule(makeSupabase(), undefined, redis);
-            await expect(service.forgotPassword('flood@victim.lk', 'tenant-uuid'))
+            await expect(service.forgotPassword('flood@victim.lk', 'tenant-uuid', '192.168.1.1'))
                 .rejects.toThrow('Too many password reset requests');
         });
     });

@@ -148,8 +148,9 @@ export class AuthController {
     @Throttle({ short: { limit: 60, ttl: 60000 } })
     @ApiOperation({ summary: 'Trigger a password-reset email (Supabase Auth)' })
     @ApiOkResponse({ description: 'Reset email sent (if address is registered)' })
-    forgotPassword(@Body() dto: ForgotPasswordDto) {
-        return this.authService.forgotPassword(dto.email, dto.tenantId);
+    forgotPassword(@Body() dto: ForgotPasswordDto, @Req() req: FastifyRequest) {
+        const clientIp = (req as any).ip || (req.headers['x-forwarded-for'] as string) || req.socket?.remoteAddress || 'unknown';
+        return this.authService.forgotPassword(dto.email, dto.tenantId, clientIp);
     }
 
     // ── POST /auth/reset-password ──────────────────────────────────────────────

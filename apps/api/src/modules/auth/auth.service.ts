@@ -319,6 +319,17 @@ export class AuthService {
                     if (validMatches.length === 1) {
                         authData = validMatches[0].authData;
                     } else {
+                        // Clean up temporary sessions created during candidate password verification
+                        for (const v of validMatches) {
+                            if (v.authData?.session?.access_token) {
+                                try {
+                                    await this.supabaseService.adminClient.auth.admin.signOut(v.authData.session.access_token);
+                                } catch {
+                                    // non-fatal
+                                }
+                            }
+                        }
+
                         // Several candidate accounts matched the password: only return those matching schools
                         const matchedTenantIds = Array.from(new Set(validMatches.map((m) => m.match.tenant_id).filter(Boolean)));
                         const { data: matchedTenants } = await this.supabaseService.adminClient
@@ -380,6 +391,17 @@ export class AuthService {
                         if (validMatches.length === 1) {
                             authData = validMatches[0].authData;
                         } else {
+                            // Clean up temporary sessions created during candidate password verification
+                            for (const v of validMatches) {
+                                if (v.authData?.session?.access_token) {
+                                    try {
+                                        await this.supabaseService.adminClient.auth.admin.signOut(v.authData.session.access_token);
+                                    } catch {
+                                        // non-fatal
+                                    }
+                                }
+                            }
+
                             // Several accounts matched the password: only return those matching schools
                             const matchedTenantIds = Array.from(new Set(validMatches.map((m) => m.match.tenant_id).filter(Boolean)));
                             const { data: matchedTenants } = await this.supabaseService.adminClient
@@ -396,8 +418,9 @@ export class AuthService {
                     } else {
                         const studentMatch = studentMatches[0];
                         const mappedUser: any = Array.isArray(studentMatch.users) ? studentMatch.users[0] : studentMatch.users;
-                        if (mappedUser.email) authPayload.email = mappedUser.email;
-                        else authPayload.phone = mappedUser.phone_number;
+                        if (mappedUser?.email) authPayload.email = mappedUser.email;
+                        else if (mappedUser?.phone_number) authPayload.phone = mappedUser.phone_number;
+                        else authPayload.phone = identifier;
                     }
                 } else {
                     // Raw string proxy directly towards Supabase SMS APIs as absolute fallback
@@ -643,19 +666,21 @@ export class AuthService {
      * POST /auth/forgot-password
      * Trigger Supabase password-reset email. Always returns success to prevent user enumeration.
      */
-    async forgotPassword(email: string, tenantId?: string): Promise<{ message: string }> {
+    async forgotPassword(email: string, tenantId?: string, clientIp?: string): Promise<{ message: string }> {
         if (!email) {
             throw new BadRequestException('Email is required');
         }
 
-        // Limit to 1 password reset request per minute per email address to prevent inbox flooding
+        // Limit to 1 password reset request per minute per (IP + email) combination
+        // This prevents an external attacker from locking out a victim by requesting resets once a minute
         const normalizedEmail = email.toLowerCase().trim();
-        const emailRateLimitKey = `edulanka:ratelimit:forgot_password:${normalizedEmail}`;
+        const ipKey = clientIp ? clientIp.replace(/[^a-zA-Z0-9:._-]/g, '') : 'unknown';
+        const emailRateLimitKey = `edulanka:ratelimit:forgot_password:${ipKey}:${normalizedEmail}`;
         try {
             const existing = await this.redisService.getClient().get(emailRateLimitKey);
             if (existing) {
                 throw new HttpException(
-                    'Too many password reset requests for this email. Please wait 1 minute before retrying.',
+                    'Too many password reset requests for this email from this IP. Please wait 1 minute before retrying.',
                     HttpStatus.TOO_MANY_REQUESTS,
                 );
             }

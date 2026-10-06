@@ -3,7 +3,7 @@ dotenv.config();
 
 import compression from '@fastify/compress';
 import helmet from '@fastify/helmet';
-import { VersioningType, ValidationPipe, Logger } from '@nestjs/common';
+import { VersioningType, ValidationPipe, Logger, type INestApplication } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { NestFactory, HttpAdapterHost } from '@nestjs/core';
 import {
@@ -18,12 +18,14 @@ import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
 import { TransformInterceptor } from "./common/interceptors/transform.interceptor";
 
+type FastifyApp = Omit<NestFastifyApplication, 'enableCors'> & INestApplication;
+
 async function bootstrap(): Promise<void> {
     const logger = new Logger('Bootstrap');
 
-    const app = await NestFactory.create<NestFastifyApplication>(
+    const app = await NestFactory.create<FastifyApp>(
         AppModule,
-        new FastifyAdapter({ logger: false, trustProxy: 1 }), // NestJS Logger handles logging, trustProxy: 1 ensures only direct upstream (nginx) is trusted
+        new FastifyAdapter({ logger: false, trustProxy: 1 as unknown as boolean }), // NestJS Logger handles logging, trustProxy: 1 ensures only direct upstream (nginx) is trusted
     );
 
     const configService = app.get(ConfigService);
