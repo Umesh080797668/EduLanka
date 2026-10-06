@@ -287,6 +287,21 @@ describe('AuthService', () => {
             const result = await service.forgotPassword('unknown@school.lk', 'tenant-uuid');
             expect(result.message).toBeDefined();
         });
+
+        it('throws HttpException with 429 when rate limit is exceeded for an email', async () => {
+            const redis = makeRedis({
+                getClient: (() => ({
+                    get: jest.fn().mockResolvedValue('1'),
+                    set: jest.fn().mockResolvedValue('OK'),
+                    incr: jest.fn().mockResolvedValue(1),
+                    expire: jest.fn().mockResolvedValue(1),
+                    del: jest.fn().mockResolvedValue(1),
+                })) as any,
+            });
+            const { service } = await buildModule(makeSupabase(), undefined, redis);
+            await expect(service.forgotPassword('flood@victim.lk', 'tenant-uuid'))
+                .rejects.toThrow('Too many password reset requests');
+        });
     });
 
     // ── refreshTokens() ───────────────────────────────────────────────────────

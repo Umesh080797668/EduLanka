@@ -15,8 +15,18 @@ export class UploadService {
         }
 
         const allowedFormats = 'jpg,png,jpeg,webp';
+        const uploadPreset = process.env.CLOUDINARY_UPLOAD_PRESET;
+        const signParams: Record<string, any> = {
+            timestamp,
+            folder,
+            allowed_formats: allowedFormats,
+        };
+        if (uploadPreset) {
+            signParams.upload_preset = uploadPreset;
+        }
+
         const signature = cloudinary.utils.api_sign_request(
-            { timestamp, folder, allowed_formats: allowedFormats },
+            signParams,
             secret
         );
 
@@ -26,6 +36,7 @@ export class UploadService {
             signature,
             apiKey,
             allowedFormats,
+            uploadPreset: uploadPreset || null,
             maxFileSize: 5 * 1024 * 1024,
         };
     }

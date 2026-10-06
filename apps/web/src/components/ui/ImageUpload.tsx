@@ -63,6 +63,9 @@ export default function ImageUpload({
             if ((sigRes as any).allowedFormats) {
                 formData.append('allowed_formats', (sigRes as any).allowedFormats);
             }
+            if ((sigRes as any).uploadPreset) {
+                formData.append('upload_preset', (sigRes as any).uploadPreset);
+            }
 
             const cloudName =
                 process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME || 'dx2c48mou';

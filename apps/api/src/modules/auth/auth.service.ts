@@ -274,6 +274,7 @@ export class AuthService {
             }
         };
 
+        let authData: any = null;
         const authPayload: any = { password };
 
         if (identifier.includes('@')) {
@@ -293,21 +294,49 @@ export class AuthService {
 
             if (phoneMatches && phoneMatches.length > 0) {
                 if (phoneMatches.length > 1 && !tenantId) {
-                    const tenantIds = Array.from(new Set(phoneMatches.map((m: any) => m.tenant_id).filter(Boolean)));
-                    const { data: matchedTenants } = await this.supabaseService.adminClient
-                        .from('tenants')
-                        .select('id, name')
-                        .in('id', tenantIds);
-                    const schools = matchedTenants || [];
-                    throw new BadRequestException({
-                        message: `Ambiguous school|${JSON.stringify(schools)}`,
-                        error: 'AmbiguousSchool',
-                        details: { schools },
-                    });
+                    // Check password against each candidate first to prevent school enumeration
+                    const validMatches: { match: any; authData: any }[] = [];
+                    for (const candidate of phoneMatches) {
+                        const candidatePayload: any = { password };
+                        if (candidate.email) candidatePayload.email = candidate.email;
+                        else candidatePayload.phone = candidate.phone_number;
+
+                        try {
+                            const { data: cData, error: cErr } = await this.supabaseService.createAuthClient().auth.signInWithPassword(candidatePayload);
+                            if (!cErr && cData?.user) {
+                                validMatches.push({ match: candidate, authData: cData });
+                            }
+                        } catch {
+                            // Candidate failed authentication, continue
+                        }
+                    }
+
+                    if (validMatches.length === 0) {
+                        await recordFailure();
+                        throw new UnauthorizedException('Invalid credentials');
+                    }
+
+                    if (validMatches.length === 1) {
+                        authData = validMatches[0].authData;
+                    } else {
+                        // Several candidate accounts matched the password: only return those matching schools
+                        const matchedTenantIds = Array.from(new Set(validMatches.map((m) => m.match.tenant_id).filter(Boolean)));
+                        const { data: matchedTenants } = await this.supabaseService.adminClient
+                            .from('tenants')
+                            .select('id, name')
+                            .in('id', matchedTenantIds);
+                        const schools = matchedTenants || [];
+                        throw new BadRequestException({
+                            message: `Ambiguous school|${JSON.stringify(schools)}`,
+                            error: 'AmbiguousSchool',
+                            details: { schools },
+                        });
+                    }
+                } else {
+                    const phoneMatch = phoneMatches[0];
+                    if (phoneMatch.email) authPayload.email = phoneMatch.email;
+                    else authPayload.phone = phoneMatch.phone_number;
                 }
-                const phoneMatch = phoneMatches[0];
-                if (phoneMatch.email) authPayload.email = phoneMatch.email;
-                else authPayload.phone = phoneMatch.phone_number;
             } else {
                 // Check Admission No natively joining back up to the users properties
                 let studentQuery = this.supabaseService.adminClient
@@ -323,22 +352,53 @@ export class AuthService {
 
                 if (studentMatches && studentMatches.length > 0) {
                     if (studentMatches.length > 1 && !tenantId) {
-                        const tenantIds = Array.from(new Set(studentMatches.map((m: any) => m.tenant_id).filter(Boolean)));
-                        const { data: matchedTenants } = await this.supabaseService.adminClient
-                            .from('tenants')
-                            .select('id, name')
-                            .in('id', tenantIds);
-                        const schools = matchedTenants || [];
-                        throw new BadRequestException({
-                            message: `Ambiguous school|${JSON.stringify(schools)}`,
-                            error: 'AmbiguousSchool',
-                            details: { schools },
-                        });
+                        // Check password against each candidate first to prevent school enumeration
+                        const validMatches: { match: any; authData: any }[] = [];
+                        for (const candidate of studentMatches) {
+                            const mappedUser: any = Array.isArray(candidate.users) ? candidate.users[0] : candidate.users;
+                            if (!mappedUser) continue;
+
+                            const candidatePayload: any = { password };
+                            if (mappedUser.email) candidatePayload.email = mappedUser.email;
+                            else candidatePayload.phone = mappedUser.phone_number;
+
+                            try {
+                                const { data: cData, error: cErr } = await this.supabaseService.createAuthClient().auth.signInWithPassword(candidatePayload);
+                                if (!cErr && cData?.user) {
+                                    validMatches.push({ match: candidate, authData: cData });
+                                }
+                            } catch {
+                                // Candidate failed authentication, continue
+                            }
+                        }
+
+                        if (validMatches.length === 0) {
+                            await recordFailure();
+                            throw new UnauthorizedException('Invalid credentials');
+                        }
+
+                        if (validMatches.length === 1) {
+                            authData = validMatches[0].authData;
+                        } else {
+                            // Several accounts matched the password: only return those matching schools
+                            const matchedTenantIds = Array.from(new Set(validMatches.map((m) => m.match.tenant_id).filter(Boolean)));
+                            const { data: matchedTenants } = await this.supabaseService.adminClient
+                                .from('tenants')
+                                .select('id, name')
+                                .in('id', matchedTenantIds);
+                            const schools = matchedTenants || [];
+                            throw new BadRequestException({
+                                message: `Ambiguous school|${JSON.stringify(schools)}`,
+                                error: 'AmbiguousSchool',
+                                details: { schools },
+                            });
+                        }
+                    } else {
+                        const studentMatch = studentMatches[0];
+                        const mappedUser: any = Array.isArray(studentMatch.users) ? studentMatch.users[0] : studentMatch.users;
+                        if (mappedUser.email) authPayload.email = mappedUser.email;
+                        else authPayload.phone = mappedUser.phone_number;
                     }
-                    const studentMatch = studentMatches[0];
-                    const mappedUser: any = Array.isArray(studentMatch.users) ? studentMatch.users[0] : studentMatch.users;
-                    if (mappedUser.email) authPayload.email = mappedUser.email;
-                    else authPayload.phone = mappedUser.phone_number;
                 } else {
                     // Raw string proxy directly towards Supabase SMS APIs as absolute fallback
                     authPayload.phone = identifier;
@@ -346,11 +406,14 @@ export class AuthService {
             }
         }
 
-        const { data, error } = await this.supabaseService.createAuthClient().auth.signInWithPassword(authPayload);
-
-        if (error || !data.user) {
-            await recordFailure();
-            throw new UnauthorizedException('Invalid credentials');
+        let data = authData;
+        if (!data) {
+            const authRes = await this.supabaseService.createAuthClient().auth.signInWithPassword(authPayload);
+            if (authRes.error || !authRes.data?.user) {
+                await recordFailure();
+                throw new UnauthorizedException('Invalid credentials');
+            }
+            data = authRes.data;
         }
 
         // Login succeeded, clear per-identifier failure counter
@@ -581,6 +644,25 @@ export class AuthService {
      * Trigger Supabase password-reset email. Always returns success to prevent user enumeration.
      */
     async forgotPassword(email: string, tenantId?: string): Promise<{ message: string }> {
+        if (!email) {
+            throw new BadRequestException('Email is required');
+        }
+
+        // Limit to 1 password reset request per minute per email address to prevent inbox flooding
+        const normalizedEmail = email.toLowerCase().trim();
+        const emailRateLimitKey = `edulanka:ratelimit:forgot_password:${normalizedEmail}`;
+        try {
+            const existing = await this.redisService.getClient().get(emailRateLimitKey);
+            if (existing) {
+                throw new HttpException(
+                    'Too many password reset requests for this email. Please wait 1 minute before retrying.',
+                    HttpStatus.TOO_MANY_REQUESTS,
+                );
+            }
+        } catch (err) {
+            if (err instanceof HttpException) throw err;
+        }
+
         let validTenantId: string | null = null;
 
         if (tenantId) {
@@ -616,6 +698,12 @@ export class AuthService {
 
         if (error) {
             this.logger.warn(`Password reset email failed for ${email}: ${error.message}`);
+        }
+
+        try {
+            await this.redisService.getClient().set(emailRateLimitKey, '1', 'EX', 60);
+        } catch {
+            // non-fatal
         }
 
         return { message: 'If that email is registered, a password reset link has been sent.' };

@@ -117,7 +117,15 @@ export default function Header() {
                 transports: ['polling', 'websocket'],
                 autoConnect: true,
                 auth: (cb: (data: object) => void) => {
-                    cb({ token: authManager.getToken() || '' });
+                    const currentToken = authManager.getToken();
+                    if (currentToken) {
+                        cb({ token: currentToken });
+                    } else {
+                        // On full page reload, token is in refresh cookie rather than in-memory store
+                        void attemptTokenRefresh()
+                            .then((refreshed) => cb({ token: refreshed || '' }))
+                            .catch(() => cb({ token: '' }));
+                    }
                 },
             });
 
@@ -134,18 +142,41 @@ export default function Header() {
                 if (reason === 'io server disconnect') {
                     void attemptTokenRefresh().then((newToken) => {
                         if (newToken && socketRef.current) {
+                            socketRef.current.auth = { token: newToken };
                             socketRef.current.connect();
                         }
                     });
                 }
             });
 
+            let refreshAttempts = 0;
+            let refreshTimeoutId: ReturnType<typeof setTimeout> | null = null;
+            const baseDelay = 1000;
+            const maxDelay = 30000;
+
+            socket.on('connect', () => {
+                refreshAttempts = 0;
+                if (refreshTimeoutId) {
+                    clearTimeout(refreshTimeoutId);
+                    refreshTimeoutId = null;
+                }
+            });
+
             socket.on('connect_error', () => {
-                void attemptTokenRefresh().then((newToken) => {
-                    if (newToken && socketRef.current && !socketRef.current.connected) {
-                        socketRef.current.connect();
-                    }
-                });
+                // Exponential backoff prevents bursts of token refresh requests during outages
+                if (refreshTimeoutId) return;
+                const delay = Math.min(baseDelay * Math.pow(2, refreshAttempts), maxDelay);
+                refreshAttempts++;
+
+                refreshTimeoutId = setTimeout(() => {
+                    refreshTimeoutId = null;
+                    void attemptTokenRefresh().then((newToken) => {
+                        if (newToken && socketRef.current && !socketRef.current.connected) {
+                            socketRef.current.auth = { token: newToken };
+                            socketRef.current.connect();
+                        }
+                    });
+                }, delay);
             });
 
             const handleTokenRefreshed = (e: any) => {
@@ -164,6 +195,10 @@ export default function Header() {
 
             socketRef.current = socket;
             cleanupFn = () => {
+                if (refreshTimeoutId) {
+                    clearTimeout(refreshTimeoutId);
+                    refreshTimeoutId = null;
+                }
                 if (typeof window !== 'undefined') {
                     window.removeEventListener('auth:refreshed', handleTokenRefreshed);
                 }
