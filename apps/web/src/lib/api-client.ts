@@ -36,6 +36,9 @@ async function attemptTokenRefresh(): Promise<string | null> {
                 const newAccessToken = json?.data?.accessToken || json?.accessToken;
                 if (newAccessToken) {
                     authManager.setToken(newAccessToken);
+                    if (typeof window !== 'undefined') {
+                        window.dispatchEvent(new CustomEvent('auth:refreshed', { detail: { token: newAccessToken } }));
+                    }
                     return newAccessToken;
                 }
                 return null;
@@ -136,12 +139,16 @@ async function apiFetch<T>(
             });
         }
 
-        throw new Error(json.error?.message ?? `HTTP ${response.status}: ${title}`);
+        const apiErr: any = new Error(json.error?.message ?? `HTTP ${response.status}: ${title}`);
+        apiErr.code = json.error?.code;
+        apiErr.details = json.error?.details;
+        throw apiErr;
     }
 
     return json.data as T;
 }
 
+export { attemptTokenRefresh };
 export const apiClient = {
     get: <T>(path: string, options?: RequestOptions) =>
         apiFetch<T>(path, { method: 'GET', ...options }),

@@ -98,7 +98,7 @@ export class AuthController {
     @Post('login')
     @Version('1')
     @HttpCode(HttpStatus.OK)
-    @Throttle({ short: { limit: 5, ttl: 60000 } })
+    @Throttle({ short: { limit: 60, ttl: 60000 } })
     @ApiOperation({ summary: 'Authenticate and receive a JWT access + refresh token pair' })
     @ApiOkResponse({ description: 'Token pair issued successfully' })
     async login(
@@ -131,7 +131,7 @@ export class AuthController {
     @Post('self-register')
     @Version('1')
     @HttpCode(HttpStatus.CREATED)
-    @Throttle({ short: { limit: 5, ttl: 60000 } })
+    @Throttle({ short: { limit: 60, ttl: 60000 } })
     @ApiOperation({ summary: 'Create a new user if tenant allows self-enrollment (public)' })
     @ApiCreatedResponse({ description: 'User created and token pair issued' })
     async selfRegister(@Body() dto: SignupDto, @Res({ passthrough: true }) res: FastifyReply) {
@@ -145,7 +145,7 @@ export class AuthController {
     @Post('forgot-password')
     @Version('1')
     @HttpCode(HttpStatus.OK)
-    @Throttle({ short: { limit: 5, ttl: 60000 } })
+    @Throttle({ short: { limit: 60, ttl: 60000 } })
     @ApiOperation({ summary: 'Trigger a password-reset email (Supabase Auth)' })
     @ApiOkResponse({ description: 'Reset email sent (if address is registered)' })
     forgotPassword(@Body() dto: ForgotPasswordDto) {
@@ -220,7 +220,7 @@ export class AuthController {
     @Post('inquiries')
     @Version('1')
     @HttpCode(HttpStatus.CREATED)
-    @Throttle({ short: { limit: 5, ttl: 60000 } })
+    @Throttle({ short: { limit: 60, ttl: 60000 } })
     @ApiOperation({ summary: 'Submit an inquiry/appeal from a deactivated user account' })
     @ApiCreatedResponse({ description: 'Inquiry successfully submitted' })
     submitInquiry(@Body() dto: CreateInquiryDto) {

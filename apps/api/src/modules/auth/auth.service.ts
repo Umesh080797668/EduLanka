@@ -293,7 +293,17 @@ export class AuthService {
 
             if (phoneMatches && phoneMatches.length > 0) {
                 if (phoneMatches.length > 1 && !tenantId) {
-                    throw new BadRequestException('Multiple accounts match this phone number. Please specify your school.');
+                    const tenantIds = Array.from(new Set(phoneMatches.map((m: any) => m.tenant_id).filter(Boolean)));
+                    const { data: matchedTenants } = await this.supabaseService.adminClient
+                        .from('tenants')
+                        .select('id, name')
+                        .in('id', tenantIds);
+                    const schools = matchedTenants || [];
+                    throw new BadRequestException({
+                        message: `Ambiguous school|${JSON.stringify(schools)}`,
+                        error: 'AmbiguousSchool',
+                        details: { schools },
+                    });
                 }
                 const phoneMatch = phoneMatches[0];
                 if (phoneMatch.email) authPayload.email = phoneMatch.email;
@@ -313,7 +323,17 @@ export class AuthService {
 
                 if (studentMatches && studentMatches.length > 0) {
                     if (studentMatches.length > 1 && !tenantId) {
-                        throw new BadRequestException('Multiple schools have a student with this admission number. Please select your school.');
+                        const tenantIds = Array.from(new Set(studentMatches.map((m: any) => m.tenant_id).filter(Boolean)));
+                        const { data: matchedTenants } = await this.supabaseService.adminClient
+                            .from('tenants')
+                            .select('id, name')
+                            .in('id', tenantIds);
+                        const schools = matchedTenants || [];
+                        throw new BadRequestException({
+                            message: `Ambiguous school|${JSON.stringify(schools)}`,
+                            error: 'AmbiguousSchool',
+                            details: { schools },
+                        });
                     }
                     const studentMatch = studentMatches[0];
                     const mappedUser: any = Array.isArray(studentMatch.users) ? studentMatch.users[0] : studentMatch.users;

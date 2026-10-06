@@ -50,14 +50,11 @@ export class ClassesService {
         const slug = caller.tenantId;
         const db = this.supabase.getTenantClient(slug);
 
-        let gradeQuery = db.from('grades_config').select('level');
-        const numericId = parseInt(String(dto.gradeId), 10);
-        if (!isNaN(numericId)) {
-            gradeQuery = gradeQuery.or(`id.eq.${numericId},level.eq.${numericId}`);
-        } else {
-            gradeQuery = gradeQuery.eq('id', dto.gradeId);
-        }
-        const { data: gradeConfig } = await gradeQuery.maybeSingle();
+        const { data: gradeConfig } = await db
+            .from('grades_config')
+            .select('level')
+            .eq('id', dto.gradeId)
+            .maybeSingle();
         if (!gradeConfig) throw new NotFoundException('Grade configuration not found');
 
         const { data, error } = await db

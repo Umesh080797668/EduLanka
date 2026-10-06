@@ -49,3 +49,36 @@ CREATE TRIGGER enforce_student_cap_trigger
     BEFORE INSERT OR UPDATE ON public.students
     FOR EACH ROW
     EXECUTE FUNCTION public.enforce_student_cap();
+
+-- 4. Backfill grades 1-13 for any existing tenant that has none
+DO $$
+DECLARE
+    t RECORD;
+BEGIN
+    FOR t IN SELECT id FROM public.tenants LOOP
+        IF NOT EXISTS (SELECT 1 FROM public.grades_config WHERE tenant_id = t.id) THEN
+            INSERT INTO public.grades_config (tenant_id, level, label)
+            VALUES 
+                (t.id, 1, 'Grade 1'),
+                (t.id, 2, 'Grade 2'),
+                (t.id, 3, 'Grade 3'),
+                (t.id, 4, 'Grade 4'),
+                (t.id, 5, 'Grade 5'),
+                (t.id, 6, 'Grade 6'),
+                (t.id, 7, 'Grade 7'),
+                (t.id, 8, 'Grade 8'),
+                (t.id, 9, 'Grade 9'),
+                (t.id, 10, 'Grade 10'),
+                (t.id, 11, 'Grade 11'),
+                (t.id, 12, 'Grade 12'),
+                (t.id, 13, 'Grade 13')
+            ON CONFLICT (tenant_id, level) DO NOTHING;
+        END IF;
+    END LOOP;
+END;
+$$;
+
+-- 5. Backfill missing school_policy rows for any tenant that lacks one
+INSERT INTO public.school_policy (tenant_id)
+SELECT id FROM public.tenants
+ON CONFLICT (tenant_id) DO NOTHING;

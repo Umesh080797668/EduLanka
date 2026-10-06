@@ -1,6 +1,5 @@
 'use client';
-
-import { useEffect, useState } from 'react';
+import { useState, useSyncExternalStore } from 'react';
 import { CheckCircle2, KeyRound, Lock, Mail } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { toast } from 'sonner';
@@ -18,11 +17,34 @@ import {
 } from '@/components/ui/Card';
 import { Field, Input } from '@/components/ui/Form';
 
+function getResetTokenSnapshot(): string | null {
+    if (typeof window === 'undefined') return null;
+    const hash = window.location.hash.startsWith('#')
+        ? window.location.hash.substring(1)
+        : window.location.hash;
+    const hashParams = new URLSearchParams(hash);
+    let extractedToken = hashParams.get('access_token');
+    if (!extractedToken) {
+        const searchParams = new URLSearchParams(window.location.search);
+        extractedToken = searchParams.get('access_token') || searchParams.get('token');
+    }
+    return extractedToken || null;
+}
+
+function subscribeToUrl(callback: () => void) {
+    window.addEventListener('hashchange', callback);
+    window.addEventListener('popstate', callback);
+    return () => {
+        window.removeEventListener('hashchange', callback);
+        window.removeEventListener('popstate', callback);
+    };
+}
+
 export default function ResetPasswordPage() {
     const t = useTranslations('ResetPassword');
 
-    // Token extracted from URL hash (#access_token=...) or query param (?access_token=... or ?token=...)
-    const [token, setToken] = useState<string | null>(null);
+    // Token extracted synchronously without triggering cascading renders
+    const token = useSyncExternalStore(subscribeToUrl, getResetTokenSnapshot, () => null);
 
     // Request form state
     const [email, setEmail] = useState('');
@@ -36,27 +58,6 @@ export default function ResetPasswordPage() {
     const [updateSuccess, setUpdateSuccess] = useState(false);
 
     const [error, setError] = useState<string | null>(null);
-
-    useEffect(() => {
-        if (typeof window === 'undefined') return;
-
-        // Check hash fragment first (Supabase recovery email magic-links use #access_token=...)
-        const hash = window.location.hash.startsWith('#')
-            ? window.location.hash.substring(1)
-            : window.location.hash;
-        const hashParams = new URLSearchParams(hash);
-        let extractedToken = hashParams.get('access_token');
-
-        // Fallback to query parameters
-        if (!extractedToken) {
-            const searchParams = new URLSearchParams(window.location.search);
-            extractedToken = searchParams.get('access_token') || searchParams.get('token');
-        }
-
-        if (extractedToken) {
-            setToken(extractedToken);
-        }
-    }, []);
 
     const handleRequestReset = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -208,10 +209,10 @@ export default function ResetPasswordPage() {
                                 <button
                                     type="button"
                                     onClick={() => {
-                                        setToken(null);
                                         setError(null);
                                         if (typeof window !== 'undefined') {
                                             window.history.replaceState(null, '', window.location.pathname);
+                                            window.dispatchEvent(new Event('popstate'));
                                         }
                                     }}
                                     className="font-semibold text-muted-foreground underline-offset-4 transition-colors hover:text-primary hover:underline"

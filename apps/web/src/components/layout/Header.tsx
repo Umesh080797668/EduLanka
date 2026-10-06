@@ -8,7 +8,7 @@ import { io, Socket } from 'socket.io-client';
 import { toast } from 'sonner';
 
 import { usePathname, useRouter } from '@/i18n/routing';
-import { apiClient } from '@/lib/api-client';
+import { apiClient, attemptTokenRefresh } from '@/lib/api-client';
 import { authManager } from '@/lib/auth-store';
 import { cn } from '@/lib/cn';
 import { createSupabaseBrowserClient } from '@/lib/supabase/client';
@@ -116,6 +116,9 @@ export default function Header() {
             const socket = io(apiUrl, {
                 transports: ['polling', 'websocket'],
                 autoConnect: true,
+                auth: (cb: (data: object) => void) => {
+                    cb({ token: authManager.getToken() || '' });
+                },
             });
 
             socket.on('system_notification', (data: Notification) => {
@@ -126,8 +129,44 @@ export default function Header() {
                 });
             });
 
+            // Reconnect with fresh token if dropped due to token expiration
+            socket.on('disconnect', (reason) => {
+                if (reason === 'io server disconnect') {
+                    void attemptTokenRefresh().then((newToken) => {
+                        if (newToken && socketRef.current) {
+                            socketRef.current.connect();
+                        }
+                    });
+                }
+            });
+
+            socket.on('connect_error', () => {
+                void attemptTokenRefresh().then((newToken) => {
+                    if (newToken && socketRef.current && !socketRef.current.connected) {
+                        socketRef.current.connect();
+                    }
+                });
+            });
+
+            const handleTokenRefreshed = (e: any) => {
+                const refreshedToken = e.detail?.token || authManager.getToken();
+                if (socketRef.current) {
+                    socketRef.current.auth = { token: refreshedToken };
+                    if (!socketRef.current.connected) {
+                        socketRef.current.connect();
+                    }
+                }
+            };
+
+            if (typeof window !== 'undefined') {
+                window.addEventListener('auth:refreshed', handleTokenRefreshed);
+            }
+
             socketRef.current = socket;
             cleanupFn = () => {
+                if (typeof window !== 'undefined') {
+                    window.removeEventListener('auth:refreshed', handleTokenRefreshed);
+                }
                 socket.disconnect();
             };
         }

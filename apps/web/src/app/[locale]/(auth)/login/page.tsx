@@ -69,12 +69,20 @@ export default function LoginPage() {
         } catch (err: any) {
             const backendMessage = err.message || t('networkError');
 
-            if (backendMessage.toLowerCase().includes('school')) {
-                setShowSchoolSelect(true);
-                if (schools.length === 0) {
-                    void apiClient.get<Array<{ id: string; name: string }>>('/auth/tenants', { skipGlobalToast: true })
-                        .then(res => { if (Array.isArray(res)) setSchools(res); })
-                        .catch(() => {});
+            if (backendMessage.startsWith('Ambiguous school|') || err.details?.schools) {
+                let matchedSchools = err.details?.schools;
+                if (!matchedSchools && backendMessage.includes('|')) {
+                    try {
+                        matchedSchools = JSON.parse(backendMessage.split('|')[1]);
+                    } catch {}
+                }
+                if (Array.isArray(matchedSchools) && matchedSchools.length > 0) {
+                    setSchools(matchedSchools);
+                    setShowSchoolSelect(true);
+                    const promptMsg = t('selectSchool') || 'Multiple schools match this identifier. Please select your school.';
+                    setError(promptMsg);
+                    toast.info(promptMsg);
+                    return;
                 }
             }
 
@@ -104,13 +112,9 @@ export default function LoginPage() {
 
     const handleIdentifierChange = (value: string) => {
         setIdentifier(value);
-        if (!value.includes('@') && value.trim().length > 1) {
-            setShowSchoolSelect(true);
-            if (schools.length === 0) {
-                void apiClient.get<Array<{ id: string; name: string }>>('/auth/tenants', { skipGlobalToast: true })
-                    .then(res => { if (Array.isArray(res)) setSchools(res); })
-                    .catch(() => {});
-            }
+        if (value.includes('@')) {
+            setShowSchoolSelect(false);
+            setSelectedTenantId('');
         }
     };
 

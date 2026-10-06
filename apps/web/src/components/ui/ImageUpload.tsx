@@ -37,6 +37,11 @@ export default function ImageUpload({
             return;
         }
 
+        if (file.size > 5 * 1024 * 1024) {
+            onError('File size exceeds the 5MB limit');
+            return;
+        }
+
         setUploading(true);
 
         try {
@@ -55,6 +60,9 @@ export default function ImageUpload({
             formData.append('timestamp', timestamp.toString());
             formData.append('signature', signature);
             formData.append('folder', folder);
+            if ((sigRes as any).allowedFormats) {
+                formData.append('allowed_formats', (sigRes as any).allowedFormats);
+            }
 
             const cloudName =
                 process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME || 'dx2c48mou';

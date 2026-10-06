@@ -14,8 +14,9 @@ export class UploadService {
             throw new InternalServerErrorException('Cloudinary credentials are not configured on the server.');
         }
 
+        const allowedFormats = 'jpg,png,jpeg,webp';
         const signature = cloudinary.utils.api_sign_request(
-            { timestamp, folder },
+            { timestamp, folder, allowed_formats: allowedFormats },
             secret
         );
 
@@ -23,7 +24,9 @@ export class UploadService {
             timestamp,
             folder,
             signature,
-            apiKey
+            apiKey,
+            allowedFormats,
+            maxFileSize: 5 * 1024 * 1024,
         };
     }
 }

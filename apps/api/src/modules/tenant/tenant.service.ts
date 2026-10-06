@@ -139,13 +139,18 @@ export class TenantService {
             .from('grades_config')
             .insert(defaultGrades);
         if (gradesErr) {
-            this.logger.warn(`Failed to seed default grades for tenant ${inserted.id}: ${gradesErr.message}`);
+            this.logger.error(`Failed to seed default grades for tenant ${inserted.id}: ${gradesErr.message}`);
+            throw new InternalServerErrorException(`Failed to seed default grades: ${gradesErr.message}`);
         }
 
         // Auto-provision initial default school policy
-        await this.supabase.adminClient
+        const { error: policyErr } = await this.supabase.adminClient
             .from('school_policy')
             .insert({ tenant_id: inserted.id });
+        if (policyErr) {
+            this.logger.error(`Failed to provision default school policy for tenant ${inserted.id}: ${policyErr.message}`);
+            throw new InternalServerErrorException(`Failed to provision default school policy: ${policyErr.message}`);
+        }
 
         await this.auditLogs.logAction({
             tenantId: inserted.id,

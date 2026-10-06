@@ -43,11 +43,19 @@ export class HttpExceptionFilter implements ExceptionFilter {
             `[${request.method}] ${request.url} → ${status} ${String(errorCode)}`,
         );
 
+        let details: Record<string, unknown> | undefined;
+        if (typeof exceptionResponse === 'object' && exceptionResponse !== null) {
+            const respObj = exceptionResponse as Record<string, unknown>;
+            if (respObj.details) details = respObj.details as Record<string, unknown>;
+            else if (respObj.schools) details = { schools: respObj.schools };
+        }
+
         const body: ApiResponse<never> = {
             success: false,
             error: {
                 code: String(errorCode),
                 message: Array.isArray(message) ? message.join(', ') : String(message),
+                ...(details ? { details } : {}),
             },
         };
 
