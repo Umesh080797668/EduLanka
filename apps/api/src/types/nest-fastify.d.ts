@@ -1,4 +1,5 @@
 import '@nestjs/platform-fastify';
+import type { CorsOptions, CorsOptionsDelegate } from '@nestjs/common/interfaces/external/cors-options.interface';
 
 /**
  * Declaration merging to resolve upstream NestJS type incompatibility:
@@ -8,6 +9,6 @@ import '@nestjs/platform-fastify';
  */
 declare module '@nestjs/platform-fastify' {
     interface NestFastifyApplication {
-        enableCors(options?: import('@nestjs/common/interfaces/external/cors-options.interface').CorsOptions | any): void;
+        enableCors(options?: CorsOptions | CorsOptionsDelegate<any> | any): void;
     }
 }
