@@ -13,6 +13,7 @@ import {
     ForbiddenException,
     HttpCode,
     HttpStatus,
+    ParseUUIDPipe,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 
@@ -68,7 +69,7 @@ export class NoticesController {
     @ApiOperation({ summary: 'Update an existing notice' })
     async updateNotice(
         @Req() req: any,
-        @Param('id') id: string,
+        @Param('id', ParseUUIDPipe) id: string,
         @Body() body: UpdateNoticeDto
     ) {
         return this.noticesService.updateNotice(req.user.tenantId, id, req.user.sub, body, req.user.role);
@@ -78,7 +79,7 @@ export class NoticesController {
     @Roles(UserRole.SCHOOL_ADMIN, UserRole.SUPER_ADMIN, UserRole.TEACHER)
     @HttpCode(HttpStatus.OK)
     @ApiOperation({ summary: 'Archive a notice' })
-    async archiveNotice(@Req() req: any, @Param('id') id: string) {
+    async archiveNotice(@Req() req: any, @Param('id', ParseUUIDPipe) id: string) {
         return this.noticesService.archiveNotice(req.user.tenantId, id, req.user.sub, req.user.role);
     }
 
@@ -86,7 +87,7 @@ export class NoticesController {
     @Roles(UserRole.SCHOOL_ADMIN, UserRole.SUPER_ADMIN, UserRole.TEACHER)
     @HttpCode(HttpStatus.OK)
     @ApiOperation({ summary: 'Delete a notice' })
-    async deleteNotice(@Req() req: any, @Param('id') id: string) {
+    async deleteNotice(@Req() req: any, @Param('id', ParseUUIDPipe) id: string) {
         return this.noticesService.deleteNotice(req.user.tenantId, id, req.user.sub, req.user.role);
     }
 
@@ -103,21 +104,21 @@ export class NoticesController {
     @Post(':id/read')
     @HttpCode(HttpStatus.OK)
     @ApiOperation({ summary: 'Mark notice as read' })
-    async markAsRead(@Req() req: any, @Param('id') id: string) {
+    async markAsRead(@Req() req: any, @Param('id', ParseUUIDPipe) id: string) {
         return this.noticesService.markAsRead(req.user.tenantId, id, req.user.sub);
     }
 
     @Post(':id/acknowledge')
     @HttpCode(HttpStatus.OK)
     @ApiOperation({ summary: 'Explicitly acknowledge a notice' })
-    async acknowledgeNotice(@Req() req: any, @Param('id') id: string) {
+    async acknowledgeNotice(@Req() req: any, @Param('id', ParseUUIDPipe) id: string) {
         return this.noticesService.acknowledgeNotice(req.user.tenantId, id, req.user.sub);
     }
 
     @Get(':id/acknowledgments')
     @Roles(UserRole.SCHOOL_ADMIN, UserRole.SUPER_ADMIN, UserRole.TEACHER)
     @ApiOperation({ summary: 'View readers who acknowledged a notice' })
-    async getAcknowledgments(@Req() req: any, @Param('id') id: string) {
+    async getAcknowledgments(@Req() req: any, @Param('id', ParseUUIDPipe) id: string) {
         return this.noticesService.getNoticeAcknowledgments(
             req.user.tenantId,
             id,
@@ -155,7 +156,7 @@ export class NoticesController {
     @Roles(UserRole.SUPER_ADMIN)
     @HttpCode(HttpStatus.OK)
     @ApiOperation({ summary: 'Deactivate platform maintenance announcement' })
-    async deactivateMaintenanceNotice(@Req() req: any, @Param('id') id: string) {
+    async deactivateMaintenanceNotice(@Req() req: any, @Param('id', ParseUUIDPipe) id: string) {
         if (req.user.role !== UserRole.SUPER_ADMIN) {
             throw new ForbiddenException('Only System Administrators can deactivate maintenance announcements.');
         }

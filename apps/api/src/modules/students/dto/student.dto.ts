@@ -13,6 +13,8 @@ import {
     Matches,
 } from 'class-validator';
 
+import { IsUuidString } from '../../../common/decorators/is-uuid-string.decorator';
+
 export class CreateStudentDto {
     @ApiProperty({ example: 'Kasun Perera' })
     @IsString()
@@ -51,8 +53,8 @@ export class CreateStudentDto {
     gender?: Gender;
 
     @ApiPropertyOptional({ description: 'Class UUID to enroll the student into' })
-    @IsString()
     @IsOptional()
+    @IsUuidString()
     classId?: string;
 
     @ApiPropertyOptional({ enum: ALStream, description: 'A/L stream for Grades 12-13' })
@@ -113,7 +115,7 @@ export class UpdateStudentDto {
 
 export class AssignClassDto {
     @ApiProperty({ description: 'Class UUID to assign the student to' })
-    @IsString()
     @IsNotEmpty()
+    @IsUuidString()
     classId!: string;
 }

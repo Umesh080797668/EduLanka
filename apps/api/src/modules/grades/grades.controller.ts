@@ -1,6 +1,6 @@
 import type { JwtPayload } from '@edu-lanka/shared-types';
 import { UserRole } from '@edu-lanka/shared-types';
-import { Controller, Post, Get, Patch, Delete, Body, Param, UseGuards } from '@nestjs/common';
+import { Controller, Post, Get, Patch, Delete, Body, Param, UseGuards, ParseUUIDPipe } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
@@ -37,7 +37,7 @@ export class GradesController {
     @Get(':id')
     @ApiOperation({ summary: 'Get grade details' })
     @ApiResponse({ status: 200, description: 'Success' })
-    async findOne(@Param('id') id: string, @CurrentUser() caller: JwtPayload) {
+    async findOne(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() caller: JwtPayload) {
         return this.gradesService.findOne(id, caller);
     }
 
@@ -46,7 +46,7 @@ export class GradesController {
     @ApiOperation({ summary: 'Update a grade metadata (Admin only)' })
     @ApiResponse({ status: 200, description: 'Updated' })
     async update(
-        @Param('id') id: string,
+        @Param('id', ParseUUIDPipe) id: string,
         @Body() dto: UpdateGradeDto,
         @CurrentUser() caller: JwtPayload,
     ) {
@@ -57,7 +57,7 @@ export class GradesController {
     @Roles(UserRole.SCHOOL_ADMIN, UserRole.SUPER_ADMIN)
     @ApiOperation({ summary: 'Delete a grade (Admin only)' })
     @ApiResponse({ status: 200, description: 'Deleted' })
-    async remove(@Param('id') id: string, @CurrentUser() caller: JwtPayload) {
+    async remove(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() caller: JwtPayload) {
         return this.gradesService.delete(id, caller);
     }
 }

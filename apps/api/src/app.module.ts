@@ -45,6 +45,7 @@ import { UsersModule } from './modules/users/users.module';
                 PORT: Joi.number().default(3001),
                 ALLOWED_ORIGINS: Joi.string().default('http://localhost:3000'),
                 APP_PUBLIC_URL: Joi.string().uri().default('http://localhost:3000'),
+                SYSTEM_TENANT_ID: Joi.string().default('91c85e7c-7907-4915-ae70-4d5b7f3a843c'),
 
                 // Supabase
                 SUPABASE_URL: Joi.string().uri().required(),
@@ -72,13 +73,15 @@ import { UsersModule } from './modules/users/users.module';
             inject: [ConfigService],
             useFactory: (config: ConfigService) => {
                 const IORedis = require('ioredis');
-                return {
-                    connection: new IORedis(
-                        config.get<string>('redis.url') ||
-                        `redis://${config.get<string>('redis.password') ? `:${config.get<string>('redis.password')}@` : ''}${config.get<string>('redis.host')}:${config.get<number>('redis.port')}`,
-                        { maxRetriesPerRequest: null }
-                    ),
-                };
+                const connection = new IORedis(
+                    config.get<string>('redis.url') ||
+                    `redis://${config.get<string>('redis.password') ? `:${config.get<string>('redis.password')}@` : ''}${config.get<string>('redis.host')}:${config.get<number>('redis.port')}`,
+                    { maxRetriesPerRequest: null }
+                );
+                connection.on('error', () => {
+                    // Prevent unhandled error event if Redis is offline
+                });
+                return { connection };
             },
         }),
 

@@ -7,6 +7,7 @@ import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 
 import { AuditLogsService } from './audit-logs.service';
+import { QueryAuditLogsDto } from './dto/query-audit-logs.dto';
 
 @ApiTags('audit-logs')
 @ApiBearerAuth()
@@ -18,14 +19,7 @@ export class AuditLogsController {
     @Get()
     @Roles(UserRole.SUPER_ADMIN)
     @ApiOperation({ summary: 'List all audit logs across the system' })
-    async getAuditLogs(
-        @Query('limit') limitArg?: string,
-        @Query('offset') offsetArg?: string,
-        @Query('targetUserId') targetUserId?: string,
-    ) {
-        const limit = parseInt(limitArg || '50', 10);
-        const offset = parseInt(offsetArg || '0', 10);
-
-        return this.auditLogsService.listLogs(limit, offset, targetUserId);
+    async getAuditLogs(@Query() query: QueryAuditLogsDto) {
+        return this.auditLogsService.listLogs(query.limit ?? 50, query.offset ?? 0, query.targetUserId);
     }
 }

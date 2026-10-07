@@ -1,5 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsEmail, IsString, IsOptional } from 'class-validator';
+import { IsEmail, IsOptional } from 'class-validator';
+
+import { IsUuidString } from '../../../common/decorators/is-uuid-string.decorator';
 
 export class ForgotPasswordDto {
     @ApiProperty({ example: 'john.doe@school.edu.lk' })
@@ -7,8 +9,8 @@ export class ForgotPasswordDto {
     email!: string;
 
     @ApiPropertyOptional({ description: 'Tenant UUID (optional)' })
-    @IsString()
     @IsOptional()
+    @IsUuidString()
     tenantId?: string;
 }
 

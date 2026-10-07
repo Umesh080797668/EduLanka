@@ -5,9 +5,12 @@ import { ParentRelationship } from '@edu-lanka/shared-types';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { IsNotEmpty, IsEnum, IsOptional, IsString, Matches, ValidateIf } from 'class-validator';
 
+import { IsUuidString } from '../../../common/decorators/is-uuid-string.decorator';
+
 export class LinkStudentDto {
     @ApiProperty({ description: 'Student UUID to link to this parent' })
     @IsNotEmpty()
+    @IsUuidString()
     studentId!: string;
 
     @ApiPropertyOptional({ enum: ParentRelationship, default: ParentRelationship.GUARDIAN })
@@ -19,6 +22,7 @@ export class LinkStudentDto {
 export class UnlinkStudentDto {
     @ApiProperty({ description: 'Student UUID to unlink from this parent' })
     @IsNotEmpty()
+    @IsUuidString()
     studentId!: string;
 }
 

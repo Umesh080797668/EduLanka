@@ -10,7 +10,6 @@ import {
     FastifyAdapter,
     type NestFastifyApplication,
 } from '@nestjs/platform-fastify';
-import './types/nest-fastify';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 
 import { AppModule } from './app.module';

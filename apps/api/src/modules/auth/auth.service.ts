@@ -456,7 +456,7 @@ export class AuthService {
             .maybeSingle();
 
         if (adminData) {
-            const rootTenantId = 'a1b2c3d4-0000-0000-0000-000000000000';
+            const rootTenantId = this.configService.get('app.systemTenantId', { infer: true }) ?? '91c85e7c-7907-4915-ae70-4d5b7f3a843c';
             const tokens = await this.issueTokenPair({ sub: adminData.id as string, tenantId: rootTenantId, role: adminData.role as UserRole, email: authUser.email ?? authUser.phone ?? identifier });
             return {
                 accessToken: tokens.accessToken,

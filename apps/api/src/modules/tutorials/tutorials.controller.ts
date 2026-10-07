@@ -1,7 +1,7 @@
 import { UserRole } from '@edu-lanka/shared-types';
 import type { JwtPayload } from '@edu-lanka/shared-types';
 import {
-    Controller, Get, Post, Body, Param, UseGuards, HttpCode, HttpStatus
+    Controller, Get, Post, Body, Param, UseGuards, HttpCode, HttpStatus, ParseUUIDPipe
 } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 
@@ -52,7 +52,7 @@ export class TutorialsController {
     @HttpCode(HttpStatus.OK)
     @ApiOperation({ summary: 'Mark a tutorial as COMPLETED or SKIPPED for the logged-in user' })
     updateMyTutorialStatus(
-        @Param('id') tutorialId: string,
+        @Param('id', ParseUUIDPipe) tutorialId: string,
         @Body() dto: UpdateTutorialStatusDto,
         @CurrentUser() user: JwtPayload
     ) {

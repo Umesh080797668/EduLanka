@@ -10,6 +10,7 @@ export const configuration = () => ({
             .split(',')
             .map((o) => o.trim()),
         publicUrl: process.env['APP_PUBLIC_URL'] ?? 'http://localhost:3000',
+        systemTenantId: process.env['SYSTEM_TENANT_ID'] ?? '91c85e7c-7907-4915-ae70-4d5b7f3a843c',
     },
     supabase: {
         url: process.env['SUPABASE_URL'] as string,

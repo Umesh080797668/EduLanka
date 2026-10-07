@@ -1,4 +1,4 @@
-import { Module, Global } from '@nestjs/common';
+import { Module, Global, Logger } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import Redis from 'ioredis';
 
@@ -18,27 +18,28 @@ import { RedisService } from './redis.service';
             provide: 'REDIS_CLIENT',
             inject: [ConfigService],
             useFactory: (configService: ConfigService<AppConfiguration>) => {
+                const logger = new Logger('RedisClient');
                 const url = configService.get('redis.url', { infer: true });
-                if (url) {
-                    return new Redis(url, {
+                const client = url
+                    ? new Redis(url, {
+                        lazyConnect: true,
+                        enableReadyCheck: true,
+                        maxRetriesPerRequest: 3,
+                    })
+                    : new Redis({
+                        host: configService.get('redis.host', { infer: true }) ?? 'localhost',
+                        port: configService.get('redis.port', { infer: true }) ?? 6379,
+                        password: configService.get('redis.password', { infer: true }) || undefined,
                         lazyConnect: true,
                         enableReadyCheck: true,
                         maxRetriesPerRequest: 3,
                     });
-                }
 
-                const host = configService.get('redis.host', { infer: true }) ?? 'localhost';
-                const port = configService.get('redis.port', { infer: true }) ?? 6379;
-                const password = configService.get('redis.password', { infer: true });
-
-                return new Redis({
-                    host,
-                    port,
-                    password: password || undefined,
-                    lazyConnect: true,      // Don't die at startup if Redis is unreachable
-                    enableReadyCheck: true,
-                    maxRetriesPerRequest: 3,
+                client.on('error', (err) => {
+                    logger.warn(`Redis connection error: ${err.message}`);
                 });
+
+                return client;
             },
         },
         RedisService,

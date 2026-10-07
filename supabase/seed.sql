@@ -27,6 +27,31 @@
 -- ('de0f092e-8abf-474b-8e2c-6cf5d2e1f4ae', 'de0f092e-8abf-474b-8e2c-6cf5d2e1f4ae', format('{"sub":"%s","email":"%s"}', 'de0f092e-8abf-474b-8e2c-6cf5d2e1f4ae', 'parent@royal.lk')::jsonb, 'email', uuid_generate_v4())
 -- ON CONFLICT DO NOTHING;
 
+-- 0.5. Insert the system-root tenant row for platform administration
+INSERT INTO public.tenants (
+    id,
+    name,
+    slug,
+    plan,
+    status,
+    school_type,
+    contact_email,
+    address_city,
+    address_district,
+    address_province
+) VALUES (
+    '91c85e7c-7907-4915-ae70-4d5b7f3a843c',
+    'System Administration',
+    'system_root',
+    'COMMUNITY',
+    'ACTIVE',
+    'TYPE_1AB',
+    'admin@edulanka.lk',
+    'Colombo',
+    'Colombo',
+    'Western Province'
+) ON CONFLICT DO NOTHING;
+
 -- 1. Insert the royal-college tenant row
 INSERT INTO public.tenants (
     id,

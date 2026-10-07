@@ -15,10 +15,12 @@ import {
     Length,
 } from 'class-validator';
 
+import { IsUuidString } from '../../../common/decorators/is-uuid-string.decorator';
+
 export class CreateClassDto {
     @ApiProperty({ description: 'Grade UUID referencing grades table' })
-    @IsString()
     @IsNotEmpty()
+    @IsUuidString()
     gradeId!: string;
 
     @ApiProperty({ description: 'Section label', example: 'A' })
@@ -61,8 +63,8 @@ export class UpdateClassDto {
 
 export class AssignTeacherDto {
     @ApiProperty({ description: 'Teacher UUID' })
-    @IsString()
     @IsNotEmpty()
+    @IsUuidString()
     teacherId!: string;
 
     @ApiPropertyOptional({ description: 'Is this the homeroom teacher?' })

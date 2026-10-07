@@ -118,23 +118,31 @@ The full vision spans roughly six independently hard products: a multi-tenant sc
 
 ---
 
-## Phase 3 — Content & Mobile (Offline-First Flutter App)
+## Phase 3 — Content & Mobile (Flutter App, Web Parity & Online/Offline Sync)
 
-**Goal:** Students and teachers can use EduLanka meaningfully without constant connectivity — critical outside Colombo and during Disaster Mode.
+**Goal:** Students and teachers can use EduLanka meaningfully both online and without constant connectivity — critical outside Colombo and during Disaster Mode.
+
+**Core Architecture & Cross-Platform Parity Principles:**
+- **Bidirectional Feature Parity (Web ↔ Mobile):** Every mobile feature exists in the web portal, and every web feature exists in the mobile application according to role. Teachers can mark attendance, review homework, and chat on both web and mobile; students can access the Resource Hub, Paper Hub, and Disaster Pack on both web and mobile.
+- **Online-First Baseline & Transparent Fallback:** Offline capabilities represent a resilient progressive enhancement. All functions operate natively as direct online workflows (REST / WebSockets) when connected or on the web. On mobile devices with intermittent connectivity, Drift + SQLCipher caches state locally and the outbox sync engine reconciles writes automatically.
 
 **Scope:**
-- Flutter app (Android/iOS) with local SQLite (sqflite): offline attendance, offline homework payloads, local chat caching.
-- Media Asset Hub via Cloudinary: HLS adaptive-bitrate video, encrypted offline video downloads to local storage.
-- Paper Hub: exam paper PDFs paired with official marking schemes for split-screen practice.
-- Sync engine: reconciles offline-completed work when connectivity returns (built directly on the Disaster Mode groundwork from Phase 2).
-- **Offline Disaster-Readiness Pack**: when a school's Phase 2 Disaster Mode is active, the Flutter app auto-caches, fully offline: emergency contacts, nearest shelter/relocation info, and the closure reason/expected duration set by the Admin — plus the student's last 7 days of homework/resources, so learning continuity doesn't stop just because connectivity does. This is the concrete natural-disaster payoff of the Phase 2 groundwork, not a generic offline mode.
-- Prisma ORM Pipeline: Deployed specifically as a background microservice for Super Admin aggregation queries, maintaining strict separation from core RLS transactional paths.
-- **System Admin:** Global CDN (Cloudinary) storage monitoring, managing mobile app release syncs, integrating global Prisma aggregations, and uploading national past papers to the central Paper Hub.
-- **Mobile-native tutorial system** launched: bundled, offline-capable walkthroughs for the Flutter app covering offline homework, video downloads, and the Paper Hub, so onboarding works even with no connectivity.
+- Flutter app (`apps/mobile`, feature-first monorepo layout) using **Riverpod** state management and **Drift with SQLCipher** (`sqlcipher_flutter_libs` + `flutter_secure_storage` encryption key):
+  - Online-first & offline attendance marking.
+  - Online-first & offline homework submission payloads.
+  - Real-time and cached chat messaging.
+- Media Asset Hub via Cloudinary:
+  - Online adaptive-bitrate HLS streaming across web and mobile.
+  - Offline video downloads: Resumable progressive MP4 with chunked AES encryption at rest (CTR or chunked GCM) decoded via custom ExoPlayer `DataSource` for seeking on 2GB RAM devices without in-memory decryption bottlenecks. Derived MP4 renditions tracked in tenant storage quota ledger.
+- Paper Hub: exam paper PDFs paired with official marking schemes for split-screen practice, available on web and mobile.
+- Sync Engine: Event-sourced push stream (`sync_events`), monotonic sequences bound to `tenant_sync_counters` row-locks, teacher `marked_at` attendance conflict resolution (clock-skew clamped), per-tenant `client_uuid` idempotency, and student data retention/purge rules.
+- **Disaster-Readiness Pack**: When a school's Phase 2 Disaster Mode is active, both web and mobile surface the emergency pack (contacts, shelter/relocation circulars, closure reason/duration, last 7 days of homework/resources). Mobile auto-caches it via background sync, app-open sync, and Phase 2 SMS backup.
+- Prisma ORM Pipeline: Background microservice for Super Admin aggregation queries, maintaining strict isolation from core RLS paths.
+- **Mobile-native tutorial system**: Bundled, offline-capable walkthroughs for the Flutter app matching web coach marks.
 
 **Explicitly deferred:** National Resource Marketplace (school-internal resource sharing only in this phase), AI assistant, gamification badges.
 
-**Tech introduced:** Flutter/Dart, sqflite, Cloudinary asset pipeline, bundled mobile tutorial/coach-mark package.
+**Tech introduced:** Flutter/Dart (`apps/mobile`), Riverpod, Drift + SQLCipher (`sqlcipher_flutter_libs`), `flutter_secure_storage`, Cloudinary chunked MP4 pipeline, FCM HTTP v1 push registry.
 
 ---
 
@@ -312,7 +320,7 @@ The diagram below represents the fully realized architecture; earlier phases imp
 
 - **Phase 1:** Next.js 16+ (App Router, Turbopack, RSC, Tailwind CSS), NestJS REST APIs, Supabase (shared schema, `tenant_id` + RLS — revised from schema-per-tenant in Sprint 7, see §4a), Redis (sessions).
 - **Phase 2:** NestJS WebSockets (chat gateway), Twilio Programmable Messaging API (alphanumeric sender IDs, UTF-8), Redis (WebSocket state, SMS queues).
-- **Phase 3:** Flutter (Dart), SQLite (sqflite) for offline storage, Prisma ORM (for server-side Super Admin microservices), Cloudinary (HLS video transcoding, encrypted offline downloads).
+- **Phase 3:** Flutter (Dart, `apps/mobile`), Riverpod, Drift + SQLCipher (via `sqlcipher_flutter_libs` with Keystore/Keychain keys) for encrypted local storage, Prisma ORM (for server-side Super Admin microservices), Cloudinary (HLS streaming and resumable chunked-AES MP4 downloads), FCM HTTP v1 push registry. Cross-platform Web ↔ Mobile bidirectional feature parity.
 - **Phase 4:** Python (FastAPI) AI engine, Meilisearch, dedicated Vector Database (Pinecone / Qdrant / Milvus), Qwen LLM.
 - **Phase 5:** Scikit-learn / XGBoost for Early Warning and Exam Prediction models, served alongside the FastAPI AI engine; external weather/disaster-data API (Dept. of Meteorology / Disaster Management Centre) for Disaster Impact Prediction.
 - **Phase 6:** Google OR-Tools (Smart Timetable Generator), ClickHouse (Ministry Data Warehouse / OLAP), Prometheus, Grafana, OpenTelemetry, Sentry (national-scale observability), National Disaster Management Centre (NDMC) API integration for the National Disaster Coordination Dashboard.

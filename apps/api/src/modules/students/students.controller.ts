@@ -2,7 +2,7 @@ import type { JwtPayload } from '@edu-lanka/shared-types';
 import { UserRole } from '@edu-lanka/shared-types';
 import {
     Controller, Get, Post, Patch, Delete,
-    Body, Param, UseGuards, HttpCode, HttpStatus,
+    Body, Param, UseGuards, HttpCode, HttpStatus, ParseUUIDPipe,
 } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 
@@ -44,7 +44,7 @@ export class StudentsController {
 
     @Get(':id')
     @ApiOperation({ summary: 'Get a student by ID (includes class and parent info)' })
-    findOne(@Param('id') id: string, @CurrentUser() user: JwtPayload) {
+    findOne(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: JwtPayload) {
         return this.studentsService.findOne(id, user);
     }
 
@@ -52,7 +52,7 @@ export class StudentsController {
     @Roles(UserRole.SCHOOL_ADMIN, UserRole.SUPER_ADMIN)
     @ApiOperation({ summary: 'Update a student profile (admin only)' })
     updateProfile(
-        @Param('id') id: string,
+        @Param('id', ParseUUIDPipe) id: string,
         @Body() dto: UpdateStudentDto,
         @CurrentUser() user: JwtPayload,
     ) {
@@ -63,7 +63,7 @@ export class StudentsController {
     @Roles(UserRole.SCHOOL_ADMIN, UserRole.SUPER_ADMIN)
     @ApiOperation({ summary: 'Assign student to a class/section (admin only)' })
     assignToClass(
-        @Param('id') id: string,
+        @Param('id', ParseUUIDPipe) id: string,
         @Body() dto: AssignClassDto,
         @CurrentUser() user: JwtPayload,
     ) {
@@ -74,7 +74,7 @@ export class StudentsController {
     @Roles(UserRole.SCHOOL_ADMIN, UserRole.SUPER_ADMIN)
     @HttpCode(HttpStatus.NO_CONTENT)
     @ApiOperation({ summary: 'Deactivate a student account (admin only)' })
-    deactivate(@Param('id') id: string, @CurrentUser() user: JwtPayload) {
+    deactivate(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: JwtPayload) {
         return this.studentsService.deactivate(id, user);
     }
 }

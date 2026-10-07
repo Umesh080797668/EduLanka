@@ -5,7 +5,7 @@ import type { JwtPayload } from '@edu-lanka/shared-types';
 import { UserRole } from '@edu-lanka/shared-types';
 import {
     Controller, Get, Post, Patch, Delete, Query,
-    Body, Param, UseGuards, HttpCode, HttpStatus,
+    Body, Param, UseGuards, HttpCode, HttpStatus, ParseUUIDPipe,
 } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation, ApiQuery } from '@nestjs/swagger';
 
@@ -42,7 +42,7 @@ export class ClassesController {
 
     @Get(':id')
     @ApiOperation({ summary: 'Get a class by ID (includes teacher and student info)' })
-    findOne(@Param('id') id: string, @CurrentUser() user: JwtPayload) {
+    findOne(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: JwtPayload) {
         return this.classesService.findOne(id, user);
     }
 
@@ -50,7 +50,7 @@ export class ClassesController {
     @Roles(UserRole.SCHOOL_ADMIN, UserRole.SUPER_ADMIN)
     @ApiOperation({ summary: 'Update a class (admin only)' })
     update(
-        @Param('id') id: string,
+        @Param('id', ParseUUIDPipe) id: string,
         @Body() dto: UpdateClassDto,
         @CurrentUser() user: JwtPayload,
     ) {
@@ -61,7 +61,7 @@ export class ClassesController {
     @Roles(UserRole.SCHOOL_ADMIN, UserRole.SUPER_ADMIN)
     @HttpCode(HttpStatus.NO_CONTENT)
     @ApiOperation({ summary: 'Delete a class (admin only)' })
-    remove(@Param('id') id: string, @CurrentUser() user: JwtPayload) {
+    remove(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: JwtPayload) {
         return this.classesService.remove(id, user);
     }
 
@@ -70,7 +70,7 @@ export class ClassesController {
     @HttpCode(HttpStatus.CREATED)
     @ApiOperation({ summary: 'Assign a teacher to a class (admin only)' })
     assignTeacher(
-        @Param('id') classId: string,
+        @Param('id', ParseUUIDPipe) classId: string,
         @Body() dto: AssignTeacherDto,
         @CurrentUser() user: JwtPayload,
     ) {
@@ -82,8 +82,8 @@ export class ClassesController {
     @HttpCode(HttpStatus.NO_CONTENT)
     @ApiOperation({ summary: 'Remove a teacher from a class (admin only)' })
     removeTeacher(
-        @Param('id') classId: string,
-        @Param('teacherId') teacherId: string,
+        @Param('id', ParseUUIDPipe) classId: string,
+        @Param('teacherId', ParseUUIDPipe) teacherId: string,
         @CurrentUser() user: JwtPayload,
     ) {
         return this.classesService.removeTeacher(classId, teacherId, user);

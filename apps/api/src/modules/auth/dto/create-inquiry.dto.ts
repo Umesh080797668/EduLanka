@@ -1,12 +1,14 @@
 import { IsNotEmpty, IsString } from 'class-validator';
 
+import { IsUuidString } from '../../../common/decorators/is-uuid-string.decorator';
+
 export class CreateInquiryDto {
-    @IsString()
     @IsNotEmpty()
+    @IsUuidString()
     tenantId!: string;
 
-    @IsString()
     @IsNotEmpty()
+    @IsUuidString()
     userId!: string;
 
     @IsString()

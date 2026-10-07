@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Delete, Body, Req, UseGuards, Param, Query, HttpCode, HttpStatus } from '@nestjs/common';
+import { Controller, Get, Post, Delete, Body, Req, UseGuards, Param, Query, HttpCode, HttpStatus, ParseUUIDPipe } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { AuthGuard } from '@nestjs/passport';
 import { ThrottlerGuard } from '@nestjs/throttler';
@@ -62,7 +62,7 @@ export class ChatController {
     @Get('conversations/:id/messages')
     async getMessages(
         @Req() req: any,
-        @Param('id') conversationId: string,
+        @Param('id', ParseUUIDPipe) conversationId: string,
         @Query('limit') limit?: string,
         @Query('before') before?: string,
     ) {
@@ -95,7 +95,7 @@ export class ChatController {
     }
 
     @Get('conversations/:id/participants')
-    async listParticipants(@Req() req: any, @Param('id') conversationId: string) {
+    async listParticipants(@Req() req: any, @Param('id', ParseUUIDPipe) conversationId: string) {
         return this.chatService.listParticipants(
             req.user.tenantId,
             conversationId,
@@ -144,7 +144,7 @@ export class ChatController {
     }
 
     @Post('messages/:id/pin')
-    async pinMessage(@Req() req: any, @Param('id') messageId: string, @Body() body: { messageId?: string, isPinned: boolean }) {
+    async pinMessage(@Req() req: any, @Param('id', ParseUUIDPipe) messageId: string, @Body() body: { messageId?: string, isPinned: boolean }) {
         const tenantId = req.user.tenantId;
         const role = req.user.role;
         return this.chatService.pinMessage(tenantId, body.messageId ?? messageId, body.isPinned, role);
@@ -167,7 +167,7 @@ export class ChatController {
     }
 
     @Post('messages/:id/read')
-    async markAsRead(@Req() req: any, @Param('id') messageId: string) {
+    async markAsRead(@Req() req: any, @Param('id', ParseUUIDPipe) messageId: string) {
         const tenantId = req.user.tenantId;
         const callerId = this.callerId(req);
         const res = await this.chatService.markAsRead(tenantId, messageId, callerId);
@@ -190,7 +190,7 @@ export class ChatController {
     @HttpCode(HttpStatus.OK)
     async deleteConversation(
         @Req() req: any,
-        @Param('id') conversationId: string,
+        @Param('id', ParseUUIDPipe) conversationId: string,
         @Query('scope') scope: 'me' | 'everyone' = 'me',
     ) {
         const callerId = this.callerId(req);
@@ -211,7 +211,7 @@ export class ChatController {
     /** Leave a GROUP conversation (not allowed on DIRECT threads). */
     @Post('conversations/:id/leave')
     @HttpCode(HttpStatus.OK)
-    async leaveConversation(@Req() req: any, @Param('id') conversationId: string) {
+    async leaveConversation(@Req() req: any, @Param('id', ParseUUIDPipe) conversationId: string) {
         const callerId = this.callerId(req);
         const res = await this.chatService.leaveConversation(
             req.user.tenantId,
@@ -227,7 +227,7 @@ export class ChatController {
     @HttpCode(HttpStatus.OK)
     async muteConversation(
         @Req() req: any,
-        @Param('id') conversationId: string,
+        @Param('id', ParseUUIDPipe) conversationId: string,
         @Body() body: { durationMinutes?: number },
     ) {
         return this.chatService.muteConversationForUser(

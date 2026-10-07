@@ -11,6 +11,8 @@ import {
     IsNotEmpty,
 } from 'class-validator';
 
+import { IsUuidString } from '../../../common/decorators/is-uuid-string.decorator';
+
 export enum NoticeScope {
     UNIVERSAL = 'UNIVERSAL',
     SCHOOL_WIDE = 'SCHOOL_WIDE',
@@ -45,7 +47,7 @@ export class CreateNoticeDto {
     target_grade?: number;
 
     @IsOptional()
-    @IsString()
+    @IsUuidString()
     target_class_id?: string;
 
     @IsOptional()
@@ -96,7 +98,7 @@ export class UpdateNoticeDto {
     target_grade?: number;
 
     @IsOptional()
-    @IsString()
+    @IsUuidString()
     target_class_id?: string;
 
     @IsOptional()
