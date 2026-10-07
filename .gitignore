@@ -43,3 +43,8 @@ next-env.d.ts
 .turbo/
 
 .agents
+
+# Firebase
+google-services.json
+GoogleService-Info.plist
+firebase-adminsdk*.json
