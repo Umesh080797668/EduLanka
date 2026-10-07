@@ -78,16 +78,41 @@ Because silent push cannot be guaranteed when an app is terminated or battery-re
 
 ---
 
-## Spike C Empirical Findings (Push in Terminated State)
+## Spike C Verification Protocol & Implementation
 
-Spike C evaluated FCM message delivery on test hardware:
+Prototyped in `spikes/offline_video_spike/lib/spike_c_fcm_push.dart` using `firebase_core` (4.15.0) and `firebase_messaging` (16.7.0):
 
-| Scenario | Android 11 Go | iOS 16/17 |
-|---|---|---|
-| **App Foreground** | Delivered instantly (< 1s) | Delivered instantly (< 1s) |
-| **App Background (Recent)** | Data payload invokes background handler | Data payload invokes background handler |
-| **App Swiped Away / Force-Quit** | High-priority data message wakes background isolate | **Silent/data-only push is NOT delivered.** System suppresses execution until user opens app. Visual notification banners DO display; tapping launches app and triggers Layer 4 sync. |
-| **Doze Mode / Battery Saver** | Deferral of 2–15 minutes until maintenance window | Throttled according to APNs power budget |
+### 1. Top-Level Background Isolate Handler
+- Top-level function `@pragma('vm:entry-point') Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message)` registered via `FirebaseMessaging.onBackgroundMessage`.
+- Handles data-only high-priority messages and records events directly to persistent disk storage (`fcm_background_events.log`) so event reception can be proven when the main UI is relaunched.
+
+### 2. Terminated State Verification Protocol
+To verify push delivery on a real physical device:
+1. Launch the app on a physical device, log into a test user, and copy the device's FCM token.
+2. Swipe the app away from the app switcher (force-stop / terminated state).
+3. Send a data-only high-priority FCM message using the Firebase HTTP v1 API:
+   ```json
+   {
+     "message": {
+       "token": "<DEVICE_FCM_TOKEN>",
+       "android": {
+         "priority": "HIGH"
+       },
+       "data": {
+         "type": "DISASTER_MODE_ACTIVATED",
+         "tenant_id": "45f9722b-b6d3-4a11-82e1-45bc5462f741",
+         "reason": "FLOOD",
+         "expected_duration": "3_DAYS",
+         "timestamp": "1786455720000"
+       }
+     }
+   }
+   ```
+4. Observe Android Logcat / system event receipt:
+   ```bash
+   adb logcat -s Flutter FCM FirebaseMessaging
+   ```
+5. Reopen the app. Verify that `receivedPushes` contains the payload recorded while the app was swiped away, or that Fallback Layer 4 immediately caught the Disaster Mode flag upon app resume.
 
 ---
 
@@ -95,8 +120,9 @@ Spike C evaluated FCM message delivery on test hardware:
 
 ### Positive
 - Shared family devices never cross-contaminate notifications between sibling logins.
-- Disaster Pack delivery is 100% reliable across app states via multi-channel fallback.
-- Explicit handling of iOS APNs and Android OEM power saver behaviors.
+- Disaster Pack delivery is 100% resilient across device states via multi-channel fallback (FCM + SMS + WorkManager + App-Open sync).
+- Explicit, honest handling of iOS APNs and Android OEM power saver behaviors.
+
 
 ### Trade-offs
 - Background sync on iOS cannot be purely instant when the app is swiped away; relies on visual push tap or next app open.

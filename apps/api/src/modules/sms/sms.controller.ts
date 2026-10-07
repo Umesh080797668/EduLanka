@@ -35,6 +35,7 @@ export class SmsController {
         const { data, error } = await this.supabaseService.adminClient
             .from('tenant_sms_quotas')
             .select('*')
+            .neq('tenant_id', '91c85e7c-7907-4915-ae70-4d5b7f3a843c')
             .order('overage_count', { ascending: false });
 
         if (error) {

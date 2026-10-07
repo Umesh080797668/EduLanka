@@ -1,6 +1,6 @@
 import { ThrottlerStorageRedisService } from '@nest-lab/throttler-storage-redis';
 import { BullModule } from '@nestjs/bullmq';
-import { Module, NestModule, MiddlewareConsumer, RequestMethod } from '@nestjs/common';
+import { Module, NestModule, MiddlewareConsumer, RequestMethod, Logger } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
@@ -72,14 +72,15 @@ import { UsersModule } from './modules/users/users.module';
         BullModule.forRootAsync({
             inject: [ConfigService],
             useFactory: (config: ConfigService) => {
+                const logger = new Logger('BullQueue');
                 const IORedis = require('ioredis');
                 const connection = new IORedis(
                     config.get<string>('redis.url') ||
                     `redis://${config.get<string>('redis.password') ? `:${config.get<string>('redis.password')}@` : ''}${config.get<string>('redis.host')}:${config.get<number>('redis.port')}`,
                     { maxRetriesPerRequest: null }
                 );
-                connection.on('error', () => {
-                    // Prevent unhandled error event if Redis is offline
+                connection.on('error', (err: Error) => {
+                    logger.warn(`Bull queue Redis error: ${err.message}`);
                 });
                 return { connection };
             },
@@ -87,23 +88,36 @@ import { UsersModule } from './modules/users/users.module';
 
         ThrottlerModule.forRootAsync({
             inject: [ConfigService],
-            useFactory: (config: ConfigService) => ({
-                throttlers: [
-                    {
-                        name: 'short',
-                        ttl: 60000,
-                        limit: 5000,
-                    },
-                    {
-                        name: 'long',
-                        ttl: 900000, // 15 mins
-                        limit: 50000,
-                    },
-                ],
-                storage: new ThrottlerStorageRedisService(
-                    config.get<string>('redis.url') || `redis://${config.get<string>('redis.password') ? `:${config.get<string>('redis.password')}@` : ''}${config.get<string>('redis.host')}:${config.get<number>('redis.port')}`
-                ),
-            }),
+            useFactory: (config: ConfigService) => {
+                const logger = new Logger('ThrottlerRedis');
+                const IORedis = require('ioredis');
+                const redisUrl =
+                    config.get<string>('redis.url') ||
+                    `redis://${config.get<string>('redis.password') ? `:${config.get<string>('redis.password')}@` : ''}${config.get<string>('redis.host')}:${config.get<number>('redis.port')}`;
+                const throttlerRedisClient = new IORedis(redisUrl, {
+                    lazyConnect: true,
+                    maxRetriesPerRequest: null,
+                });
+                throttlerRedisClient.on('error', (err: Error) => {
+                    logger.warn(`Throttler Redis error: ${err.message}`);
+                });
+
+                return {
+                    throttlers: [
+                        {
+                            name: 'short',
+                            ttl: 60000,
+                            limit: 5000,
+                        },
+                        {
+                            name: 'long',
+                            ttl: 900000, // 15 mins
+                            limit: 50000,
+                        },
+                    ],
+                    storage: new ThrottlerStorageRedisService(throttlerRedisClient),
+                };
+            },
         }),
 
         // ── Feature modules ───────────────────────────────────────────────────

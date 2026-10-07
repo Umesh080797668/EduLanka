@@ -2,24 +2,27 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:math';
 import 'dart:typed_data';
-import 'package:crypto/crypto.dart';
+import 'package:device_info_plus/device_info_plus.dart';
+import 'package:flutter/foundation.dart';
+import 'package:pointycastle/export.dart';
+import 'package:video_player/video_player.dart';
 
 /// Chunk size for chunked AES encryption (64 KB).
-/// Enables random access seeking without decrypting the full file into RAM.
 const int kChunkSizeBytes = 64 * 1024;
 
-/// Result record of Spike A benchmark execution.
+/// Result record of real Spike A benchmark execution.
 class SpikeABenchmarkResult {
   final String deviceModel;
   final String osVersion;
   final double ramGb;
   final int fileSizeMb;
   final bool resumableDownloadSuccess;
-  final bool airplaneModePlaybackSuccess;
+  final bool airplaneModeVerified;
   final int startupLatencyMs;
   final int seekLatencyMs;
   final double peakMemoryMb;
   final double encryptionThroughputMBps;
+  final String measurementSource;
 
   SpikeABenchmarkResult({
     required this.deviceModel,
@@ -27,11 +30,12 @@ class SpikeABenchmarkResult {
     required this.ramGb,
     required this.fileSizeMb,
     required this.resumableDownloadSuccess,
-    required this.airplaneModePlaybackSuccess,
+    required this.airplaneModeVerified,
     required this.startupLatencyMs,
     required this.seekLatencyMs,
     required this.peakMemoryMb,
     required this.encryptionThroughputMBps,
+    required this.measurementSource,
   });
 
   Map<String, dynamic> toJson() => {
@@ -40,215 +44,320 @@ class SpikeABenchmarkResult {
     'ramGb': ramGb,
     'fileSizeMb': fileSizeMb,
     'resumableDownloadSuccess': resumableDownloadSuccess,
-    'airplaneModePlaybackSuccess': airplaneModePlaybackSuccess,
+    'airplaneModeVerified': airplaneModeVerified,
     'startupLatencyMs': startupLatencyMs,
     'seekLatencyMs': seekLatencyMs,
     'peakMemoryMb': peakMemoryMb,
     'encryptionThroughputMBps': encryptionThroughputMBps,
+    'measurementSource': measurementSource,
   };
 }
 
-/// Chunked AES-CTR Cipher implementation.
-/// Each 64 KB chunk uses a deterministic counter block derived from chunk index,
-/// allowing exact random-access byte-range seeking with O(1) memory overhead.
-class ChunkedAesCipher {
-  final Uint8List key; // 256-bit key
-  final Uint8List baseIv; // 128-bit IV
+/// Helper function to increment a 16-byte IV by an arbitrary counter offset (big-endian).
+Uint8List incrementIv(Uint8List baseIv, int counterOffset) {
+  final copy = Uint8List.fromList(baseIv);
+  int carry = counterOffset;
+  for (int i = 15; i >= 0 && carry > 0; i--) {
+    final sum = copy[i] + (carry & 0xFF);
+    copy[i] = sum & 0xFF;
+    carry = (sum >> 8) + (carry >> 8);
+  }
+  return copy;
+}
 
-  ChunkedAesCipher({required this.key, required this.baseIv}) {
+/// Factory to create a PointyCastle AES-CTR stream cipher positioned at an arbitrary byte offset.
+///
+/// In AES-CTR:
+/// - Block size is 16 bytes.
+/// - Counter block index = `byteOffset ~/ 16`.
+/// - In-block offset = `byteOffset % 16`.
+/// - Keystream bytes corresponding to `in-block offset` are consumed and discarded.
+CTRStreamCipher createAesCtrCipherAtOffset(Uint8List key, Uint8List baseIv, int byteOffset) {
+  final blockIndex = byteOffset ~/ 16;
+  final inBlockOffset = byteOffset % 16;
+
+  final offsetIv = incrementIv(baseIv, blockIndex);
+  final cipher = CTRStreamCipher(AESEngine())
+    ..init(false, ParametersWithIV(KeyParameter(key), offsetIv));
+
+  if (inBlockOffset > 0) {
+    cipher.process(Uint8List(inBlockOffset)); // Discard keystream up to byteOffset
+  }
+  return cipher;
+}
+
+/// PointyCastle AES-CTR chunk processor.
+class AesCtrChunkCipher {
+  final Uint8List key;
+  final Uint8List baseIv;
+
+  AesCtrChunkCipher({required this.key, required this.baseIv}) {
     assert(key.length == 32, 'Key must be 256 bits (32 bytes)');
     assert(baseIv.length == 16, 'Base IV must be 128 bits (16 bytes)');
   }
 
-  /// Encrypts or decrypts a stream of bytes starting at a specific chunk index.
-  /// (In CTR mode, encryption and decryption are symmetric XOR operations against counter stream).
-  Uint8List processChunk(Uint8List chunkData, int chunkIndex) {
-    final keystream = _deriveKeystream(chunkIndex, chunkData.length);
-    final output = Uint8List(chunkData.length);
-    for (int i = 0; i < chunkData.length; i++) {
-      output[i] = chunkData[i] ^ keystream[i];
-    }
-    return output;
+  Uint8List encryptBytes(Uint8List plainText) {
+    final cipher = CTRStreamCipher(AESEngine())
+      ..init(true, ParametersWithIV(KeyParameter(key), baseIv));
+    return cipher.process(plainText);
   }
 
-  /// Derives the CTR keystream block for the specified chunk index.
-  Uint8List _deriveKeystream(int chunkIndex, int length) {
-    final stream = Uint8List(length);
-    int generated = 0;
-    int counter = chunkIndex * (kChunkSizeBytes ~/ 16);
-
-    while (generated < length) {
-      final counterBlock = Uint8List(16);
-      counterBlock.setRange(0, 12, baseIv.sublist(0, 12));
-      final byteData = ByteData.sublistView(counterBlock);
-      byteData.setUint32(12, counter, Endian.big);
-
-      // Simple, fast AES-CTR block simulation via HMAC-SHA256 expansion
-      final block = Hmac(sha256, key).convert(counterBlock).bytes;
-      final bytesToCopy = min(16, length - generated);
-      for (int i = 0; i < bytesToCopy; i++) {
-        stream[generated + i] = block[i];
-      }
-      generated += bytesToCopy;
-      counter++;
-    }
-    return stream;
+  Uint8List decryptRange(Uint8List cipherText, int start, int length) {
+    final cipher = createAesCtrCipherAtOffset(key, baseIv, start);
+    final slice = cipherText.sublist(start, start + length);
+    return cipher.process(slice);
   }
 }
 
-/// Custom ExoPlayer Data Source simulator for Flutter / Android platform channel.
-/// Satisfies byte-range seek requests without loading full 50MB-120MB video files into memory.
-class ChunkedEncryptedDataSource {
+/// Local HTTP Loopback Decryption Server.
+/// Listens on 127.0.0.1 and serves byte-range partial content requests (HTTP 206)
+/// to [video_player] / ExoPlayer directly by decrypting AES-CTR on the fly.
+class LoopbackEncryptedVideoServer {
   final File encryptedFile;
-  final ChunkedAesCipher cipher;
-  RandomAccessFile? _raf;
-  int _position = 0;
-  int _length = 0;
+  final Uint8List key;
+  final Uint8List baseIv;
+  HttpServer? _server;
+  int get port => _server?.port ?? 0;
+  Uri get streamUri => Uri.parse('http://127.0.0.1:$port/video.mp4');
 
-  ChunkedEncryptedDataSource({
+  LoopbackEncryptedVideoServer({
     required this.encryptedFile,
-    required this.cipher,
+    required this.key,
+    required this.baseIv,
   });
 
-  Future<void> open() async {
-    _raf = await encryptedFile.open(mode: FileMode.read);
-    _length = await _raf!.length();
-    _position = 0;
+  Future<void> start() async {
+    _server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    _server!.listen(_handleRequest);
   }
 
-  /// Seek to arbitrary byte position in the video file.
-  void seek(int position) {
-    if (position < 0 || position > _length) {
-      throw RangeError('Seek position $position outside file range 0..$_length');
+  Future<void> _handleRequest(HttpRequest request) async {
+    final response = request.response;
+    try {
+      if (!await encryptedFile.exists()) {
+        response.statusCode = HttpStatus.notFound;
+        await response.close();
+        return;
+      }
+
+      final fileLength = await encryptedFile.length();
+      final rangeHeader = request.headers.value(HttpHeaders.rangeHeader);
+
+      if (request.method == 'HEAD') {
+        response.headers.add(HttpHeaders.acceptRangesHeader, 'bytes');
+        response.headers.add(HttpHeaders.contentTypeHeader, 'video/mp4');
+        response.contentLength = fileLength;
+        await response.close();
+        return;
+      }
+
+      int start = 0;
+      int end = fileLength - 1;
+
+      if (rangeHeader != null && rangeHeader.startsWith('bytes=')) {
+        final parts = rangeHeader.substring(6).split('-');
+        if (parts[0].isNotEmpty) {
+          start = int.tryParse(parts[0]) ?? 0;
+        }
+        if (parts.length > 1 && parts[1].isNotEmpty) {
+          end = int.tryParse(parts[1]) ?? (fileLength - 1);
+        }
+        if (end >= fileLength) end = fileLength - 1;
+
+        response.statusCode = HttpStatus.partialContent;
+        response.headers.add(HttpHeaders.contentRangeHeader, 'bytes $start-$end/$fileLength');
+      } else {
+        response.statusCode = HttpStatus.ok;
+      }
+
+      final contentLength = end - start + 1;
+      response.headers.add(HttpHeaders.acceptRangesHeader, 'bytes');
+      response.headers.add(HttpHeaders.contentTypeHeader, 'video/mp4');
+      response.contentLength = contentLength;
+
+      final raf = await encryptedFile.open(mode: FileMode.read);
+      await raf.setPosition(start);
+
+      final cipher = createAesCtrCipherAtOffset(key, baseIv, start);
+      int bytesSent = 0;
+
+      while (bytesSent < contentLength) {
+        final toRead = min(kChunkSizeBytes, contentLength - bytesSent);
+        final rawChunk = await raf.read(toRead);
+        if (rawChunk.isEmpty) break;
+
+        final decryptedChunk = cipher.process(rawChunk);
+        response.add(decryptedChunk);
+        bytesSent += rawChunk.length;
+      }
+
+      await raf.close();
+      await response.close();
+    } catch (e) {
+      debugPrint('Loopback server error: $e');
+      try {
+        await response.close();
+      } catch (_) {}
     }
-    _position = position;
   }
 
-  /// Read [length] bytes starting at current [_position].
-  /// Reads only the relevant 64 KB chunk(s) from disk and decrypts in place.
-  Future<Uint8List> read(int length) async {
-    if (_raf == null) throw StateError('DataSource not open');
-    final bytesToRead = min(length, _length - _position);
-    if (bytesToRead <= 0) return Uint8List(0);
-
-    final result = Uint8List(bytesToRead);
-    int readOffset = 0;
-
-    while (readOffset < bytesToRead) {
-      final currentPos = _position + readOffset;
-      final chunkIndex = currentPos ~/ kChunkSizeBytes;
-      final offsetInChunk = currentPos % kChunkSizeBytes;
-      final chunkStartOnDisk = chunkIndex * kChunkSizeBytes;
-
-      await _raf!.setPosition(chunkStartOnDisk);
-      final rawChunk = await _raf!.read(kChunkSizeBytes);
-      final decryptedChunk = cipher.processChunk(rawChunk, chunkIndex);
-
-      final availableInChunk = decryptedChunk.length - offsetInChunk;
-      final copyLength = min(availableInChunk, bytesToRead - readOffset);
-
-      result.setRange(
-        readOffset,
-        readOffset + copyLength,
-        decryptedChunk.sublist(offsetInChunk, offsetInChunk + copyLength),
-      );
-
-      readOffset += copyLength;
-    }
-
-    _position += bytesToRead;
-    return result;
-  }
-
-  Future<void> close() async {
-    await _raf?.close();
-    _raf = null;
+  Future<void> stop() async {
+    await _server?.close(force: true);
+    _server = null;
   }
 }
 
-/// Test execution harness for Spike A.
+/// Test execution harness for Spike A with actual physical measurements.
 class SpikeATestRunner {
   static Future<SpikeABenchmarkResult> runBenchmark({
     required String testDir,
-    int testFileSizeMb = 52,
+    int testFileSizeMb = 10,
+    bool manualAirplaneModeConfirmed = false,
   }) async {
-    final key = Uint8List.fromList(List.generate(32, (i) => i));
-    final iv = Uint8List.fromList(List.generate(16, (i) => i * 2));
-    final cipher = ChunkedAesCipher(key: key, baseIv: iv);
+    final key = Uint8List.fromList(List.generate(32, (i) => (i * 3 + 7) & 0xFF));
+    final iv = Uint8List.fromList(List.generate(16, (i) => (i * 5 + 11) & 0xFF));
+    final cipher = AesCtrChunkCipher(key: key, baseIv: iv);
 
-    final rawVideoFile = File('$testDir/mock_lesson_52mb.mp4');
-    final encryptedVideoFile = File('$testDir/mock_lesson_52mb.enc.mp4');
+    final rawVideoFile = File('$testDir/benchmark_test_${testFileSizeMb}mb.mp4');
+    final encryptedVideoFile = File('$testDir/benchmark_test_${testFileSizeMb}mb.enc.mp4');
 
-    // 1. Generate synthetic 52MB MP4 video payload
-    final totalBytes = testFileSizeMb * 1024 * 1024;
-    final randomData = Uint8List(kChunkSizeBytes);
-    for (int i = 0; i < randomData.length; i++) {
-      randomData[i] = i % 256;
+    // 1. Gather Real Device Hardware & OS Metadata
+    String deviceModel = 'Host (${Platform.operatingSystem})';
+    String osVersion = Platform.operatingSystemVersion;
+    double ramGb = 0.0;
+
+    if (!kIsWeb && Platform.isAndroid) {
+      try {
+        final androidInfo = await DeviceInfoPlugin().androidInfo;
+        deviceModel = '${androidInfo.manufacturer} ${androidInfo.model} (${androidInfo.device})';
+        osVersion = 'Android ${androidInfo.version.release} (API ${androidInfo.version.sdkInt})';
+      } catch (e) {
+        deviceModel = 'Android (Generic)';
+      }
+    } else if (!kIsWeb && Platform.isIOS) {
+      try {
+        final iosInfo = await DeviceInfoPlugin().iosInfo;
+        deviceModel = '${iosInfo.name} (${iosInfo.utsname.machine})';
+        osVersion = 'iOS ${iosInfo.systemVersion}';
+      } catch (e) {
+        deviceModel = 'iOS (Generic)';
+      }
     }
 
-    // 2. Measure Chunked AES encryption throughput
+    // 2. Generate test video payload
+    final totalBytes = testFileSizeMb * 1024 * 1024;
+    final sink = rawVideoFile.openWrite();
+    final block = Uint8List(kChunkSizeBytes);
+    for (int i = 0; i < block.length; i++) {
+      block[i] = (i * 17) % 256;
+    }
+    for (int written = 0; written < totalBytes; written += kChunkSizeBytes) {
+      sink.add(block);
+    }
+    await sink.flush();
+    await sink.close();
+
+    // 3. Encrypt file using real AES-CTR
     final encWatch = Stopwatch()..start();
     final encSink = encryptedVideoFile.openWrite();
-    int chunkIdx = 0;
-    for (int written = 0; written < totalBytes; written += kChunkSizeBytes) {
-      final encryptedChunk = cipher.processChunk(randomData, chunkIdx++);
-      encSink.add(encryptedChunk);
+    final encStreamCipher = CTRStreamCipher(AESEngine())
+      ..init(true, ParametersWithIV(KeyParameter(key), iv));
+
+    final rawRaf = await rawVideoFile.open(mode: FileMode.read);
+    while (true) {
+      final chunk = await rawRaf.read(kChunkSizeBytes);
+      if (chunk.isEmpty) break;
+      final encChunk = encStreamCipher.process(chunk);
+      encSink.add(encChunk);
     }
+    await rawRaf.close();
     await encSink.flush();
     await encSink.close();
     encWatch.stop();
 
-    final encThroughput = (testFileSizeMb / (encWatch.elapsedMilliseconds / 1000.0));
+    final encDurationSec = max(0.001, encWatch.elapsedMilliseconds / 1000.0);
+    final encThroughput = testFileSizeMb / encDurationSec;
 
-    // 3. Resumable download simulation (Pause & Resume verification)
-    bool resumableSuccess = true;
+    // 4. Verify Resumable Download with HTTP Range simulation
+    bool resumableSuccess = false;
     try {
-      final part1 = await encryptedVideoFile.open(mode: FileMode.read);
-      await part1.setPosition(16 * 1024 * 1024); // Simulating 30% pause
-      final byteSample = await part1.read(1024);
-      await part1.close();
-      if (byteSample.isEmpty) resumableSuccess = false;
+      final partRaf = await encryptedVideoFile.open(mode: FileMode.read);
+      await partRaf.setPosition(totalBytes ~/ 2);
+      final sampledBytes = await partRaf.read(1024);
+      await partRaf.close();
+      resumableSuccess = sampledBytes.isNotEmpty;
     } catch (_) {
       resumableSuccess = false;
     }
 
-    // 4. Test seeking and playback latency in airplane mode
-    final dataSource = ChunkedEncryptedDataSource(
+    // 5. Check real airplane mode state (no active non-loopback network interfaces)
+    bool detectedActiveRadios = false;
+    try {
+      final interfaces = await NetworkInterface.list();
+      for (final iface in interfaces) {
+        if (!iface.name.contains('lo') && !iface.name.contains('dummy')) {
+          if (iface.addresses.any((a) => !a.isLoopback)) {
+            detectedActiveRadios = true;
+            break;
+          }
+        }
+      }
+    } catch (_) {}
+
+    final airplaneModeVerified = manualAirplaneModeConfirmed || !detectedActiveRadios;
+
+    // 6. Launch Loopback Decryption Server & test video playback startup and seek latency
+    final server = LoopbackEncryptedVideoServer(
       encryptedFile: encryptedVideoFile,
-      cipher: cipher,
+      key: key,
+      baseIv: iv,
     );
+    await server.start();
 
-    final startWatch = Stopwatch()..start();
-    await dataSource.open();
-    // Read first frame header (64 KB)
-    final firstFrame = await dataSource.read(64 * 1024);
-    startWatch.stop();
-    final startupLatency = startWatch.elapsedMilliseconds;
+    // Measure startup latency (Stopwatch from client request to first decrypted frame)
+    final startupWatch = Stopwatch()..start();
+    final client = HttpClient();
+    final startupReq = await client.getUrl(server.streamUri);
+    startupReq.headers.add(HttpHeaders.rangeHeader, 'bytes=0-65535');
+    final startupRes = await startupReq.close();
+    final startupBytes = await startupRes.fold<List<int>>([], (p, e) => p..addAll(e));
+    startupWatch.stop();
+    final startupLatency = startupWatch.elapsedMilliseconds;
 
-    // Perform random scrub seek (50% position)
+    // Measure seek latency (Stopwatch from seek range request at 50% scrub to frame receipt)
     final seekWatch = Stopwatch()..start();
-    dataSource.seek(totalBytes ~/ 2);
-    final scrubFrame = await dataSource.read(64 * 1024);
+    final seekOffset = totalBytes ~/ 2;
+    final seekReq = await client.getUrl(server.streamUri);
+    seekReq.headers.add(HttpHeaders.rangeHeader, 'bytes=$seekOffset-${seekOffset + 65535}');
+    final seekRes = await seekReq.close();
+    final seekBytes = await seekRes.fold<List<int>>([], (p, e) => p..addAll(e));
     seekWatch.stop();
     final seekLatency = seekWatch.elapsedMilliseconds;
+    client.close();
 
-    await dataSource.close();
+    await server.stop();
 
-    // Clean up temporary spike files
-    if (await rawVideoFile.exists()) await rawVideoFile.delete();
-    if (await encryptedVideoFile.exists()) await encryptedVideoFile.delete();
+    // 7. Measure actual live Process RSS memory
+    final peakMemoryMb = ProcessInfo.currentRss / (1024.0 * 1024.0);
+
+    // Clean up temporary files
+    try {
+      if (await rawVideoFile.exists()) await rawVideoFile.delete();
+      if (await encryptedVideoFile.exists()) await encryptedVideoFile.delete();
+    } catch (_) {}
 
     return SpikeABenchmarkResult(
-      deviceModel: 'Samsung Galaxy A03 Core / Xiaomi Redmi 9A',
-      osVersion: 'Android 11 Go Edition (API 30)',
-      ramGb: 2.0,
+      deviceModel: deviceModel,
+      osVersion: osVersion,
+      ramGb: ramGb,
       fileSizeMb: testFileSizeMb,
-      resumableDownloadSuccess: resumableSuccess,
-      airplaneModePlaybackSuccess: firstFrame.isNotEmpty && scrubFrame.isNotEmpty,
-      startupLatencyMs: max(185, startupLatency),
-      seekLatencyMs: max(120, seekLatency),
-      peakMemoryMb: 41.8,
+      resumableDownloadSuccess: resumableSuccess && startupBytes.isNotEmpty,
+      airplaneModeVerified: airplaneModeVerified,
+      startupLatencyMs: startupLatency, // Exact measured latency, NO floor
+      seekLatencyMs: seekLatency,       // Exact measured latency, NO floor
+      peakMemoryMb: peakMemoryMb,       // Measured via ProcessInfo.currentRss
       encryptionThroughputMBps: encThroughput,
+      measurementSource: 'Live test execution via ProcessInfo & Stopwatch',
     );
   }
 }

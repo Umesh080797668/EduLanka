@@ -213,6 +213,7 @@ export class TenantService {
         const { data, error } = await this.supabase.adminClient
             .from('tenants')
             .select('*')
+            .neq('slug', 'system_root')
             .order('created_at', { ascending: false });
 
         if (error) {

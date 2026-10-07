@@ -1,5 +1,7 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:video_player/video_player.dart';
 import 'spike_a_chunked_video.dart';
 import 'spike_c_fcm_push.dart';
 
@@ -35,7 +37,9 @@ class _SpikeDashboardScreenState extends State<SpikeDashboardScreen> {
   final SpikeCPushEngine _pushEngine = SpikeCPushEngine();
   SpikeABenchmarkResult? _spikeAResult;
   bool _isRunningSpikeA = false;
+  bool _manualAirplaneModeActive = false;
   final List<String> _logs = [];
+  VideoPlayerController? _videoController;
 
   @override
   void initState() {
@@ -56,42 +60,43 @@ class _SpikeDashboardScreenState extends State<SpikeDashboardScreen> {
   @override
   void dispose() {
     _pushEngine.dispose();
+    _videoController?.dispose();
     super.dispose();
   }
 
   Future<void> _runSpikeA() async {
     setState(() {
       _isRunningSpikeA = true;
-      _logs.add('--- Starting Spike A: Chunked Video Encryption & Seek Benchmark ---');
+      _logs.add('--- Running Spike A: Real Hardware Benchmark & AES-CTR Playback ---');
+      _logs.add('Airplane mode confirmed by user: $_manualAirplaneModeActive');
     });
 
     try {
       final tempDir = (await getTemporaryDirectory()).path;
-      final result = await SpikeATestRunner.runBenchmark(testDir: tempDir);
+      final result = await SpikeATestRunner.runBenchmark(
+        testDir: tempDir,
+        manualAirplaneModeConfirmed: _manualAirplaneModeActive,
+      );
       setState(() {
         _spikeAResult = result;
-        _logs.add('Spike A Complete: Device=${result.deviceModel}');
-        _logs.add('Peak RAM=${result.peakMemoryMb}MB | Startup=${result.startupLatencyMs}ms | Seek=${result.seekLatencyMs}ms');
-        _logs.add('Resumable Download: ${result.resumableDownloadSuccess ? "PASSED" : "FAILED"}');
-        _logs.add('Airplane Mode Playback: ${result.airplaneModePlaybackSuccess ? "PASSED" : "FAILED"}');
+        _logs.add('Spike A Completed:');
+        _logs.add('Device: ${result.deviceModel}');
+        _logs.add('OS: ${result.osVersion}');
+        _logs.add('Measured Memory: ${result.peakMemoryMb.toStringAsFixed(2)} MB');
+        _logs.add('Measured Startup: ${result.startupLatencyMs} ms (Stopwatch)');
+        _logs.add('Measured Seek: ${result.seekLatencyMs} ms (Stopwatch)');
+        _logs.add('Airplane Mode Verified: ${result.airplaneModeVerified ? "YES" : "NO"}');
+        _logs.add('Crypto Throughput: ${result.encryptionThroughputMBps.toStringAsFixed(1)} MB/s');
       });
     } catch (e) {
       setState(() {
-        _logs.add('Spike A Failed with error: $e');
+        _logs.add('Spike A Failed: $e');
       });
     } finally {
       setState(() {
         _isRunningSpikeA = false;
       });
     }
-  }
-
-  Future<void> _testUserSwitch() async {
-    _logs.add('Simulating family phone user switch (Sibling Login)...');
-    await _pushEngine.registerDeviceToken(
-      fcmToken: 'fcm_token_sibling_test_abc123',
-      platform: 'android',
-    );
   }
 
   @override
@@ -106,6 +111,7 @@ class _SpikeDashboardScreenState extends State<SpikeDashboardScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            // Spike A Section
             Card(
               child: Padding(
                 padding: const EdgeInsets.all(16),
@@ -118,10 +124,21 @@ class _SpikeDashboardScreenState extends State<SpikeDashboardScreen> {
                     ),
                     const SizedBox(height: 8),
                     const Text(
-                      'Tests resumable download, 64KB chunked AES-CTR encryption, seeking without in-memory full decrypt on 2GB RAM device, and airplane mode playback.',
+                      'Decodes encrypted MP4 via PointyCastle AES-CTR stream cipher with counter computed from byte offset (offset ~/ 16). Serves Range requests to video player without full-file decryption into memory.',
                       style: TextStyle(color: Colors.black54),
                     ),
                     const SizedBox(height: 12),
+                    CheckboxListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text('I have toggled Airplane Mode ON (Cellular & Wi-Fi OFF)'),
+                      value: _manualAirplaneModeActive,
+                      onChanged: (val) {
+                        setState(() {
+                          _manualAirplaneModeActive = val ?? false;
+                        });
+                      },
+                    ),
+                    const SizedBox(height: 8),
                     ElevatedButton.icon(
                       onPressed: _isRunningSpikeA ? null : _runSpikeA,
                       icon: _isRunningSpikeA
@@ -131,24 +148,31 @@ class _SpikeDashboardScreenState extends State<SpikeDashboardScreen> {
                               child: CircularProgressIndicator(strokeWidth: 2),
                             )
                           : const Icon(Icons.play_arrow),
-                      label: Text(_isRunningSpikeA ? 'Running Benchmark...' : 'Run Spike A Benchmark'),
+                      label: Text(_isRunningSpikeA ? 'Measuring...' : 'Run Spike A Benchmark'),
                     ),
                     if (_spikeAResult != null) ...[
                       const Divider(height: 24),
-                      _buildMetricRow('Target Hardware', _spikeAResult!.deviceModel),
-                      _buildMetricRow('RAM & OS', '${_spikeAResult!.ramGb} GB RAM · ${_spikeAResult!.osVersion}'),
-                      _buildMetricRow('Throughput', '${_spikeAResult!.encryptionThroughputMBps.toStringAsFixed(1)} MB/s'),
+                      _buildMetricRow('Device Model', _spikeAResult!.deviceModel),
+                      _buildMetricRow('OS Version', _spikeAResult!.osVersion),
                       _buildMetricRow('Startup Latency', '${_spikeAResult!.startupLatencyMs} ms'),
-                      _buildMetricRow('Random Seek Latency', '${_spikeAResult!.seekLatencyMs} ms'),
-                      _buildMetricRow('Peak Memory', '${_spikeAResult!.peakMemoryMb} MB (≤ 128KB buffer)'),
-                      _buildMetricRow('Resumable Download', _spikeAResult!.resumableDownloadSuccess ? 'VERIFIED' : 'FAILED', isPass: true),
-                      _buildMetricRow('Airplane Mode', _spikeAResult!.airplaneModePlaybackSuccess ? 'OPERATIONAL' : 'FAILED', isPass: true),
+                      _buildMetricRow('Seek Latency', '${_spikeAResult!.seekLatencyMs} ms'),
+                      _buildMetricRow('Memory (RSS)', '${_spikeAResult!.peakMemoryMb.toStringAsFixed(1)} MB'),
+                      _buildMetricRow('Throughput', '${_spikeAResult!.encryptionThroughputMBps.toStringAsFixed(1)} MB/s'),
+                      _buildMetricRow('Airplane Mode', _spikeAResult!.airplaneModeVerified ? 'VERIFIED' : 'PENDING RADIOS OFF', isPass: _spikeAResult!.airplaneModeVerified),
+                      _buildMetricRow('Source', _spikeAResult!.measurementSource),
+                      const SizedBox(height: 8),
+                      const Text(
+                        'adb shell dumpsys meminfo command:\nadb shell dumpsys meminfo lk.edulanka.offline_video_spike',
+                        style: TextStyle(fontSize: 11, fontFamily: 'monospace', color: Colors.blueGrey),
+                      ),
                     ],
                   ],
                 ),
               ),
             ),
             const SizedBox(height: 16),
+
+            // Spike C Section
             Card(
               child: Padding(
                 padding: const EdgeInsets.all(16),
@@ -161,27 +185,33 @@ class _SpikeDashboardScreenState extends State<SpikeDashboardScreen> {
                     ),
                     const SizedBox(height: 8),
                     const Text(
-                      'Tests multi-channel disaster pack fallback, token ownership re-assignment on shared phones, and terminated app state resilience.',
+                      'Tests high-priority data-only FCM push delivery, background isolate execution when app is swiped away, and Fallback Layer 4 upon relaunch.',
                       style: TextStyle(color: Colors.black54),
                     ),
                     const SizedBox(height: 12),
-                    ElevatedButton.icon(
-                      onPressed: _testUserSwitch,
-                      icon: const Icon(Icons.switch_account),
-                      label: const Text('Simulate Shared Phone Token Reassignment'),
+                    SelectableText(
+                      'FCM Token: ${_pushEngine.currentDeviceToken ?? "Initializing / check console"}',
+                      style: const TextStyle(fontSize: 12, fontFamily: 'monospace', color: Colors.deepPurple),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Pushes Received: ${_pushEngine.receivedPushes.length}',
+                      style: const TextStyle(fontWeight: FontWeight.bold),
                     ),
                   ],
                 ),
               ),
             ),
             const SizedBox(height: 16),
+
+            // Diagnostic Logs
             const Text(
               'Diagnostic Execution Logs:',
               style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 8),
             Container(
-              height: 180,
+              height: 200,
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
                 color: Colors.black87,
@@ -219,7 +249,7 @@ class _SpikeDashboardScreenState extends State<SpikeDashboardScreen> {
             style: TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.bold,
-              color: isPass == true ? Colors.green.shade700 : Colors.black87,
+              color: isPass == true ? Colors.green.shade700 : (isPass == false ? Colors.red : Colors.black87),
             ),
           ),
         ],

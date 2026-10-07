@@ -71,6 +71,7 @@ const buildMockSupabase = (overrides?: {
         insert: () => chainFor(o.insertErr ? null : data, o.insertErr ?? null),
         update: () => chainFor(o.updateData ?? data, o.updateErr ?? null),
         eq: () => chainFor(data, error),
+        neq: () => chainFor(data, error),
         maybeSingle: () => Promise.resolve({ data, error }),
         order: () => Promise.resolve({ data: o.listData ?? [], error: o.listErr ?? null }),
         single: () => Promise.resolve({ data: o.insertErr ? null : mockTenantRow, error: o.insertErr ?? null }),
