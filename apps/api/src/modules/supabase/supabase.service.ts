@@ -1,11 +1,18 @@
-import { Injectable, OnModuleInit, Logger } from '@nestjs/common';
+import { Injectable, OnModuleInit, Logger, BadRequestException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
+import { UUID_HEX_REGEX } from '../../common/decorators/is-uuid-string.decorator';
 import type { AppConfiguration } from '../../config/configuration';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnySupabaseClient = SupabaseClient<any, any, any>;
+
+export function assertUuid(id: string, paramName = 'tenantId'): void {
+    if (!id || typeof id !== 'string' || !UUID_HEX_REGEX.test(id.trim())) {
+        throw new BadRequestException(`${paramName} must be a valid UUID format (8-4-4-4-12 hex string), received: "${id}"`);
+    }
+}
 
 /**
  * Wraps a Supabase service-role client (full DB access, bypasses RLS).
@@ -67,6 +74,8 @@ export class SupabaseService implements OnModuleInit {
      * @param tenantId - tenant UUID, e.g. a1b2c3d4...
      */
     getTenantClient(tenantId: string): AnySupabaseClient {
+        assertUuid(tenantId, 'tenantId');
+
         // Return a perfectly invisible proxy wrapping the admin client
         return new Proxy(this._adminClient, {
             get(target, prop, receiver) {
@@ -76,14 +85,21 @@ export class SupabaseService implements OnModuleInit {
                         const queryBuilder = (target as any).from(table);
                         const tableStr = String(table);
 
-                        // If the table is literally `tenants` or global registry, don't partition it!
-                        if (tableStr === 'tenants' || tableStr === 'plans' || tableStr === 'platform_admins' || tableStr === 'tutorials' || tableStr === 'class_teachers') {
+                        // If the table is literally `tenants`, global registry, or scoped join table without tenant_id, don't partition it!
+                        if (
+                            tableStr === 'tenants' ||
+                            tableStr === 'plans' ||
+                            tableStr === 'platform_admins' ||
+                            tableStr === 'tutorials' ||
+                            tableStr === 'class_teachers' ||
+                            tableStr === 'notice_reads'
+                        ) {
                             return queryBuilder;
                         }
 
-                        // Otherwise we hook into select, update, delete intelligently
-                        const methods = ['select', 'update', 'delete'];
-                        for (const method of methods) {
+                        // Hook into select, update, delete intelligently
+                        const filterMethods = ['select', 'update', 'delete'];
+                        for (const method of filterMethods) {
                             const original = queryBuilder[method];
                             if (typeof original === 'function') {
                                 queryBuilder[method] = function (...args: any[]) {
@@ -92,11 +108,31 @@ export class SupabaseService implements OnModuleInit {
                             }
                         }
 
+                        // Scope insert and upsert so tenant_id is enforced
+                        const writeMethods = ['insert', 'upsert'];
+                        for (const method of writeMethods) {
+                            const original = queryBuilder[method];
+                            if (typeof original === 'function') {
+                                queryBuilder[method] = function (values: any, ...args: any[]) {
+                                    let scopedValues = values;
+                                    if (Array.isArray(values)) {
+                                        scopedValues = values.map((v) =>
+                                            v && typeof v === 'object' ? { ...v, tenant_id: tenantId } : v,
+                                        );
+                                    } else if (values && typeof values === 'object') {
+                                        scopedValues = { ...values, tenant_id: tenantId };
+                                    }
+                                    return original.call(this, scopedValues, ...args);
+                                };
+                            }
+                        }
+
                         return queryBuilder;
                     };
                 }
                 return Reflect.get(target, prop, receiver);
-            }
+            },
         });
     }
 }
+

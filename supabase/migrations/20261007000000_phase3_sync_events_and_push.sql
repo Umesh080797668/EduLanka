@@ -94,12 +94,24 @@ CREATE TABLE IF NOT EXISTS public.sync_events (
     entity_id       UUID NOT NULL,                                              -- Strong UUID key
     event_type      TEXT NOT NULL CHECK (event_type IN ('CREATED', 'UPDATED', 'DELETED')),
     payload         JSONB NOT NULL DEFAULT '{}'::jsonb,
-    client_uuid     TEXT,                                                       -- Client idempotency key (UUIDv4)
+    client_uuid     TEXT NOT NULL,                                              -- Client idempotency key (UUIDv4)
     sequence        BIGINT NOT NULL,                                            -- Monotonic sequence allocated per tenant
     created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     UNIQUE (tenant_id, client_uuid),
     CONSTRAINT uq_sync_events_tenant_seq UNIQUE (tenant_id, sequence)
 );
+
+-- Ensure client_uuid is NOT NULL if table already existed prior to migration
+DO $$
+BEGIN
+    IF EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_schema = 'public' AND table_name = 'sync_events' AND column_name = 'client_uuid' AND is_nullable = 'YES'
+    ) THEN
+        DELETE FROM public.sync_events WHERE client_uuid IS NULL;
+        ALTER TABLE public.sync_events ALTER COLUMN client_uuid SET NOT NULL;
+    END IF;
+END $$;
 
 CREATE INDEX IF NOT EXISTS idx_sync_events_tenant_seq ON public.sync_events (tenant_id, sequence);
 CREATE INDEX IF NOT EXISTS idx_sync_events_entity ON public.sync_events (tenant_id, entity_type, sequence);
@@ -129,7 +141,7 @@ REVOKE ALL ON public.sync_events FROM anon, authenticated;
 GRANT ALL ON public.sync_events TO service_role;
 
 
--- 3. Atomic Sequence Allocation and Event Ingestion Function
+-- 3. Atomic Sequence Allocation and Event Ingestion Function (CTE ON CONFLICT DO UPDATE per ADR-002)
 CREATE OR REPLACE FUNCTION public.append_sync_event(
     p_tenant_id   UUID,
     p_entity_type TEXT,
@@ -144,30 +156,26 @@ SECURITY DEFINER
 SET search_path = public, pg_temp
 AS $$
 DECLARE
-    v_existing_event public.sync_events;
-    v_next_sequence  BIGINT;
-    v_new_event      public.sync_events;
+    v_new_event public.sync_events;
 BEGIN
-    -- 1. Idempotency check: if client_uuid is supplied and already recorded for this tenant, return it
-    IF p_client_uuid IS NOT NULL THEN
-        SELECT * INTO v_existing_event
-        FROM public.sync_events
-        WHERE tenant_id = p_tenant_id AND client_uuid = p_client_uuid;
-
-        IF FOUND THEN
-            RETURN v_existing_event;
-        END IF;
+    IF p_client_uuid IS NULL THEN
+        RAISE EXCEPTION 'client_uuid is required for sync events' USING ERRCODE = 'not_null_violation';
     END IF;
 
-    -- 2. Increment per-tenant sequence atomically
+    -- Ensure tenant counter row exists
     INSERT INTO public.tenant_sync_counters (tenant_id, last_sequence, updated_at)
-    VALUES (p_tenant_id, 1, NOW())
-    ON CONFLICT (tenant_id) DO UPDATE
-    SET last_sequence = public.tenant_sync_counters.last_sequence + 1,
-        updated_at = NOW()
-    RETURNING last_sequence INTO v_next_sequence;
+    VALUES (p_tenant_id, 0, NOW())
+    ON CONFLICT (tenant_id) DO NOTHING;
 
-    -- 3. Insert sync event with the allocated sequence
+    -- Atomic CTE sequence increment and event insertion with ON CONFLICT DO UPDATE
+    -- Eliminates race condition between concurrent calls with identical client_uuid
+    WITH next_seq AS (
+        UPDATE public.tenant_sync_counters
+        SET last_sequence = last_sequence + 1,
+            updated_at = NOW()
+        WHERE tenant_id = p_tenant_id
+        RETURNING last_sequence
+    )
     INSERT INTO public.sync_events (
         tenant_id,
         entity_type,
@@ -177,16 +185,19 @@ BEGIN
         client_uuid,
         sequence,
         created_at
-    ) VALUES (
+    )
+    SELECT
         p_tenant_id,
         p_entity_type,
         p_entity_id,
         p_event_type,
         COALESCE(p_payload, '{}'::jsonb),
         p_client_uuid,
-        v_next_sequence,
+        next_seq.last_sequence,
         NOW()
-    )
+    FROM next_seq
+    ON CONFLICT (tenant_id, client_uuid) DO UPDATE
+        SET tenant_id = EXCLUDED.tenant_id -- no-op update to return existing row
     RETURNING * INTO v_new_event;
 
     RETURN v_new_event;
@@ -279,6 +290,111 @@ WHERE t.slug != 'system_root';
 ALTER VIEW public.tenant_sms_quotas SET (security_invoker = true);
 REVOKE ALL ON public.tenant_sms_quotas FROM anon, authenticated;
 GRANT ALL ON public.tenant_sms_quotas TO service_role;
+
+-- 6. Enforce valid roles on public.users table
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint WHERE conname = 'chk_users_role'
+    ) THEN
+        ALTER TABLE public.users
+        ADD CONSTRAINT chk_users_role
+        CHECK (role IN ('STUDENT', 'PARENT', 'TEACHER', 'SCHOOL_ADMIN', 'ZONAL_OFFICER', 'MOE_OFFICER', 'SUPER_ADMIN'));
+    END IF;
+END $$;
+
+
+-- 7. Student Cap Hardening: Row locking, harmless update skipping, and user reactivation trigger
+CREATE OR REPLACE FUNCTION public.enforce_student_cap()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+DECLARE
+    v_plan TEXT;
+    v_active_count INTEGER;
+BEGIN
+    -- If updating and neither tenant_id nor user_id changed, skip check completely (allows harmless class/profile edits)
+    IF TG_OP = 'UPDATE' THEN
+        IF (NEW.tenant_id IS NOT DISTINCT FROM OLD.tenant_id) AND (NEW.user_id IS NOT DISTINCT FROM OLD.user_id) THEN
+            RETURN NEW;
+        END IF;
+    END IF;
+
+    -- Lock the tenant row FOR UPDATE to prevent concurrent inserts from overshooting the cap
+    SELECT plan INTO v_plan 
+    FROM public.tenants 
+    WHERE id = NEW.tenant_id 
+    FOR UPDATE;
+
+    -- Enforce student cap for COMMUNITY (75 active students per blueprint §7b)
+    IF v_plan = 'COMMUNITY' THEN
+        SELECT count(*) INTO v_active_count 
+        FROM public.students s
+        JOIN public.users u ON u.id = s.user_id
+        WHERE s.tenant_id = NEW.tenant_id 
+          AND u.is_active = TRUE 
+          AND (TG_OP = 'INSERT' OR s.id != NEW.id);
+
+        IF v_active_count >= 75 THEN
+            RAISE EXCEPTION 'COMMUNITY tier limit exceeded: Maximum 75 active students allowed. Please upgrade to Starter.' 
+                USING ERRCODE = 'check_violation';
+        END IF;
+    END IF;
+
+    RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS enforce_student_cap_trigger ON public.students;
+CREATE TRIGGER enforce_student_cap_trigger
+    BEFORE INSERT OR UPDATE OF tenant_id, user_id ON public.students
+    FOR EACH ROW
+    EXECUTE FUNCTION public.enforce_student_cap();
+
+-- Trigger for user reactivation (users.is_active false -> true)
+CREATE OR REPLACE FUNCTION public.enforce_user_reactivation_student_cap()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+DECLARE
+    v_plan TEXT;
+    v_active_count INTEGER;
+BEGIN
+    -- Only trigger when an inactive student user is being reactivated
+    IF (OLD.is_active = FALSE AND NEW.is_active = TRUE AND NEW.role = 'STUDENT') THEN
+        -- Lock the tenant row FOR UPDATE to prevent race condition
+        SELECT plan INTO v_plan 
+        FROM public.tenants 
+        WHERE id = NEW.tenant_id 
+        FOR UPDATE;
+
+        IF v_plan = 'COMMUNITY' THEN
+            SELECT count(*) INTO v_active_count 
+            FROM public.students s
+            JOIN public.users u ON u.id = s.user_id
+            WHERE s.tenant_id = NEW.tenant_id 
+              AND u.is_active = TRUE;
+
+            IF v_active_count >= 75 THEN
+                RAISE EXCEPTION 'COMMUNITY tier limit exceeded: Maximum 75 active students allowed. Please upgrade to Starter.' 
+                    USING ERRCODE = 'check_violation';
+            END IF;
+        END IF;
+    END IF;
+
+    RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_user_reactivation_student_cap ON public.users;
+CREATE TRIGGER trg_user_reactivation_student_cap
+    BEFORE UPDATE OF is_active ON public.users
+    FOR EACH ROW
+    EXECUTE FUNCTION public.enforce_user_reactivation_student_cap();
 
 -- Reload PostgREST schema cache
 NOTIFY pgrst, 'reload schema';

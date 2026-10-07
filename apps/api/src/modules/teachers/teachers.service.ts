@@ -37,8 +37,8 @@ export class TeachersService {
 
     async create(dto: CreateTeacherDto, caller: JwtPayload) {
         this.guardAdmin(caller);
-        const slug = caller.tenantId;
-        const db = this.supabase.getTenantClient(slug);
+        const tenantId = caller.tenantId;
+        const db = this.supabase.getTenantClient(tenantId);
 
         // Step 1: Create Supabase auth user
         const { data: authData, error: authErr } = await this.supabase.adminClient.auth.admin.createUser({
@@ -62,7 +62,7 @@ export class TeachersService {
                     user_id: authUid,
                     email: dto.email,
                     full_name: dto.fullName,
-                    role: UserRole.TEACHER, tenant_id: slug,
+                    role: UserRole.TEACHER, tenant_id: tenantId,
                     phone_number: dto.phoneNumber ?? null,
                     avatar_url: dto.avatarUrl ?? null,
                 })
@@ -87,7 +87,7 @@ export class TeachersService {
                     user_id: userRow.id,
                     employee_no: employeeNo,
                     subject_areas: dto.subjectAreas ?? [],
-                    hire_date: dto.hireDate ?? null, tenant_id: slug,
+                    hire_date: dto.hireDate ?? null, tenant_id: tenantId,
                 })
                 .select('*')
                 .single();
@@ -99,7 +99,7 @@ export class TeachersService {
                 throw new InternalServerErrorException('Failed to create teacher profile');
             }
 
-            this.logger.log(`Created teacher ${employeeNo} for tenant ${slug}`);
+            this.logger.log(`Created teacher ${employeeNo} for tenant ${tenantId}`);
             teacherRow.users = { full_name: userRow.full_name, email: userRow.email, phone_number: userRow.phone_number };
             return teacherRow;
         } catch (err) {
@@ -111,8 +111,8 @@ export class TeachersService {
     }
 
     async findAll(caller: JwtPayload) {
-        const slug = caller.tenantId;
-        const db = this.supabase.getTenantClient(slug);
+        const tenantId = caller.tenantId;
+        const db = this.supabase.getTenantClient(tenantId);
 
         const { data, error } = await db
             .from('teachers')
@@ -130,8 +130,8 @@ export class TeachersService {
     }
 
     async findOne(id: string, caller: JwtPayload) {
-        const slug = caller.tenantId;
-        const db = this.supabase.getTenantClient(slug);
+        const tenantId = caller.tenantId;
+        const db = this.supabase.getTenantClient(tenantId);
 
         const { data, error } = await db
             .from('teachers')
@@ -152,8 +152,8 @@ export class TeachersService {
 
     async update(id: string, dto: UpdateTeacherDto, caller: JwtPayload) {
         this.guardAdmin(caller);
-        const slug = caller.tenantId;
-        const db = this.supabase.getTenantClient(slug);
+        const tenantId = caller.tenantId;
+        const db = this.supabase.getTenantClient(tenantId);
 
         const { data: teacherRow } = await db
             .from('teachers')
@@ -188,8 +188,11 @@ export class TeachersService {
     }
 
     async getClasses(id: string, caller: JwtPayload) {
-        const slug = caller.tenantId;
-        const db = this.supabase.getTenantClient(slug);
+        const tenantId = caller.tenantId;
+        // Verify teacher exists and belongs to the caller's tenant
+        await this.findOne(id, caller);
+
+        const db = this.supabase.getTenantClient(tenantId);
 
         const { data, error } = await db
             .from('class_teachers')
@@ -215,8 +218,8 @@ export class TeachersService {
 
     async deactivate(id: string, caller: JwtPayload) {
         this.guardAdmin(caller);
-        const slug = caller.tenantId;
-        const db = this.supabase.getTenantClient(slug);
+        const tenantId = caller.tenantId;
+        const db = this.supabase.getTenantClient(tenantId);
 
         const { data: teacherRow } = await db.from('teachers').select('user_id').eq('id', id).maybeSingle();
         if (!teacherRow) throw new NotFoundException(`Teacher ${id} not found`);

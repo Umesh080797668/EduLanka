@@ -17,7 +17,7 @@ const mockTenantRow = {
     id: 'aaaabbbb-0000-0000-0000-000000000001',
     name: 'Test School',
     slug: 'test-school',
-    plan: 'FREE',
+    plan: 'COMMUNITY',
     status: 'ACTIVE',
     school_type: 'TYPE_2',
     logo_url: null,

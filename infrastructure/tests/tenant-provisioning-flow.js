@@ -16,7 +16,7 @@ export function tenantProvisionFlow(data) {
         slug: `lt-${uniq}`.toLowerCase().replace(/[^a-z0-9-]/g, '').slice(0, 40),
         schoolType: 'TYPE_2',
         contactEmail: `lt.${uniq}@loadtest.edulanka.lk`,
-        plan: 'FREE',
+        plan: 'COMMUNITY',
     }, { name: 'super_admin_create_tenant', expectedStatuses: [201, 400, 409] });
 
     sleep(0.5);

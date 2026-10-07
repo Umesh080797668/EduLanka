@@ -6,14 +6,17 @@ import { SupabaseService } from '../supabase.service';
 
 
 jest.mock('@supabase/supabase-js', () => {
-    const mockFromObj = {
-        select: jest.fn().mockReturnThis(),
-        eq: jest.fn().mockReturnThis(),
-    };
     return {
         createClient: jest.fn().mockReturnValue({
             auth: {},
-            from: jest.fn().mockReturnValue(mockFromObj),
+            from: jest.fn().mockImplementation(() => ({
+                select: jest.fn().mockReturnThis(),
+                update: jest.fn().mockReturnThis(),
+                delete: jest.fn().mockReturnThis(),
+                insert: jest.fn().mockReturnThis(),
+                upsert: jest.fn().mockReturnThis(),
+                eq: jest.fn().mockReturnThis(),
+            })),
         }),
     };
 });
@@ -60,10 +63,22 @@ describe('SupabaseService', () => {
     });
 
     it('should return a tenant client correctly scoped to tenant with tenant_id injection', () => {
-        const tenantClient = service.getTenantClient('tenant-uuid-123');
+        const tenantId = '45f9722b-eda0-453f-88d2-2c9ad06ec169';
+        const tenantClient = service.getTenantClient(tenantId);
         expect(tenantClient).toBeDefined();
 
         const query = tenantClient.from('students').select('*');
-        expect(query.eq).toHaveBeenCalledWith('tenant_id', 'tenant-uuid-123');
+        expect(query.eq).toHaveBeenCalledWith('tenant_id', tenantId);
+    });
+
+    it('should reject invalid tenant UUID format', () => {
+        expect(() => service.getTenantClient('invalid-slug')).toThrow();
+    });
+
+    it('should exempt notice_reads from tenant_id filter', () => {
+        const tenantId = '45f9722b-eda0-453f-88d2-2c9ad06ec169';
+        const tenantClient = service.getTenantClient(tenantId);
+        const query = (tenantClient.from('notice_reads') as any).select('*');
+        expect(query.eq).not.toHaveBeenCalled();
     });
 });

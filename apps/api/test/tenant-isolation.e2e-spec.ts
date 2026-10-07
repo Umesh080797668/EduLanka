@@ -44,7 +44,7 @@ const shouldRun = false;
         const { error: errA1 } = await admin.from('tenants').insert({
             name: 'E2E Tenant A',
             slug: SLUG_A,
-            plan: 'FREE',
+            plan: 'COMMUNITY',
             status: 'PROVISIONING',
             school_type: 'TYPE_2',
             contact_email: 'a@e2e.lk',
@@ -59,7 +59,7 @@ const shouldRun = false;
         const { error: errB1 } = await admin.from('tenants').insert({
             name: 'E2E Tenant B',
             slug: SLUG_B,
-            plan: 'FREE',
+            plan: 'COMMUNITY',
             status: 'PROVISIONING',
             school_type: 'TYPE_2',
             contact_email: 'b@e2e.lk',

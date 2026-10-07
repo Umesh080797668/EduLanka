@@ -24,6 +24,17 @@ We evaluated two architectural approaches for offline video playback on low-end 
    - Encrypt the file using **AES-CTR (AES/CTR/NoPadding)**. The encryption key is generated per device/session and stored securely in Android Keystore / iOS Keychain.
    - Play back via a custom native ExoPlayer `DataSource` (`AesCtrEncryptedDataSource`) or local loopback HTTP server that decrypts byte-ranges on the fly without loading the complete file into RAM.
 
+### Architectural Pivot: Progressive MP4 + AES-CTR vs P3-S0 HLS Spec
+While the initial Phase 3 Sprint 0 (P3-S0) specification proposed offline HLS, empirical testing and field constraints revealed critical limitations:
+1. **Filesystem and Inode Exhaustion on Low-End Devices:**
+   A 30-minute educational video segmented into 4-second `.ts` chunks generates over 450 individual files per video. On low-end Android Go hardware with slow eMMC or cheap FAT32/exFAT micro-SD cards, creating, encrypting, and tracking hundreds of files causes file system lock contention, inode exhaustion, and catastrophic corruption if power or download is interrupted.
+2. **Download Resumption Fragility:**
+   Orchestrating resumable multi-part downloads across hundreds of segmented chunks and dynamic `.m3u8` variant playlists introduces immense state-machine complexity. In rural Sri Lanka with flaky 3G/4G connectivity, partial segment failures lead to broken playlists.
+3. **Progressive MP4 + AES-CTR Superiority:**
+   A single progressive MP4 file with the `moov` atom at the start (`faststart`) downloaded via standard HTTP `Range` requests (`206 Partial Content`) provides atomic resumability, single-file sandboxing (`.enc.mp4`), and zero inode explosion. AES-CTR enables exact byte-range decryption on the fly with $O(1)$ seek math, requiring $\le 64\text{ KB}$ RAM.
+4. **Conclusion:**
+   We deliberately diverge from the original P3-S0 offline HLS proposal. **Progressive MP4 + AES-CTR** is adopted for all offline storage, while Cloudinary adaptive HLS remains exclusively for live online web and mobile streaming.
+
 ### Technical Challenges & Resolution:
 - **Seekability & Low Memory:** Block modes like AES-CBC require chaining from block 0; AES-GCM requires authenticating the whole ciphertext tag before releasing bytes. Decrypting a 45 MB to 120 MB video entirely into RAM causes immediate Out-Of-Memory (OOM) crashes on 2 GB RAM Android Go devices. 
 - **The AES-CTR Mathematical Seeking Solution:**

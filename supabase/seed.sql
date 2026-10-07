@@ -3,29 +3,29 @@
 -- Run AFTER migration 20260807000001_global_tables.sql
 -- =============================================================================
 
--- -- =============================================================================
--- -- 0. Seed Supabase Auth (auth.users via Cloud SQL Editor)
--- -- Password for all users: SecurePass123!
--- -- =============================================================================
--- INSERT INTO auth.users (
---   instance_id, id, aud, role, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data, created_at, updated_at
--- )
--- VALUES
--- ('00000000-0000-0000-0000-000000000000', '980f2893-68e0-4362-9890-fa2626826fc7', 'authenticated', 'authenticated', 'system@edulanka.lk', crypt('SecurePass123!', gen_salt('bf')), CURRENT_TIMESTAMP, '{"provider":"email","providers":["email"]}', '{"role": "SUPER_ADMIN"}', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
--- ('00000000-0000-0000-0000-000000000000', 'ec390279-300d-4b82-b4a3-47337681ae2d', 'authenticated', 'authenticated', 'admin@royal.lk', crypt('SecurePass123!', gen_salt('bf')), CURRENT_TIMESTAMP, '{"provider":"email","providers":["email"]}', '{"tenant_id": "45f9722b-eda0-453f-88d2-2c9ad06ec169", "role": "SCHOOL_ADMIN"}', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
--- ('00000000-0000-0000-0000-000000000000', 'dcab3ce4-fdc0-44c1-8e4d-8d363d411380', 'authenticated', 'authenticated', 'teacher@royal.lk', crypt('SecurePass123!', gen_salt('bf')), CURRENT_TIMESTAMP, '{"provider":"email","providers":["email"]}', '{"tenant_id": "45f9722b-eda0-453f-88d2-2c9ad06ec169", "role": "TEACHER"}', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
--- ('00000000-0000-0000-0000-000000000000', '1559a7f0-1fe3-4038-914a-6ea03ca31bab', 'authenticated', 'authenticated', 'student@royal.lk', crypt('SecurePass123!', gen_salt('bf')), CURRENT_TIMESTAMP, '{"provider":"email","providers":["email"]}', '{"tenant_id": "45f9722b-eda0-453f-88d2-2c9ad06ec169", "role": "STUDENT"}', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
--- ('00000000-0000-0000-0000-000000000000', 'de0f092e-8abf-474b-8e2c-6cf5d2e1f4ae', 'authenticated', 'authenticated', 'parent@royal.lk', crypt('SecurePass123!', gen_salt('bf')), CURRENT_TIMESTAMP, '{"provider":"email","providers":["email"]}', '{"tenant_id": "45f9722b-eda0-453f-88d2-2c9ad06ec169", "role": "PARENT"}', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
--- ON CONFLICT DO NOTHING;
+-- =============================================================================
+-- 0. Seed Supabase Auth (auth.users via Cloud SQL Editor)
+-- Password for all users: SecurePass123!
+-- =============================================================================
+INSERT INTO auth.users (
+  instance_id, id, aud, role, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data, created_at, updated_at
+)
+VALUES
+('00000000-0000-0000-0000-000000000000', '980f2893-68e0-4362-9890-fa2626826fc7', 'authenticated', 'authenticated', 'system@edulanka.lk', crypt('SecurePass123!', gen_salt('bf')), CURRENT_TIMESTAMP, '{"provider":"email","providers":["email"]}', '{"role": "SUPER_ADMIN"}', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+('00000000-0000-0000-0000-000000000000', 'ec390279-300d-4b82-b4a3-47337681ae2d', 'authenticated', 'authenticated', 'admin@royal.lk', crypt('SecurePass123!', gen_salt('bf')), CURRENT_TIMESTAMP, '{"provider":"email","providers":["email"]}', '{"tenant_id": "45f9722b-eda0-453f-88d2-2c9ad06ec169", "role": "SCHOOL_ADMIN"}', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+('00000000-0000-0000-0000-000000000000', 'dcab3ce4-fdc0-44c1-8e4d-8d363d411380', 'authenticated', 'authenticated', 'teacher@royal.lk', crypt('SecurePass123!', gen_salt('bf')), CURRENT_TIMESTAMP, '{"provider":"email","providers":["email"]}', '{"tenant_id": "45f9722b-eda0-453f-88d2-2c9ad06ec169", "role": "TEACHER"}', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+('00000000-0000-0000-0000-000000000000', '1559a7f0-1fe3-4038-914a-6ea03ca31bab', 'authenticated', 'authenticated', 'student@royal.lk', crypt('SecurePass123!', gen_salt('bf')), CURRENT_TIMESTAMP, '{"provider":"email","providers":["email"]}', '{"tenant_id": "45f9722b-eda0-453f-88d2-2c9ad06ec169", "role": "STUDENT"}', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+('00000000-0000-0000-0000-000000000000', 'de0f092e-8abf-474b-8e2c-6cf5d2e1f4ae', 'authenticated', 'authenticated', 'parent@royal.lk', crypt('SecurePass123!', gen_salt('bf')), CURRENT_TIMESTAMP, '{"provider":"email","providers":["email"]}', '{"tenant_id": "45f9722b-eda0-453f-88d2-2c9ad06ec169", "role": "PARENT"}', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+ON CONFLICT DO NOTHING;
 
--- INSERT INTO auth.identities (provider_id, user_id, identity_data, provider, id)
--- VALUES
--- ('980f2893-68e0-4362-9890-fa2626826fc7', '980f2893-68e0-4362-9890-fa2626826fc7', format('{"sub":"%s","email":"%s"}', '980f2893-68e0-4362-9890-fa2626826fc7', 'system@edulanka.lk')::jsonb, 'email', uuid_generate_v4()),
--- ('ec390279-300d-4b82-b4a3-47337681ae2d', 'ec390279-300d-4b82-b4a3-47337681ae2d', format('{"sub":"%s","email":"%s"}', 'ec390279-300d-4b82-b4a3-47337681ae2d', 'admin@royal.lk')::jsonb, 'email', uuid_generate_v4()),
--- ('dcab3ce4-fdc0-44c1-8e4d-8d363d411380', 'dcab3ce4-fdc0-44c1-8e4d-8d363d411380', format('{"sub":"%s","email":"%s"}', 'dcab3ce4-fdc0-44c1-8e4d-8d363d411380', 'teacher@royal.lk')::jsonb, 'email', uuid_generate_v4()),
--- ('1559a7f0-1fe3-4038-914a-6ea03ca31bab', '1559a7f0-1fe3-4038-914a-6ea03ca31bab', format('{"sub":"%s","email":"%s"}', '1559a7f0-1fe3-4038-914a-6ea03ca31bab', 'student@royal.lk')::jsonb, 'email', uuid_generate_v4()),
--- ('de0f092e-8abf-474b-8e2c-6cf5d2e1f4ae', 'de0f092e-8abf-474b-8e2c-6cf5d2e1f4ae', format('{"sub":"%s","email":"%s"}', 'de0f092e-8abf-474b-8e2c-6cf5d2e1f4ae', 'parent@royal.lk')::jsonb, 'email', uuid_generate_v4())
--- ON CONFLICT DO NOTHING;
+INSERT INTO auth.identities (provider_id, user_id, identity_data, provider, id)
+VALUES
+('980f2893-68e0-4362-9890-fa2626826fc7', '980f2893-68e0-4362-9890-fa2626826fc7', format('{"sub":"%s","email":"%s"}', '980f2893-68e0-4362-9890-fa2626826fc7', 'system@edulanka.lk')::jsonb, 'email', gen_random_uuid()),
+('ec390279-300d-4b82-b4a3-47337681ae2d', 'ec390279-300d-4b82-b4a3-47337681ae2d', format('{"sub":"%s","email":"%s"}', 'ec390279-300d-4b82-b4a3-47337681ae2d', 'admin@royal.lk')::jsonb, 'email', gen_random_uuid()),
+('dcab3ce4-fdc0-44c1-8e4d-8d363d411380', 'dcab3ce4-fdc0-44c1-8e4d-8d363d411380', format('{"sub":"%s","email":"%s"}', 'dcab3ce4-fdc0-44c1-8e4d-8d363d411380', 'teacher@royal.lk')::jsonb, 'email', gen_random_uuid()),
+('1559a7f0-1fe3-4038-914a-6ea03ca31bab', '1559a7f0-1fe3-4038-914a-6ea03ca31bab', format('{"sub":"%s","email":"%s"}', '1559a7f0-1fe3-4038-914a-6ea03ca31bab', 'student@royal.lk')::jsonb, 'email', gen_random_uuid()),
+('de0f092e-8abf-474b-8e2c-6cf5d2e1f4ae', 'de0f092e-8abf-474b-8e2c-6cf5d2e1f4ae', format('{"sub":"%s","email":"%s"}', 'de0f092e-8abf-474b-8e2c-6cf5d2e1f4ae', 'parent@royal.lk')::jsonb, 'email', gen_random_uuid())
+ON CONFLICT DO NOTHING;
 
 -- 0.5. Insert the system-root tenant row for platform administration
 INSERT INTO public.tenants (
@@ -68,7 +68,7 @@ INSERT INTO public.tenants (
     '45f9722b-eda0-453f-88d2-2c9ad06ec169',
     'Royal College Colombo',
     'royal-college',
-    'PRO',
+    'INSTITUTIONAL',
     'PROVISIONING',  -- create_tenant_schema() will flip it to ACTIVE
     'TYPE_1AB',
     'admin@royal.lk',

@@ -1,4 +1,5 @@
-import { registerDecorator, ValidationOptions, ValidationArguments } from 'class-validator';
+import type { ValidationOptions, ValidationArguments } from 'class-validator';
+import { registerDecorator } from 'class-validator';
 
 export const UUID_HEX_REGEX = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
 

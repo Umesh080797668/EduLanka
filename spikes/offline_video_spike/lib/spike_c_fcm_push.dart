@@ -59,6 +59,8 @@ class SpikeCPushEngine with WidgetsBindingObserver {
   String? currentUserId;
   String? currentTenantId;
   String? currentDeviceToken;
+  String? authToken;
+  String apiBaseUrl;
   bool isDisasterModeCached = false;
   bool isFirebaseInitialized = false;
 
@@ -67,26 +69,34 @@ class SpikeCPushEngine with WidgetsBindingObserver {
 
   final List<Map<String, dynamic>> receivedPushes = [];
 
+  SpikeCPushEngine({
+    this.apiBaseUrl = 'http://127.0.0.1:3001',
+    this.authToken,
+  });
+
   Future<void> initialize({
     required String userId,
     required String tenantId,
+    String? token,
+    String? baseUrl,
   }) async {
     currentUserId = userId;
     currentTenantId = tenantId;
+    if (token != null) authToken = token;
+    if (baseUrl != null) apiBaseUrl = baseUrl;
     WidgetsBinding.instance.addObserver(this);
 
-    _log('Initializing Spike C with Firebase Messaging...');
+    _log('Initializing Spike C with Firebase Messaging for tenant $tenantId...');
 
     try {
       if (Firebase.apps.isEmpty) {
         if (kIsWeb || Platform.isAndroid || Platform.isIOS) {
-          // Attempt Firebase initialization
           try {
             await Firebase.initializeApp();
             isFirebaseInitialized = true;
             _log('Firebase.initializeApp() succeeded');
           } catch (e) {
-            _log('Notice: Firebase initialized without google-services.json ($e). Mock/Simulation active.');
+            _log('Notice: Firebase initialized in development/simulation mode ($e).');
           }
         }
       } else {
@@ -94,10 +104,8 @@ class SpikeCPushEngine with WidgetsBindingObserver {
       }
 
       if (isFirebaseInitialized) {
-        // Register top-level background handler
         FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
 
-        // Request user permissions
         final settings = await FirebaseMessaging.instance.requestPermission(
           alert: true,
           badge: true,
@@ -106,35 +114,65 @@ class SpikeCPushEngine with WidgetsBindingObserver {
         );
         _log('FCM Authorization status: ${settings.authorizationStatus}');
 
-        // Fetch device token
         currentDeviceToken = await FirebaseMessaging.instance.getToken();
         _log('Obtained FCM Device Token: ${currentDeviceToken ?? "null"}');
 
-        // Listen for foreground pushes
+        if (currentDeviceToken != null) {
+          await registerDeviceTokenWithBackend();
+        }
+
         FirebaseMessaging.onMessage.listen((RemoteMessage message) {
           _recordMessage('Foreground', message);
         });
 
-        // Listen for app open from push notification
         FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
           _recordMessage('Resumed from Notification Tap', message);
         });
 
-        // Check if app was cold-booted from a terminated push
         final initialMessage = await FirebaseMessaging.instance.getInitialMessage();
         if (initialMessage != null) {
           _recordMessage('Cold Boot from Notification', initialMessage);
         }
       }
 
-      // Check any recorded background events from disk
       await _loadPersistedBackgroundEvents();
     } catch (e) {
       _log('Spike C Init Warning: $e');
     }
   }
 
-  void _recordMessage(String state, RemoteMessage message) {
+  Future<void> registerDeviceTokenWithBackend() async {
+    if (currentDeviceToken == null) return;
+    _log('Registering FCM token with backend POST $apiBaseUrl/api/v1/mobile/device-token...');
+    try {
+      final client = HttpClient();
+      final uri = Uri.parse('$apiBaseUrl/api/v1/mobile/device-token');
+      final request = await client.postUrl(uri);
+      request.headers.set(HttpHeaders.contentTypeHeader, 'application/json');
+      if (authToken != null) {
+        request.headers.set('Authorization', 'Bearer $authToken');
+      }
+      if (currentTenantId != null) {
+        request.headers.set('x-tenant-id', currentTenantId!);
+      }
+      request.write(jsonEncode({
+        'token': currentDeviceToken,
+        'platform': Platform.isIOS ? 'ios' : 'android',
+        'deviceModel': 'SpikeCTestDevice',
+      }));
+      final response = await request.close().timeout(const Duration(seconds: 4));
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        _log('Device token successfully saved to backend device_tokens registry.');
+      } else {
+        _log('Backend returned HTTP ${response.statusCode} for token registration.');
+      }
+      client.close();
+    } catch (e) {
+      _log('Token registration network note: $e');
+    }
+  }
+
+  void _recordMessage(String state, RemoteMessage message) async {
     final entry = {
       'timestamp': DateTime.now().toIso8601String(),
       'state': state,
@@ -147,8 +185,14 @@ class SpikeCPushEngine with WidgetsBindingObserver {
 
     if (message.data['type'] == 'DISASTER_MODE_ACTIVATED') {
       final payload = DisasterModePushPayload.fromMap(message.data);
-      _log('Triggering automated Disaster Pack sync for tenant: ${payload.tenantId}');
-      isDisasterModeCached = true;
+      // Security Validation: Verify push tenant_id strictly matches the active user tenant
+      if (currentTenantId != null && payload.tenantId != currentTenantId) {
+        _log('[CROSS-TENANT SECURITY REJECTION] Dropped push: payload tenant (${payload.tenantId}) does not match user tenant ($currentTenantId).');
+        return;
+      }
+
+      _log('Tenant matched ($currentTenantId). Executing automated Disaster Pack sync...');
+      await _checkAndSyncDisasterPack();
     }
   }
 
@@ -171,9 +215,6 @@ class SpikeCPushEngine with WidgetsBindingObserver {
     } catch (_) {}
   }
 
-  /// App lifecycle listener — Multi-Channel Fallback Layer 4.
-  /// If iOS APNs or Android Doze dropped a silent push while terminated,
-  /// the app-open sync checks backend immediately.
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
@@ -183,9 +224,31 @@ class SpikeCPushEngine with WidgetsBindingObserver {
   }
 
   Future<void> _checkAndSyncDisasterPack() async {
-    _log('Querying GET /api/v1/tenants/$currentTenantId/disaster-pack status...');
-    isDisasterModeCached = true;
-    _log('Disaster Pack status verified.');
+    _log('Querying GET $apiBaseUrl/api/v1/mobile/disaster-pack...');
+    try {
+      final client = HttpClient();
+      final uri = Uri.parse('$apiBaseUrl/api/v1/mobile/disaster-pack');
+      final request = await client.getUrl(uri);
+      if (authToken != null) {
+        request.headers.set('Authorization', 'Bearer $authToken');
+      }
+      if (currentTenantId != null) {
+        request.headers.set('x-tenant-id', currentTenantId!);
+      }
+      final response = await request.close().timeout(const Duration(seconds: 4));
+      if (response.statusCode == 200) {
+        final bodyStr = await response.transform(utf8.decoder).join();
+        final json = jsonDecode(bodyStr) as Map<String, dynamic>;
+        isDisasterModeCached = true;
+        _log('Disaster Pack synced successfully from backend. Status: ${json['status'] ?? "READY"} (notices: ${json['notices']?.length ?? 0}, policies: ${json['policies']?.length ?? 0})');
+      } else {
+        _log('Disaster Pack query returned HTTP ${response.statusCode}');
+      }
+      client.close();
+    } catch (e) {
+      _log('Disaster Pack fetch error ($e). Retaining offline cached fallback.');
+      isDisasterModeCached = true;
+    }
   }
 
   void dispose() {

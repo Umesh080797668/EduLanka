@@ -66,7 +66,7 @@ describe('TenantContextMiddleware', () => {
     it('should fetch and cache context for active tenant', async () => {
         mockRequest.headers['x-tenant-id'] = 'tenant-123';
         mockSupabase.maybeSingle.mockResolvedValueOnce({
-            data: { id: 'tenant-123', slug: 'dev-school', plan: 'FREE', status: 'ACTIVE' },
+            data: { id: 'tenant-123', slug: 'dev-school', plan: 'COMMUNITY', status: 'ACTIVE' },
             error: null
         });
 

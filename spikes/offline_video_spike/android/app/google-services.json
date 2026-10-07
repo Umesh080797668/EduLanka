@@ -1,13 +1,13 @@
 {
   "project_info": {
-    "project_number": "123456789012",
+    "project_number": "171650628300",
     "project_id": "edulanka-spike",
-    "storage_bucket": "edulanka-spike.appspot.com"
+    "storage_bucket": "edulanka-spike.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:123456789012:android:abcdef0123456789abcdef",
+        "mobilesdk_app_id": "1:171650628300:android:ea63390dc2c9b7f8862069",
         "android_client_info": {
           "package_name": "lk.edulanka.offline_video_spike"
         }
@@ -15,7 +15,7 @@
       "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyFakeKeyForSpikeDevelopmentTesting01"
+          "current_key": "AIzaSyC4N681xXR6MdtTxbzNOoSSTo_1FUiXvYQ"
         }
       ],
       "services": {

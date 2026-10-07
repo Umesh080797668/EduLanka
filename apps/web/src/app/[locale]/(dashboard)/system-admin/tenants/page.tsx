@@ -236,14 +236,16 @@ export default function SystemAdminTenantsPage() {
                                             <TD>
                                                 <Badge
                                                     tone={
-                                                        tnt.plan === 'PRO'
+                                                        tnt.plan === 'INSTITUTIONAL' || tnt.plan === 'GROWTH'
                                                             ? 'primary'
                                                             : 'neutral'
                                                     }
                                                     variant="outline"
                                                     size="sm"
                                                 >
-                                                    {tnt.plan === 'PRO' && (
+                                                    {(tnt.plan === 'INSTITUTIONAL' ||
+                                                        tnt.plan === 'GROWTH' ||
+                                                        tnt.plan === 'STARTER') && (
                                                         <ShieldCheck className="size-3.5" />
                                                     )}
                                                     {tnt.plan}

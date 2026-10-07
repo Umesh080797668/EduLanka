@@ -15,6 +15,7 @@ import { ChatModule } from './modules/chat/chat.module';
 import { ClassesModule } from './modules/classes/classes.module';
 import { GradesModule } from './modules/grades/grades.module';
 import { HealthModule } from './modules/health/health.module';
+import { MobileModule } from './modules/mobile/mobile.module';
 import { NoticesModule } from './modules/notices/notices.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { ParentsModule } from './modules/parents/parents.module';
@@ -45,7 +46,7 @@ import { UsersModule } from './modules/users/users.module';
                 PORT: Joi.number().default(3001),
                 ALLOWED_ORIGINS: Joi.string().default('http://localhost:3000'),
                 APP_PUBLIC_URL: Joi.string().uri().default('http://localhost:3000'),
-                SYSTEM_TENANT_ID: Joi.string().default('91c85e7c-7907-4915-ae70-4d5b7f3a843c'),
+                SYSTEM_TENANT_ID: Joi.string().uuid().default('91c85e7c-7907-4915-ae70-4d5b7f3a843c'),
 
                 // Supabase
                 SUPABASE_URL: Joi.string().uri().required(),
@@ -140,7 +141,8 @@ import { UsersModule } from './modules/users/users.module';
         ChatModule,
         NoticesModule,
         SmsModule,
-        SystemAdminModule
+        SystemAdminModule,
+        MobileModule,
     ],
     providers: [
         {
