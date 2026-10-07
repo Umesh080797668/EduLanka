@@ -8,10 +8,10 @@ export const BASE_URL = __ENV.BASE_URL || 'http://localhost:8081/api/v1';
 
 // Pilot tenant seeded by apps/api/scripts/seed-staging.ts
 export const TENANT_SLUG = __ENV.TENANT_SLUG || 'dev-school';
-export const TENANT_ID = __ENV.TENANT_ID || 'a1b2c3d4-0000-0000-0000-000000000001';
+export const TENANT_ID = __ENV.TENANT_ID || '45f9722b-eda0-453f-88d2-2c9ad06ec169';
 
 // System/root tenant seeded by apps/api/scripts/seed-admin.ts (holds SUPER_ADMIN)
-export const SYSTEM_TENANT_ID = __ENV.SYSTEM_TENANT_ID || 'a1b2c3d4-0000-0000-0000-000000000000';
+export const SYSTEM_TENANT_ID = __ENV.SYSTEM_TENANT_ID || '91c85e7c-7907-4915-ae70-4d5b7f3a843c';
 
 // Pilot users (from seed-staging.ts) — same password for all four
 const PILOT_PASSWORD = __ENV.PILOT_PASSWORD || 'PilotUser123!';

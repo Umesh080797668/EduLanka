@@ -119,7 +119,11 @@ export class StudentsService {
             if (studentErr) {
                 await this.supabase.adminClient.auth.admin.deleteUser(authUid);
                 if (studentErr.code === '23505') throw new ConflictException('Admission number already exists');
-                if (studentErr.message?.toLowerCase().includes('cap exceeded')) {
+                // Match both old 'cap exceeded' and new 'tier limit exceeded' trigger message format
+                if (
+                    studentErr.message?.toLowerCase().includes('cap exceeded') ||
+                    studentErr.message?.toLowerCase().includes('tier limit exceeded')
+                ) {
                     throw new ForbiddenException(studentErr.message);
                 }
                 this.logger.error(`Failed to enroll student: ${studentErr.message}`);

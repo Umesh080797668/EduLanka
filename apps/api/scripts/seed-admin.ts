@@ -11,7 +11,7 @@ async function bootstrap() {
 
     try {
         // 1. Ensure a "System" tenant exists to hold the global admin
-        let rootTenantId = 'a1b2c3d4-0000-0000-0000-000000000000';
+        let rootTenantId = '91c85e7c-7907-4915-ae70-4d5b7f3a843c';
         let tenantSlug = 'system_root';
 
         const { data: existingTenant } = await supabase.adminClient

@@ -10,7 +10,7 @@ async function bootstrap() {
     console.log('Bootstrapping Pilot School for Staging...');
 
     try {
-        let pilotTenantId = 'a1b2c3d4-0000-0000-0000-000000000001';
+        let pilotTenantId = '45f9722b-eda0-453f-88d2-2c9ad06ec169';
         const tenantSlug = 'dev-school';
 
         const { data: existingTenant } = await supabase.adminClient

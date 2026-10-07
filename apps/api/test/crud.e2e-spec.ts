@@ -162,7 +162,7 @@ describe('CRUD and RBAC (e2e)', () => {
                 }); expect(res.status).toBe(201);
         });
 
-        it('should reject creation if Student Cap (250) is exceeded', async () => {
+        it('should reject creation if Student Cap (75) is exceeded', async () => {
             mockSupabase.adminClient.auth.admin.createUser.mockResolvedValueOnce({
                 data: { user: { id: 'new-auth-id' } }, error: null
             });
@@ -174,7 +174,7 @@ describe('CRUD and RBAC (e2e)', () => {
 
             // Mock Supabase throwing the exact RLS/Trigger constraint error for cap
             mockBuilder.then.mockImplementationOnce((resolve: any) => resolve({
-                data: null, error: { message: '250 student cap exceeded for free tier' }
+                data: null, error: { message: 'COMMUNITY tier limit exceeded: Maximum 75 active students allowed. Please upgrade to Starter.' }
             }));
 
             // Mock auth rollback

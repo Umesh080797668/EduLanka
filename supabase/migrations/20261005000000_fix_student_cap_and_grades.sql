@@ -2,7 +2,7 @@
 -- Migration: 20261005000000_fix_student_cap_and_grades.sql
 -- Description:
 -- 1. Drop old free tier student capacity trigger and function (restrict_free_tier_student_cap / enforce_student_capacity).
--- 2. Update enforce_student_cap to 250 active students for COMMUNITY tier per Phase 1 spec.
+-- 2. Update enforce_student_cap to 75 active students for COMMUNITY tier per blueprint §7b.
 -- 3. Add SET search_path = public, pg_temp to enforce_student_cap() for SECURITY DEFINER safety.
 -- =============================================================================
 
@@ -10,7 +10,7 @@
 DROP TRIGGER IF EXISTS restrict_free_tier_student_cap ON public.students;
 DROP FUNCTION IF EXISTS public.enforce_student_capacity();
 
--- Update enforce_student_cap with search_path and 250 student cap
+-- Update enforce_student_cap with search_path and 75 student cap (COMMUNITY tier, blueprint §7b)
 CREATE OR REPLACE FUNCTION public.enforce_student_cap()
 RETURNS TRIGGER
 LANGUAGE plpgsql
@@ -21,22 +21,18 @@ DECLARE
     v_plan TEXT;
     v_active_count INTEGER;
 BEGIN
-    -- Only check active students
-    IF NEW.is_active = FALSE THEN
-        RETURN NEW;
-    END IF;
-
     -- Fetch tenant's plan
     SELECT plan INTO v_plan FROM public.tenants WHERE id = NEW.tenant_id;
 
-    -- Enforce student cap for COMMUNITY (250 active students per Phase 1 spec)
+    -- Enforce student cap for COMMUNITY (75 active students per blueprint §7b)
     IF v_plan = 'COMMUNITY' THEN
         SELECT count(*) INTO v_active_count 
-        FROM public.students 
-        WHERE tenant_id = NEW.tenant_id AND is_active = TRUE AND id != NEW.id;
+        FROM public.students s
+        JOIN public.users u ON u.id = s.user_id
+        WHERE s.tenant_id = NEW.tenant_id AND u.is_active = TRUE AND s.id != NEW.id;
 
-        IF v_active_count >= 250 THEN
-            RAISE EXCEPTION 'COMMUNITY tier limit exceeded: Maximum 250 active students allowed. Please upgrade to Starter.' USING ERRCODE = 'check_violation';
+        IF v_active_count >= 75 THEN
+            RAISE EXCEPTION 'COMMUNITY tier limit exceeded: Maximum 75 active students allowed. Please upgrade to Starter.' USING ERRCODE = 'check_violation';
         END IF;
     END IF;
 

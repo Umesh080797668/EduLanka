@@ -110,7 +110,7 @@ describe('StudentsService', () => {
       expect(mockSupabaseService.adminClient.auth.admin.deleteUser).toHaveBeenCalledWith('auth-id');
     });
 
-    it('should rollback auth and throw ForbiddenException if 250 cap is exceeded', async () => {
+    it('should rollback auth and throw ForbiddenException if 75 cap is exceeded', async () => {
       mockSupabaseService.adminClient.auth.admin.createUser.mockResolvedValue({
         data: { user: { id: 'auth-id' } },
         error: null,
@@ -119,10 +119,12 @@ describe('StudentsService', () => {
       mockDb.single.mockResolvedValueOnce({ data: { id: 'db-user-id' }, error: null });
       mockDb.single.mockResolvedValueOnce({
         data: null,
-        error: { code: 'P0001', message: 'Free tier cap exceeded: Max 250 students allowed.' },
+        error: { code: 'P0001', message: 'COMMUNITY tier limit exceeded: Maximum 75 active students allowed. Please upgrade to Starter.' },
       });
 
-      await expect(service.enroll(validDto, adminCaller)).rejects.toThrow(/cap exceeded/);
+      const enrollPromise = service.enroll(validDto, adminCaller);
+      await expect(enrollPromise).rejects.toThrow(ForbiddenException);
+      await expect(enrollPromise).rejects.toThrow(/tier limit exceeded/);
       expect(mockSupabaseService.adminClient.auth.admin.deleteUser).toHaveBeenCalledWith('auth-id');
     });
   });

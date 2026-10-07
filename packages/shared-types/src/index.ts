@@ -7,3 +7,5 @@ export * from './parent.types.js';
 export * from './class.types.js';
 export * from './school-policy.types.js';
 export * from './marks.types.js';
+export * from './sync.types.js';
+export * from './push.types.js';

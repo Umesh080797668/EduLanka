@@ -3,7 +3,6 @@ import {
     IsString,
     IsEnum,
     IsOptional,
-    IsUUID,
     IsInt,
     IsBoolean,
     IsArray,
@@ -46,7 +45,7 @@ export class CreateNoticeDto {
     target_grade?: number;
 
     @IsOptional()
-    @IsUUID()
+    @IsString()
     target_class_id?: string;
 
     @IsOptional()
@@ -97,7 +96,7 @@ export class UpdateNoticeDto {
     target_grade?: number;
 
     @IsOptional()
-    @IsUUID()
+    @IsString()
     target_class_id?: string;
 
     @IsOptional()

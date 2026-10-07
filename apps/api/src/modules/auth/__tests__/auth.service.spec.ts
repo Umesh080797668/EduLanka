@@ -62,7 +62,7 @@ const makeSupabase = (opts?: {
     resetError?: boolean;
 }): SupabaseService => {
     const o = opts ?? {};
-    const tenantId = 'a1b2c3d4-0000-0000-0000-000000000001';
+    const tenantId = '45f9722b-eda0-453f-88d2-2c9ad06ec169';
     const authUser = {
         id: 'supabase-auth-uid',
         email: 't@school.lk',
