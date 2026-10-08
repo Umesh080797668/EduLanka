@@ -413,6 +413,17 @@ export class NoticesService {
 
     async markAsRead(tenantId: string, noticeId: string, userId: string) {
         const client = this.supabaseService.getTenantClient(tenantId);
+
+        const { data: notice, error: noticeErr } = await client
+            .from('notices')
+            .select('id')
+            .eq('id', noticeId)
+            .maybeSingle();
+
+        if (noticeErr || !notice) {
+            throw new NotFoundException('Notice not found.');
+        }
+
         const { error } = await client.from('notice_reads').upsert(
             { notice_id: noticeId, user_id: userId, read_at: new Date().toISOString() },
             { onConflict: 'notice_id,user_id', ignoreDuplicates: true },

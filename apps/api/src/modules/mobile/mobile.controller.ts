@@ -45,15 +45,31 @@ export class MobileController {
     @Get('sync-events')
     @ApiOperation({ summary: 'Pull sync events for the tenant since given sequence' })
     @ApiQuery({ name: 'since', required: false, type: Number, description: 'Last acknowledged sequence number' })
-    getSyncEvents(@Query('since') since: string | undefined, @CurrentUser() user: JwtPayload) {
+    @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Maximum number of events to return (1-200)' })
+    getSyncEvents(
+        @Query('since') since: string | undefined,
+        @Query('limit') limit: string | undefined,
+        @CurrentUser() user: JwtPayload,
+    ) {
         const sinceSeq = since ? parseInt(since, 10) : 0;
-        return this.mobileService.getSyncEvents(user, isNaN(sinceSeq) ? 0 : sinceSeq);
+        const pageLimit = limit ? parseInt(limit, 10) : 50;
+        return this.mobileService.getSyncEvents(
+            user,
+            isNaN(sinceSeq) ? 0 : sinceSeq,
+            isNaN(pageLimit) ? 50 : pageLimit,
+        );
     }
 
     @Get('disaster-pack')
     @ApiOperation({ summary: 'Download offline emergency disaster pack bundle' })
     getDisasterPack(@CurrentUser() user: JwtPayload) {
         return this.mobileService.getDisasterPack(user);
+    }
+
+    @Get('offline-license')
+    @ApiOperation({ summary: 'Issue cryptographically signed offline entitlement license record' })
+    getOfflineLicense(@CurrentUser() user: JwtPayload) {
+        return this.mobileService.getOfflineLicense(user);
     }
 
     @Post('test-disaster-push')

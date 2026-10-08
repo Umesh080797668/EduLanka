@@ -19,11 +19,23 @@ export class RegisterDeviceTokenDto {
     deviceModel?: string;
 }
 
+export const ALLOWED_SYNC_ENTITY_TYPES = [
+    'attendance',
+    'homework_submission',
+    'chat_message',
+    'disaster_mode',
+    'entitlement_revocation',
+] as const;
+
+export type SyncEntityType = (typeof ALLOWED_SYNC_ENTITY_TYPES)[number];
+
 export class AppendSyncEventDto {
-    @ApiProperty({ description: 'Domain entity type e.g. attendance, chat_message' })
-    @IsString()
-    @IsNotEmpty()
-    entityType: string;
+    @ApiProperty({
+        description: 'Domain entity type e.g. attendance, homework_submission, chat_message, disaster_mode',
+        enum: ALLOWED_SYNC_ENTITY_TYPES,
+    })
+    @IsIn(ALLOWED_SYNC_ENTITY_TYPES)
+    entityType: SyncEntityType;
 
     @ApiProperty({ description: 'Strong UUID of the entity' })
     @IsUuidString()
@@ -33,7 +45,7 @@ export class AppendSyncEventDto {
     @IsIn(['CREATED', 'UPDATED', 'DELETED'])
     eventType: 'CREATED' | 'UPDATED' | 'DELETED';
 
-    @ApiPropertyOptional({ description: 'Event payload JSON' })
+    @ApiPropertyOptional({ description: 'Event payload JSON (max 64KB)' })
     @IsOptional()
     payload?: Record<string, any>;
 
@@ -43,6 +55,11 @@ export class AppendSyncEventDto {
 }
 
 export class TriggerDisasterPushDto {
+    @ApiPropertyOptional({ description: 'Target school tenant ID (SUPER_ADMIN only)' })
+    @IsOptional()
+    @IsUuidString()
+    schoolTenantId?: string;
+
     @ApiPropertyOptional({ description: 'Emergency reason' })
     @IsOptional()
     @IsString()

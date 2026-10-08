@@ -242,14 +242,19 @@ class _SpikeDashboardScreenState extends State<SpikeDashboardScreen> {
       padding: const EdgeInsets.symmetric(vertical: 3),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(label, style: const TextStyle(fontSize: 13, color: Colors.black87)),
-          Text(
-            value,
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.bold,
-              color: isPass == true ? Colors.green.shade700 : (isPass == false ? Colors.red : Colors.black87),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              value,
+              textAlign: TextAlign.end,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.bold,
+                color: isPass == true ? Colors.green.shade700 : (isPass == false ? Colors.red : Colors.black87),
+              ),
             ),
           ),
         ],

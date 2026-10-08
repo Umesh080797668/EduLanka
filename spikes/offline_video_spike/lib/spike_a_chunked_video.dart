@@ -6,6 +6,7 @@ import 'dart:typed_data';
 import 'package:crypto/crypto.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart' show rootBundle;
 import 'package:pointycastle/export.dart';
 import 'package:video_player/video_player.dart';
 
@@ -25,6 +26,7 @@ class SpikeABenchmarkResult {
   final int seekLatencyMs;
   final double peakMemoryMb;
   final double encryptionThroughputMBps;
+  final String playbackEngine;
   final String measurementSource;
 
   SpikeABenchmarkResult({
@@ -39,6 +41,7 @@ class SpikeABenchmarkResult {
     required this.seekLatencyMs,
     required this.peakMemoryMb,
     required this.encryptionThroughputMBps,
+    required this.playbackEngine,
     required this.measurementSource,
   });
 
@@ -54,6 +57,7 @@ class SpikeABenchmarkResult {
     'seekLatencyMs': seekLatencyMs,
     'peakMemoryMb': peakMemoryMb,
     'encryptionThroughputMBps': encryptionThroughputMBps,
+    'playbackEngine': playbackEngine,
     'measurementSource': measurementSource,
   };
 }
@@ -306,26 +310,43 @@ class SpikeATestRunner {
     }
 
     // 3. Prepare Real Video Payload
-    final candidateSamplePaths = [
-      if (sampleMp4Path != null) sampleMp4Path,
-      'assets/sample.mp4',
-      '../offline_video_spike/assets/sample.mp4',
-      '/home/imantha/Desktop/EduLanka/spikes/offline_video_spike/assets/sample.mp4',
-    ];
+    bool sourceCopied = false;
+    if (sampleMp4Path != null && File(sampleMp4Path).existsSync()) {
+      await File(sampleMp4Path).copy(rawVideoFile.path);
+      sourceCopied = true;
+    }
 
-    File? sourceMp4;
-    for (final p in candidateSamplePaths) {
-      final f = File(p);
-      if (f.existsSync() && f.lengthSync() > 0) {
-        sourceMp4 = f;
-        break;
+    if (!sourceCopied) {
+      // Attempt loading via Flutter rootBundle (mobile APK bundle / assets)
+      try {
+        final byteData = await rootBundle.load('assets/sample.mp4');
+        final buffer = byteData.buffer;
+        await rawVideoFile.writeAsBytes(
+          buffer.asUint8List(byteData.offsetInBytes, byteData.lengthInBytes),
+          flush: true,
+        );
+        sourceCopied = true;
+      } catch (_) {}
+    }
+
+    if (!sourceCopied) {
+      final candidateSamplePaths = [
+        'assets/sample.mp4',
+        '../assets/sample.mp4',
+        '../offline_video_spike/assets/sample.mp4',
+      ];
+      for (final p in candidateSamplePaths) {
+        final f = File(p);
+        if (f.existsSync() && f.lengthSync() > 0) {
+          await f.copy(rawVideoFile.path);
+          sourceCopied = true;
+          break;
+        }
       }
     }
 
-    if (sourceMp4 != null) {
-      await sourceMp4.copy(rawVideoFile.path);
-    } else {
-      // Fallback: Generate valid minimal MP4 container
+    if (!sourceCopied) {
+      // Fallback: Generate valid synthetic chunk sequence
       final sink = rawVideoFile.openWrite();
       final totalBytes = testFileSizeMb * 1024 * 1024;
       final block = Uint8List(kChunkSizeBytes);
@@ -339,9 +360,9 @@ class SpikeATestRunner {
       await sink.close();
     }
 
-    final rawBytes = await rawVideoFile.readAsBytes();
-    final originalSha256 = sha256.convert(rawBytes).toString();
-    final actualFileSizeMb = max(1, (rawBytes.length / (1024 * 1024)).round());
+    final rawVideoLength = await rawVideoFile.length();
+    final originalSha256 = (await sha256.bind(rawVideoFile.openRead()).first).toString();
+    final actualFileSizeMb = max(1, (rawVideoLength / (1024 * 1024)).round());
 
     // 4. Encrypt file using real AES-CTR
     final encWatch = Stopwatch()..start();
@@ -362,13 +383,13 @@ class SpikeATestRunner {
     encWatch.stop();
 
     final encDurationSec = max(0.001, encWatch.elapsedMilliseconds / 1000.0);
-    final encThroughput = (rawBytes.length / (1024 * 1024)) / encDurationSec;
+    final encThroughput = (rawVideoLength / (1024 * 1024)) / encDurationSec;
 
     // 5. Verify Resumable Download with HTTP Range simulation
     bool resumableSuccess = false;
     try {
       final partRaf = await encryptedVideoFile.open(mode: FileMode.read);
-      await partRaf.setPosition(rawBytes.length ~/ 2);
+      await partRaf.setPosition(rawVideoLength ~/ 2);
       final sampledBytes = await partRaf.read(1024);
       await partRaf.close();
       resumableSuccess = sampledBytes.isNotEmpty;
@@ -400,40 +421,44 @@ class SpikeATestRunner {
     );
     await server.start();
 
-    // Verify 100% Decrypted Stream Byte Integrity via SHA-256
+    // Verify 100% Decrypted Stream Byte Integrity via streaming SHA-256 (no RAM buffering)
     final client = HttpClient();
     final fullStreamReq = await client.getUrl(server.streamUri);
     final fullStreamRes = await fullStreamReq.close();
-    final decryptedBytes = await fullStreamRes.fold<List<int>>([], (p, e) => p..addAll(e));
-    final decryptedSha256 = sha256.convert(decryptedBytes).toString();
+    final decryptedSha256 = (await sha256.bind(fullStreamRes).first).toString();
     final decryptionIntegrityVerified = (originalSha256 == decryptedSha256);
 
     // 8. Measure Startup Latency (Time to first frame / initialization)
+    String playbackEngine = 'Loopback HTTP Fallback';
     final startupWatch = Stopwatch()..start();
     int startupLatency = 0;
     try {
       final controller = VideoPlayerController.networkUrl(server.streamUri);
-      await controller.initialize().timeout(const Duration(seconds: 2));
+      await controller.initialize().timeout(const Duration(seconds: 3));
       startupWatch.stop();
       startupLatency = startupWatch.elapsedMilliseconds;
+      playbackEngine = !kIsWeb && Platform.isAndroid
+          ? 'ExoPlayer'
+          : (!kIsWeb && Platform.isIOS ? 'AVPlayer' : 'Native Video Player');
       await controller.dispose();
     } catch (_) {
       // In headless environment without native video display, measure first chunk delivery from loopback
       final chunkReq = await client.getUrl(server.streamUri);
       chunkReq.headers.add(HttpHeaders.rangeHeader, 'bytes=0-65535');
       final chunkRes = await chunkReq.close();
-      await chunkRes.fold<List<int>>([], (p, e) => p..addAll(e));
+      await chunkRes.drain<void>();
       startupWatch.stop();
       startupLatency = startupWatch.elapsedMilliseconds;
+      playbackEngine = 'Loopback HTTP Fallback';
     }
 
     // 9. Measure Seek Latency (Scrub to 50% byte offset)
     final seekWatch = Stopwatch()..start();
-    final seekOffset = rawBytes.length ~/ 2;
+    final seekOffset = rawVideoLength ~/ 2;
     final seekReq = await client.getUrl(server.streamUri);
     seekReq.headers.add(HttpHeaders.rangeHeader, 'bytes=$seekOffset-${seekOffset + 65535}');
     final seekRes = await seekReq.close();
-    final seekBytes = await seekRes.fold<List<int>>([], (p, e) => p..addAll(e));
+    final seekBytes = await seekRes.first;
     seekWatch.stop();
     final seekLatency = seekWatch.elapsedMilliseconds;
     client.close();
@@ -461,7 +486,8 @@ class SpikeATestRunner {
       seekLatencyMs: seekLatency,
       peakMemoryMb: peakMemoryMb,
       encryptionThroughputMBps: encThroughput,
-      measurementSource: 'Live test execution via ProcessInfo.maxRss, VideoPlayerController, and SHA-256 verification',
+      playbackEngine: playbackEngine,
+      measurementSource: 'Live test execution via ProcessInfo.maxRss, streaming SHA-256 verification, and $playbackEngine',
     );
   }
 }

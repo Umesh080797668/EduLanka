@@ -173,27 +173,30 @@ class SpikeCPushEngine with WidgetsBindingObserver {
   }
 
   void _recordMessage(String state, RemoteMessage message) async {
+    handlePushData(message.data, state: state);
+  }
+
+  Future<bool> handlePushData(Map<String, dynamic> data, {String state = 'Foreground'}) async {
     final entry = {
       'timestamp': DateTime.now().toIso8601String(),
       'state': state,
-      'messageId': message.messageId,
-      'sentTime': message.sentTime?.toIso8601String(),
-      'data': message.data,
+      'data': data,
     };
     receivedPushes.add(entry);
-    _log('[$state Push Received] Type: ${message.data['type']} | Data: ${jsonEncode(message.data)}');
+    _log('[$state Push Received] Type: ${data['type']} | Data: ${jsonEncode(data)}');
 
-    if (message.data['type'] == 'DISASTER_MODE_ACTIVATED') {
-      final payload = DisasterModePushPayload.fromMap(message.data);
+    if (data['type'] == 'DISASTER_MODE_ACTIVATED') {
+      final payload = DisasterModePushPayload.fromMap(data);
       // Security Validation: Verify push tenant_id strictly matches the active user tenant
       if (currentTenantId != null && payload.tenantId != currentTenantId) {
         _log('[CROSS-TENANT SECURITY REJECTION] Dropped push: payload tenant (${payload.tenantId}) does not match user tenant ($currentTenantId).');
-        return;
+        return false;
       }
 
       _log('Tenant matched ($currentTenantId). Executing automated Disaster Pack sync...');
-      await _checkAndSyncDisasterPack();
+      return await checkAndSyncDisasterPack();
     }
+    return false;
   }
 
   Future<void> _loadPersistedBackgroundEvents() async {
@@ -219,14 +222,14 @@ class SpikeCPushEngine with WidgetsBindingObserver {
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       _log('App resumed to foreground — Fallback Layer 4 (App-Open Sync check)');
-      _checkAndSyncDisasterPack();
+      checkAndSyncDisasterPack();
     }
   }
 
-  Future<void> _checkAndSyncDisasterPack() async {
+  Future<bool> checkAndSyncDisasterPack({HttpClient? customClient}) async {
     _log('Querying GET $apiBaseUrl/api/v1/mobile/disaster-pack...');
+    final client = customClient ?? HttpClient();
     try {
-      final client = HttpClient();
       final uri = Uri.parse('$apiBaseUrl/api/v1/mobile/disaster-pack');
       final request = await client.getUrl(uri);
       if (authToken != null) {
@@ -239,15 +242,27 @@ class SpikeCPushEngine with WidgetsBindingObserver {
       if (response.statusCode == 200) {
         final bodyStr = await response.transform(utf8.decoder).join();
         final json = jsonDecode(bodyStr) as Map<String, dynamic>;
-        isDisasterModeCached = true;
-        _log('Disaster Pack synced successfully from backend. Status: ${json['status'] ?? "READY"} (notices: ${json['notices']?.length ?? 0}, policies: ${json['policies']?.length ?? 0})');
+        // Validate pack data authenticity and tenant alignment
+        if (json['status'] == 'DISASTER_PACK_READY' &&
+            (currentTenantId == null || json['tenantId'] == currentTenantId)) {
+          isDisasterModeCached = true;
+          _log('Disaster Pack synced successfully from backend. Status: ${json['status']} (contacts: ${json['contacts']?.length ?? 0}, notices: ${json['notices']?.length ?? 0})');
+          return true;
+        } else {
+          _log('Disaster Pack validation failed: invalid status or mismatched tenant.');
+          return false;
+        }
       } else {
-        _log('Disaster Pack query returned HTTP ${response.statusCode}');
+        _log('Disaster Pack query returned HTTP ${response.statusCode}. Cache not updated.');
+        return false;
       }
-      client.close();
     } catch (e) {
-      _log('Disaster Pack fetch error ($e). Retaining offline cached fallback.');
-      isDisasterModeCached = true;
+      _log('Disaster Pack fetch error ($e). Offline sync failed.');
+      return false;
+    } finally {
+      if (customClient == null) {
+        client.close();
+      }
     }
   }
 

@@ -1,6 +1,5 @@
-// =============================================================================
-// Users Service
-// =============================================================================
+import { randomUUID } from 'crypto';
+
 import type { JwtPayload } from '@edu-lanka/shared-types';
 import { UserRole } from '@edu-lanka/shared-types';
 import {
@@ -268,6 +267,23 @@ export class UsersService {
         await this.redisService.cacheUserActive(id, isActive, 60);
         if (!isActive) {
             await this.redisService.revokeAllUserRefreshTokens(id);
+            // ADR-001 / ADR-002: Invalidate offline entitlement on client devices via monotonic sync stream
+            try {
+                await this.supabase.adminClient.rpc('append_sync_event', {
+                    p_tenant_id: caller.tenantId,
+                    p_entity_type: 'entitlement_revocation',
+                    p_entity_id: id,
+                    p_event_type: 'DELETED',
+                    p_payload: {
+                        user_id: id,
+                        reason: reason || 'ACCOUNT_DEACTIVATED',
+                        revoked_at: new Date().toISOString(),
+                    },
+                    p_client_uuid: randomUUID(),
+                });
+            } catch (syncErr: any) {
+                this.logger.warn(`Failed to emit entitlement revocation sync event: ${syncErr.message}`);
+            }
         }
 
         // Automatically resolve pending inquiries if the account is being reactivated

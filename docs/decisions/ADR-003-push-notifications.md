@@ -1,7 +1,7 @@
-# ADR-003: Push Notifications, Silent Sync Limits & Resilience (FCM)
+# ADR-003: Push Notifications, Background BullMQ Processing & Disaster Readiness
 
 - **Status:** Accepted
-- **Date:** 2026-10-07
+- **Date:** 2026-10-07 (Updated 2026-10-08)
 - **Deciders:** Core Engineering Team, Mobile Lead, Systems Architect
 - **Related Phase:** Phase 3 — Sprint 0 (P3-S0), Sprint 4 (P3-S4), Sprint 8 (P3-S8)
 
@@ -9,22 +9,37 @@
 
 ## Context
 
-Mobile devices in EduLanka require push notification capabilities for user alerts (chat, urgent notices, homework) and automated background synchronization (Disaster Pack preparation, event stream invalidation).
+Mobile devices in EduLanka require push notification capabilities for critical school announcements, user alerts, and automated background synchronization (Disaster Pack preparation, event stream invalidation).
 
-### Technical Constraints Identified:
+### Technical Challenges & Reliability Constraints:
 1. **Unreliability of Silent Push (Data-Only Messages):**
-   - **iOS:** Apple throttles silent pushes (`apns-priority: 5`, `content-available: 1`). iOS will **never** wake an app that has been force-quit or swiped away from the app switcher by the user until the user explicitly re-launches the app.
-   - **Android:** Android Doze mode and aggressive OEM battery optimization daemons (MIUI, EMUI, ColorOS) aggressively defer or discard background data messages when the device is not connected to a charger.
-2. **Shared Family Phones:**
-   - In rural Sri Lankan households, multiple siblings (or a parent and child) often share a single smartphone. If a token remains tied to the previous user, the subsequent user receives sensitive notifications meant for someone else.
+   - **iOS:** Apple throttles silent pushes (`apns-priority: 5`, `content-available: 1`). iOS will **never** wake an app that has been force-quit or swiped away from the app switcher until the user explicitly re-launches the app.
+   - **Android:** Android Doze mode and aggressive OEM battery optimization daemons (MIUI, EMUI, ColorOS) aggressively defer or discard background data messages when devices are on battery.
+2. **Synchronous Push Dispatch Bottlenecks:**
+   - Broadcasting a disaster alert to thousands of parents and students in a single school synchronously stalls HTTP request cycles and risks timeout.
+3. **Dead / Stale Tokens:**
+   - Re-sending pushes to uninstalled devices wastes quota and causes Firebase HTTP v1 API rate limits.
+4. **Shared Family Phones:**
+   - In rural Sri Lankan households, multiple family members often share a single smartphone. Device tokens must be reassigned atomically to prevent cross-account notification leaks.
 
 ---
 
 ## Decision
 
-We adopt **Firebase Cloud Messaging (FCM) HTTP v1 API** with **Multi-Channel Fallbacks for Disaster Readiness** and **Atomic Token Ownership Reassignment**.
+We adopt **Firebase Cloud Messaging (FCM) HTTP v1 via BullMQ Async Worker (`fcm-push`)**, **Batched Token Dispatch with Dead-Token Cleanup**, **Phase 2 Twilio SMS Emergency Fallback**, and a **Standardized Disaster-Readiness Pack Architecture**.
 
-### 1. Device Token Registry & Ownership Reassignment
+### 1. Asynchronous BullMQ Queue Architecture (`FcmProcessor`)
+
+Disaster alerts and bulk notifications are enqueued to Redis via BullMQ (`fcm-push` queue):
+- **Worker Concurrency:** Jobs process in the background without blocking the NestJS HTTP request loop.
+- **Batching:** Active device tokens are chunked into batches of up to 500 tokens per FCM API call (`sendEachForMulticast`).
+- **Dead-Token Cleanup:**
+  - Responses with errors `messaging/registration-token-not-registered`, `messaging/invalid-registration-token`, or `UNREGISTERED` trigger automatic deactivation:
+    `UPDATE public.device_tokens SET is_active = FALSE, updated_at = NOW() WHERE token = $token`.
+- **SMS Fallback Trigger:**
+  - For high-priority disaster mode alerts (`DISASTER_MODE_ACTIVATED`), the processor automatically invokes the Phase 2 Twilio SMS pipeline (`SmsService.sendBatchSms`) to deliver emergency SMS notifications to registered parent and guardian phone numbers.
+
+### 2. Device Token Registry & Ownership Reassignment
 
 ```sql
 CREATE TABLE public.device_tokens (
@@ -43,8 +58,7 @@ CREATE TABLE public.device_tokens (
 CREATE INDEX idx_device_tokens_tenant_user ON public.device_tokens (tenant_id, user_id) WHERE is_active = TRUE;
 ```
 
-When a user authenticates in `POST /api/v1/mobile/device-token`, ownership is re-assigned atomically:
-
+When a user logs in via `POST /api/v1/mobile/device-token`, ownership is atomically transferred to the current tenant and user:
 ```sql
 INSERT INTO public.device_tokens (tenant_id, user_id, token, platform, device_model, is_active, updated_at)
 VALUES ($tenant_id, $user_id, $token, $platform, $device_model, TRUE, NOW())
@@ -58,71 +72,45 @@ ON CONFLICT (token) DO UPDATE SET
     updated_at  = NOW();
 ```
 
-### 2. Multi-Channel Disaster Pack Resilience Strategy
+### 3. Disaster-Readiness Pack Blueprint Schema (`GET /mobile/disaster-pack`)
 
-Because silent push cannot be guaranteed when an app is terminated or battery-restricted, Disaster Pack synchronization employs four redundant layers:
+The Disaster Pack response bundles all essential offline resources for students and teachers:
+1. **Closure Status & Metadata:**
+   - Active state (`is_active`), incident reason (`reason`), expected duration, and expected resume date from `public.disaster_events`.
+2. **Emergency Contacts:**
+   - Sourced from `school_policy.extra_config->emergency_contacts` (e.g. Principal, Police 119, Disaster Management Centre 117, local hospitals).
+3. **Official Circulars & Notices:**
+   - Urgent notices from `public.notices` containing `content_html` and attachment references (not empty or truncated text).
+4. **Offline Academic Content (Last 7 Days):**
+   - Active homework assignments and materials issued over the preceding 7 days from `public.homework_assignments`.
+   - Associated learning resources and syllabus guides.
+
+### 4. Client-Side Security & Multi-Channel Sync Fallback
 
 ```text
 [ Disaster Mode Activated ]
            │
            ├─► Layer 1: High-Priority FCM Push (wakes background app if system budget permits)
-           ├─► Layer 2: Phase 2 Twilio SMS Blast (100% reach to feature phones and offline devices)
+           ├─► Layer 2: Twilio SMS Blast (100% reach to feature phones and offline devices)
            ├─► Layer 3: Periodic Background Fetch (WorkManager on Android / BGAppRefresh on iOS)
            └─► Layer 4: Foreground Launch Sync (App-Open check: if disaster_mode=true, fetch immediately)
 ```
 
-1. **Layer 1 (FCM Push):** Dispatches high-priority message (`priority: "high"`) with both `notification` (for visual urgency) and `data` payload.
-2. **Layer 2 (SMS Blast):** Twilio SMS contains brief incident summary and instructions, reaching parents regardless of app state or data connectivity.
-3. **Layer 3 (Periodic Sync):** Background workers poll tenant status every 4–6 hours during alert periods.
-4. **Layer 4 (App-Open Trigger):** Every cold start or resume from background checks tenant metadata; if Disaster Mode is flagged, the Disaster Pack downloads immediately.
-
----
-
-## Spike C Verification Protocol & Implementation
-
-Prototyped in `spikes/offline_video_spike/lib/spike_c_fcm_push.dart` using `firebase_core` (4.15.0) and `firebase_messaging` (16.7.0):
-
-### 1. Top-Level Background Isolate Handler
-- Top-level function `@pragma('vm:entry-point') Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message)` registered via `FirebaseMessaging.onBackgroundMessage`.
-- Handles data-only high-priority messages and records events directly to persistent disk storage (`fcm_background_events.log`) so event reception can be proven when the main UI is relaunched.
-
-### 2. Terminated State Verification Protocol
-To verify push delivery on a real physical device:
-1. Launch the app on a physical device, log into a test user, and copy the device's FCM token.
-2. Swipe the app away from the app switcher (force-stop / terminated state).
-3. Send a data-only high-priority FCM message using the Firebase HTTP v1 API:
-   ```json
-   {
-     "message": {
-       "token": "<DEVICE_FCM_TOKEN>",
-       "android": {
-         "priority": "HIGH"
-       },
-       "data": {
-         "type": "DISASTER_MODE_ACTIVATED",
-         "tenant_id": "45f9722b-b6d3-4a11-82e1-45bc5462f741",
-         "reason": "FLOOD",
-         "expected_duration": "3_DAYS",
-         "timestamp": "1786455720000"
-       }
-     }
-   }
-   ```
-4. Observe Android Logcat / system event receipt:
-   ```bash
-   adb logcat -s Flutter FCM FirebaseMessaging
-   ```
-5. Reopen the app. Verify that `receivedPushes` contains the payload recorded while the app was swiped away, or that Fallback Layer 4 immediately caught the Disaster Mode flag upon app resume.
+- **Cross-Tenant Validation:**
+  When `SpikeCPushEngine` receives a push notification with `type: 'DISASTER_MODE_ACTIVATED'`, it verifies that the incoming `tenant_id` matches the active user's `currentTenantId`. Cross-tenant payloads are immediately dropped with security audit logging.
+- **Fail-Safe Caching:**
+  The mobile client updates its cached disaster pack only upon receiving an authentic HTTP 200 response with status `DISASTER_PACK_READY`. Network errors or HTTP 500 failures leave prior cached data intact.
 
 ---
 
 ## Consequences
 
 ### Positive
-- Shared family devices never cross-contaminate notifications between sibling logins.
-- Disaster Pack delivery is 100% resilient across device states via multi-channel fallback (FCM + SMS + WorkManager + App-Open sync).
-- Explicit, honest handling of iOS APNs and Android OEM power saver behaviors.
-
+- High throughput and non-blocking push dispatch via BullMQ background queue.
+- Dead tokens are purged automatically, maintaining high FCM delivery rates.
+- Multi-channel delivery guarantees 100% reach across offline devices, feature phones, and low-battery smartphones via Twilio SMS fallback.
+- Shared family devices never leak cross-sibling notifications due to atomic token ownership reassignment.
+- Structured Disaster Pack provides students and teachers with complete academic and safety information during emergency school closures.
 
 ### Trade-offs
-- Background sync on iOS cannot be purely instant when the app is swiped away; relies on visual push tap or next app open.
+- Twilio SMS dispatch incurs operational telecom costs, reserved strictly for high-severity disaster mode activations.

@@ -141,7 +141,7 @@ REVOKE ALL ON public.sync_events FROM anon, authenticated;
 GRANT ALL ON public.sync_events TO service_role;
 
 
--- 3. Atomic Sequence Allocation and Event Ingestion Function (CTE ON CONFLICT DO UPDATE per ADR-002)
+-- 3. Atomic Sequence Allocation and Event Ingestion Function (Gapless, Idempotent per ADR-002)
 CREATE OR REPLACE FUNCTION public.append_sync_event(
     p_tenant_id   UUID,
     p_entity_type TEXT,
@@ -156,10 +156,30 @@ SECURITY DEFINER
 SET search_path = public, pg_temp
 AS $$
 DECLARE
-    v_new_event public.sync_events;
+    v_existing_event public.sync_events;
+    v_new_event      public.sync_events;
 BEGIN
     IF p_client_uuid IS NULL THEN
         RAISE EXCEPTION 'client_uuid is required for sync events' USING ERRCODE = 'not_null_violation';
+    END IF;
+
+    -- 1. Idempotency fast-path: if client_uuid already recorded for this tenant, verify matching contents
+    SELECT * INTO v_existing_event
+    FROM public.sync_events
+    WHERE tenant_id = p_tenant_id AND client_uuid = p_client_uuid;
+
+    IF FOUND THEN
+        -- Reject reused client_uuid if entity or payload differs
+        IF v_existing_event.entity_type != p_entity_type 
+           OR v_existing_event.entity_id != p_entity_id 
+           OR v_existing_event.event_type != p_event_type 
+           OR v_existing_event.payload != COALESCE(p_payload, '{}'::jsonb) THEN
+            RAISE EXCEPTION 'Idempotency conflict: client_uuid "%" has already been used with different entity or payload', p_client_uuid
+                USING ERRCODE = 'unique_violation';
+        END IF;
+
+        -- Exact match: return existing event WITHOUT incrementing sequence counter (ZERO GAPS on retries)
+        RETURN v_existing_event;
     END IF;
 
     -- Ensure tenant counter row exists
@@ -167,8 +187,27 @@ BEGIN
     VALUES (p_tenant_id, 0, NOW())
     ON CONFLICT (tenant_id) DO NOTHING;
 
-    -- Atomic CTE sequence increment and event insertion with ON CONFLICT DO UPDATE
-    -- Eliminates race condition between concurrent calls with identical client_uuid
+    -- 2. Acquire transaction advisory lock per tenant to serialize new event sequence assignment
+    PERFORM pg_advisory_xact_lock(hashtext('sync_seq_' || p_tenant_id::text));
+
+    -- Re-check under lock in case of concurrent insert with same client_uuid
+    SELECT * INTO v_existing_event
+    FROM public.sync_events
+    WHERE tenant_id = p_tenant_id AND client_uuid = p_client_uuid;
+
+    IF FOUND THEN
+        IF v_existing_event.entity_type != p_entity_type 
+           OR v_existing_event.entity_id != p_entity_id 
+           OR v_existing_event.event_type != p_event_type 
+           OR v_existing_event.payload != COALESCE(p_payload, '{}'::jsonb) THEN
+            RAISE EXCEPTION 'Idempotency conflict: client_uuid "%" has already been used with different entity or payload', p_client_uuid
+                USING ERRCODE = 'unique_violation';
+        END IF;
+
+        RETURN v_existing_event;
+    END IF;
+
+    -- Allocate next sequence strictly when inserting a new event
     WITH next_seq AS (
         UPDATE public.tenant_sync_counters
         SET last_sequence = last_sequence + 1,
@@ -196,8 +235,6 @@ BEGIN
         next_seq.last_sequence,
         NOW()
     FROM next_seq
-    ON CONFLICT (tenant_id, client_uuid) DO UPDATE
-        SET tenant_id = EXCLUDED.tenant_id -- no-op update to return existing row
     RETURNING * INTO v_new_event;
 
     RETURN v_new_event;
@@ -322,11 +359,14 @@ BEGIN
         END IF;
     END IF;
 
-    -- Lock the tenant row FOR UPDATE to prevent concurrent inserts from overshooting the cap
+    -- Take transaction advisory lock to serialize cap checks per tenant without blocking key-share FK inserts
+    PERFORM pg_advisory_xact_lock(hashtext('student_cap_' || NEW.tenant_id::text));
+
+    -- Lock the tenant row FOR NO KEY UPDATE so foreign key key-share locks are not blocked
     SELECT plan INTO v_plan 
     FROM public.tenants 
     WHERE id = NEW.tenant_id 
-    FOR UPDATE;
+    FOR NO KEY UPDATE;
 
     -- Enforce student cap for COMMUNITY (75 active students per blueprint §7b)
     IF v_plan = 'COMMUNITY' THEN
@@ -366,11 +406,14 @@ DECLARE
 BEGIN
     -- Only trigger when an inactive student user is being reactivated
     IF (OLD.is_active = FALSE AND NEW.is_active = TRUE AND NEW.role = 'STUDENT') THEN
-        -- Lock the tenant row FOR UPDATE to prevent race condition
+        -- Take transaction advisory lock to serialize cap checks per tenant
+        PERFORM pg_advisory_xact_lock(hashtext('student_cap_' || NEW.tenant_id::text));
+
+        -- Lock the tenant row FOR NO KEY UPDATE so foreign key key-share locks are not blocked
         SELECT plan INTO v_plan 
         FROM public.tenants 
         WHERE id = NEW.tenant_id 
-        FOR UPDATE;
+        FOR NO KEY UPDATE;
 
         IF v_plan = 'COMMUNITY' THEN
             SELECT count(*) INTO v_active_count 
@@ -395,6 +438,124 @@ CREATE TRIGGER trg_user_reactivation_student_cap
     BEFORE UPDATE OF is_active ON public.users
     FOR EACH ROW
     EXECUTE FUNCTION public.enforce_user_reactivation_student_cap();
+
+
+-- 8. Tenant Storage Ledgers & Totals View (ADR-001 Storage Quota and Renditions Tracking)
+CREATE TABLE IF NOT EXISTS public.tenant_storage_ledgers (
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id       UUID NOT NULL REFERENCES public.tenants(id) ON DELETE CASCADE,
+    resource_id     TEXT NOT NULL,
+    resource_type   TEXT NOT NULL, -- e.g. 'video_master', 'video_rendition_360p', 'attachment'
+    bytes           BIGINT NOT NULL DEFAULT 0,
+    format          TEXT,
+    idempotency_key TEXT,
+    metadata        JSONB NOT NULL DEFAULT '{}'::jsonb,
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CONSTRAINT uq_tenant_storage_ledger_idemp UNIQUE (tenant_id, idempotency_key)
+);
+
+CREATE INDEX IF NOT EXISTS idx_tenant_storage_ledgers_tenant ON public.tenant_storage_ledgers (tenant_id);
+CREATE INDEX IF NOT EXISTS idx_tenant_storage_ledgers_resource ON public.tenant_storage_ledgers (tenant_id, resource_id);
+
+ALTER TABLE public.tenant_storage_ledgers ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON public.tenant_storage_ledgers FROM anon, authenticated;
+GRANT ALL ON public.tenant_storage_ledgers TO service_role;
+
+-- Tenant Storage Totals View (Blueprint Quota Enforcement)
+CREATE OR REPLACE VIEW public.tenant_storage_usage AS
+SELECT 
+    t.id AS tenant_id,
+    t.name AS tenant_name,
+    t.plan,
+    COALESCE(p.storage_quota_gb, 2) AS storage_quota_gb,
+    COALESCE(SUM(l.bytes), 0) AS total_bytes_used,
+    ROUND(COALESCE(SUM(l.bytes), 0) / (1024.0 * 1024.0 * 1024.0), 3) AS total_gb_used,
+    CASE 
+        WHEN COALESCE(SUM(l.bytes), 0) >= (COALESCE(p.storage_quota_gb, 2)::numeric * 1024.0 * 1024.0 * 1024.0) THEN true 
+        ELSE false 
+    END AS is_quota_exceeded
+FROM public.tenants t
+LEFT JOIN public.plans p ON p.code = t.plan
+LEFT JOIN public.tenant_storage_ledgers l ON l.tenant_id = t.id
+GROUP BY t.id, t.name, t.plan, p.storage_quota_gb;
+
+ALTER VIEW public.tenant_storage_usage SET (security_invoker = true);
+REVOKE ALL ON public.tenant_storage_usage FROM anon, authenticated;
+GRANT ALL ON public.tenant_storage_usage TO service_role;
+
+
+-- 9. Attendance Conflicts Log (ADR-002 Offline Sync Conflict Audit)
+CREATE TABLE IF NOT EXISTS public.attendance_conflicts_log (
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id       UUID NOT NULL REFERENCES public.tenants(id) ON DELETE CASCADE,
+    class_id        UUID,
+    student_id      UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
+    conflict_date   DATE NOT NULL,
+    client_state    JSONB NOT NULL DEFAULT '{}'::jsonb,
+    server_state    JSONB NOT NULL DEFAULT '{}'::jsonb,
+    resolution      TEXT NOT NULL CHECK (resolution IN ('SERVER_WINS', 'CLIENT_WINS', 'MANUAL_MERGE')),
+    resolved_by     UUID REFERENCES public.users(id),
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_attendance_conflicts_tenant ON public.attendance_conflicts_log (tenant_id, conflict_date);
+
+ALTER TABLE public.attendance_conflicts_log ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON public.attendance_conflicts_log FROM anon, authenticated;
+GRANT ALL ON public.attendance_conflicts_log TO service_role;
+
+
+-- 10. GDPR/Privacy PII Scrubber for Sync Events
+CREATE OR REPLACE FUNCTION public.scrub_user_sync_events_pii(
+    p_tenant_id UUID,
+    p_user_id   UUID
+)
+RETURNS INTEGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+DECLARE
+    v_count INTEGER;
+BEGIN
+    UPDATE public.sync_events
+    SET payload = jsonb_strip_nulls(
+        payload - 'full_name' - 'name' - 'email' - 'phone' - 'national_id' || 
+        jsonb_build_object('anonymized', true, 'scrubbed_at', NOW())
+    )
+    WHERE tenant_id = p_tenant_id
+      AND (entity_id = p_user_id OR payload->>'student_id' = p_user_id::text OR payload->>'sender_id' = p_user_id::text);
+
+    GET DIAGNOSTICS v_count = ROW_COUNT;
+    RETURN v_count;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.scrub_user_sync_events_pii FROM anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.scrub_user_sync_events_pii TO service_role;
+
+
+-- 11. 90-Day Retention Purge Job for Sync Events (ADR-002)
+CREATE OR REPLACE FUNCTION public.purge_old_sync_events()
+RETURNS INTEGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+DECLARE
+    v_deleted INTEGER;
+BEGIN
+    DELETE FROM public.sync_events
+    WHERE created_at < NOW() - INTERVAL '90 days';
+
+    GET DIAGNOSTICS v_deleted = ROW_COUNT;
+    RETURN v_deleted;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.purge_old_sync_events FROM anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.purge_old_sync_events TO service_role;
+
 
 -- Reload PostgREST schema cache
 NOTIFY pgrst, 'reload schema';
