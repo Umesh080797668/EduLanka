@@ -4,7 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:offline_video_spike/spike_a_chunked_video.dart';
 
 void main() {
-  test('Spike A: Encrypted loopback server range parsing, token security, and decryption verification', () async {
+  test('Spike A: Chunked GCM streaming encryption, range parsing, token security, and verification', () async {
     final tempDir = Directory.systemTemp.createTempSync('spike_a_test');
     final sampleFile = File('/home/imantha/Desktop/EduLanka/spikes/offline_video_spike/assets/sample.mp4');
 
@@ -24,16 +24,16 @@ void main() {
     // Test loopback server token authorization and range edge cases directly
     final testRaw = File('${tempDir.path}/raw.bin')..writeAsBytesSync([10, 20, 30, 40, 50, 60, 70, 80, 90, 100]);
     final encFile = File('${tempDir.path}/enc.bin');
-    final cipher = AesCtrChunkCipher(
-      key: Uint8List.fromList(List.generate(32, (i) => i)),
-      baseIv: Uint8List.fromList(List.generate(16, (i) => i)),
-    );
-    encFile.writeAsBytesSync(cipher.encryptBytes(testRaw.readAsBytesSync()));
+    final key = Uint8List.fromList(List.generate(32, (i) => i + 1));
+    final nonce = Uint8List.fromList(List.generate(12, (i) => (i * 3) & 0xFF));
+
+    final cipher = ChunkedGcmVideoCipher(key: key, baseNonce: nonce);
+    await cipher.encryptFile(testRaw, encFile);
 
     final server = LoopbackEncryptedVideoServer(
       encryptedFile: encFile,
-      key: Uint8List.fromList(List.generate(32, (i) => i)),
-      baseIv: Uint8List.fromList(List.generate(16, (i) => i)),
+      key: key,
+      baseNonce: nonce,
       sessionToken: 'valid-test-token',
     );
     await server.start();

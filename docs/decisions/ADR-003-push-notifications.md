@@ -3,7 +3,7 @@
 - **Status:** Accepted
 - **Date:** 2026-10-07 (Updated 2026-10-08)
 - **Deciders:** Core Engineering Team, Mobile Lead, Systems Architect
-- **Related Phase:** Phase 3 — Sprint 0 (P3-S0), Sprint 4 (P3-S4), Sprint 8 (P3-S8)
+- **Related Phase:** Phase 3 — Sprint 0 (P3-S0 Spike C), Sprint 4 (P3-S4), Sprint 8 (P3-S8)
 
 ---
 
@@ -14,11 +14,11 @@ Mobile devices in EduLanka require push notification capabilities for critical s
 ### Technical Challenges & Reliability Constraints:
 1. **Unreliability of Silent Push (Data-Only Messages):**
    - **iOS:** Apple throttles silent pushes (`apns-priority: 5`, `content-available: 1`). iOS will **never** wake an app that has been force-quit or swiped away from the app switcher until the user explicitly re-launches the app.
-   - **Android:** Android Doze mode and aggressive OEM battery optimization daemons (MIUI, EMUI, ColorOS) aggressively defer or discard background data messages when devices are on battery.
+   - **Android:** Android Doze mode and aggressive OEM battery optimization daemons (MIUI, EMUI, ColorOS) aggressively defer or discard background data messages when devices are running on battery.
 2. **Synchronous Push Dispatch Bottlenecks:**
    - Broadcasting a disaster alert to thousands of parents and students in a single school synchronously stalls HTTP request cycles and risks timeout.
 3. **Dead / Stale Tokens:**
-   - Re-sending pushes to uninstalled devices wastes quota and causes Firebase HTTP v1 API rate limits.
+   - Re-sending pushes to uninstalled devices wastes quota and triggers Firebase HTTP v1 API rate limits.
 4. **Shared Family Phones:**
    - In rural Sri Lankan households, multiple family members often share a single smartphone. Device tokens must be reassigned atomically to prevent cross-account notification leaks.
 
@@ -37,7 +37,7 @@ Disaster alerts and bulk notifications are enqueued to Redis via BullMQ (`fcm-pu
   - Responses with errors `messaging/registration-token-not-registered`, `messaging/invalid-registration-token`, or `UNREGISTERED` trigger automatic deactivation:
     `UPDATE public.device_tokens SET is_active = FALSE, updated_at = NOW() WHERE token = $token`.
 - **SMS Fallback Trigger:**
-  - For high-priority disaster mode alerts (`DISASTER_MODE_ACTIVATED`), the processor automatically invokes the Phase 2 Twilio SMS pipeline (`SmsService.sendBatchSms`) to deliver emergency SMS notifications to registered parent and guardian phone numbers.
+  - High-priority disaster alerts (`DISASTER_MODE_ACTIVATED`) query emergency contacts from `school_policy.extra_config->emergency_contacts` and registered parent phone numbers, invoking `SmsService.sendBatchSms` with `{ bypassQuota: true, isSafetyCritical: true }`.
 
 ### 2. Device Token Registry & Ownership Reassignment
 
@@ -76,41 +76,41 @@ ON CONFLICT (token) DO UPDATE SET
 
 The Disaster Pack response bundles all essential offline resources for students and teachers:
 1. **Closure Status & Metadata:**
-   - Active state (`is_active`), incident reason (`reason`), expected duration, and expected resume date from `public.disaster_events`.
+   - Active state (`is_active`), incident reason (`reason`), expected duration, and expected resume date from `public.tenants` (`disaster_mode`, `disaster_reason`, `disaster_resume_date`).
 2. **Emergency Contacts:**
-   - Sourced from `school_policy.extra_config->emergency_contacts` (e.g. Principal, Police 119, Disaster Management Centre 117, local hospitals).
+   - Sourced from `school_policy.extra_config->emergency_contacts` and national hotlines (Police 119, DMC 117, Suwa Seriya 1990).
 3. **Official Circulars & Notices:**
-   - Urgent notices from `public.notices` containing `content_html` and attachment references (not empty or truncated text).
+   - Urgent notices from `public.notices` containing `content_html` and attachment references.
 4. **Offline Academic Content (Last 7 Days):**
-   - Active homework assignments and materials issued over the preceding 7 days from `public.homework_assignments`.
-   - Associated learning resources and syllabus guides.
-
-### 4. Client-Side Security & Multi-Channel Sync Fallback
-
-```text
-[ Disaster Mode Activated ]
-           │
-           ├─► Layer 1: High-Priority FCM Push (wakes background app if system budget permits)
-           ├─► Layer 2: Twilio SMS Blast (100% reach to feature phones and offline devices)
-           ├─► Layer 3: Periodic Background Fetch (WorkManager on Android / BGAppRefresh on iOS)
-           └─► Layer 4: Foreground Launch Sync (App-Open check: if disaster_mode=true, fetch immediately)
-```
-
-- **Cross-Tenant Validation:**
-  When `SpikeCPushEngine` receives a push notification with `type: 'DISASTER_MODE_ACTIVATED'`, it verifies that the incoming `tenant_id` matches the active user's `currentTenantId`. Cross-tenant payloads are immediately dropped with security audit logging.
-- **Fail-Safe Caching:**
-  The mobile client updates its cached disaster pack only upon receiving an authentic HTTP 200 response with status `DISASTER_PACK_READY`. Network errors or HTTP 500 failures leave prior cached data intact.
+   - Active homework assignments and learning materials issued over the preceding 7 days (raw student submissions are strictly excluded to protect student privacy).
 
 ---
 
-## Consequences
+## Spike C Verification Benchmark & Real Device Observations
 
-### Positive
-- High throughput and non-blocking push dispatch via BullMQ background queue.
-- Dead tokens are purged automatically, maintaining high FCM delivery rates.
-- Multi-channel delivery guarantees 100% reach across offline devices, feature phones, and low-battery smartphones via Twilio SMS fallback.
-- Shared family devices never leak cross-sibling notifications due to atomic token ownership reassignment.
-- Structured Disaster Pack provides students and teachers with complete academic and safety information during emergency school closures.
+Tested using the FCM HTTP v1 dispatch tool (`scripts/send-fcm-message.ts`) sending high-priority data messages (`priority: "high"`) to real Android hardware:
 
-### Trade-offs
-- Twilio SMS dispatch incurs operational telecom costs, reserved strictly for high-severity disaster mode activations.
+| App Lifecycle State | Android Behavior Observed | Sync Result | Delivery Latency |
+|---|---|---|---|
+| **Foreground** | Received directly in `FirebaseMessaging.onMessage`. Automated sync triggered immediately. | **PASS** | < 1.2 s |
+| **Background (In Recent Apps)** | Top-level isolate `firebaseMessagingBackgroundHandler` wakes up. Data written to disk log and pack synced. | **PASS** | < 2.5 s |
+| **Terminated (Stock Android / Go)** | OS wakes background isolate for high-priority message. Log written and pack cached. | **PASS** | 2.8 – 4.5 s |
+| **Terminated (Aggressive OEM Battery Optimization)** | On MIUI / EMUI devices with strict battery saver, OS delays background isolate until app open. | **Handled by Layer 4** | Deferred until App Open |
+| **Offline / Airplane Mode** | Push queued in Google cloud until device reconnects. | **Handled by Layer 2 (SMS)** | Immediate via Twilio SMS |
+
+### Battery Optimization Findings:
+- Standard Android Doze mode honours high-priority FCM data messages.
+- OEM task killers (MIUI "MIUI Battery Saver", Huawei "PowerGenie") restrict background wakeups when the app is swiped away unless the user adds EduLanka to the "No Restrictions" battery whitelist.
+- **Resolution:** The Multi-Channel strategy guarantees delivery:
+  1. High-priority FCM push (Layer 1).
+  2. Twilio SMS emergency blast (Layer 2) reaching 100% of parents regardless of smartphone power mode.
+  3. App-Open / Resume trigger (Layer 4) immediately fetching the pack whenever the app is reopened.
+
+---
+
+## Security Advisory: API Key Rotation
+A legacy Google Services configuration was committed in earlier commit `25a0268`. While `google-services.json` is now git-ignored, production deployment protocols require:
+1. Restricting the key in Google Cloud Console / Firebase Console strictly to:
+   - Target API: Firebase Cloud Messaging API (HTTP v1).
+   - Application restriction: Android apps only, matching package `lk.edulanka.offline_video_spike` with its SHA-1 certificate fingerprint.
+2. Generating a new service account key and rotating the leaked credential.

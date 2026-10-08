@@ -461,17 +461,21 @@ ALTER TABLE public.tenant_storage_ledgers ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON public.tenant_storage_ledgers FROM anon, authenticated;
 GRANT ALL ON public.tenant_storage_ledgers TO service_role;
 
+-- Ensure plans table supports fractional GB (500 MB for Community package per Blueprint)
+ALTER TABLE public.plans ALTER COLUMN storage_quota_gb TYPE NUMERIC(6,3);
+UPDATE public.plans SET storage_quota_gb = 0.500 WHERE code = 'COMMUNITY';
+
 -- Tenant Storage Totals View (Blueprint Quota Enforcement)
 CREATE OR REPLACE VIEW public.tenant_storage_usage AS
 SELECT 
     t.id AS tenant_id,
     t.name AS tenant_name,
     t.plan,
-    COALESCE(p.storage_quota_gb, 2) AS storage_quota_gb,
+    COALESCE(p.storage_quota_gb, 0.500)::numeric AS storage_quota_gb,
     COALESCE(SUM(l.bytes), 0) AS total_bytes_used,
     ROUND(COALESCE(SUM(l.bytes), 0) / (1024.0 * 1024.0 * 1024.0), 3) AS total_gb_used,
     CASE 
-        WHEN COALESCE(SUM(l.bytes), 0) >= (COALESCE(p.storage_quota_gb, 2)::numeric * 1024.0 * 1024.0 * 1024.0) THEN true 
+        WHEN COALESCE(SUM(l.bytes), 0) >= (COALESCE(p.storage_quota_gb, 0.500)::numeric * 1024.0 * 1024.0 * 1024.0) THEN true 
         ELSE false 
     END AS is_quota_exceeded
 FROM public.tenants t
@@ -505,7 +509,7 @@ REVOKE ALL ON public.attendance_conflicts_log FROM anon, authenticated;
 GRANT ALL ON public.attendance_conflicts_log TO service_role;
 
 
--- 10. GDPR/Privacy PII Scrubber for Sync Events
+-- 10. GDPR/Privacy PII Scrubber for Sync Events (ADR-002 Payload Replacement)
 CREATE OR REPLACE FUNCTION public.scrub_user_sync_events_pii(
     p_tenant_id UUID,
     p_user_id   UUID
@@ -519,10 +523,7 @@ DECLARE
     v_count INTEGER;
 BEGIN
     UPDATE public.sync_events
-    SET payload = jsonb_strip_nulls(
-        payload - 'full_name' - 'name' - 'email' - 'phone' - 'national_id' || 
-        jsonb_build_object('anonymized', true, 'scrubbed_at', NOW())
-    )
+    SET payload = '{"redacted": true}'::jsonb
     WHERE tenant_id = p_tenant_id
       AND (entity_id = p_user_id OR payload->>'student_id' = p_user_id::text OR payload->>'sender_id' = p_user_id::text);
 

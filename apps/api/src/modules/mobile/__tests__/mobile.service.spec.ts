@@ -28,13 +28,21 @@ describe('MobileService', () => {
                     select: jest.fn().mockReturnThis(),
                     single: jest.fn().mockResolvedValue({ data: { id: 'device-1' }, error: null }),
                     maybeSingle: jest.fn().mockResolvedValue({
-                        data: { id: caller.tenantId, name: 'Royal College', contact_email: 'info@royal.lk' },
+                        data: {
+                            id: caller.tenantId,
+                            name: 'Royal College',
+                            contact_email: 'info@royal.lk',
+                            disaster_mode: true,
+                            disaster_reason: 'FLOOD',
+                            disaster_resume_date: '2026-10-15T00:00:00.000Z',
+                        },
                         error: null,
                     }),
                     eq: jest.fn().mockReturnThis(),
                     gt: jest.fn().mockReturnThis(),
                     gte: jest.fn().mockReturnThis(),
                     in: jest.fn().mockReturnThis(),
+                    not: jest.fn().mockReturnThis(),
                     order: jest.fn().mockReturnThis(),
                     limit: jest.fn().mockImplementation(() => {
                         const p: any = Promise.resolve({
@@ -56,6 +64,9 @@ describe('MobileService', () => {
                     then: (resolve: any) => {
                         if (table === 'device_tokens') {
                             return resolve({ data: [{ token: 'fcm-tok-1' }], error: null });
+                        }
+                        if (table === 'users') {
+                            return resolve({ data: [{ phone: '+94771234567' }], error: null });
                         }
                         return resolve({ data: [], error: null });
                     },
@@ -80,6 +91,7 @@ describe('MobileService', () => {
                             content_html: '<p>Annual sports meet</p>',
                             priority: 'NORMAL',
                             created_at: new Date().toISOString(),
+                            attachments: [],
                         },
                     ],
                     error: null,
@@ -90,6 +102,7 @@ describe('MobileService', () => {
                         academic_year: 2026,
                         max_students_per_class: 40,
                         timezone: 'Asia/Colombo',
+                        extra_config: { emergency_contacts: [] },
                     },
                     error: null,
                 }),
@@ -174,14 +187,13 @@ describe('MobileService', () => {
     });
 
     it('should issue signed offline entitlement license record', async () => {
-        // mock user and tenant query
         mockAdminClient.from.mockImplementation((table: string) => ({
             select: jest.fn().mockReturnThis(),
             eq: jest.fn().mockReturnThis(),
             maybeSingle: jest.fn().mockResolvedValue({
                 data: table === 'users'
                     ? { id: caller.sub, is_active: true, role: caller.role, full_name: 'Mr. Perera' }
-                    : { id: caller.tenantId, name: 'Royal College', plan: 'STARTER', status: 'ACTIVE' },
+                    : { id: caller.tenantId, name: 'Royal College', plan: 'GROWTH', status: 'ACTIVE' },
                 error: null,
             }),
         }));
@@ -190,8 +202,11 @@ describe('MobileService', () => {
         expect(licenseRes.success).toBe(true);
         expect(licenseRes.license.sub).toBe(caller.sub);
         expect(licenseRes.license.tenantId).toBe(caller.tenantId);
-        expect(licenseRes.license.plan).toBe('STARTER');
+        expect(licenseRes.license.plan).toBe('GROWTH');
+        expect(licenseRes.license.offlineVideoEnabled).toBe(true);
         expect(licenseRes.signature).toBeDefined();
+        expect(licenseRes.publicKey).toBeDefined();
+        expect(licenseRes.algorithm).toBe('Ed25519');
         expect(licenseRes.expiresAt).toBeDefined();
     });
 
@@ -213,12 +228,11 @@ describe('MobileService', () => {
         const pack = await service.getDisasterPack(caller);
         expect(pack.tenantId).toBe(caller.tenantId);
         expect(pack.status).toBe('DISASTER_PACK_READY');
-        expect(pack.schoolName).toBe('Royal College');
         expect(pack.contacts.length).toBeGreaterThan(0);
-        expect(pack.circulars.length).toBe(1);
-        expect(pack.circulars[0].content).toBe('<p>Annual sports meet</p>');
-        expect(pack.closure).toBeDefined();
-        expect(pack.policies.length).toBe(1);
+        expect(pack.notices.length).toBe(1);
+        expect(pack.notices[0].content_html).toBe('<p>Annual sports meet</p>');
+        expect(pack.closure.isActive).toBe(true);
+        expect(pack.closure.reason).toBe('FLOOD');
         expect(Array.isArray(pack.homework)).toBe(true);
         expect(Array.isArray(pack.resources)).toBe(true);
     });
@@ -231,12 +245,11 @@ describe('MobileService', () => {
         expect(res.latestSequence).toBe(1);
     });
 
-    it('should trigger disaster push without leaking targetTokens array', async () => {
+    it('should trigger disaster push without leaking device tokens', async () => {
         const result = await service.triggerDisasterPush({ reason: 'FLOOD' }, caller);
         expect(result.success).toBe(true);
-        expect(result.pushPayload.type).toBe('DISASTER_MODE_ACTIVATED');
-        expect(result.pushPayload.tenant_id).toBe(caller.tenantId);
-        expect(result.registeredTokensCount).toBe(1);
-        expect((result as any).targetTokens).toBeUndefined();
+        expect(result.tenantId).toBe(caller.tenantId);
+        expect(result.enqueuedRecipientsCount).toBe(1);
+        expect((result as any).tokens).toBeUndefined();
     });
 });

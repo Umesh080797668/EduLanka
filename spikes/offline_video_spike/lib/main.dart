@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:video_player/video_player.dart';
@@ -67,7 +66,9 @@ class _SpikeDashboardScreenState extends State<SpikeDashboardScreen> {
   Future<void> _runSpikeA() async {
     setState(() {
       _isRunningSpikeA = true;
-      _logs.add('--- Running Spike A: Real Hardware Benchmark & AES-CTR Playback ---');
+      _logs.add(
+        '--- Running Spike A: Real Hardware Benchmark & AES-CTR Playback ---',
+      );
       _logs.add('Airplane mode confirmed by user: $_manualAirplaneModeActive');
     });
 
@@ -82,11 +83,19 @@ class _SpikeDashboardScreenState extends State<SpikeDashboardScreen> {
         _logs.add('Spike A Completed:');
         _logs.add('Device: ${result.deviceModel}');
         _logs.add('OS: ${result.osVersion}');
-        _logs.add('Measured Memory: ${result.peakMemoryMb.toStringAsFixed(2)} MB');
-        _logs.add('Measured Startup: ${result.startupLatencyMs} ms (Stopwatch)');
+        _logs.add(
+          'Measured Memory: ${result.peakMemoryMb.toStringAsFixed(2)} MB',
+        );
+        _logs.add(
+          'Measured Startup: ${result.startupLatencyMs} ms (Stopwatch)',
+        );
         _logs.add('Measured Seek: ${result.seekLatencyMs} ms (Stopwatch)');
-        _logs.add('Airplane Mode Verified: ${result.airplaneModeVerified ? "YES" : "NO"}');
-        _logs.add('Crypto Throughput: ${result.encryptionThroughputMBps.toStringAsFixed(1)} MB/s');
+        _logs.add(
+          'Airplane Mode Verified: ${result.airplaneModeVerified ? "YES" : "NO"}',
+        );
+        _logs.add(
+          'Crypto Throughput: ${result.encryptionThroughputMBps.toStringAsFixed(1)} MB/s',
+        );
       });
     } catch (e) {
       setState(() {
@@ -120,7 +129,10 @@ class _SpikeDashboardScreenState extends State<SpikeDashboardScreen> {
                   children: [
                     const Text(
                       'Spike A: Chunked Encrypted MP4',
-                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                     const SizedBox(height: 8),
                     const Text(
@@ -130,7 +142,9 @@ class _SpikeDashboardScreenState extends State<SpikeDashboardScreen> {
                     const SizedBox(height: 12),
                     CheckboxListTile(
                       contentPadding: EdgeInsets.zero,
-                      title: const Text('I have toggled Airplane Mode ON (Cellular & Wi-Fi OFF)'),
+                      title: const Text(
+                        'I have toggled Airplane Mode ON (Cellular & Wi-Fi OFF)',
+                      ),
                       value: _manualAirplaneModeActive,
                       onChanged: (val) {
                         setState(() {
@@ -148,22 +162,54 @@ class _SpikeDashboardScreenState extends State<SpikeDashboardScreen> {
                               child: CircularProgressIndicator(strokeWidth: 2),
                             )
                           : const Icon(Icons.play_arrow),
-                      label: Text(_isRunningSpikeA ? 'Measuring...' : 'Run Spike A Benchmark'),
+                      label: Text(
+                        _isRunningSpikeA
+                            ? 'Measuring...'
+                            : 'Run Spike A Benchmark',
+                      ),
                     ),
                     if (_spikeAResult != null) ...[
                       const Divider(height: 24),
-                      _buildMetricRow('Device Model', _spikeAResult!.deviceModel),
+                      _buildMetricRow(
+                        'Device Model',
+                        _spikeAResult!.deviceModel,
+                      ),
                       _buildMetricRow('OS Version', _spikeAResult!.osVersion),
-                      _buildMetricRow('Startup Latency', '${_spikeAResult!.startupLatencyMs} ms'),
-                      _buildMetricRow('Seek Latency', '${_spikeAResult!.seekLatencyMs} ms'),
-                      _buildMetricRow('Memory (RSS)', '${_spikeAResult!.peakMemoryMb.toStringAsFixed(1)} MB'),
-                      _buildMetricRow('Throughput', '${_spikeAResult!.encryptionThroughputMBps.toStringAsFixed(1)} MB/s'),
-                      _buildMetricRow('Airplane Mode', _spikeAResult!.airplaneModeVerified ? 'VERIFIED' : 'PENDING RADIOS OFF', isPass: _spikeAResult!.airplaneModeVerified),
-                      _buildMetricRow('Source', _spikeAResult!.measurementSource),
+                      _buildMetricRow(
+                        'Startup Latency',
+                        '${_spikeAResult!.startupLatencyMs} ms',
+                      ),
+                      _buildMetricRow(
+                        'Seek Latency',
+                        '${_spikeAResult!.seekLatencyMs} ms',
+                      ),
+                      _buildMetricRow(
+                        'Memory (RSS)',
+                        '${_spikeAResult!.peakMemoryMb.toStringAsFixed(1)} MB',
+                      ),
+                      _buildMetricRow(
+                        'Throughput',
+                        '${_spikeAResult!.encryptionThroughputMBps.toStringAsFixed(1)} MB/s',
+                      ),
+                      _buildMetricRow(
+                        'Airplane Mode',
+                        _spikeAResult!.airplaneModeVerified
+                            ? 'VERIFIED'
+                            : 'PENDING RADIOS OFF',
+                        isPass: _spikeAResult!.airplaneModeVerified,
+                      ),
+                      _buildMetricRow(
+                        'Source',
+                        _spikeAResult!.measurementSource,
+                      ),
                       const SizedBox(height: 8),
                       const Text(
                         'adb shell dumpsys meminfo command:\nadb shell dumpsys meminfo lk.edulanka.offline_video_spike',
-                        style: TextStyle(fontSize: 11, fontFamily: 'monospace', color: Colors.blueGrey),
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontFamily: 'monospace',
+                          color: Colors.blueGrey,
+                        ),
                       ),
                     ],
                   ],
@@ -181,7 +227,10 @@ class _SpikeDashboardScreenState extends State<SpikeDashboardScreen> {
                   children: [
                     const Text(
                       'Spike C: FCM Push & Fallback Verification',
-                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                     const SizedBox(height: 8),
                     const Text(
@@ -191,7 +240,11 @@ class _SpikeDashboardScreenState extends State<SpikeDashboardScreen> {
                     const SizedBox(height: 12),
                     SelectableText(
                       'FCM Token: ${_pushEngine.currentDeviceToken ?? "Initializing / check console"}',
-                      style: const TextStyle(fontSize: 12, fontFamily: 'monospace', color: Colors.deepPurple),
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontFamily: 'monospace',
+                        color: Colors.deepPurple,
+                      ),
                     ),
                     const SizedBox(height: 8),
                     Text(
@@ -244,7 +297,10 @@ class _SpikeDashboardScreenState extends State<SpikeDashboardScreen> {
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label, style: const TextStyle(fontSize: 13, color: Colors.black87)),
+          Text(
+            label,
+            style: const TextStyle(fontSize: 13, color: Colors.black87),
+          ),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
@@ -253,7 +309,9 @@ class _SpikeDashboardScreenState extends State<SpikeDashboardScreen> {
               style: TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.bold,
-                color: isPass == true ? Colors.green.shade700 : (isPass == false ? Colors.red : Colors.black87),
+                color: isPass == true
+                    ? Colors.green.shade700
+                    : (isPass == false ? Colors.red : Colors.black87),
               ),
             ),
           ),

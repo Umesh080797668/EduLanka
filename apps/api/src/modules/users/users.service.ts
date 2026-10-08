@@ -318,6 +318,16 @@ export class UsersService {
             throw new NotFoundException(`User ${id} not found`);
         }
 
+        // Scrub user PII from sync_events (ADR-002)
+        try {
+            await this.supabase.adminClient.rpc('scrub_user_sync_events_pii', {
+                p_tenant_id: slug,
+                p_user_id: id,
+            });
+        } catch (scrubErr: any) {
+            this.logger.warn(`Failed to scrub user sync events PII: ${scrubErr.message}`);
+        }
+
         return { success: true };
     }
 }

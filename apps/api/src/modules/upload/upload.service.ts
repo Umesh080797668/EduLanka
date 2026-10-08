@@ -4,6 +4,7 @@ import {
     Logger,
     BadRequestException,
     ForbiddenException,
+    UnauthorizedException,
 } from '@nestjs/common';
 import { v2 as cloudinary } from 'cloudinary';
 
@@ -15,8 +16,8 @@ export class UploadService {
 
     constructor(private readonly supabase: SupabaseService) { }
 
-    async getSignature(tenantId?: string) {
-        // Enforce blueprint quota: pause uploads if tenant storage quota is exceeded
+    async getSignature(tenantId?: string, folderType: string = 'profiles') {
+        // Enforce blueprint quota: block all uploads if tenant storage quota is exceeded
         if (tenantId) {
             const { data: usage, error: usageErr } = await this.supabase.adminClient
                 .from('tenant_storage_usage')
@@ -32,7 +33,7 @@ export class UploadService {
         }
 
         const timestamp = Math.round(new Date().getTime() / 1000);
-        const folder = tenantId ? `edulanka/${tenantId}/profiles` : 'edulanka/profiles';
+        const folder = tenantId ? `edulanka/${tenantId}/${folderType}` : `edulanka/${folderType}`;
 
         const secret = process.env.CLOUDINARY_API_SECRET;
         const apiKey = process.env.CLOUDINARY_API_KEY;
@@ -41,7 +42,7 @@ export class UploadService {
             throw new InternalServerErrorException('Cloudinary credentials are not configured on the server.');
         }
 
-        const allowedFormats = 'jpg,png,jpeg,webp';
+        const allowedFormats = folderType === 'videos' ? 'mp4,mov,avi,webm' : 'jpg,png,jpeg,webp,pdf';
         const uploadPreset = process.env.CLOUDINARY_UPLOAD_PRESET;
         const signParams: Record<string, any> = {
             timestamp,
@@ -64,37 +65,41 @@ export class UploadService {
             apiKey,
             allowedFormats,
             uploadPreset: uploadPreset || null,
-            maxFileSize: 5 * 1024 * 1024,
+            maxFileSize: folderType === 'videos' ? 200 * 1024 * 1024 : 10 * 1024 * 1024,
         };
     }
 
     /**
      * Handles asynchronous Cloudinary upload and transformation renditions,
      * recording storage byte consumption in public.tenant_storage_ledgers (ADR-001).
+     * Strictly verifies notification signatures against raw request bodies.
      */
-    async processCloudinaryWebhook(payload: any, _headers?: Record<string, string>) {
+    async processCloudinaryWebhook(payload: any, headers?: Record<string, string>, rawBodyString?: string) {
         if (!payload || typeof payload !== 'object') {
             throw new BadRequestException('Invalid webhook payload');
         }
 
-        // Webhook signature verification if signature header is provided
-        const signatureHeader = _headers?.['x-cld-signature'] || _headers?.['X-Cld-Signature'];
-        const timestampHeader = _headers?.['x-cld-timestamp'] || _headers?.['X-Cld-Timestamp'];
+        const signatureHeader = headers?.['x-cld-signature'] || headers?.['X-Cld-Signature'];
+        const timestampHeader = headers?.['x-cld-timestamp'] || headers?.['X-Cld-Timestamp'];
         const secret = process.env.CLOUDINARY_API_SECRET;
 
+        // Security Enforcement: Reject unauthenticated requests in production / when secret is set
+        if (!signatureHeader || !timestampHeader) {
+            if (process.env.NODE_ENV !== 'test') {
+                throw new UnauthorizedException('Missing required Cloudinary webhook signature headers (x-cld-signature, x-cld-timestamp)');
+            }
+        }
+
         if (signatureHeader && timestampHeader && secret) {
-            try {
-                const isValid = cloudinary.utils.verifyNotificationSignature(
-                    JSON.stringify(payload),
-                    Number(timestampHeader),
-                    signatureHeader
-                );
-                if (!isValid) {
-                    throw new BadRequestException('Invalid Cloudinary webhook signature');
-                }
-            } catch (err: any) {
-                if (err instanceof BadRequestException) throw err;
-                this.logger.warn(`Signature verification notice: ${err.message}`);
+            const bodyToVerify = rawBodyString || JSON.stringify(payload);
+            const isValid = cloudinary.utils.verifyNotificationSignature(
+                bodyToVerify,
+                Number(timestampHeader),
+                signatureHeader
+            );
+
+            if (!isValid) {
+                throw new UnauthorizedException('Invalid Cloudinary webhook signature');
             }
         }
 

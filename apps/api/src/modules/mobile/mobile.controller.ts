@@ -26,7 +26,7 @@ import { MobileService } from './mobile.service';
 @UseGuards(JwtAuthGuard, TenantGuard, RolesGuard)
 @Controller('mobile')
 export class MobileController {
-    constructor(private readonly mobileService: MobileService) {}
+    constructor(private readonly mobileService: MobileService) { }
 
     @Post('device-token')
     @HttpCode(HttpStatus.OK)
@@ -70,6 +70,15 @@ export class MobileController {
     @ApiOperation({ summary: 'Issue cryptographically signed offline entitlement license record' })
     getOfflineLicense(@CurrentUser() user: JwtPayload) {
         return this.mobileService.getOfflineLicense(user);
+    }
+
+    @Get('public-key')
+    @ApiOperation({ summary: 'Get server public key for offline entitlement license verification' })
+    getPublicKey() {
+        return {
+            algorithm: 'Ed25519',
+            publicKey: this.mobileService.getPublicKeyPem(),
+        };
     }
 
     @Post('test-disaster-push')
