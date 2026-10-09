@@ -34,31 +34,54 @@ export class MobileService {
             return MobileService.signingKeyPair;
         }
 
+        const isProd = process.env.NODE_ENV === 'production';
         const envKey = process.env.OFFLINE_LICENSE_PRIVATE_KEY;
+
+        if (isProd && !envKey) {
+            throw new InternalServerErrorException(
+                'OFFLINE_LICENSE_PRIVATE_KEY must be configured in production environment',
+            );
+        }
+
         if (envKey) {
             try {
-                const privateKey = createPrivateKey(envKey.includes('-----BEGIN') ? envKey : Buffer.from(envKey, 'base64'));
+                const privateKey = createPrivateKey(
+                    envKey.includes('-----BEGIN') ? envKey : Buffer.from(envKey, 'base64'),
+                );
                 const publicKey = createPublicKey(privateKey);
                 MobileService.signingKeyPair = { privateKey, publicKey };
                 return MobileService.signingKeyPair;
             } catch (err: any) {
-                // fall back to persistent seed
+                throw new InternalServerErrorException(
+                    `Invalid OFFLINE_LICENSE_PRIVATE_KEY: ${err?.message || 'failed to parse Ed25519 private key'}`,
+                );
             }
         }
 
-        // Fixed 32-byte PKCS#8 DER header for Ed25519 private key: 302e020100300506032b657004220420 + 32-byte seed
-        const secretSeed = (process.env.JWT_SECRET || 'edulanka-offline-signing-secret-key-salt-2026')
-            .padEnd(32, '0')
-            .slice(0, 32);
-        const pkcs8Der = Buffer.concat([
-            Buffer.from('302e020100300506032b657004220420', 'hex'),
-            Buffer.from(secretSeed, 'utf8'),
-        ]);
+        // Non-production fallback (development / test only): derive strictly from JWT_SECRET
+        const jwtSecret = process.env.JWT_SECRET;
+        if (!jwtSecret) {
+            throw new InternalServerErrorException(
+                'OFFLINE_LICENSE_PRIVATE_KEY or JWT_SECRET must be configured for offline license signing',
+            );
+        }
 
-        const privateKey = createPrivateKey({ key: pkcs8Der, format: 'der', type: 'pkcs8' });
-        const publicKey = createPublicKey(privateKey);
-        MobileService.signingKeyPair = { privateKey, publicKey };
-        return MobileService.signingKeyPair;
+        try {
+            const secretSeed = jwtSecret.padEnd(32, '0').slice(0, 32);
+            const pkcs8Der = Buffer.concat([
+                Buffer.from('302e020100300506032b657004220420', 'hex'),
+                Buffer.from(secretSeed, 'utf8'),
+            ]);
+
+            const privateKey = createPrivateKey({ key: pkcs8Der, format: 'der', type: 'pkcs8' });
+            const publicKey = createPublicKey(privateKey);
+            MobileService.signingKeyPair = { privateKey, publicKey };
+            return MobileService.signingKeyPair;
+        } catch (err: any) {
+            throw new InternalServerErrorException(
+                `Failed to derive Ed25519 keypair from JWT_SECRET: ${err?.message}`,
+            );
+        }
     }
 
     constructor(
@@ -116,6 +139,28 @@ export class MobileService {
     }
 
     /**
+     * Resolves assigned class IDs for a teacher caller within their tenant.
+     */
+    private async getTeacherClassIds(caller: JwtPayload): Promise<string[]> {
+        const { data: tRec } = await this.supabase.adminClient
+            .from('teachers')
+            .select('id')
+            .eq('tenant_id', caller.tenantId)
+            .eq('user_id', caller.sub)
+            .maybeSingle();
+
+        if (!tRec?.id) return [];
+
+        const { data: ctRows } = await this.supabase.adminClient
+            .from('class_teachers')
+            .select('class_id')
+            .eq('tenant_id', caller.tenantId)
+            .eq('teacher_id', tRec.id);
+
+        return (ctRows ?? []).map((ct: any) => ct.class_id).filter(Boolean);
+    }
+
+    /**
      * Appends a sync event using the atomic append_sync_event function with role authorization
      * and payload size enforcement (<= 64KB).
      */
@@ -142,6 +187,15 @@ export class MobileService {
                 if (role !== UserRole.TEACHER && role !== UserRole.SCHOOL_ADMIN && role !== UserRole.SUPER_ADMIN) {
                     throw new ForbiddenException('Only teachers and administrators can append attendance sync events');
                 }
+                if (role === UserRole.TEACHER) {
+                    const classId = dto.payload?.class_id ?? dto.payload?.classId;
+                    if (classId) {
+                        const teacherClasses = await this.getTeacherClassIds(caller);
+                        if (!teacherClasses.includes(classId)) {
+                            throw new ForbiddenException('Teachers can only record attendance for their assigned classes');
+                        }
+                    }
+                }
                 break;
 
             case 'homework_submission':
@@ -150,22 +204,45 @@ export class MobileService {
                     if (!studentId) {
                         throw new ForbiddenException('student_id is required for student homework submissions');
                     }
-                    if (studentId !== sub && dto.entityId !== sub) {
-                        // Check if studentId matches student record id for caller
-                        const { data: studRec } = await this.supabase.adminClient
+                    assertUuid(studentId, 'student_id');
+
+                    // Check caller's student record in this tenant
+                    const { data: myStudRec } = await this.supabase.adminClient
+                        .from('students')
+                        .select('id, user_id')
+                        .eq('tenant_id', caller.tenantId)
+                        .eq('user_id', sub)
+                        .maybeSingle();
+
+                    const matchesCaller = studentId === sub || (myStudRec && studentId === myStudRec.id);
+                    if (!matchesCaller) {
+                        throw new ForbiddenException(
+                            'Students can only record homework submissions on their own behalf; student_id must match caller',
+                        );
+                    }
+
+                    if (dto.entityId && dto.entityId !== sub && dto.entityId !== myStudRec?.id) {
+                        const { data: otherStudent } = await this.supabase.adminClient
                             .from('students')
                             .select('id, user_id')
                             .eq('tenant_id', caller.tenantId)
-                            .eq('id', studentId)
+                            .eq('id', dto.entityId)
                             .maybeSingle();
-
-                        if (!studRec || studRec.user_id !== sub) {
+                        if (otherStudent && otherStudent.user_id !== sub) {
                             throw new ForbiddenException(
-                                'Students can only record homework submissions on their own behalf; student_id must match caller',
+                                'Students cannot target another student entity ID for homework submission',
                             );
                         }
                     }
-                } else if (role !== UserRole.TEACHER && role !== UserRole.SCHOOL_ADMIN && role !== UserRole.SUPER_ADMIN) {
+                } else if (role === UserRole.TEACHER) {
+                    const classId = dto.payload?.class_id ?? dto.payload?.classId;
+                    if (classId) {
+                        const teacherClasses = await this.getTeacherClassIds(caller);
+                        if (!teacherClasses.includes(classId)) {
+                            throw new ForbiddenException('Teachers can only record homework for their assigned classes');
+                        }
+                    }
+                } else if (role !== UserRole.SCHOOL_ADMIN && role !== UserRole.SUPER_ADMIN) {
                     throw new ForbiddenException('Only students, teachers, or administrators can append homework events');
                 }
                 break;
@@ -199,66 +276,15 @@ export class MobileService {
 
         const client = this.supabase.adminClient;
 
-        // 3. Persist Attendance roll call and audit conflicts in ADR-002 log
-        if (dto.entityType === 'attendance' && dto.payload) {
-            const classId = dto.payload.class_id ?? dto.payload.classId;
-            const studentId = dto.payload.student_id ?? dto.payload.studentId ?? dto.entityId;
-            const date = dto.payload.date;
-            const status = dto.payload.status ?? 'PRESENT';
-            const clientMarkedAt = dto.payload.marked_at ?? dto.payload.markedAt ?? new Date().toISOString();
+        // Check whether event was previously ingested with this client UUID (idempotency check)
+        const { data: preExistingEvent } = await client
+            .from('sync_events')
+            .select('id, client_uuid')
+            .eq('tenant_id', caller.tenantId)
+            .eq('client_uuid', dto.clientUuid)
+            .maybeSingle();
 
-            // Clamp clock skew to server time (cannot mark attendance in future)
-            const now = new Date();
-            const clientDate = new Date(clientMarkedAt);
-            const clampedMarkedAt = clientDate > now ? now.toISOString() : clientMarkedAt;
-
-            if (classId && studentId && date) {
-                const { data: existingAtt } = await client
-                    .from('attendance')
-                    .select('*')
-                    .eq('tenant_id', caller.tenantId)
-                    .eq('class_id', classId)
-                    .eq('student_id', studentId)
-                    .eq('date', date)
-                    .maybeSingle();
-
-                if (existingAtt) {
-                    if (existingAtt.status !== status) {
-                        await client.from('attendance_conflicts_log').insert({
-                            tenant_id: caller.tenantId,
-                            class_id: classId,
-                            student_id: studentId,
-                            conflict_date: date,
-                            client_state: { status, marked_at: clampedMarkedAt },
-                            server_state: { status: existingAtt.status, marked_at: existingAtt.marked_at },
-                            resolution: 'CLIENT_WINS',
-                            resolved_by: caller.sub,
-                        });
-                    }
-
-                    await client
-                        .from('attendance')
-                        .update({
-                            status,
-                            marked_at: clampedMarkedAt,
-                            marked_by: caller.sub,
-                            updated_at: new Date().toISOString(),
-                        })
-                        .eq('id', existingAtt.id);
-                } else {
-                    await client.from('attendance').insert({
-                        tenant_id: caller.tenantId,
-                        class_id: classId,
-                        student_id: studentId,
-                        date,
-                        status,
-                        marked_at: clampedMarkedAt,
-                        marked_by: caller.sub,
-                    });
-                }
-            }
-        }
-
+        // 3. Atomically append or deduplicate sync event via database function
         const { data, error } = await client.rpc('append_sync_event', {
             p_tenant_id: caller.tenantId,
             p_entity_type: dto.entityType,
@@ -274,6 +300,83 @@ export class MobileService {
                 throw new ConflictException('A conflicting sync event with this client UUID already exists');
             }
             throw new InternalServerErrorException('Sync event ingestion failed');
+        }
+
+        // 4. Persist Attendance roll call ONLY on first successful insertion (idempotency safety)
+        if (!preExistingEvent && dto.entityType === 'attendance' && dto.payload) {
+            const classId = dto.payload.class_id ?? dto.payload.classId;
+            const studentId = dto.payload.student_id ?? dto.payload.studentId ?? dto.entityId;
+            const date = dto.payload.date;
+            const status = dto.payload.status ?? 'PRESENT';
+            const clientMarkedAt = dto.payload.marked_at ?? dto.payload.markedAt ?? new Date().toISOString();
+
+            if (classId && studentId && date) {
+                let resolvedStudentUserId = studentId;
+                const { data: sRow } = await client
+                    .from('students')
+                    .select('user_id')
+                    .eq('tenant_id', caller.tenantId)
+                    .eq('id', studentId)
+                    .maybeSingle();
+                if (sRow?.user_id) {
+                    resolvedStudentUserId = sRow.user_id;
+                }
+
+                // Clock-Skew Clamping per ADR-002: [-5 min, +1 min] relative to server time
+                const serverNow = Date.now();
+                const clientTime = new Date(clientMarkedAt).getTime();
+                const clampedTimeMs = Math.min(Math.max(clientTime, serverNow - 300_000), serverNow + 60_000);
+                const clampedMarkedAt = new Date(clampedTimeMs).toISOString();
+
+                const { data: existingAtt } = await client
+                    .from('attendance')
+                    .select('*')
+                    .eq('tenant_id', caller.tenantId)
+                    .eq('class_id', classId)
+                    .eq('student_id', resolvedStudentUserId)
+                    .eq('date', date)
+                    .maybeSingle();
+
+                if (existingAtt) {
+                    const existingMarkedAtMs = existingAtt.marked_at ? new Date(existingAtt.marked_at).getTime() : 0;
+                    const clientWins = clampedTimeMs > existingMarkedAtMs;
+
+                    if (existingAtt.status !== status) {
+                        await client.from('attendance_conflicts_log').insert({
+                            tenant_id: caller.tenantId,
+                            class_id: classId,
+                            student_id: resolvedStudentUserId,
+                            conflict_date: date,
+                            client_state: { status, marked_at: clampedMarkedAt },
+                            server_state: { status: existingAtt.status, marked_at: existingAtt.marked_at },
+                            resolution: clientWins ? 'CLIENT_WINS' : 'SERVER_WINS',
+                            resolved_by: caller.sub,
+                        });
+                    }
+
+                    if (clientWins) {
+                        await client
+                            .from('attendance')
+                            .update({
+                                status,
+                                marked_at: clampedMarkedAt,
+                                marked_by: caller.sub,
+                                updated_at: new Date().toISOString(),
+                            })
+                            .eq('id', existingAtt.id);
+                    }
+                } else {
+                    await client.from('attendance').insert({
+                        tenant_id: caller.tenantId,
+                        class_id: classId,
+                        student_id: resolvedStudentUserId,
+                        date,
+                        status,
+                        marked_at: clampedMarkedAt,
+                        marked_by: caller.sub,
+                    });
+                }
+            }
         }
 
         return {
@@ -303,10 +406,27 @@ export class MobileService {
                 .limit(1)
                 .maybeSingle();
 
-            if (oldestEvent && sinceSequence < Number(oldestEvent.sequence)) {
-                throw new GoneException(
-                    'Sync sequence predates retention purge window (events older than 90 days purged). Full snapshot resync required.',
-                );
+            if (oldestEvent) {
+                const oldestSeq = Number(oldestEvent.sequence);
+                if (sinceSequence < oldestSeq - 1) {
+                    throw new GoneException(
+                        'Sync sequence predates retention purge window (events older than 90 days purged). Full snapshot resync required.',
+                    );
+                }
+            } else {
+                // If all events were purged, check last allocated sequence counter
+                const { data: counter } = await client
+                    .from('tenant_sync_counters')
+                    .select('last_sequence')
+                    .eq('tenant_id', caller.tenantId)
+                    .maybeSingle();
+
+                const lastSeq = Number(counter?.last_sequence ?? 0);
+                if (lastSeq > 0 && sinceSequence < lastSeq) {
+                    throw new GoneException(
+                        'Sync sequence predates retention purge window (all past events purged). Full snapshot resync required.',
+                    );
+                }
             }
         }
 
@@ -344,19 +464,7 @@ export class MobileService {
 
         let teacherClassIds: string[] = [];
         if (caller.role === UserRole.TEACHER) {
-            const { data: tRec } = await client
-                .from('teachers')
-                .select('id')
-                .eq('tenant_id', caller.tenantId)
-                .eq('user_id', caller.sub)
-                .maybeSingle();
-            if (tRec?.id) {
-                const { data: ctRows } = await client
-                    .from('class_teachers')
-                    .select('class_id')
-                    .eq('teacher_id', tRec.id);
-                teacherClassIds = (ctRows ?? []).map((ct: any) => ct.class_id);
-            }
+            teacherClassIds = await this.getTeacherClassIds(caller);
         }
 
         // Scoped privacy filtering per recipient role
@@ -380,6 +488,10 @@ export class MobileService {
             // Teachers can see attendance, homework submissions, and messages for their assigned classes or DMs
             if (caller.role === UserRole.TEACHER) {
                 if (event.entity_type === 'attendance' || event.entity_type === 'homework_submission') {
+                    const classId = event.payload?.class_id ?? event.payload?.classId;
+                    if (classId) {
+                        return teacherClassIds.includes(classId);
+                    }
                     return true;
                 }
                 if (event.entity_type === 'chat_message') {

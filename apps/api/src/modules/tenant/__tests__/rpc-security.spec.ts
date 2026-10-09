@@ -54,7 +54,7 @@ async function withRetry<T extends { data?: any; error?: any }>(
     return lastResult!;
 }
 
-(shouldRun ? describe : describe.skip)('RPC Security Isolation (Real Database Anon Key Defense)', () => {
+describe('RPC Security Isolation (Real Database Anon Key Defense)', () => {
     let anonClient: SupabaseClient;
     let serviceClient: SupabaseClient;
 

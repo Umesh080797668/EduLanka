@@ -129,6 +129,18 @@ export class SupabaseService implements OnModuleInit {
                         return queryBuilder;
                     };
                 }
+
+                if (prop === 'rpc') {
+                    // Intercept .rpc('fn', args, options) to inject tenant_id parameter
+                    return (fnName: string, args: Record<string, any> = {}, options?: any) => {
+                        const scopedArgs = typeof args === 'object' && args !== null ? { ...args } : {};
+                        if (scopedArgs.p_tenant_id === undefined && scopedArgs.tenant_id === undefined) {
+                            scopedArgs.p_tenant_id = tenantId;
+                        }
+                        return (target as any).rpc(fnName, scopedArgs, options);
+                    };
+                }
+
                 return Reflect.get(target, prop, receiver);
             },
         });

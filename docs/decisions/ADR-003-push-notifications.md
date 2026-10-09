@@ -105,13 +105,15 @@ The Disaster Pack response bundles all essential offline resources for students 
 
 ## Spike C Verification Benchmark & Observations
 
-In environments without live Google Firebase Cloud credentials (`FIREBASE_SERVICE_ACCOUNT` / `google-services.json`), end-to-end FCM delivery cannot be completed autonomously and runs in local simulation mode. The observational metrics below reflect empirical target hardware tests when connected to a configured Firebase project:
+> [!WARNING]
+> **Live Delivery Latencies Untested in CI / Local Spike**:
+> Without configured live Google Firebase Cloud credentials (`FIREBASE_SERVICE_ACCOUNT` / `google-services.json`), end-to-end cloud push delivery was not measured in this local benchmark. The timings below represent architectural target expectations and are explicitly marked **UNTESTED** pending live Firebase cloud project deployment.
 
-| App Lifecycle State | Platform Handling | Sync Result | Delivery Latency |
+| App Lifecycle State | Platform Handling Architecture | Delivery Status | Latency Expectation |
 |---|---|---|---|
-| **Foreground** | Received directly in `FirebaseMessaging.onMessage`. Automated sync triggered immediately. | **PASS** | < 1.2 s |
-| **Background (In Recent Apps)** | Top-level isolate `firebaseMessagingBackgroundHandler` wakes up. Data persisted to `getApplicationDocumentsDirectory()` and pack synced. | **PASS** | < 2.5 s |
-| **Terminated (Stock Android / Go)** | OS wakes background isolate for high-priority message. Log written and pack cached. | **PASS** | 2.8 – 4.5 s |
+| **Foreground** | Received directly in `FirebaseMessaging.onMessage`. Automated sync triggered immediately. | **UNTESTED** (Target: PASS) | Target $\le 1.2\text{ s}$ (Untested live) |
+| **Background (In Recent Apps)** | Top-level isolate `firebaseMessagingBackgroundHandler` wakes up. Data persisted to app document directory and pack synced. | **UNTESTED** (Target: PASS) | Target $\le 2.5\text{ s}$ (Untested live) |
+| **Terminated (Stock Android / Go)** | OS wakes background isolate for high-priority message. Log written and pack cached. | **UNTESTED** (Target: PASS) | Target $2.8\text{ – }4.5\text{ s}$ (Untested live) |
 | **Terminated (Aggressive OEM Battery Optimization)** | On MIUI / EMUI devices with strict battery saver, OS delays background isolate until app open. | **Handled by Layer 4** | Deferred until App Open |
 | **Offline / Airplane Mode** | Push queued in cloud until device reconnects. | **Handled by Layer 2 (SMS)** | Immediate via Twilio SMS |
 
@@ -126,7 +128,11 @@ In environments without live Google Firebase Cloud credentials (`FIREBASE_SERVIC
 ---
 
 ## Security Advisory: API Key Rotation
-A Google Services configuration was committed in earlier commit `25a0268`.
-**Action Required:**
-1. In the Google Cloud Console / Firebase Console, revoke the credential committed in `25a0268` immediately.
-2. Issue a rotated service account key, inject via `FIREBASE_SERVICE_ACCOUNT` environment secret, and ensure `google-services.json` remains excluded from version control (`.gitignore`).
+A Google Services configuration credential was committed in earlier commit `25a0268`.
+
+**Action Status:**
+1. **Revocation Notice:** The Google / Firebase credential committed in `25a0268` must be revoked in the Google Cloud Console / Firebase Console immediately.
+2. **Key Rotation Procedure:**
+   - Generate a new Service Account private key in Firebase Console -> Project Settings -> Service Accounts.
+   - Inject the base64-encoded JSON or JSON string into the production secret manager (`FIREBASE_SERVICE_ACCOUNT`).
+   - Ensure `google-services.json` and service account keys remain excluded from version control (`.gitignore`).

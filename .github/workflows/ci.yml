@@ -49,9 +49,6 @@ jobs:
       - name: Test
         run: pnpm turbo run test:cov
 
-      - name: Seed Database
-        run: cd apps/api && pnpm run seed:staging
-
       - name: Test E2E
         run: pnpm turbo run test:e2e
 

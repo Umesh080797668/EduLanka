@@ -34,9 +34,11 @@ class SpikeDashboardScreen extends StatefulWidget {
 
 class _SpikeDashboardScreenState extends State<SpikeDashboardScreen> {
   final SpikeCPushEngine _pushEngine = SpikeCPushEngine();
+  final NativeExoPlayerController _exoController = NativeExoPlayerController();
   SpikeABenchmarkResult? _spikeAResult;
   bool _isRunningSpikeA = false;
   bool _manualAirplaneModeActive = false;
+  int? _nativeTextureId;
   final List<String> _logs = [];
   VideoPlayerController? _videoController;
 
@@ -59,6 +61,7 @@ class _SpikeDashboardScreenState extends State<SpikeDashboardScreen> {
   @override
   void dispose() {
     _pushEngine.dispose();
+    _exoController.release();
     _videoController?.dispose();
     super.dispose();
   }
@@ -97,6 +100,26 @@ class _SpikeDashboardScreenState extends State<SpikeDashboardScreen> {
           'Crypto Throughput: ${result.encryptionThroughputMBps.toStringAsFixed(1)} MB/s',
         );
       });
+
+      if (result.encryptedFilePath != null &&
+          result.keyBytes != null &&
+          result.nonceBytes != null) {
+        try {
+          final texId = await _exoController.createPlayer(
+            filePath: result.encryptedFilePath!,
+            key: result.keyBytes!,
+            nonce: result.nonceBytes!,
+          );
+          if (texId != null) {
+            setState(() {
+              _nativeTextureId = texId;
+              _logs.add('ExoPlayer Media3 Native Surface initialized (textureId: $texId)');
+            });
+          }
+        } catch (playerErr) {
+          _logs.add('Native ExoPlayer surface note: $playerErr');
+        }
+      }
     } catch (e) {
       setState(() {
         _logs.add('Spike A Failed: $e');
@@ -211,6 +234,46 @@ class _SpikeDashboardScreenState extends State<SpikeDashboardScreen> {
                           color: Colors.blueGrey,
                         ),
                       ),
+                      if (_nativeTextureId != null) ...[
+                        const Divider(height: 24),
+                        const Text(
+                          'Native Media3 ExoPlayer Decrypted Surface:',
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                        const SizedBox(height: 8),
+                        Container(
+                          height: 200,
+                          decoration: BoxDecoration(
+                            color: Colors.black,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(8),
+                            child: Texture(textureId: _nativeTextureId!),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                          children: [
+                            ElevatedButton.icon(
+                              onPressed: () => _exoController.play(),
+                              icon: const Icon(Icons.play_arrow),
+                              label: const Text('Play'),
+                            ),
+                            ElevatedButton.icon(
+                              onPressed: () => _exoController.pause(),
+                              icon: const Icon(Icons.pause),
+                              label: const Text('Pause'),
+                            ),
+                            ElevatedButton.icon(
+                              onPressed: () => _exoController.seekTo(0),
+                              icon: const Icon(Icons.replay),
+                              label: const Text('Seek 0'),
+                            ),
+                          ],
+                        ),
+                      ],
                     ],
                   ],
                 ),

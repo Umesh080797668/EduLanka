@@ -55,7 +55,7 @@ async function withRetry<T extends { data?: any; error?: any }>(
     return lastResult!;
 }
 
-(shouldRun ? describe : describe.skip)('Socket & Chat Tenant Isolation (Real Database Integration)', () => {
+describe('Socket & Chat Tenant Isolation (Real Database Integration)', () => {
     let gateway: ChatGateway;
     let chatService: ChatService;
     let supabaseService: SupabaseService;

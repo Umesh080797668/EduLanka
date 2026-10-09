@@ -155,16 +155,50 @@ export class UploadService {
                 0,
             );
 
+            // Deterministic idempotency key from webhook asset_id, version, or timestamp
+            const versionSuffix = payload.asset_id ?? payload.version ?? payload.timestamp ?? 'v1';
+            const deleteIdemp = `${publicId}_deletion_${versionSuffix}`;
+
             if (totalExistingBytes > 0) {
-                const deleteIdemp = `${publicId}_deletion_${Date.now()}`;
-                await this.supabase.adminClient.from('tenant_storage_ledgers').insert({
-                    tenant_id: tenantId,
-                    resource_id: String(publicId),
-                    resource_type: 'deletion_credit',
-                    bytes: -totalExistingBytes,
-                    idempotency_key: deleteIdemp,
-                    metadata: { reason: 'CLOUDINARY_DELETE_NOTIFICATION' },
-                });
+                await this.supabase.adminClient.from('tenant_storage_ledgers').upsert(
+                    {
+                        tenant_id: tenantId,
+                        resource_id: String(publicId),
+                        resource_type: 'deletion_credit',
+                        bytes: -totalExistingBytes,
+                        idempotency_key: deleteIdemp,
+                        metadata: { reason: 'CLOUDINARY_DELETE_NOTIFICATION' },
+                    },
+                    { onConflict: 'tenant_id,idempotency_key' },
+                );
+            } else {
+                const payloadBytes = payload.bytes !== undefined ? Number(payload.bytes) : 0;
+                if (!isNaN(payloadBytes) && payloadBytes > 0) {
+                    await this.supabase.adminClient.from('tenant_storage_ledgers').upsert(
+                        {
+                            tenant_id: tenantId,
+                            resource_id: String(publicId),
+                            resource_type: 'deletion_credit',
+                            bytes: -payloadBytes,
+                            idempotency_key: deleteIdemp,
+                            metadata: { reason: 'CLOUDINARY_DELETE_NOTIFICATION_DIRECT_BYTES' },
+                        },
+                        { onConflict: 'tenant_id,idempotency_key' },
+                    );
+                } else {
+                    this.logger.warn(`No prior storage ledger rows found for deleted resource ${publicId}. Recording zero-byte tombstone.`);
+                    await this.supabase.adminClient.from('tenant_storage_ledgers').upsert(
+                        {
+                            tenant_id: tenantId,
+                            resource_id: String(publicId),
+                            resource_type: 'deletion_tombstone',
+                            bytes: 0,
+                            idempotency_key: deleteIdemp,
+                            metadata: { reason: 'CLOUDINARY_DELETE_NOTIFICATION_NO_LEDGER_ROWS' },
+                        },
+                        { onConflict: 'tenant_id,idempotency_key' },
+                    );
+                }
             }
             return { success: true, deleted: true, tenantId, publicId };
         }

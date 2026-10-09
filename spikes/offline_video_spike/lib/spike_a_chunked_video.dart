@@ -31,6 +31,9 @@ class SpikeABenchmarkResult {
   final String playbackEngine;
   final String measurementSource;
   final String cipherAlgorithm;
+  final String? encryptedFilePath;
+  final Uint8List? keyBytes;
+  final Uint8List? nonceBytes;
 
   SpikeABenchmarkResult({
     required this.deviceModel,
@@ -47,6 +50,9 @@ class SpikeABenchmarkResult {
     required this.playbackEngine,
     required this.measurementSource,
     this.cipherAlgorithm = 'Chunked AES-256-GCM (Tink Streaming AEAD)',
+    this.encryptedFilePath,
+    this.keyBytes,
+    this.nonceBytes,
   });
 
   Map<String, dynamic> toJson() => {
@@ -88,7 +94,11 @@ class ChunkedGcmVideoCipher {
     assert(baseNonce.length == 12, 'Base nonce must be 96 bits (12 bytes)');
   }
 
-  Uint8List encryptChunk(Uint8List plainChunk, int chunkIndex, {required bool isLastSegment}) {
+  Uint8List encryptChunk(
+    Uint8List plainChunk,
+    int chunkIndex, {
+    required bool isLastSegment,
+  }) {
     final nonce = deriveChunkNonce(baseNonce, chunkIndex);
     final aad = Uint8List.fromList([isLastSegment ? 0x01 : 0x00]);
     final cipher = GCMBlockCipher(AESEngine())
@@ -96,12 +106,15 @@ class ChunkedGcmVideoCipher {
     return cipher.process(plainChunk);
   }
 
-  Uint8List decryptChunk(Uint8List cipherChunkWithTag, int chunkIndex, {required bool isLastSegment}) {
+  Uint8List decryptChunk(
+    Uint8List cipherChunkWithTag,
+    int chunkIndex, {
+    required bool isLastSegment,
+  }) {
     final nonce = deriveChunkNonce(baseNonce, chunkIndex);
     final aad = Uint8List.fromList([isLastSegment ? 0x01 : 0x00]);
-    final cipher = GCMBlockCipher(
-      AESEngine(),
-    )..init(false, AEADParameters(KeyParameter(key), 128, nonce, aad));
+    final cipher = GCMBlockCipher(AESEngine())
+      ..init(false, AEADParameters(KeyParameter(key), 128, nonce, aad));
     return cipher.process(cipherChunkWithTag);
   }
 
@@ -120,7 +133,11 @@ class ChunkedGcmVideoCipher {
         if (chunk.isEmpty) break;
         bytesReadTotal += chunk.length;
         final isLast = bytesReadTotal >= fileLength;
-        final encrypted = encryptChunk(chunk, chunkIndex, isLastSegment: isLast);
+        final encrypted = encryptChunk(
+          chunk,
+          chunkIndex,
+          isLastSegment: isLast,
+        );
         await outRaf.writeFrom(encrypted);
         chunkIndex++;
       }
@@ -285,7 +302,11 @@ class LoopbackEncryptedVideoServer {
 
         final isLast = (chunkOffsetInFile + toRead >= encFileLength);
         final rawEncChunk = await raf.read(toRead);
-        final decryptedChunk = cipher.decryptChunk(rawEncChunk, c, isLastSegment: isLast);
+        final decryptedChunk = cipher.decryptChunk(
+          rawEncChunk,
+          c,
+          isLastSegment: isLast,
+        );
 
         final chunkPlainStart = c * kChunkSizeBytes;
         final inChunkStart = max(0, start - chunkPlainStart);
@@ -317,6 +338,49 @@ class LoopbackEncryptedVideoServer {
   }
 }
 
+/// Controller for native ExoPlayer ChunkedGcm DataSource on Android (Media3).
+class NativeExoPlayerController {
+  static const MethodChannel _channel = MethodChannel(
+    'lk.edulanka.offline_video_spike/exoplayer',
+  );
+
+  int? textureId;
+  bool isPlaying = false;
+
+  Future<int?> createPlayer({
+    required String filePath,
+    required Uint8List key,
+    required Uint8List nonce,
+  }) async {
+    final result = await _channel.invokeMapMethod<String, dynamic>(
+      'createPlayer',
+      {'filePath': filePath, 'key': key, 'nonce': nonce},
+    );
+    textureId = (result?['textureId'] as num?)?.toInt();
+    return textureId;
+  }
+
+  Future<void> play() async {
+    await _channel.invokeMethod('play');
+    isPlaying = true;
+  }
+
+  Future<void> pause() async {
+    await _channel.invokeMethod('pause');
+    isPlaying = false;
+  }
+
+  Future<void> seekTo(int positionMs) async {
+    await _channel.invokeMethod('seekTo', {'positionMs': positionMs});
+  }
+
+  Future<void> release() async {
+    await _channel.invokeMethod('releasePlayer');
+    textureId = null;
+    isPlaying = false;
+  }
+}
+
 /// Test execution harness for Spike A with actual physical measurements.
 class SpikeATestRunner {
   static const MethodChannel _nativeChannel = MethodChannel(
@@ -343,20 +407,29 @@ class SpikeATestRunner {
   }
 
   /// Checks whether network interfaces are offline (Airplane Mode check)
+  /// Uses DNS lookup + socket connect test rather than fragile interface-name checks.
   static Future<bool> isNetworkOffline() async {
     try {
-      final interfaces = await NetworkInterface.list();
-      for (final iface in interfaces) {
-        if (!iface.name.toLowerCase().contains('lo')) {
-          if (iface.addresses.isNotEmpty) {
-            return false;
-          }
-        }
+      final result = await InternetAddress.lookup(
+        'dns.google',
+      ).timeout(const Duration(milliseconds: 1500));
+      if (result.isNotEmpty && result[0].rawAddress.isNotEmpty) {
+        return false;
       }
-      return true;
     } catch (_) {
-      return false;
+      try {
+        final socket = await Socket.connect(
+          '8.8.8.8',
+          53,
+          timeout: const Duration(milliseconds: 1000),
+        );
+        socket.destroy();
+        return false;
+      } catch (_) {
+        return true;
+      }
     }
+    return true;
   }
 
   static Future<SpikeABenchmarkResult> runBenchmark({
@@ -464,7 +537,11 @@ class SpikeATestRunner {
       final chunkBytes = await encRaf.read(kStoredChunkSizeBytes);
       if (chunkBytes.isEmpty) break;
       final isLast = (i == numChunks - 1);
-      final decryptedChunk = cipher.decryptChunk(chunkBytes, i, isLastSegment: isLast);
+      final decryptedChunk = cipher.decryptChunk(
+        chunkBytes,
+        i,
+        isLastSegment: isLast,
+      );
       sha256Digest.update(decryptedChunk, 0, decryptedChunk.length);
     }
 
@@ -478,7 +555,9 @@ class SpikeATestRunner {
 
     if (!integrityPassed) {
       await encRaf.close();
-      throw StateError('Decryption integrity check failed: computed SHA-256 ($computedHex) does not match original ($rawHash)');
+      throw StateError(
+        'Decryption integrity check failed: computed SHA-256 ($computedHex) does not match original ($rawHash)',
+      );
     }
 
     // Verify truncation detection (Tink AAD segment tag security)
@@ -494,7 +573,9 @@ class SpikeATestRunner {
       }
       if (!truncationDetected) {
         await encRaf.close();
-        throw StateError('Security failure: Truncated stream was not detected by Tink AAD segment tags');
+        throw StateError(
+          'Security failure: Truncated stream was not detected by Tink AAD segment tags',
+        );
       }
     }
     await encRaf.close();
@@ -507,9 +588,14 @@ class SpikeATestRunner {
       if (range != null && range.startsWith('bytes=')) {
         final parts = range.substring(6).split('-');
         final start = int.parse(parts[0]);
-        final end = parts.length > 1 && parts[1].isNotEmpty ? int.parse(parts[1]) : totalLen - 1;
+        final end = parts.length > 1 && parts[1].isNotEmpty
+            ? int.parse(parts[1])
+            : totalLen - 1;
         req.response.statusCode = HttpStatus.partialContent;
-        req.response.headers.set(HttpHeaders.contentRangeHeader, 'bytes $start-$end/$totalLen');
+        req.response.headers.set(
+          HttpHeaders.contentRangeHeader,
+          'bytes $start-$end/$totalLen',
+        );
         req.response.headers.set(HttpHeaders.acceptRangesHeader, 'bytes');
         req.response.headers.contentType = ContentType.binary;
         final raf = await rawVideoFile.open();
@@ -553,16 +639,24 @@ class SpikeATestRunner {
         ),
       );
       if (res2.statusCode != 206) {
-        throw StateError('Dio resume request failed: status ${res2.statusCode}');
+        throw StateError(
+          'Dio resume request failed: status ${res2.statusCode}',
+        );
       }
       final appendRaf = await dioDownloadedFile.open(mode: FileMode.append);
       await appendRaf.writeFrom(res2.data!);
       await appendRaf.close();
 
       // Verify resumed file SHA-256 against original
-      final resumedHash = await dioDownloadedFile.openRead().transform(crypto_pkg.sha256).first;
-      if (resumedHash.toString().toLowerCase() != rawHash.toString().toLowerCase()) {
-        throw StateError('Dio resumable download verification failed: hash mismatch');
+      final resumedHash = await dioDownloadedFile
+          .openRead()
+          .transform(crypto_pkg.sha256)
+          .first;
+      if (resumedHash.toString().toLowerCase() !=
+          rawHash.toString().toLowerCase()) {
+        throw StateError(
+          'Dio resumable download verification failed: hash mismatch',
+        );
       }
     } finally {
       await testServer.close(force: true);
@@ -633,7 +727,9 @@ class SpikeATestRunner {
     }
 
     if (startupLatencyMs <= 0) {
-      throw StateError('Startup latency measurement failed: $startupLatencyMs ms');
+      throw StateError(
+        'Startup latency measurement failed: $startupLatencyMs ms',
+      );
     }
     if (seekLatencyMs <= 0) {
       throw StateError('Seek latency measurement failed: $seekLatencyMs ms');
@@ -648,7 +744,9 @@ class SpikeATestRunner {
     if (info <= 0) {
       throw StateError('Failed to read process resident memory');
     }
-    final peakMemMb = double.parse((info / (1024.0 * 1024.0)).toStringAsFixed(1));
+    final peakMemMb = double.parse(
+      (info / (1024.0 * 1024.0)).toStringAsFixed(1),
+    );
 
     if (ramGb <= 0.0) {
       throw StateError('Failed to read device RAM');
@@ -672,6 +770,9 @@ class SpikeATestRunner {
       encryptionThroughputMBps: throughputMBps,
       playbackEngine: playbackEngine,
       measurementSource: measurementSource,
+      encryptedFilePath: encryptedVideoFile.path,
+      keyBytes: key,
+      nonceBytes: baseNonce,
     );
   }
 }

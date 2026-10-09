@@ -99,15 +99,17 @@ All synthetic fallbacks (42 ms, 18 ms, 28.5 MB, true) have been completely remov
 }
 ```
 
-### Verification Criteria
-| Metric | Target Specification | Measured Result | Verification Method |
+### Verification Criteria & Measurement Status
+| Metric | Target Specification | Status / Measurement | Verification Method & Notes |
 |---|---|---|---|
 | **Cipher Integrity** | Bit-for-bit SHA-256 match | Bit-for-bit match verified | Streaming SHA-256 verification of decrypted chunks |
 | **Truncation Attack Defense** | Rejection of truncated stream | **PASS** (Tag verification error) | Tink AAD segment tag verification (`0x01` on final chunk) |
-| **Resumable Download** | Atomic Range HTTP 206 pause/resume | **PASS** | Real Dio byte-range chunk download and resumption |
-| **Startup Latency** | $\le 500\text{ ms}$ to first frame | **80 ms** | Real HTTP range request to loopback server (bytes 0-65535) |
-| **Seek Latency** | $\le 200\text{ ms}$ on 50% scrub | **97 ms** | Real HTTP range request to loopback server at 50% offset |
-| **Memory Buffer** | Decryption buffer $\le 64\text{ KB}$ | **64 KB** chunk buffer | Bounded segment size in cipher pipeline |
+| **Resumable Download** | Atomic Range HTTP 206 pause/resume | **PASS (Loopback Server)** | Tested with Dio range resumption against local loopback HTTP 206 server (Cloudinary direct CDN resumption pending live cloud field test) |
+| **Startup Latency** | $\le 500\text{ ms}$ to first frame | **80 ms** | Real HTTP range request on benchmark harness (bytes 0-65535) |
+| **Seek Latency** | $\le 200\text{ ms}$ on 50% scrub | **97–101 ms** | Real HTTP range request on benchmark harness at 50% offset |
+| **Cipher Buffer (Design)** | Decryption chunk buffer $\le 64\text{ KB}$ | **64 KB Segment Bound** (Design Claim) | Architectural segment bound in PointyCastle/Tink cipher pipeline; process RSS measured on Linux host was 172.4–181.3 MB |
+| **ExoPlayer Playback Wiring** | Native Media3 video playback | **WIRED** | Android `MainActivity.kt` creates Media3 `ChunkedGcmEncryptedDataSource` on Flutter Texture (`createSurfaceTexture`), displayed via Flutter `Texture(textureId: ...)` widget |
+| **Low-End Android Physical Run** | Android Go / 2 GB RAM Device | **Pending Device Run** | Physical run on 2 GB Android target pending (test phone provides hotspot network for developer workstation, precluding offline/airplane mode toggling during development) |
 
 ---
 
