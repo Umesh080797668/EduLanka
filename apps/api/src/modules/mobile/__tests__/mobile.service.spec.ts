@@ -4,7 +4,9 @@ import { ForbiddenException, BadRequestException } from '@nestjs/common';
 import type { TestingModule } from '@nestjs/testing';
 import { Test } from '@nestjs/testing';
 
+import { getQueueToken } from '@nestjs/bullmq';
 import { SupabaseService } from '../../supabase/supabase.service';
+import { SmsService } from '../../sms/sms.service';
 import { MobileService } from '../mobile.service';
 
 describe('MobileService', () => {
@@ -114,10 +116,20 @@ describe('MobileService', () => {
             getTenantClient: jest.fn().mockReturnValue(mockTenantClient),
         };
 
+        const mockFcmQueue = {
+            add: jest.fn().mockResolvedValue({ id: 'job-1' }),
+        };
+
+        const mockSmsService = {
+            sendBatchSms: jest.fn().mockResolvedValue([]),
+        };
+
         const module: TestingModule = await Test.createTestingModule({
             providers: [
                 MobileService,
                 { provide: SupabaseService, useValue: mockSupabase },
+                { provide: getQueueToken('fcm-push'), useValue: mockFcmQueue },
+                { provide: SmsService, useValue: mockSmsService },
             ],
         }).compile();
 

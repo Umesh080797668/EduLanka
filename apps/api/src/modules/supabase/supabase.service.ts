@@ -91,7 +91,6 @@ export class SupabaseService implements OnModuleInit {
                             tableStr === 'plans' ||
                             tableStr === 'platform_admins' ||
                             tableStr === 'tutorials' ||
-                            tableStr === 'class_teachers' ||
                             tableStr === 'notice_reads'
                         ) {
                             return queryBuilder;

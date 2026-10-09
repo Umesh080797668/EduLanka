@@ -76,9 +76,16 @@ export class MobileController {
     @ApiOperation({ summary: 'Get server public key for offline entitlement license verification' })
     getPublicKey() {
         return {
+            kid: this.mobileService.getKeyId(),
             algorithm: 'Ed25519',
             publicKey: this.mobileService.getPublicKeyPem(),
         };
+    }
+
+    @Get('snapshot')
+    @ApiOperation({ summary: 'Re-hydrate state via full snapshot when client is beyond retention window' })
+    getSnapshot(@CurrentUser() user: JwtPayload) {
+        return this.mobileService.getSnapshot(user);
     }
 
     @Post('test-disaster-push')

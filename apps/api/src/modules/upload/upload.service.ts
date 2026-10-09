@@ -8,7 +8,9 @@ import {
 } from '@nestjs/common';
 import { v2 as cloudinary } from 'cloudinary';
 
-import { SupabaseService } from '../supabase/supabase.service';
+import { SupabaseService, assertUuid } from '../supabase/supabase.service';
+
+const ALLOWED_FOLDER_TYPES = ['profiles', 'videos', 'attachments'];
 
 @Injectable()
 export class UploadService {
@@ -17,17 +19,29 @@ export class UploadService {
     constructor(private readonly supabase: SupabaseService) { }
 
     async getSignature(tenantId?: string, folderType: string = 'profiles') {
-        // Enforce blueprint quota: block all uploads if tenant storage quota is exceeded
+        if (!ALLOWED_FOLDER_TYPES.includes(folderType)) {
+            throw new BadRequestException(
+                `Invalid folderType "${folderType}". Allowed types: ${ALLOWED_FOLDER_TYPES.join(', ')}`,
+            );
+        }
+
+        // Enforce blueprint quota: block all uploads if tenant storage quota is exceeded (fail closed)
         if (tenantId) {
+            assertUuid(tenantId, 'tenantId');
             const { data: usage, error: usageErr } = await this.supabase.adminClient
                 .from('tenant_storage_usage')
                 .select('storage_quota_gb, total_bytes_used, is_quota_exceeded')
                 .eq('tenant_id', tenantId)
                 .maybeSingle();
 
-            if (!usageErr && usage?.is_quota_exceeded) {
+            if (usageErr) {
+                this.logger.error(`Failed to verify tenant storage usage: ${usageErr.message}`);
+                throw new InternalServerErrorException('Failed to verify tenant storage quota');
+            }
+
+            if (usage?.is_quota_exceeded) {
                 throw new ForbiddenException(
-                    `Storage quota exceeded for this school (${usage.storage_quota_gb} GB limit reached). Please upgrade subscription tier to upload additional media.`
+                    `Storage quota exceeded for this school (${usage.storage_quota_gb} GB limit reached). Please upgrade subscription tier to upload additional media.`,
                 );
             }
         }
@@ -55,7 +69,7 @@ export class UploadService {
 
         const signature = cloudinary.utils.api_sign_request(
             signParams,
-            secret
+            secret,
         );
 
         return {
@@ -70,7 +84,7 @@ export class UploadService {
     }
 
     /**
-     * Handles asynchronous Cloudinary upload and transformation renditions,
+     * Handles asynchronous Cloudinary upload, rendition, and deletion notifications,
      * recording storage byte consumption in public.tenant_storage_ledgers (ADR-001).
      * Strictly verifies notification signatures against raw request bodies.
      */
@@ -83,11 +97,15 @@ export class UploadService {
         const timestampHeader = headers?.['x-cld-timestamp'] || headers?.['X-Cld-Timestamp'];
         const secret = process.env.CLOUDINARY_API_SECRET;
 
-        // Security Enforcement: Reject unauthenticated requests in production / when secret is set
+        // Security Enforcement: Reject unauthenticated requests in production / when secret is configured
         if (!signatureHeader || !timestampHeader) {
             if (process.env.NODE_ENV !== 'test') {
                 throw new UnauthorizedException('Missing required Cloudinary webhook signature headers (x-cld-signature, x-cld-timestamp)');
             }
+        }
+
+        if (!secret && process.env.NODE_ENV !== 'test') {
+            throw new InternalServerErrorException('CLOUDINARY_API_SECRET is not configured on the server');
         }
 
         if (signatureHeader && timestampHeader && secret) {
@@ -95,7 +113,7 @@ export class UploadService {
             const isValid = cloudinary.utils.verifyNotificationSignature(
                 bodyToVerify,
                 Number(timestampHeader),
-                signatureHeader
+                signatureHeader,
             );
 
             if (!isValid) {
@@ -122,7 +140,41 @@ export class UploadService {
             return { received: true, ignored: 'Unscoped tenant' };
         }
 
-        const bytes = payload.bytes ? Number(payload.bytes) : 0;
+        assertUuid(tenantId, 'tenantId');
+
+        // Handle Resource Deletion Webhook Path
+        if (payload.notification_type === 'delete') {
+            const { data: existingRows } = await this.supabase.adminClient
+                .from('tenant_storage_ledgers')
+                .select('bytes')
+                .eq('tenant_id', tenantId)
+                .eq('resource_id', String(publicId));
+
+            const totalExistingBytes = (existingRows ?? []).reduce(
+                (sum: number, r: any) => sum + Number(r.bytes || 0),
+                0,
+            );
+
+            if (totalExistingBytes > 0) {
+                const deleteIdemp = `${publicId}_deletion_${Date.now()}`;
+                await this.supabase.adminClient.from('tenant_storage_ledgers').insert({
+                    tenant_id: tenantId,
+                    resource_id: String(publicId),
+                    resource_type: 'deletion_credit',
+                    bytes: -totalExistingBytes,
+                    idempotency_key: deleteIdemp,
+                    metadata: { reason: 'CLOUDINARY_DELETE_NOTIFICATION' },
+                });
+            }
+            return { success: true, deleted: true, tenantId, publicId };
+        }
+
+        // Validate bytes: must be non-negative
+        const bytes = payload.bytes !== undefined ? Number(payload.bytes) : 0;
+        if (isNaN(bytes) || bytes < 0) {
+            throw new BadRequestException('Invalid payload bytes: must be a non-negative number');
+        }
+
         const format = payload.format || 'mp4';
         const resourceType = payload.resource_type === 'video' ? 'video_master' : (payload.resource_type || 'file');
         const versionSuffix = payload.version ?? payload.created_at ?? 'v1';

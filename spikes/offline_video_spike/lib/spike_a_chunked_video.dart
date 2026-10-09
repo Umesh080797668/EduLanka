@@ -4,10 +4,10 @@ import 'dart:io';
 import 'dart:math';
 import 'package:crypto/crypto.dart' as crypto_pkg;
 import 'package:device_info_plus/device_info_plus.dart';
+import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:pointycastle/export.dart' hide Digest;
-import 'package:video_player/video_player.dart';
 
 /// Chunk size for chunked AES-GCM encryption (64 KB).
 const int kChunkSizeBytes = 64 * 1024;
@@ -88,31 +88,39 @@ class ChunkedGcmVideoCipher {
     assert(baseNonce.length == 12, 'Base nonce must be 96 bits (12 bytes)');
   }
 
-  Uint8List encryptChunk(Uint8List plainChunk, int chunkIndex) {
+  Uint8List encryptChunk(Uint8List plainChunk, int chunkIndex, {required bool isLastSegment}) {
     final nonce = deriveChunkNonce(baseNonce, chunkIndex);
+    final aad = Uint8List.fromList([isLastSegment ? 0x01 : 0x00]);
     final cipher = GCMBlockCipher(AESEngine())
-      ..init(true, AEADParameters(KeyParameter(key), 128, nonce, Uint8List(0)));
+      ..init(true, AEADParameters(KeyParameter(key), 128, nonce, aad));
     return cipher.process(plainChunk);
   }
 
-  Uint8List decryptChunk(Uint8List cipherChunkWithTag, int chunkIndex) {
+  Uint8List decryptChunk(Uint8List cipherChunkWithTag, int chunkIndex, {required bool isLastSegment}) {
     final nonce = deriveChunkNonce(baseNonce, chunkIndex);
+    final aad = Uint8List.fromList([isLastSegment ? 0x01 : 0x00]);
     final cipher = GCMBlockCipher(
       AESEngine(),
-    )..init(false, AEADParameters(KeyParameter(key), 128, nonce, Uint8List(0)));
+    )..init(false, AEADParameters(KeyParameter(key), 128, nonce, aad));
     return cipher.process(cipherChunkWithTag);
   }
 
   Future<void> encryptFile(File inputFile, File outputFile) async {
     final inRaf = await inputFile.open(mode: FileMode.read);
     final outRaf = await outputFile.open(mode: FileMode.write);
+    final fileLength = await inputFile.length();
     int chunkIndex = 0;
+    int bytesReadTotal = 0;
 
     try {
-      while (true) {
-        final chunk = await inRaf.read(kChunkSizeBytes);
+      while (bytesReadTotal < fileLength) {
+        final remaining = fileLength - bytesReadTotal;
+        final toRead = min(kChunkSizeBytes, remaining);
+        final chunk = await inRaf.read(toRead);
         if (chunk.isEmpty) break;
-        final encrypted = encryptChunk(chunk, chunkIndex);
+        bytesReadTotal += chunk.length;
+        final isLast = bytesReadTotal >= fileLength;
+        final encrypted = encryptChunk(chunk, chunkIndex, isLastSegment: isLast);
         await outRaf.writeFrom(encrypted);
         chunkIndex++;
       }
@@ -275,8 +283,9 @@ class LoopbackEncryptedVideoServer {
         );
         if (toRead <= kGcmTagSizeBytes) break;
 
+        final isLast = (chunkOffsetInFile + toRead >= encFileLength);
         final rawEncChunk = await raf.read(toRead);
-        final decryptedChunk = cipher.decryptChunk(rawEncChunk, c);
+        final decryptedChunk = cipher.decryptChunk(rawEncChunk, c, isLastSegment: isLast);
 
         final chunkPlainStart = c * kChunkSizeBytes;
         final inChunkStart = max(0, start - chunkPlainStart);
@@ -454,10 +463,10 @@ class SpikeATestRunner {
     for (int i = 0; i < numChunks; i++) {
       final chunkBytes = await encRaf.read(kStoredChunkSizeBytes);
       if (chunkBytes.isEmpty) break;
-      final decryptedChunk = cipher.decryptChunk(chunkBytes, i);
+      final isLast = (i == numChunks - 1);
+      final decryptedChunk = cipher.decryptChunk(chunkBytes, i, isLastSegment: isLast);
       sha256Digest.update(decryptedChunk, 0, decryptedChunk.length);
     }
-    await encRaf.close();
 
     final computedHashBytes = Uint8List(32);
     sha256Digest.doFinal(computedHashBytes, 0);
@@ -467,7 +476,101 @@ class SpikeATestRunner {
     final integrityPassed =
         rawHash.toString().toLowerCase() == computedHex.toLowerCase();
 
-    // 5. Test Native ExoPlayer DataSource on Android if available
+    if (!integrityPassed) {
+      await encRaf.close();
+      throw StateError('Decryption integrity check failed: computed SHA-256 ($computedHex) does not match original ($rawHash)');
+    }
+
+    // Verify truncation detection (Tink AAD segment tag security)
+    if (numChunks > 1) {
+      await encRaf.setPosition(0);
+      final chunk0 = await encRaf.read(kStoredChunkSizeBytes);
+      bool truncationDetected = false;
+      try {
+        // Attempting to decrypt chunk 0 as last segment MUST fail GCM tag verification
+        cipher.decryptChunk(chunk0, 0, isLastSegment: true);
+      } catch (e) {
+        truncationDetected = true;
+      }
+      if (!truncationDetected) {
+        await encRaf.close();
+        throw StateError('Security failure: Truncated stream was not detected by Tink AAD segment tags');
+      }
+    }
+    await encRaf.close();
+
+    // 5. Real Dio Resumable Range Download Verification
+    final testServer = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    testServer.listen((HttpRequest req) async {
+      final range = req.headers.value(HttpHeaders.rangeHeader);
+      final totalLen = await rawVideoFile.length();
+      if (range != null && range.startsWith('bytes=')) {
+        final parts = range.substring(6).split('-');
+        final start = int.parse(parts[0]);
+        final end = parts.length > 1 && parts[1].isNotEmpty ? int.parse(parts[1]) : totalLen - 1;
+        req.response.statusCode = HttpStatus.partialContent;
+        req.response.headers.set(HttpHeaders.contentRangeHeader, 'bytes $start-$end/$totalLen');
+        req.response.headers.set(HttpHeaders.acceptRangesHeader, 'bytes');
+        req.response.headers.contentType = ContentType.binary;
+        final raf = await rawVideoFile.open();
+        await raf.setPosition(start);
+        final data = await raf.read(end - start + 1);
+        await raf.close();
+        req.response.add(data);
+      } else {
+        req.response.statusCode = HttpStatus.ok;
+        req.response.headers.set(HttpHeaders.acceptRangesHeader, 'bytes');
+        await rawVideoFile.openRead().pipe(req.response);
+      }
+      await req.response.close();
+    });
+
+    final dioDownloadedFile = File('$testDir/dio_resumed_test.mp4');
+    if (dioDownloadedFile.existsSync()) dioDownloadedFile.deleteSync();
+
+    final dio = Dio();
+    try {
+      final halfBytes = rawFileSize ~/ 2;
+      // Step 1: Download first half with Dio
+      final res1 = await dio.get<List<int>>(
+        'http://127.0.0.1:${testServer.port}/video.mp4',
+        options: Options(
+          responseType: ResponseType.bytes,
+          headers: {'Range': 'bytes=0-$halfBytes'},
+        ),
+      );
+      if (res1.statusCode != 206 && res1.statusCode != 200) {
+        throw StateError('Dio range request failed: status ${res1.statusCode}');
+      }
+      await dioDownloadedFile.writeAsBytes(res1.data!, flush: true);
+
+      // Step 2: Resume remaining bytes with Dio
+      final res2 = await dio.get<List<int>>(
+        'http://127.0.0.1:${testServer.port}/video.mp4',
+        options: Options(
+          responseType: ResponseType.bytes,
+          headers: {'Range': 'bytes=${halfBytes + 1}-${rawFileSize - 1}'},
+        ),
+      );
+      if (res2.statusCode != 206) {
+        throw StateError('Dio resume request failed: status ${res2.statusCode}');
+      }
+      final appendRaf = await dioDownloadedFile.open(mode: FileMode.append);
+      await appendRaf.writeFrom(res2.data!);
+      await appendRaf.close();
+
+      // Verify resumed file SHA-256 against original
+      final resumedHash = await dioDownloadedFile.openRead().transform(crypto_pkg.sha256).first;
+      if (resumedHash.toString().toLowerCase() != rawHash.toString().toLowerCase()) {
+        throw StateError('Dio resumable download verification failed: hash mismatch');
+      }
+    } finally {
+      await testServer.close(force: true);
+      dio.close();
+      if (dioDownloadedFile.existsSync()) dioDownloadedFile.deleteSync();
+    }
+
+    // 6. Test Native ExoPlayer DataSource on Android if available
     String playbackEngine = 'Loopback HTTP Fallback';
     if (!kIsWeb && Platform.isAndroid) {
       try {
@@ -488,7 +591,7 @@ class SpikeATestRunner {
       } catch (_) {}
     }
 
-    // 6. Loopback Server Latency & Seek Benchmarks
+    // 7. Loopback Server Latency & Seek Benchmarks
     final server = LoopbackEncryptedVideoServer(
       encryptedFile: encryptedVideoFile,
       key: key,
@@ -525,37 +628,50 @@ class SpikeATestRunner {
       seekLatencyMs = seekSw.elapsedMilliseconds;
 
       client.close();
-    } catch (_) {}
+    } finally {
+      await server.stop();
+    }
 
-    await server.stop();
+    if (startupLatencyMs <= 0) {
+      throw StateError('Startup latency measurement failed: $startupLatencyMs ms');
+    }
+    if (seekLatencyMs <= 0) {
+      throw StateError('Seek latency measurement failed: $seekLatencyMs ms');
+    }
 
-    // 7. Check Network Offline (Airplane mode)
+    // 8. Check Network Offline (Airplane mode)
     final autoOffline = await isNetworkOffline();
-    final airplaneVerified = manualAirplaneModeConfirmed || autoOffline;
+    final airplaneVerified = autoOffline;
 
-    // 8. Memory Overhead Estimation (Process Resident Set Size)
-    double peakMemMb = 28.5;
-    try {
-      final info = ProcessInfo.currentRss;
-      if (info > 0) {
-        peakMemMb = double.parse((info / (1024.0 * 1024.0)).toStringAsFixed(1));
-      }
-    } catch (_) {}
+    // 9. Memory Overhead Estimation (Process Resident Set Size)
+    final info = ProcessInfo.currentRss;
+    if (info <= 0) {
+      throw StateError('Failed to read process resident memory');
+    }
+    final peakMemMb = double.parse((info / (1024.0 * 1024.0)).toStringAsFixed(1));
+
+    if (ramGb <= 0.0) {
+      throw StateError('Failed to read device RAM');
+    }
+
+    final measurementSource = Platform.isAndroid
+        ? 'Physical Android Device ($deviceModel)'
+        : 'Linux Host Execution (${Platform.operatingSystem})';
 
     return SpikeABenchmarkResult(
       deviceModel: deviceModel,
       osVersion: osVersion,
-      ramGb: ramGb > 0 ? ramGb : 2.0,
+      ramGb: ramGb,
       fileSizeMb: actualMb,
       resumableDownloadSuccess: true,
       airplaneModeVerified: airplaneVerified,
       decryptionIntegrityVerified: integrityPassed,
-      startupLatencyMs: startupLatencyMs > 0 ? startupLatencyMs : 42,
-      seekLatencyMs: seekLatencyMs > 0 ? seekLatencyMs : 18,
+      startupLatencyMs: startupLatencyMs,
+      seekLatencyMs: seekLatencyMs,
       peakMemoryMb: peakMemMb,
       encryptionThroughputMBps: throughputMBps,
       playbackEngine: playbackEngine,
-      measurementSource: 'Physical Target Execution',
+      measurementSource: measurementSource,
     );
   }
 }

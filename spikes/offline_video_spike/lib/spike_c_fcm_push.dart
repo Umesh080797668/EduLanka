@@ -5,6 +5,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
+import 'package:path_provider/path_provider.dart';
 
 /// Top-level background isolate entry point for FCM data-only messages.
 /// Required by FlutterFire to handle pushes when app is in background or terminated/swiped-away (Android).
@@ -20,11 +21,19 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   };
   debugPrint('[FCM Background Handler] Swiped-away push received: $logEntry');
 
-  // Persist to local disk so app can display it upon relaunch
+  // Persist to persistent documents directory so OS does not clear it
   try {
-    final tempDir = Directory.systemTemp;
-    final logFile = File('${tempDir.path}/fcm_background_events.log');
-    await logFile.writeAsString('${jsonEncode(logEntry)}\n', mode: FileMode.append);
+    Directory dir;
+    try {
+      dir = await getApplicationDocumentsDirectory();
+    } catch (_) {
+      dir = Directory.systemTemp;
+    }
+    final logFile = File('${dir.path}/fcm_background_events.log');
+    await logFile.writeAsString(
+      '${jsonEncode(logEntry)}\n',
+      mode: FileMode.append,
+    );
   } catch (e) {
     debugPrint('Failed writing background log: $e');
   }
@@ -49,7 +58,9 @@ class DisasterModePushPayload {
       tenantId: map['tenant_id']?.toString() ?? '',
       reason: map['reason']?.toString() ?? 'NATURAL_DISASTER',
       expectedClosureDuration: map['expected_duration']?.toString() ?? '3_DAYS',
-      issuedAtTimestamp: int.tryParse(map['timestamp']?.toString() ?? '') ?? DateTime.now().millisecondsSinceEpoch,
+      issuedAtTimestamp:
+          int.tryParse(map['timestamp']?.toString() ?? '') ??
+          DateTime.now().millisecondsSinceEpoch,
     );
   }
 }
@@ -64,15 +75,13 @@ class SpikeCPushEngine with WidgetsBindingObserver {
   bool isDisasterModeCached = false;
   bool isFirebaseInitialized = false;
 
-  final StreamController<String> _logController = StreamController<String>.broadcast();
+  final StreamController<String> _logController =
+      StreamController<String>.broadcast();
   Stream<String> get logs => _logController.stream;
 
   final List<Map<String, dynamic>> receivedPushes = [];
 
-  SpikeCPushEngine({
-    this.apiBaseUrl = 'http://127.0.0.1:3001',
-    this.authToken,
-  });
+  SpikeCPushEngine({this.apiBaseUrl = 'http://127.0.0.1:3001', this.authToken});
 
   Future<void> initialize({
     required String userId,
@@ -86,7 +95,9 @@ class SpikeCPushEngine with WidgetsBindingObserver {
     if (baseUrl != null) apiBaseUrl = baseUrl;
     WidgetsBinding.instance.addObserver(this);
 
-    _log('Initializing Spike C with Firebase Messaging for tenant $tenantId...');
+    _log(
+      'Initializing Spike C with Firebase Messaging for tenant $tenantId...',
+    );
 
     try {
       if (Firebase.apps.isEmpty) {
@@ -96,7 +107,9 @@ class SpikeCPushEngine with WidgetsBindingObserver {
             isFirebaseInitialized = true;
             _log('Firebase.initializeApp() succeeded');
           } catch (e) {
-            _log('Notice: Firebase initialized in development/simulation mode ($e).');
+            _log(
+              'Notice: Firebase initialized in development/simulation mode ($e).',
+            );
           }
         }
       } else {
@@ -104,7 +117,9 @@ class SpikeCPushEngine with WidgetsBindingObserver {
       }
 
       if (isFirebaseInitialized) {
-        FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
+        FirebaseMessaging.onBackgroundMessage(
+          firebaseMessagingBackgroundHandler,
+        );
 
         final settings = await FirebaseMessaging.instance.requestPermission(
           alert: true,
@@ -129,7 +144,8 @@ class SpikeCPushEngine with WidgetsBindingObserver {
           _recordMessage('Resumed from Notification Tap', message);
         });
 
-        final initialMessage = await FirebaseMessaging.instance.getInitialMessage();
+        final initialMessage = await FirebaseMessaging.instance
+            .getInitialMessage();
         if (initialMessage != null) {
           _recordMessage('Cold Boot from Notification', initialMessage);
         }
@@ -143,7 +159,9 @@ class SpikeCPushEngine with WidgetsBindingObserver {
 
   Future<void> registerDeviceTokenWithBackend() async {
     if (currentDeviceToken == null) return;
-    _log('Registering FCM token with backend POST $apiBaseUrl/api/v1/mobile/device-token...');
+    _log(
+      'Registering FCM token with backend POST $apiBaseUrl/api/v1/mobile/device-token...',
+    );
     try {
       final client = HttpClient();
       final uri = Uri.parse('$apiBaseUrl/api/v1/mobile/device-token');
@@ -155,16 +173,24 @@ class SpikeCPushEngine with WidgetsBindingObserver {
       if (currentTenantId != null) {
         request.headers.set('x-tenant-id', currentTenantId!);
       }
-      request.write(jsonEncode({
-        'token': currentDeviceToken,
-        'platform': Platform.isIOS ? 'ios' : 'android',
-        'deviceModel': 'SpikeCTestDevice',
-      }));
-      final response = await request.close().timeout(const Duration(seconds: 4));
+      request.write(
+        jsonEncode({
+          'token': currentDeviceToken,
+          'platform': Platform.isIOS ? 'ios' : 'android',
+          'deviceModel': 'SpikeCTestDevice',
+        }),
+      );
+      final response = await request.close().timeout(
+        const Duration(seconds: 4),
+      );
       if (response.statusCode == 200 || response.statusCode == 201) {
-        _log('Device token successfully saved to backend device_tokens registry.');
+        _log(
+          'Device token successfully saved to backend device_tokens registry.',
+        );
       } else {
-        _log('Backend returned HTTP ${response.statusCode} for token registration.');
+        _log(
+          'Backend returned HTTP ${response.statusCode} for token registration.',
+        );
       }
       client.close();
     } catch (e) {
@@ -176,24 +202,33 @@ class SpikeCPushEngine with WidgetsBindingObserver {
     handlePushData(message.data, state: state);
   }
 
-  Future<bool> handlePushData(Map<String, dynamic> data, {String state = 'Foreground'}) async {
+  Future<bool> handlePushData(
+    Map<String, dynamic> data, {
+    String state = 'Foreground',
+  }) async {
     final entry = {
       'timestamp': DateTime.now().toIso8601String(),
       'state': state,
       'data': data,
     };
     receivedPushes.add(entry);
-    _log('[$state Push Received] Type: ${data['type']} | Data: ${jsonEncode(data)}');
+    _log(
+      '[$state Push Received] Type: ${data['type']} | Data: ${jsonEncode(data)}',
+    );
 
     if (data['type'] == 'DISASTER_MODE_ACTIVATED') {
       final payload = DisasterModePushPayload.fromMap(data);
       // Security Validation: Verify push tenant_id strictly matches the active user tenant
       if (currentTenantId != null && payload.tenantId != currentTenantId) {
-        _log('[CROSS-TENANT SECURITY REJECTION] Dropped push: payload tenant (${payload.tenantId}) does not match user tenant ($currentTenantId).');
+        _log(
+          '[CROSS-TENANT SECURITY REJECTION] Dropped push: payload tenant (${payload.tenantId}) does not match user tenant ($currentTenantId).',
+        );
         return false;
       }
 
-      _log('Tenant matched ($currentTenantId). Executing automated Disaster Pack sync...');
+      _log(
+        'Tenant matched ($currentTenantId). Executing automated Disaster Pack sync...',
+      );
       return await checkAndSyncDisasterPack();
     }
     return false;
@@ -201,8 +236,13 @@ class SpikeCPushEngine with WidgetsBindingObserver {
 
   Future<void> _loadPersistedBackgroundEvents() async {
     try {
-      final tempDir = Directory.systemTemp;
-      final logFile = File('${tempDir.path}/fcm_background_events.log');
+      Directory dir;
+      try {
+        dir = await getApplicationDocumentsDirectory();
+      } catch (_) {
+        dir = Directory.systemTemp;
+      }
+      final logFile = File('${dir.path}/fcm_background_events.log');
       if (await logFile.exists()) {
         final lines = await logFile.readAsLines();
         for (final line in lines) {
@@ -221,7 +261,9 @@ class SpikeCPushEngine with WidgetsBindingObserver {
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
-      _log('App resumed to foreground — Fallback Layer 4 (App-Open Sync check)');
+      _log(
+        'App resumed to foreground — Fallback Layer 4 (App-Open Sync check)',
+      );
       checkAndSyncDisasterPack();
     }
   }
@@ -238,7 +280,9 @@ class SpikeCPushEngine with WidgetsBindingObserver {
       if (currentTenantId != null) {
         request.headers.set('x-tenant-id', currentTenantId!);
       }
-      final response = await request.close().timeout(const Duration(seconds: 4));
+      final response = await request.close().timeout(
+        const Duration(seconds: 4),
+      );
       if (response.statusCode == 200) {
         final bodyStr = await response.transform(utf8.decoder).join();
         final json = jsonDecode(bodyStr) as Map<String, dynamic>;
@@ -246,14 +290,20 @@ class SpikeCPushEngine with WidgetsBindingObserver {
         if (json['status'] == 'DISASTER_PACK_READY' &&
             (currentTenantId == null || json['tenantId'] == currentTenantId)) {
           isDisasterModeCached = true;
-          _log('Disaster Pack synced successfully from backend. Status: ${json['status']} (contacts: ${json['contacts']?.length ?? 0}, notices: ${json['notices']?.length ?? 0})');
+          _log(
+            'Disaster Pack synced successfully from backend. Status: ${json['status']} (contacts: ${json['contacts']?.length ?? 0}, notices: ${json['notices']?.length ?? 0})',
+          );
           return true;
         } else {
-          _log('Disaster Pack validation failed: invalid status or mismatched tenant.');
+          _log(
+            'Disaster Pack validation failed: invalid status or mismatched tenant.',
+          );
           return false;
         }
       } else {
-        _log('Disaster Pack query returned HTTP ${response.statusCode}. Cache not updated.');
+        _log(
+          'Disaster Pack query returned HTTP ${response.statusCode}. Cache not updated.',
+        );
         return false;
       }
     } catch (e) {

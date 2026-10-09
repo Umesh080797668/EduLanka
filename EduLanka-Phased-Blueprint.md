@@ -133,7 +133,7 @@ The full vision spans roughly six independently hard products: a multi-tenant sc
   - Real-time and cached chat messaging.
 - Media Asset Hub via Cloudinary:
   - Online adaptive-bitrate HLS streaming across web and mobile.
-  - Offline video downloads: Resumable progressive MP4 with chunked AES encryption at rest (CTR or chunked GCM) decoded via custom ExoPlayer `DataSource` for seeking on 2GB RAM devices without in-memory decryption bottlenecks. Derived MP4 renditions tracked in tenant storage quota ledger.
+  - Offline video downloads: Resumable progressive MP4 (deliberate architectural scope decision replacing offline HLS to prevent inode exhaustion, FAT32 corruption, and multi-file resumption fragility on low-end hardware) with chunked AES-256-GCM Streaming AEAD (Tink-compatible with AAD last-segment truncation defense) decoded via custom Media3 ExoPlayer `DataSource` / `TextureRegistry` for seeking on 2GB RAM devices without in-memory decryption bottlenecks. Derived MP4 renditions tracked in tenant storage quota ledger.
 - Paper Hub: exam paper PDFs paired with official marking schemes for split-screen practice, available on web and mobile.
 - Sync Engine: Event-sourced push stream (`sync_events`), monotonic sequences bound to `tenant_sync_counters` row-locks, teacher `marked_at` attendance conflict resolution (clock-skew clamped), per-tenant `client_uuid` idempotency, and student data retention/purge rules.
 - **Disaster-Readiness Pack**: When a school's Phase 2 Disaster Mode is active, both web and mobile surface the emergency pack (contacts, shelter/relocation circulars, closure reason/duration, last 7 days of homework/resources). Mobile auto-caches it via background sync, app-open sync, and Phase 2 SMS backup.

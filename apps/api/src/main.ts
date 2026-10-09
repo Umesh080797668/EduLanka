@@ -24,6 +24,7 @@ async function bootstrap(): Promise<void> {
     const app = await NestFactory.create<NestFastifyApplication>(
         AppModule,
         new FastifyAdapter({ logger: false, trustProxy: true }), // NestJS Logger handles logging, trustProxy: true with nginx replacing X-Forwarded-For with $remote_addr
+        { rawBody: true },
     );
 
     const configService = app.get(ConfigService);

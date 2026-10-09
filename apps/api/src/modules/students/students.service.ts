@@ -42,11 +42,29 @@ export class StudentsService {
         const slug = caller.tenantId;
         const db = this.supabase.getTenantClient(slug);
 
-        // Step 1: Generate admission number if not provided
-        const admissionNo = (dto.admissionNo && dto.admissionNo.trim() !== '') ? dto.admissionNo : this.generateAdmissionNo(
-            new Date().getFullYear(),
-            Math.floor(Math.random() * 9000) + 1000,
-        );
+        // Step 1: Generate admission number if not provided (sequential & collision-safe)
+        let admissionNo = dto.admissionNo?.trim();
+        if (!admissionNo) {
+            const currentYear = new Date().getFullYear();
+            const { count } = await db
+                .from('students')
+                .select('id', { count: 'exact', head: true });
+            let seq = (count ?? 0) + 1;
+            admissionNo = this.generateAdmissionNo(currentYear, seq);
+
+            let attempts = 0;
+            while (attempts < 10) {
+                const { data: existing } = await db
+                    .from('students')
+                    .select('id')
+                    .eq('admission_no', admissionNo)
+                    .maybeSingle();
+                if (!existing) break;
+                seq++;
+                admissionNo = this.generateAdmissionNo(currentYear, seq);
+                attempts++;
+            }
+        }
 
         let identityEmail = dto.email;
         const identityPhone = dto.phoneNumber;

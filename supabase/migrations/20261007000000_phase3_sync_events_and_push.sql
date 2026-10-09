@@ -274,6 +274,7 @@ GRANT ALL ON public.device_tokens TO service_role;
 
 
 -- 5. Exclude system_root from tenant_sms_quotas view
+DROP VIEW IF EXISTS public.tenant_sms_quotas CASCADE;
 CREATE OR REPLACE VIEW public.tenant_sms_quotas AS
 WITH active_students AS (
     SELECT 
@@ -462,6 +463,7 @@ REVOKE ALL ON public.tenant_storage_ledgers FROM anon, authenticated;
 GRANT ALL ON public.tenant_storage_ledgers TO service_role;
 
 -- Ensure plans table supports fractional GB (500 MB for Community package per Blueprint)
+DROP VIEW IF EXISTS public.tenant_storage_usage CASCADE;
 ALTER TABLE public.plans ALTER COLUMN storage_quota_gb TYPE NUMERIC(6,3);
 UPDATE public.plans SET storage_quota_gb = 0.500 WHERE code = 'COMMUNITY';
 
@@ -488,7 +490,36 @@ REVOKE ALL ON public.tenant_storage_usage FROM anon, authenticated;
 GRANT ALL ON public.tenant_storage_usage TO service_role;
 
 
--- 9. Attendance Conflicts Log (ADR-002 Offline Sync Conflict Audit)
+-- 9. Attendance Table & Conflicts Log (ADR-002 Offline Sync & Roll Call)
+CREATE TABLE IF NOT EXISTS public.attendance (
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id       UUID NOT NULL REFERENCES public.tenants(id) ON DELETE CASCADE,
+    class_id        UUID NOT NULL REFERENCES public.classes(id) ON DELETE CASCADE,
+    student_id      UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
+    date            DATE NOT NULL,
+    status          TEXT NOT NULL CHECK (status IN ('PRESENT', 'ABSENT', 'LATE', 'EXCUSED')),
+    marked_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    marked_by       UUID REFERENCES public.users(id),
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CONSTRAINT uq_attendance_entry UNIQUE (tenant_id, class_id, student_id, date)
+);
+
+CREATE INDEX IF NOT EXISTS idx_attendance_tenant_date ON public.attendance (tenant_id, date);
+CREATE INDEX IF NOT EXISTS idx_attendance_class_date ON public.attendance (tenant_id, class_id, date);
+
+ALTER TABLE public.attendance ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON public.attendance FROM anon, authenticated;
+GRANT ALL ON public.attendance TO service_role;
+
+-- Ensure class_teachers has tenant_id for seamless tenant client partitioning
+ALTER TABLE public.class_teachers ADD COLUMN IF NOT EXISTS tenant_id UUID REFERENCES public.tenants(id) ON DELETE CASCADE;
+UPDATE public.class_teachers ct
+SET tenant_id = c.tenant_id
+FROM public.classes c
+WHERE ct.class_id = c.id AND ct.tenant_id IS NULL;
+CREATE INDEX IF NOT EXISTS idx_class_teachers_tenant ON public.class_teachers (tenant_id);
+
 CREATE TABLE IF NOT EXISTS public.attendance_conflicts_log (
     id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     tenant_id       UUID NOT NULL REFERENCES public.tenants(id) ON DELETE CASCADE,

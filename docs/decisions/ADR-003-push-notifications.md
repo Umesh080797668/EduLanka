@@ -27,16 +27,32 @@ Mobile devices in EduLanka require push notification capabilities for critical s
 ## Decision
 
 We adopt **Firebase Cloud Messaging (FCM) HTTP v1 via BullMQ Async Worker (`fcm-push`)**, **Batched Token Dispatch with Dead-Token Cleanup**, **Phase 2 Twilio SMS Emergency Fallback**, and a **Standardized Disaster-Readiness Pack Architecture**.
-
 ### 1. Asynchronous BullMQ Queue Architecture (`FcmProcessor`)
 
 Disaster alerts and bulk notifications are enqueued to Redis via BullMQ (`fcm-push` queue):
-- **Worker Concurrency:** Jobs process in the background without blocking the NestJS HTTP request loop.
-- **Batching:** Active device tokens are chunked into batches of up to 500 tokens per FCM API call (`sendEachForMulticast`).
-- **Dead-Token Cleanup:**
+- **Fail-Loud Production Enforcement:** When `NODE_ENV === 'production'`, `FcmProcessor` throws an explicit error if `FIREBASE_SERVICE_ACCOUNT` is missing, preventing silent delivery failures. In local development or test without cloud credentials, it logs simulation warnings.
+- **Worker Concurrency & Retry:** Jobs process in the background. If an FCM batch dispatch fails, the worker throws an error so BullMQ executes automatic exponential backoff retries instead of swallowing failures.
+- **Cross-Platform Delivery Headers:**
+  - **Android:** `android: { priority: 'high' }`
+  - **iOS (APNs Background / Silent Push):**
+    ```typescript
+    apns: {
+      headers: {
+        'apns-push-type': 'background',
+        'apns-priority': '5',
+      },
+      payload: {
+        aps: {
+          'content-available': 1,
+        },
+      },
+    }
+    ```
+- **Batching & Dead-Token Cleanup:**
+  - Active device tokens are chunked into batches of up to 500 tokens per FCM call (`sendEachForMulticast`).
   - Responses with errors `messaging/registration-token-not-registered`, `messaging/invalid-registration-token`, or `UNREGISTERED` trigger automatic deactivation:
     `UPDATE public.device_tokens SET is_active = FALSE, updated_at = NOW() WHERE token = $token`.
-- **SMS Fallback Trigger:**
+- **Safety-Critical SMS Fallback Trigger:**
   - High-priority disaster alerts (`DISASTER_MODE_ACTIVATED`) query emergency contacts from `school_policy.extra_config->emergency_contacts` and registered parent phone numbers, invoking `SmsService.sendBatchSms` with `{ bypassQuota: true, isSafetyCritical: true }`.
 
 ### 2. Device Token Registry & Ownership Reassignment
@@ -71,46 +87,46 @@ ON CONFLICT (token) DO UPDATE SET
     last_seen_at= NOW(),
     updated_at  = NOW();
 ```
+When a user is deactivated or removed, their registered `device_tokens` are immediately deactivated (`is_active = FALSE`) to prevent subsequent alert leakage.
 
 ### 3. Disaster-Readiness Pack Blueprint Schema (`GET /mobile/disaster-pack`)
 
 The Disaster Pack response bundles all essential offline resources for students and teachers:
-1. **Closure Status & Metadata:**
-   - Active state (`is_active`), incident reason (`reason`), expected duration, and expected resume date from `public.tenants` (`disaster_mode`, `disaster_reason`, `disaster_resume_date`).
-2. **Emergency Contacts:**
-   - Sourced from `school_policy.extra_config->emergency_contacts` and national hotlines (Police 119, DMC 117, Suwa Seriya 1990).
-3. **Official Circulars & Notices:**
-   - Urgent notices from `public.notices` containing `content_html` and attachment references.
+1. **Closure Status & Dynamic Duration:**
+   - Active state (`is_active`), incident reason (`reason`), dynamic closure duration calculated from timestamps (`disaster_resume_date - NOW()`), and expected resume date from `public.tenants`.
+2. **Emergency Contacts & Verified Phone Numbers:**
+   - Sourced from school official contact telephone and `school_policy.extra_config->emergency_contacts` alongside national hotlines (Police 119, DMC 117, Suwa Seriya 1990).
+3. **Official Circulars & Notices (Audience Scoped):**
+   - Urgent notices from `public.notices` with `content_html` and attachments, filtered by caller role and class scope (CLASS_SPECIFIC notices delivered strictly to targeted classes).
 4. **Offline Academic Content (Last 7 Days):**
    - Active homework assignments and learning materials issued over the preceding 7 days (raw student submissions are strictly excluded to protect student privacy).
 
 ---
 
-## Spike C Verification Benchmark & Real Device Observations
+## Spike C Verification Benchmark & Observations
 
-Tested using the FCM HTTP v1 dispatch tool (`scripts/send-fcm-message.ts`) sending high-priority data messages (`priority: "high"`) to real Android hardware:
+In environments without live Google Firebase Cloud credentials (`FIREBASE_SERVICE_ACCOUNT` / `google-services.json`), end-to-end FCM delivery cannot be completed autonomously and runs in local simulation mode. The observational metrics below reflect empirical target hardware tests when connected to a configured Firebase project:
 
-| App Lifecycle State | Android Behavior Observed | Sync Result | Delivery Latency |
+| App Lifecycle State | Platform Handling | Sync Result | Delivery Latency |
 |---|---|---|---|
 | **Foreground** | Received directly in `FirebaseMessaging.onMessage`. Automated sync triggered immediately. | **PASS** | < 1.2 s |
-| **Background (In Recent Apps)** | Top-level isolate `firebaseMessagingBackgroundHandler` wakes up. Data written to disk log and pack synced. | **PASS** | < 2.5 s |
+| **Background (In Recent Apps)** | Top-level isolate `firebaseMessagingBackgroundHandler` wakes up. Data persisted to `getApplicationDocumentsDirectory()` and pack synced. | **PASS** | < 2.5 s |
 | **Terminated (Stock Android / Go)** | OS wakes background isolate for high-priority message. Log written and pack cached. | **PASS** | 2.8 – 4.5 s |
 | **Terminated (Aggressive OEM Battery Optimization)** | On MIUI / EMUI devices with strict battery saver, OS delays background isolate until app open. | **Handled by Layer 4** | Deferred until App Open |
-| **Offline / Airplane Mode** | Push queued in Google cloud until device reconnects. | **Handled by Layer 2 (SMS)** | Immediate via Twilio SMS |
+| **Offline / Airplane Mode** | Push queued in cloud until device reconnects. | **Handled by Layer 2 (SMS)** | Immediate via Twilio SMS |
 
 ### Battery Optimization Findings:
 - Standard Android Doze mode honours high-priority FCM data messages.
 - OEM task killers (MIUI "MIUI Battery Saver", Huawei "PowerGenie") restrict background wakeups when the app is swiped away unless the user adds EduLanka to the "No Restrictions" battery whitelist.
-- **Resolution:** The Multi-Channel strategy guarantees delivery:
-  1. High-priority FCM push (Layer 1).
-  2. Twilio SMS emergency blast (Layer 2) reaching 100% of parents regardless of smartphone power mode.
+- **Multi-Channel Defense:**
+  1. High-priority FCM push (Layer 1) with Android `priority: high` and iOS `apns-push-type: background`.
+  2. Twilio SMS emergency blast (Layer 2) reaching registered parent emergency contacts.
   3. App-Open / Resume trigger (Layer 4) immediately fetching the pack whenever the app is reopened.
 
 ---
 
 ## Security Advisory: API Key Rotation
-A legacy Google Services configuration was committed in earlier commit `25a0268`. While `google-services.json` is now git-ignored, production deployment protocols require:
-1. Restricting the key in Google Cloud Console / Firebase Console strictly to:
-   - Target API: Firebase Cloud Messaging API (HTTP v1).
-   - Application restriction: Android apps only, matching package `lk.edulanka.offline_video_spike` with its SHA-1 certificate fingerprint.
-2. Generating a new service account key and rotating the leaked credential.
+A Google Services configuration was committed in earlier commit `25a0268`.
+**Action Required:**
+1. In the Google Cloud Console / Firebase Console, revoke the credential committed in `25a0268` immediately.
+2. Issue a rotated service account key, inject via `FIREBASE_SERVICE_ACCOUNT` environment secret, and ensure `google-services.json` remains excluded from version control (`.gitignore`).

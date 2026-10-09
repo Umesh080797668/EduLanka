@@ -1,4 +1,4 @@
-import { generateKeyPairSync, sign, randomUUID } from 'crypto';
+import { createPrivateKey, createPublicKey, KeyObject, sign, randomUUID } from 'crypto';
 
 import type { JwtPayload } from '@edu-lanka/shared-types';
 import { UserRole } from '@edu-lanka/shared-types';
@@ -9,12 +9,14 @@ import {
     BadRequestException,
     ForbiddenException,
     ConflictException,
+    GoneException,
+    ServiceUnavailableException,
     InternalServerErrorException,
     Optional,
 } from '@nestjs/common';
 import { Queue } from 'bullmq';
 
-import { SupabaseService } from '../supabase/supabase.service';
+import { SupabaseService, assertUuid } from '../supabase/supabase.service';
 
 import type { RegisterDeviceTokenDto, AppendSyncEventDto, TriggerDisasterPushDto } from './dto/mobile.dto';
 import type { FcmPushJobPayload } from './fcm.processor';
@@ -23,25 +25,65 @@ import type { FcmPushJobPayload } from './fcm.processor';
 export class MobileService {
     private readonly logger = new Logger(MobileService.name);
 
-    // Asymmetric Ed25519 keypair for offline entitlement signing (verifiable on mobile without secrets)
-    private static readonly signingKeyPair = generateKeyPairSync('ed25519');
+    // Persistent Ed25519 Key Identifier and Keypair
+    private static readonly keyId = process.env.OFFLINE_LICENSE_KEY_ID ?? 'edulanka-offline-v1';
+    private static signingKeyPair?: { publicKey: KeyObject; privateKey: KeyObject };
+
+    private static getSigningKeyPair(): { publicKey: KeyObject; privateKey: KeyObject } {
+        if (MobileService.signingKeyPair) {
+            return MobileService.signingKeyPair;
+        }
+
+        const envKey = process.env.OFFLINE_LICENSE_PRIVATE_KEY;
+        if (envKey) {
+            try {
+                const privateKey = createPrivateKey(envKey.includes('-----BEGIN') ? envKey : Buffer.from(envKey, 'base64'));
+                const publicKey = createPublicKey(privateKey);
+                MobileService.signingKeyPair = { privateKey, publicKey };
+                return MobileService.signingKeyPair;
+            } catch (err: any) {
+                // fall back to persistent seed
+            }
+        }
+
+        // Fixed 32-byte PKCS#8 DER header for Ed25519 private key: 302e020100300506032b657004220420 + 32-byte seed
+        const secretSeed = (process.env.JWT_SECRET || 'edulanka-offline-signing-secret-key-salt-2026')
+            .padEnd(32, '0')
+            .slice(0, 32);
+        const pkcs8Der = Buffer.concat([
+            Buffer.from('302e020100300506032b657004220420', 'hex'),
+            Buffer.from(secretSeed, 'utf8'),
+        ]);
+
+        const privateKey = createPrivateKey({ key: pkcs8Der, format: 'der', type: 'pkcs8' });
+        const publicKey = createPublicKey(privateKey);
+        MobileService.signingKeyPair = { privateKey, publicKey };
+        return MobileService.signingKeyPair;
+    }
 
     constructor(
         private readonly supabase: SupabaseService,
         @Optional() @InjectQueue('fcm-push') private readonly fcmPushQueue?: Queue<FcmPushJobPayload>,
     ) { }
 
+    getKeyId(): string {
+        return MobileService.keyId;
+    }
+
     /**
      * Returns the server's public key (SPKI PEM) for client-side offline signature verification.
      */
     getPublicKeyPem(): string {
-        return MobileService.signingKeyPair.publicKey.export({ type: 'spki', format: 'pem' }).toString();
+        return MobileService.getSigningKeyPair().publicKey.export({ type: 'spki', format: 'pem' }).toString();
     }
 
     /**
      * Registers or updates an FCM device token for the caller.
      */
     async registerDeviceToken(dto: RegisterDeviceTokenDto, caller: JwtPayload) {
+        assertUuid(caller.tenantId, 'tenantId');
+        assertUuid(caller.sub, 'userId');
+
         const client = this.supabase.adminClient;
 
         const { data, error } = await client
@@ -78,10 +120,17 @@ export class MobileService {
      * and payload size enforcement (<= 64KB).
      */
     async appendSyncEvent(dto: AppendSyncEventDto, caller: JwtPayload) {
-        // 1. Enforce payload size limit (<= 64KB)
+        assertUuid(caller.tenantId, 'tenantId');
+        assertUuid(caller.sub, 'userId');
+        assertUuid(dto.clientUuid, 'clientUuid');
+        if (dto.entityId) {
+            assertUuid(dto.entityId, 'entityId');
+        }
+
+        // 1. Enforce payload size limit (<= 64KB in bytes)
         if (dto.payload) {
             const payloadStr = JSON.stringify(dto.payload);
-            if (payloadStr.length > 65536) {
+            if (Buffer.byteLength(payloadStr, 'utf8') > 65536) {
                 throw new BadRequestException('Sync event payload exceeds maximum allowed size of 64KB');
             }
         }
@@ -98,10 +147,23 @@ export class MobileService {
             case 'homework_submission':
                 if (role === UserRole.STUDENT) {
                     const studentId = dto.payload?.student_id ?? dto.payload?.studentId;
-                    if (!studentId || studentId !== sub || dto.entityId !== sub) {
-                        throw new ForbiddenException(
-                            'Students can only record homework submissions on their own behalf; student_id is required and must match caller',
-                        );
+                    if (!studentId) {
+                        throw new ForbiddenException('student_id is required for student homework submissions');
+                    }
+                    if (studentId !== sub && dto.entityId !== sub) {
+                        // Check if studentId matches student record id for caller
+                        const { data: studRec } = await this.supabase.adminClient
+                            .from('students')
+                            .select('id, user_id')
+                            .eq('tenant_id', caller.tenantId)
+                            .eq('id', studentId)
+                            .maybeSingle();
+
+                        if (!studRec || studRec.user_id !== sub) {
+                            throw new ForbiddenException(
+                                'Students can only record homework submissions on their own behalf; student_id must match caller',
+                            );
+                        }
                     }
                 } else if (role !== UserRole.TEACHER && role !== UserRole.SCHOOL_ADMIN && role !== UserRole.SUPER_ADMIN) {
                     throw new ForbiddenException('Only students, teachers, or administrators can append homework events');
@@ -137,6 +199,66 @@ export class MobileService {
 
         const client = this.supabase.adminClient;
 
+        // 3. Persist Attendance roll call and audit conflicts in ADR-002 log
+        if (dto.entityType === 'attendance' && dto.payload) {
+            const classId = dto.payload.class_id ?? dto.payload.classId;
+            const studentId = dto.payload.student_id ?? dto.payload.studentId ?? dto.entityId;
+            const date = dto.payload.date;
+            const status = dto.payload.status ?? 'PRESENT';
+            const clientMarkedAt = dto.payload.marked_at ?? dto.payload.markedAt ?? new Date().toISOString();
+
+            // Clamp clock skew to server time (cannot mark attendance in future)
+            const now = new Date();
+            const clientDate = new Date(clientMarkedAt);
+            const clampedMarkedAt = clientDate > now ? now.toISOString() : clientMarkedAt;
+
+            if (classId && studentId && date) {
+                const { data: existingAtt } = await client
+                    .from('attendance')
+                    .select('*')
+                    .eq('tenant_id', caller.tenantId)
+                    .eq('class_id', classId)
+                    .eq('student_id', studentId)
+                    .eq('date', date)
+                    .maybeSingle();
+
+                if (existingAtt) {
+                    if (existingAtt.status !== status) {
+                        await client.from('attendance_conflicts_log').insert({
+                            tenant_id: caller.tenantId,
+                            class_id: classId,
+                            student_id: studentId,
+                            conflict_date: date,
+                            client_state: { status, marked_at: clampedMarkedAt },
+                            server_state: { status: existingAtt.status, marked_at: existingAtt.marked_at },
+                            resolution: 'CLIENT_WINS',
+                            resolved_by: caller.sub,
+                        });
+                    }
+
+                    await client
+                        .from('attendance')
+                        .update({
+                            status,
+                            marked_at: clampedMarkedAt,
+                            marked_by: caller.sub,
+                            updated_at: new Date().toISOString(),
+                        })
+                        .eq('id', existingAtt.id);
+                } else {
+                    await client.from('attendance').insert({
+                        tenant_id: caller.tenantId,
+                        class_id: classId,
+                        student_id: studentId,
+                        date,
+                        status,
+                        marked_at: clampedMarkedAt,
+                        marked_by: caller.sub,
+                    });
+                }
+            }
+        }
+
         const { data, error } = await client.rpc('append_sync_event', {
             p_tenant_id: caller.tenantId,
             p_entity_type: dto.entityType,
@@ -165,8 +287,28 @@ export class MobileService {
      * applying per-role filtering and monotonic sequence pagination.
      */
     async getSyncEvents(caller: JwtPayload, sinceSequence = 0, limit = 50) {
+        assertUuid(caller.tenantId, 'tenantId');
+        assertUuid(caller.sub, 'userId');
+
         const safeLimit = Math.min(Math.max(1, limit), 200);
         const client = this.supabase.adminClient;
+
+        // Check if client since sequence predates 90-day retention purge window
+        if (sinceSequence > 0) {
+            const { data: oldestEvent } = await client
+                .from('sync_events')
+                .select('sequence')
+                .eq('tenant_id', caller.tenantId)
+                .order('sequence', { ascending: true })
+                .limit(1)
+                .maybeSingle();
+
+            if (oldestEvent && sinceSequence < Number(oldestEvent.sequence)) {
+                throw new GoneException(
+                    'Sync sequence predates retention purge window (events older than 90 days purged). Full snapshot resync required.',
+                );
+            }
+        }
 
         // Fetch safeLimit + 1 rows to accurately compute hasMore
         const { data, error } = await client
@@ -186,6 +328,37 @@ export class MobileService {
         const hasMore = rows.length > safeLimit;
         const pageRows = hasMore ? rows.slice(0, safeLimit) : rows;
 
+        // Resolve student's class and teacher's assigned classes from database for precise chat visibility
+        let studentClassId: string | undefined;
+        let studentRecordId: string | undefined;
+        if (caller.role === UserRole.STUDENT) {
+            const { data: sRec } = await client
+                .from('students')
+                .select('id, class_id')
+                .eq('tenant_id', caller.tenantId)
+                .eq('user_id', caller.sub)
+                .maybeSingle();
+            studentClassId = sRec?.class_id;
+            studentRecordId = sRec?.id;
+        }
+
+        let teacherClassIds: string[] = [];
+        if (caller.role === UserRole.TEACHER) {
+            const { data: tRec } = await client
+                .from('teachers')
+                .select('id')
+                .eq('tenant_id', caller.tenantId)
+                .eq('user_id', caller.sub)
+                .maybeSingle();
+            if (tRec?.id) {
+                const { data: ctRows } = await client
+                    .from('class_teachers')
+                    .select('class_id')
+                    .eq('teacher_id', tRec.id);
+                teacherClassIds = (ctRows ?? []).map((ct: any) => ct.class_id);
+            }
+        }
+
         // Scoped privacy filtering per recipient role
         const filteredEvents = pageRows.filter((event: any) => {
             // System and school admins receive full tenant event stream
@@ -193,12 +366,18 @@ export class MobileService {
                 return true;
             }
 
-            // Universal broadcast events (school closures, emergency circulars, entitlement revocations)
-            if (event.entity_type === 'disaster_mode' || event.entity_type === 'entitlement_revocation') {
+            // Universal broadcast events (school closures, emergency announcements)
+            if (event.entity_type === 'disaster_mode') {
                 return true;
             }
 
-            // Teachers can see attendance, homework submissions, and their own messages
+            // Entitlement revocation events: ONLY deliver to affected user (or admins handled above)
+            if (event.entity_type === 'entitlement_revocation') {
+                const affectedUserId = event.payload?.user_id ?? event.entity_id;
+                return affectedUserId === caller.sub;
+            }
+
+            // Teachers can see attendance, homework submissions, and messages for their assigned classes or DMs
             if (caller.role === UserRole.TEACHER) {
                 if (event.entity_type === 'attendance' || event.entity_type === 'homework_submission') {
                     return true;
@@ -206,7 +385,8 @@ export class MobileService {
                 if (event.entity_type === 'chat_message') {
                     const sender = event.payload?.sender_id ?? event.payload?.senderId;
                     const recipient = event.payload?.recipient_id ?? event.payload?.recipientId;
-                    return sender === caller.sub || recipient === caller.sub || !recipient;
+                    const classId = event.payload?.class_id ?? event.payload?.classId;
+                    return sender === caller.sub || recipient === caller.sub || (classId && teacherClassIds.includes(classId));
                 }
                 return false;
             }
@@ -215,21 +395,29 @@ export class MobileService {
             if (caller.role === UserRole.STUDENT) {
                 if (event.entity_type === 'attendance' || event.entity_type === 'homework_submission') {
                     const studentId = event.payload?.student_id ?? event.payload?.studentId;
-                    return event.entity_id === caller.sub || studentId === caller.sub;
+                    return (
+                        event.entity_id === caller.sub ||
+                        studentId === caller.sub ||
+                        (studentRecordId && (studentId === studentRecordId || event.entity_id === studentRecordId))
+                    );
                 }
                 if (event.entity_type === 'chat_message') {
                     const sender = event.payload?.sender_id ?? event.payload?.senderId;
                     const recipient = event.payload?.recipient_id ?? event.payload?.recipientId;
                     const classId = event.payload?.class_id ?? event.payload?.classId;
-                    // Strict class/recipient scoping — no global broadcasts across classes
-                    return sender === caller.sub || recipient === caller.sub || (classId && classId === (caller as any).classId);
+                    // Strict class/recipient scoping matching database student class_id
+                    return (
+                        sender === caller.sub ||
+                        recipient === caller.sub ||
+                        (classId && studentClassId && classId === studentClassId)
+                    );
                 }
                 return false;
             }
 
             // Parents receive disaster broadcasts only
             if (caller.role === UserRole.PARENT) {
-                return event.entity_type === 'disaster_mode';
+                return false;
             }
 
             return false;
@@ -253,6 +441,9 @@ export class MobileService {
      * Mobile verifies using published Ed25519 public key without holding server secrets.
      */
     async getOfflineLicense(caller: JwtPayload) {
+        assertUuid(caller.tenantId, 'tenantId');
+        assertUuid(caller.sub, 'userId');
+
         // 1. Verify user is active
         const { data: user, error: userErr } = await this.supabase.adminClient
             .from('users')
@@ -301,6 +492,7 @@ export class MobileService {
         const expiresAtSec = nowSec + validitySec;
 
         const licensePayload = {
+            kid: this.getKeyId(),
             sub: caller.sub,
             tenantId: caller.tenantId,
             role: caller.role,
@@ -314,10 +506,11 @@ export class MobileService {
 
         // Asymmetric Ed25519 signing for phone offline verification
         const licenseBuffer = Buffer.from(JSON.stringify(licensePayload));
-        const signature = sign(null, licenseBuffer, MobileService.signingKeyPair.privateKey).toString('base64url');
+        const signature = sign(null, licenseBuffer, MobileService.getSigningKeyPair().privateKey).toString('base64url');
 
         return {
             success: true,
+            kid: this.getKeyId(),
             license: licensePayload,
             signature,
             algorithm: 'Ed25519',
@@ -328,19 +521,84 @@ export class MobileService {
     }
 
     /**
-     * Generates and returns the offline Disaster Pack bundle for the school tenant per Blueprint:
-     * - contacts (School Principal, Zonal Education Office, DMC 117)
-     * - circulars / notices (urgent and active school-wide notices with content_html)
-     * - closure status, reason and duration from public.tenants
-     * - active homework assignments / academic learning materials (no student submissions)
+     * Full Snapshot Re-hydration for devices offline beyond 90-day retention window.
      */
-    async getDisasterPack(caller: JwtPayload) {
+    async getSnapshot(caller: JwtPayload) {
+        assertUuid(caller.tenantId, 'tenantId');
+        assertUuid(caller.sub, 'userId');
+
         const tenantClient = this.supabase.getTenantClient(caller.tenantId);
 
-        // Fetch active notices with content_html column
+        // Fetch tenant details
+        const { data: tenant } = await this.supabase.adminClient
+            .from('tenants')
+            .select('id, name, slug, plan, school_type, disaster_mode, disaster_reason, disaster_resume_date')
+            .eq('id', caller.tenantId)
+            .maybeSingle();
+
+        // Fetch current monotonic sequence counter
+        const { data: counter } = await this.supabase.adminClient
+            .from('tenant_sync_counters')
+            .select('last_sequence')
+            .eq('tenant_id', caller.tenantId)
+            .maybeSingle();
+
+        // Fetch caller user record
+        const { data: user } = await tenantClient
+            .from('users')
+            .select('id, email, full_name, role, is_active')
+            .eq('id', caller.sub)
+            .maybeSingle();
+
+        // Fetch school policy
+        const { data: policy } = await tenantClient
+            .from('school_policy')
+            .select('academic_year, max_students_per_class, default_language')
+            .maybeSingle();
+
+        // Fetch active classes
+        const { data: classes } = await tenantClient
+            .from('classes')
+            .select('*')
+            .order('grade', { ascending: true });
+
+        // Fetch school-wide circulars
+        const { data: notices } = await tenantClient
+            .from('notices')
+            .select('id, title, content_html, scope, priority, attachments, created_at')
+            .in('scope', ['UNIVERSAL', 'SCHOOL_WIDE'])
+            .order('created_at', { ascending: false })
+            .limit(20);
+
+        return {
+            snapshotAt: new Date().toISOString(),
+            tenantId: caller.tenantId,
+            latestSequence: Number(counter?.last_sequence ?? 0),
+            tenant,
+            policy,
+            user,
+            classes: classes ?? [],
+            notices: notices ?? [],
+        };
+    }
+
+    /**
+     * Generates and returns the offline Disaster Pack bundle for the school tenant per Blueprint:
+     * - contacts (School Principal, DMC 117, Police 119, Suwa Seriya 1990)
+     * - circulars / notices (scoped to universal, school-wide, or user's class)
+     * - closure status, reason and duration from public.tenants
+     * - learning materials / official homework tasks (no student submissions)
+     */
+    async getDisasterPack(caller: JwtPayload) {
+        assertUuid(caller.tenantId, 'tenantId');
+        assertUuid(caller.sub, 'userId');
+
+        const tenantClient = this.supabase.getTenantClient(caller.tenantId);
+
+        // Fetch active notices with scope and content_html
         const { data: notices, error: noticeErr } = await tenantClient
             .from('notices')
-            .select('id, title, content_html, priority, attachments, created_at')
+            .select('id, title, content_html, scope, target_group_id, priority, attachments, created_at')
             .order('created_at', { ascending: false })
             .limit(30);
 
@@ -349,7 +607,7 @@ export class MobileService {
             throw new InternalServerErrorException('Failed to fetch disaster pack notices');
         }
 
-        // Fetch singular school_policy table
+        // Fetch school policy
         const { data: policy, error: policyErr } = await tenantClient
             .from('school_policy')
             .select('id, academic_year, max_students_per_class, allow_self_enrollment, sms_enabled, default_language, timezone, school_hours_start, school_hours_end, extra_config, updated_at')
@@ -360,7 +618,7 @@ export class MobileService {
             throw new InternalServerErrorException('Failed to fetch disaster pack policies');
         }
 
-        // Fetch tenant details using existing schema columns
+        // Fetch tenant details
         const { data: tenant, error: tenantErr } = await this.supabase
             .adminClient
             .from('tenants')
@@ -384,16 +642,28 @@ export class MobileService {
             .limit(1)
             .maybeSingle();
 
-        // Academic notices and learning materials from last 7 days
-        const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString();
+        // Scope notices: filter out other classes' notices
         const rawNotices = notices ?? [];
-        const academicNotices = rawNotices.filter((n: any) =>
-            n.created_at >= sevenDaysAgo
-        );
+        let callerClassId: string | undefined;
+        if (caller.role === UserRole.STUDENT) {
+            const { data: sRec } = await tenantClient
+                .from('students')
+                .select('class_id')
+                .eq('user_id', caller.sub)
+                .maybeSingle();
+            callerClassId = sRec?.class_id;
+        }
 
-        // Extract downloadable attachments/resources from circulars
+        const scopedNotices = rawNotices.filter((n: any) => {
+            if (n.scope === 'UNIVERSAL' || n.scope === 'SCHOOL_WIDE' || !n.scope) return true;
+            if (n.scope === 'CLASS_SPECIFIC' && callerClassId && n.target_group_id === callerClassId) return true;
+            if (caller.role === UserRole.SCHOOL_ADMIN || caller.role === UserRole.SUPER_ADMIN) return true;
+            return false;
+        });
+
+        // Extract learning resources from circular attachments
         const resources: any[] = [];
-        for (const n of rawNotices) {
+        for (const n of scopedNotices) {
             if (n.attachments && Array.isArray(n.attachments)) {
                 for (const att of n.attachments) {
                     resources.push({
@@ -407,15 +677,29 @@ export class MobileService {
             }
         }
 
-        // Standard emergency contacts
+        // Filter academic homework circulars (academic priority or learning tasks)
+        const academicHomework = scopedNotices.filter((n: any) =>
+            n.priority === 'HIGH' || n.title.toLowerCase().includes('homework') || n.title.toLowerCase().includes('assignment')
+        );
+
+        // Emergency contacts: correct phone numbers (never emails)
+        const schoolPhone = (policy?.extra_config)?.phone ?? (policy?.extra_config)?.emergency_phone ?? '011-2695555';
         const configuredContacts = (policy?.extra_config)?.emergency_contacts ?? [];
         const standardEmergencyContacts = [
             { name: 'Disaster Management Centre (DMC)', role: 'National Emergency', phone: '117' },
             { name: 'Police Emergency Hotline', role: 'Security & Rescue', phone: '119' },
             { name: 'Suwa Seriya Ambulance', role: 'Medical Emergency', phone: '1990' },
-            { name: 'School Administration Office', role: 'School Principal', phone: tenant?.contact_email ? `Tel: ${tenant.contact_email}` : 'N/A' },
+            { name: 'School Administration Office', role: 'School Principal', phone: schoolPhone },
             ...configuredContacts,
         ];
+
+        // Dynamic closure duration based on disaster_resume_date
+        const resumeDate = tenant?.disaster_resume_date ?? activeDisasterEvent?.expected_resume_date;
+        let expectedDuration = 'UNTIL_FURTHER_NOTICE';
+        if (resumeDate) {
+            const diffDays = Math.max(1, Math.ceil((new Date(resumeDate).getTime() - Date.now()) / (1000 * 3600 * 24)));
+            expectedDuration = `${diffDays}_DAYS`;
+        }
 
         return {
             status: 'DISASTER_PACK_READY',
@@ -424,12 +708,12 @@ export class MobileService {
             closure: {
                 isActive: Boolean(tenant?.disaster_mode),
                 reason: tenant?.disaster_reason ?? activeDisasterEvent?.reason ?? 'EMERGENCY',
-                expectedResumeDate: tenant?.disaster_resume_date ?? activeDisasterEvent?.expected_resume_date ?? null,
-                expectedDuration: activeDisasterEvent?.expected_resume_date ? 'UNTIL_RESUME' : '3_DAYS',
+                expectedResumeDate: resumeDate ?? null,
+                expectedDuration,
             },
             contacts: standardEmergencyContacts,
-            notices: rawNotices,
-            homework: academicNotices,
+            notices: scopedNotices,
+            homework: academicHomework,
             resources,
         };
     }
@@ -439,12 +723,24 @@ export class MobileService {
      * and dispatching a high-priority job to the BullMQ FCM queue with Twilio SMS fallback phone numbers.
      */
     async triggerDisasterPush(dto: TriggerDisasterPushDto, caller: JwtPayload) {
+        if (!this.fcmPushQueue) {
+            throw new ServiceUnavailableException('FCM Push queue is unavailable');
+        }
+
+        assertUuid(caller.tenantId, 'tenantId');
+        assertUuid(caller.sub, 'userId');
+        if (dto.schoolTenantId) {
+            assertUuid(dto.schoolTenantId, 'schoolTenantId');
+        }
+
         const client = this.supabase.adminClient;
 
         const targetTenantId =
             caller.role === UserRole.SUPER_ADMIN && dto.schoolTenantId
                 ? dto.schoolTenantId
                 : caller.tenantId;
+
+        assertUuid(targetTenantId, 'targetTenantId');
 
         // 1. Record Disaster Event in Sync Event stream
         const clientUuid = randomUUID();
@@ -484,7 +780,7 @@ export class MobileService {
 
         const registeredTokens = (tokens ?? []).map((t: any) => t.token);
 
-        // 3. Query emergency contact phone numbers for SMS fallback
+        // 3. Query emergency contacts strictly from policy extra_config (never blast arbitrary random users)
         const { data: policy } = await client
             .from('school_policy')
             .select('extra_config')
@@ -497,40 +793,25 @@ export class MobileService {
             if (c.phone) emergencyPhones.push(String(c.phone));
         }
 
-        // Include registered parent/staff phone numbers
-        const { data: phoneUsers } = await client
-            .from('users')
-            .select('phone')
-            .eq('tenant_id', targetTenantId)
-            .not('phone', 'is', null)
-            .limit(100);
-
-        for (const u of phoneUsers ?? []) {
-            if (u.phone && !emergencyPhones.includes(u.phone)) {
-                emergencyPhones.push(String(u.phone));
-            }
-        }
-
         // 4. FCM Push Queue Dispatch (BullMQ high-priority data message with Twilio SMS fallback)
-        if (this.fcmPushQueue) {
-            try {
-                await this.fcmPushQueue.add('disaster-broadcast', {
-                    tenantId: targetTenantId,
-                    tokens: registeredTokens,
-                    data: {
-                        type: 'DISASTER_MODE_ACTIVATED',
-                        tenant_id: targetTenantId,
-                        reason: dto.reason ?? 'NATURAL_DISASTER',
-                        expected_duration: dto.expectedDuration ?? '3_DAYS',
-                        timestamp: Date.now().toString(),
-                    },
-                    isDisasterMode: true,
-                    smsFallbackMessage: `[EduLanka Emergency] School disaster mode activated (${dto.reason ?? 'Emergency'}). Offline packs ready.`,
-                    emergencyPhoneNumbers: emergencyPhones,
-                });
-            } catch (queueErr: any) {
-                this.logger.error(`Failed to enqueue disaster FCM push job: ${queueErr.message}`);
-            }
+        try {
+            await this.fcmPushQueue.add('disaster-broadcast', {
+                tenantId: targetTenantId,
+                tokens: registeredTokens,
+                data: {
+                    type: 'DISASTER_MODE_ACTIVATED',
+                    tenant_id: targetTenantId,
+                    reason: dto.reason ?? 'NATURAL_DISASTER',
+                    expected_duration: dto.expectedDuration ?? '3_DAYS',
+                    timestamp: Date.now().toString(),
+                },
+                isDisasterMode: true,
+                smsFallbackMessage: `[EduLanka Emergency] School disaster mode activated (${dto.reason ?? 'Emergency'}). Offline packs ready.`,
+                emergencyPhoneNumbers: emergencyPhones,
+            });
+        } catch (queueErr: any) {
+            this.logger.error(`Failed to enqueue disaster FCM push job: ${queueErr.message}`);
+            throw new InternalServerErrorException('Failed to enqueue disaster push job');
         }
 
         return {

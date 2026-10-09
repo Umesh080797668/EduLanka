@@ -16,6 +16,9 @@ void main() {
       sampleMp4Path: sampleFile.path,
     );
 
+    // Raw benchmark output for ADR-001 documentation:
+    print('RAW_SPIKE_A_BENCHMARK_OUTPUT: ${result.toJson()}');
+
     expect(result.decryptionIntegrityVerified, isTrue);
     expect(result.ramGb, greaterThan(0.0));
     expect(result.peakMemoryMb, greaterThan(0.0));

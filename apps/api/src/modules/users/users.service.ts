@@ -267,22 +267,35 @@ export class UsersService {
         await this.redisService.cacheUserActive(id, isActive, 60);
         if (!isActive) {
             await this.redisService.revokeAllUserRefreshTokens(id);
+
+            // Deactivate device tokens so deactivated users no longer receive disaster pushes
+            const { error: dtErr } = await this.supabase.adminClient
+                .from('device_tokens')
+                .update({ is_active: false, updated_at: new Date().toISOString() })
+                .eq('user_id', id);
+            if (dtErr) {
+                this.logger.error(`Failed to deactivate device tokens for user ${id}: ${dtErr.message}`);
+            }
+
+            // Target tenant ID is the user's tenant, NOT caller.tenantId (which is system_root for SUPER_ADMIN)
+            const targetTenantId = data.tenant_id;
+
             // ADR-001 / ADR-002: Invalidate offline entitlement on client devices via monotonic sync stream
-            try {
-                await this.supabase.adminClient.rpc('append_sync_event', {
-                    p_tenant_id: caller.tenantId,
-                    p_entity_type: 'entitlement_revocation',
-                    p_entity_id: id,
-                    p_event_type: 'DELETED',
-                    p_payload: {
-                        user_id: id,
-                        reason: reason || 'ACCOUNT_DEACTIVATED',
-                        revoked_at: new Date().toISOString(),
-                    },
-                    p_client_uuid: randomUUID(),
-                });
-            } catch (syncErr: any) {
-                this.logger.warn(`Failed to emit entitlement revocation sync event: ${syncErr.message}`);
+            const { error: syncErr } = await this.supabase.adminClient.rpc('append_sync_event', {
+                p_tenant_id: targetTenantId,
+                p_entity_type: 'entitlement_revocation',
+                p_entity_id: id,
+                p_event_type: 'DELETED',
+                p_payload: {
+                    user_id: id,
+                    reason: reason || 'ACCOUNT_DEACTIVATED',
+                    revoked_at: new Date().toISOString(),
+                },
+                p_client_uuid: randomUUID(),
+            });
+
+            if (syncErr) {
+                this.logger.error(`Failed to emit entitlement revocation sync event: ${syncErr.message}`);
             }
         }
 
@@ -302,8 +315,16 @@ export class UsersService {
         if (caller.role !== UserRole.SUPER_ADMIN) {
             throw new ForbiddenException('Only super admins can hard-delete users');
         }
-        const slug = caller.tenantId;
-        const db = this.supabase.getTenantClient(slug);
+
+        // Fetch user first to identify target tenant_id before deletion
+        const { data: userRow } = await this.supabase.adminClient
+            .from('users')
+            .select('tenant_id')
+            .eq('id', id)
+            .maybeSingle();
+
+        const targetTenantId = userRow?.tenant_id || caller.tenantId;
+        const db = this.supabase.getTenantClient(targetTenantId);
 
         const { error, count } = await db
             .from('users')
@@ -318,14 +339,20 @@ export class UsersService {
             throw new NotFoundException(`User ${id} not found`);
         }
 
-        // Scrub user PII from sync_events (ADR-002)
-        try {
-            await this.supabase.adminClient.rpc('scrub_user_sync_events_pii', {
-                p_tenant_id: slug,
-                p_user_id: id,
-            });
-        } catch (scrubErr: any) {
-            this.logger.warn(`Failed to scrub user sync events PII: ${scrubErr.message}`);
+        // Clean up device tokens for removed user
+        await this.supabase.adminClient
+            .from('device_tokens')
+            .delete()
+            .eq('user_id', id);
+
+        // Scrub user PII from sync_events (ADR-002) targeting correct tenant
+        const { error: scrubErr } = await this.supabase.adminClient.rpc('scrub_user_sync_events_pii', {
+            p_tenant_id: targetTenantId,
+            p_user_id: id,
+        });
+
+        if (scrubErr) {
+            this.logger.error(`Failed to scrub user sync events PII: ${scrubErr.message}`);
         }
 
         return { success: true };

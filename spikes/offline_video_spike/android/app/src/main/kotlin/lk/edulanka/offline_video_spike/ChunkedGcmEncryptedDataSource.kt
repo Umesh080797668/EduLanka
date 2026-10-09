@@ -136,10 +136,12 @@ class ChunkedGcmEncryptedDataSource(
         }
 
         // Derive unique chunk nonce by combining baseNonce with chunkIndex
+        val isLast = (fileOffset + encryptedLength >= totalFileLength)
         val chunkNonce = deriveChunkNonce(baseNonce, chunkIndex)
         val secretKey = SecretKeySpec(key, "AES")
         val cipher = Cipher.getInstance("AES/GCM/NoPadding")
         cipher.init(Cipher.DECRYPT_MODE, secretKey, GCMParameterSpec(128, chunkNonce))
+        cipher.updateAAD(if (isLast) byteArrayOf(1) else byteArrayOf(0))
 
         return cipher.doFinal(encryptedBytes)
     }

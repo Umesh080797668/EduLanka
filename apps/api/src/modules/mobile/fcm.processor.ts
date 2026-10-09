@@ -103,6 +103,17 @@ export class FcmProcessor extends WorkerHost {
                         android: {
                             priority: 'high',
                         },
+                        apns: {
+                            headers: {
+                                'apns-push-type': 'background',
+                                'apns-priority': '5',
+                            },
+                            payload: {
+                                aps: {
+                                    contentAvailable: true,
+                                },
+                            },
+                        },
                     });
 
                     dispatchedCount += response.successCount;
@@ -121,10 +132,14 @@ export class FcmProcessor extends WorkerHost {
                     });
                 } catch (err: any) {
                     this.logger.error(`FCM batch dispatch failed: ${err.message}`);
+                    throw err; // Fail loudly so BullMQ retries the batch job
                 }
             } else {
+                if (process.env.NODE_ENV === 'production') {
+                    throw new Error('Firebase Admin credentials missing in production environment. Disaster pushes cannot be delivered.');
+                }
                 // In local dev/test without credentials, simulate delivery and token acknowledgement
-                this.logger.log(`[Dev Simulation] Dispatched mock FCM push to ${batch.length} tokens for tenant ${tenantId}`);
+                this.logger.warn(`[Dev Simulation] Dispatched mock FCM push to ${batch.length} tokens for tenant ${tenantId}`);
                 dispatchedCount += batch.length;
             }
         }

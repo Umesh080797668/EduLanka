@@ -33,7 +33,9 @@ export class UploadController {
         @Body() payload: any,
         @Headers() headers: Record<string, string>,
     ) {
-        const rawBody = (req as any).rawBody || (typeof req.body === 'string' ? req.body : JSON.stringify(payload));
+        const rawBody = Buffer.isBuffer((req as any).rawBody)
+            ? (req as any).rawBody.toString('utf8')
+            : ((req as any).rawBody || (typeof req.body === 'string' ? req.body : JSON.stringify(payload)));
         return this.uploadService.processCloudinaryWebhook(payload, headers, rawBody);
     }
 }
