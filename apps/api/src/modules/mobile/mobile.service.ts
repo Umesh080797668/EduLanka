@@ -148,6 +148,29 @@ export class MobileService {
     }
 
     /**
+     * Updates device last_seen_at and monotonic sequence progress on active device tokens.
+     */
+    async touchDeviceActivity(tenantId: string, userId: string, acknowledgedSequence?: number) {
+        try {
+            const updatePayload: Record<string, any> = {
+                last_seen_at: new Date().toISOString(),
+                updated_at: new Date().toISOString(),
+            };
+            if (typeof acknowledgedSequence === 'number' && acknowledgedSequence >= 0) {
+                updatePayload.last_synced_sequence = acknowledgedSequence;
+            }
+            await this.supabase.adminClient
+                .from('device_tokens')
+                .update(updatePayload)
+                .eq('tenant_id', tenantId)
+                .eq('user_id', userId)
+                .eq('is_active', true);
+        } catch (err: any) {
+            this.logger.debug(`touchDeviceActivity failed: ${err?.message}`);
+        }
+    }
+
+    /**
      * Resolves assigned class IDs for a teacher caller within their tenant.
      */
     private async getTeacherClassIds(caller: JwtPayload): Promise<string[]> {
@@ -418,6 +441,8 @@ export class MobileService {
             }
         }
 
+        await this.touchDeviceActivity(caller.tenantId, caller.sub, data?.sequence ? Number(data.sequence) : undefined);
+
         return {
             success: true,
             event: data,
@@ -576,6 +601,8 @@ export class MobileService {
 
         const latestSeq = pageRows.length > 0 ? Number(pageRows[pageRows.length - 1].sequence) : sinceSequence;
 
+        await this.touchDeviceActivity(caller.tenantId, caller.sub, latestSeq);
+
         return {
             tenantId: caller.tenantId,
             sinceSequence,
@@ -721,10 +748,13 @@ export class MobileService {
             .order('created_at', { ascending: false })
             .limit(20);
 
+        const latestSequence = Number(counter?.last_sequence ?? 0);
+        await this.touchDeviceActivity(caller.tenantId, caller.sub, latestSequence);
+
         return {
             snapshotAt: new Date().toISOString(),
             tenantId: caller.tenantId,
-            latestSequence: Number(counter?.last_sequence ?? 0),
+            latestSequence,
             tenant,
             policy,
             user,
@@ -828,21 +858,51 @@ export class MobileService {
             }
         }
 
-        // Filter academic homework circulars (academic priority or learning tasks)
-        const academicHomework = scopedNotices.filter((n: any) =>
-            n.priority === 'HIGH' || n.title.toLowerCase().includes('homework') || n.title.toLowerCase().includes('assignment')
-        );
+        // 1. Fetch official emergency contacts from school_emergency_contacts table (P3-S8)
+        const { data: dbContacts } = await this.supabase.adminClient
+            .from('school_emergency_contacts')
+            .select('id, name, role, phone, is_primary')
+            .eq('tenant_id', caller.tenantId)
+            .order('display_order', { ascending: true });
 
-        // Emergency contacts: correct phone numbers (never emails)
-        const schoolPhone = (policy?.extra_config)?.phone ?? (policy?.extra_config)?.emergency_phone ?? '011-2695555';
-        const configuredContacts = (policy?.extra_config)?.emergency_contacts ?? [];
-        const standardEmergencyContacts = [
+        const nationalEmergencyContacts = [
             { name: 'Disaster Management Centre (DMC)', role: 'National Emergency', phone: '117' },
             { name: 'Police Emergency Hotline', role: 'Security & Rescue', phone: '119' },
             { name: 'Suwa Seriya Ambulance', role: 'Medical Emergency', phone: '1990' },
-            { name: 'School Administration Office', role: 'School Principal', phone: schoolPhone },
-            ...configuredContacts,
         ];
+
+        // Only include school phone if configured in policy/tenant — never use made-up fallback numbers
+        const schoolPhone = (policy?.extra_config)?.phone ?? (policy?.extra_config)?.emergency_phone ?? null;
+        const allContacts = [
+            ...nationalEmergencyContacts,
+            ...(schoolPhone ? [{ name: 'School Administration Office', role: 'School Principal', phone: schoolPhone }] : []),
+            ...(dbContacts ?? []),
+        ];
+
+        // 2. Fetch designated emergency evacuation shelters from school_shelters table (P3-S8)
+        const { data: shelters } = await this.supabase.adminClient
+            .from('school_shelters')
+            .select('id, name, address, capacity, gps_lat, gps_lng, notes')
+            .eq('tenant_id', caller.tenantId)
+            .order('name', { ascending: true });
+
+        // 3. Fetch academic homework tasks from homework_tasks table (P3-S3)
+        let homeworkQuery = this.supabase.adminClient
+            .from('homework_tasks')
+            .select('id, class_id, teacher_id, title, description, due_date, attachments, created_at')
+            .eq('tenant_id', caller.tenantId);
+
+        if (caller.role === UserRole.STUDENT && callerClassId) {
+            homeworkQuery = homeworkQuery.eq('class_id', callerClassId);
+        } else if (caller.role === UserRole.TEACHER) {
+            const teacherClasses = await this.getTeacherClassIds(caller);
+            if (teacherClasses.length > 0) {
+                homeworkQuery = homeworkQuery.in('class_id', teacherClasses);
+            }
+        }
+        const { data: homeworkTasks } = await homeworkQuery
+            .order('due_date', { ascending: false })
+            .limit(50);
 
         // Dynamic closure duration based on disaster_resume_date
         const resumeDate = tenant?.disaster_resume_date ?? activeDisasterEvent?.expected_resume_date;
@@ -851,6 +911,9 @@ export class MobileService {
             const diffDays = Math.max(1, Math.ceil((new Date(resumeDate).getTime() - Date.now()) / (1000 * 3600 * 24)));
             expectedDuration = `${diffDays}_DAYS`;
         }
+
+        // Update device activity timestamp
+        await this.touchDeviceActivity(caller.tenantId, caller.sub);
 
         return {
             status: 'DISASTER_PACK_READY',
@@ -862,9 +925,10 @@ export class MobileService {
                 expectedResumeDate: resumeDate ?? null,
                 expectedDuration,
             },
-            contacts: standardEmergencyContacts,
+            contacts: allContacts,
+            shelters: shelters ?? [],
             notices: scopedNotices,
-            homework: academicHomework,
+            homework: homeworkTasks ?? [],
             resources,
         };
     }
@@ -931,18 +995,15 @@ export class MobileService {
 
         const registeredTokens = (tokens ?? []).map((t: any) => t.token);
 
-        // 3. Query emergency contacts strictly from policy extra_config (never blast arbitrary random users)
-        const { data: policy } = await client
-            .from('school_policy')
-            .select('extra_config')
-            .eq('tenant_id', targetTenantId)
-            .maybeSingle();
+        // 3. Query emergency contacts strictly from school_emergency_contacts table (P3-S8)
+        const { data: emergencyContactRows } = await client
+            .from('school_emergency_contacts')
+            .select('phone')
+            .eq('tenant_id', targetTenantId);
 
-        const emergencyContacts = (policy?.extra_config)?.emergency_contacts ?? [];
-        const emergencyPhones: string[] = [];
-        for (const c of emergencyContacts) {
-            if (c.phone) emergencyPhones.push(String(c.phone));
-        }
+        const emergencyPhones: string[] = (emergencyContactRows ?? [])
+            .map((c: any) => c.phone)
+            .filter(Boolean);
 
         // 4. FCM Push Queue Dispatch (BullMQ high-priority data message with Twilio SMS fallback)
         try {
@@ -996,15 +1057,16 @@ export class MobileService {
 
     /**
      * Queries sync health indicators for School Admin (P3-S3).
+     * Detects unsynced sequence lag and last-seen staleness.
      */
     async getSyncHealth(caller: JwtPayload) {
         assertUuid(caller.tenantId, 'tenantId');
         const client = this.supabase.adminClient;
 
-        // Fetch active registered devices
+        // Fetch active registered devices with last_synced_sequence
         const { data: devices, count: deviceCount } = await client
             .from('device_tokens')
-            .select('id, user_id, platform, device_model, last_seen_at, is_active', { count: 'exact' })
+            .select('id, user_id, platform, device_model, last_seen_at, last_synced_sequence, is_active', { count: 'exact' })
             .eq('tenant_id', caller.tenantId)
             .eq('is_active', true);
 
@@ -1015,17 +1077,35 @@ export class MobileService {
             .eq('tenant_id', caller.tenantId)
             .maybeSingle();
 
-        // Stale devices: not seen in > 3 days
+        const currentSeq = Number(counter?.last_sequence || 0);
+        // Stale devices: not seen in > 3 days OR sequence lag > 0
         const threeDaysAgo = new Date(Date.now() - 3 * 24 * 3600 * 1000).toISOString();
-        const staleDevices = (devices || []).filter((d: any) => d.last_seen_at && d.last_seen_at < threeDaysAgo);
+
+        const devicesWithHealth = (devices || []).map((d: any) => {
+            const syncedSeq = Number(d.last_synced_sequence || 0);
+            const sequenceLag = Math.max(0, currentSeq - syncedSeq);
+            const isStaleByTime = !d.last_seen_at || d.last_seen_at < threeDaysAgo;
+            const hasSequenceLag = sequenceLag > 0;
+            return {
+                ...d,
+                last_synced_sequence: syncedSeq,
+                sequenceLag,
+                isStale: isStaleByTime || hasSequenceLag,
+            };
+        });
+
+        const unsyncedDevices = devicesWithHealth.filter((d: any) => d.sequenceLag > 0);
+        const staleDevices = devicesWithHealth.filter((d: any) => d.isStale);
 
         return {
             tenantId: caller.tenantId,
             totalActiveDevices: deviceCount || 0,
-            latestSyncSequence: Number(counter?.last_sequence || 0),
+            latestSyncSequence: currentSeq,
             lastSequenceAllocatedAt: counter?.updated_at || null,
+            unsyncedDevicesCount: unsyncedDevices.length,
             staleDevicesCount: staleDevices.length,
             staleDevices: staleDevices.slice(0, 50),
+            devices: devicesWithHealth.slice(0, 50),
         };
     }
 

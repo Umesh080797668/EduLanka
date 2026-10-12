@@ -6,6 +6,7 @@ import {
     InternalServerErrorException,
     PayloadTooLargeException,
 } from '@nestjs/common';
+import { createHmac } from 'crypto';
 import type { JwtPayload } from '@edu-lanka/shared-types';
 import { UserRole } from '@edu-lanka/shared-types';
 import { SupabaseService, assertUuid } from '../supabase/supabase.service';
@@ -19,6 +20,7 @@ export class MediaService {
 
     /**
      * Lists media assets for the caller's tenant with pagination and optional subject/grade filtering.
+     * Starter/Community tiers only receive external embedded resources.
      */
     async listAssets(
         caller: JwtPayload,
@@ -34,7 +36,7 @@ export class MediaService {
             .from('media_assets')
             .select('*', { count: 'exact' })
             .eq('tenant_id', caller.tenantId)
-            .neq('status', 'failed')
+            .in('status', ['ready', 'processing'])
             .order('created_at', { ascending: false })
             .range(offset, offset + limit - 1);
 
@@ -51,16 +53,18 @@ export class MediaService {
             throw new InternalServerErrorException('Failed to retrieve media assets');
         }
 
-        // Tier gating: Starter tier receives streaming preview, Growth/Institutional receives full assets
         const plan = caller.tenantPlan || 'COMMUNITY';
         const isGrowthOrAbove = plan === 'GROWTH' || plan === 'INSTITUTIONAL';
 
         const filtered = (data || []).map((asset: any) => {
+            const isEmbed = asset.cloudinary_public_id?.startsWith('embed_');
             if (!isGrowthOrAbove) {
-                // Strip download MP4 URL for non-Growth tiers
+                // Starter and Community tiers: embedded links only, strip direct Cloudinary URLs and downloads
                 return {
                     ...asset,
                     mp4_url: null,
+                    hls_url: null,
+                    cloudinary_secure_url: isEmbed ? asset.cloudinary_secure_url : null,
                     is_downloadable: false,
                 };
             }
@@ -90,17 +94,20 @@ export class MediaService {
             .eq('id', assetId)
             .maybeSingle();
 
-        if (error || !data) {
+        if (error || !data || data.status === 'deleted' || data.status === 'failed') {
             throw new NotFoundException(`Media asset ${assetId} not found`);
         }
 
         const plan = caller.tenantPlan || 'COMMUNITY';
         const isGrowthOrAbove = plan === 'GROWTH' || plan === 'INSTITUTIONAL';
+        const isEmbed = data.cloudinary_public_id?.startsWith('embed_');
 
         if (!isGrowthOrAbove) {
             return {
                 ...data,
                 mp4_url: null,
+                hls_url: null,
+                cloudinary_secure_url: isEmbed ? data.cloudinary_secure_url : null,
                 is_downloadable: false,
             };
         }
@@ -110,7 +117,7 @@ export class MediaService {
 
     /**
      * Issues an encrypted offline download manifest (P3-S6) for Growth and Institutional tenants.
-     * Enforces signed 1-hour expiry window and offline video entitlement.
+     * Enforces plan-based retention from public.plans and signed 1-hour expiry window.
      */
     async getDownloadManifest(caller: JwtPayload, assetId: string) {
         assertUuid(caller.tenantId, 'tenantId');
@@ -131,7 +138,7 @@ export class MediaService {
             .eq('id', assetId)
             .maybeSingle();
 
-        if (error || !asset) {
+        if (error || !asset || asset.status === 'deleted' || asset.status === 'failed') {
             throw new NotFoundException(`Media asset ${assetId} not found`);
         }
 
@@ -139,7 +146,26 @@ export class MediaService {
             throw new ForbiddenException('This media asset is not marked as downloadable');
         }
 
-        const expiresAt = new Date(Date.now() + 3600 * 1000).toISOString();
+        // Fetch offline retention from public.plans
+        const { data: planInfo } = await this.supabase.adminClient
+            .from('plans')
+            .select('offline_retention_days')
+            .eq('code', plan)
+            .maybeSingle();
+
+        const retentionDays = Number(planInfo?.offline_retention_days) || 30;
+
+        // Generate cryptographic expiring token & signed URL
+        const expiresTimestamp = Math.floor(Date.now() / 1000) + 3600; // 1-hour validity
+        const expiresAt = new Date(expiresTimestamp * 1000).toISOString();
+        const secret = process.env.JWT_SECRET || 'edulanka-secret-offline-manifest';
+        const signature = createHmac('sha256', secret)
+            .update(`${caller.tenantId}:${asset.id}:${caller.sub}:${expiresTimestamp}`)
+            .digest('hex');
+
+        const signedMp4Url = asset.mp4_url.includes('?')
+            ? `${asset.mp4_url}&exp=${expiresTimestamp}&sig=${signature.slice(0, 32)}`
+            : `${asset.mp4_url}?exp=${expiresTimestamp}&sig=${signature.slice(0, 32)}`;
 
         // Record media download telemetry event (P3-S6, P3-S9)
         try {
@@ -159,36 +185,58 @@ export class MediaService {
             success: true,
             assetId: asset.id,
             title: asset.title,
-            mp4Url: asset.mp4_url,
+            mp4Url: signedMp4Url,
             fileSizeBytes: asset.file_size_bytes,
             durationSeconds: asset.duration_seconds,
             expiresAt,
-            retentionDays: plan === 'GROWTH' || plan === 'INSTITUTIONAL' ? 30 : 7,
+            signature,
+            retentionDays,
             cipherAlgorithm: 'Chunked AES-256-GCM (Tink Streaming AEAD)',
         };
     }
 
     /**
-     * Creates a new media asset record, verifying tenant storage quota before committing.
+     * Creates a new media asset record.
+     * Starter/Community tiers only allow external embedded video URLs.
+     * Growth/Institutional direct video uploads start in 'processing' status;
+     * storage ledger is recorded by Cloudinary webhook to prevent double-counting.
      */
     async createAsset(caller: JwtPayload, dto: CreateMediaAssetDto) {
         assertUuid(caller.tenantId, 'tenantId');
         assertUuid(caller.sub, 'userId');
 
-        // 1. Check storage quota from public.tenant_storage_usage
-        const { data: usage } = await this.supabase.adminClient
-            .from('tenant_storage_usage')
-            .select('is_quota_exceeded, total_bytes_used, storage_quota_gb')
-            .eq('tenant_id', caller.tenantId)
-            .maybeSingle();
+        const plan = caller.tenantPlan || 'COMMUNITY';
+        const isGrowthOrAbove = plan === 'GROWTH' || plan === 'INSTITUTIONAL';
 
-        if (usage?.is_quota_exceeded) {
-            throw new PayloadTooLargeException(
-                `Tenant storage quota of ${usage.storage_quota_gb} GB exceeded. Upgrade plan to upload additional media.`,
+        const isExternalEmbed =
+            dto.cloudinaryPublicId?.startsWith('embed_') ||
+            Boolean(dto.cloudinarySecureUrl?.match(/youtube\.com|youtu\.be|vimeo\.com|drive\.google/));
+
+        if (!isGrowthOrAbove && !isExternalEmbed) {
+            throw new ForbiddenException(
+                'Starter and Community tiers only support embedded external video links. Upgrade to Growth or Institutional for direct video hosting.',
             );
         }
 
-        // 2. Insert media asset record
+        if (!isExternalEmbed) {
+            // Check storage quota from public.tenant_storage_usage before initiating direct upload
+            const { data: usage } = await this.supabase.adminClient
+                .from('tenant_storage_usage')
+                .select('is_quota_exceeded, total_bytes_used, storage_quota_gb')
+                .eq('tenant_id', caller.tenantId)
+                .maybeSingle();
+
+            if (usage?.is_quota_exceeded) {
+                throw new PayloadTooLargeException(
+                    `Tenant storage quota of ${usage.storage_quota_gb} GB exceeded. Upgrade plan to upload additional media.`,
+                );
+            }
+        }
+
+        // Insert media asset record: direct videos start in 'processing'; embeds are immediately 'ready'
+        const initialStatus = isExternalEmbed ? 'ready' : 'processing';
+        const initialBytes = isExternalEmbed ? 0 : (dto.fileSizeBytes || 0);
+
         const { data, error } = await this.supabase.adminClient
             .from('media_assets')
             .insert({
@@ -196,16 +244,16 @@ export class MediaService {
                 uploaded_by: caller.sub,
                 title: dto.title,
                 description: dto.description || null,
-                cloudinary_public_id: dto.cloudinaryPublicId,
+                cloudinary_public_id: dto.cloudinaryPublicId || `embed_${Date.now()}`,
                 cloudinary_secure_url: dto.cloudinarySecureUrl,
-                hls_url: dto.hlsUrl || null,
-                mp4_url: dto.mp4Url || null,
+                hls_url: isExternalEmbed ? null : (dto.hlsUrl || null),
+                mp4_url: isExternalEmbed ? null : (dto.mp4Url || null),
                 duration_seconds: dto.durationSeconds || null,
-                file_size_bytes: dto.fileSizeBytes,
-                status: 'ready',
+                file_size_bytes: initialBytes,
+                status: initialStatus,
                 subject: dto.subject || null,
                 grade_level: dto.gradeLevel || null,
-                is_downloadable: dto.isDownloadable ?? false,
+                is_downloadable: isExternalEmbed ? false : (dto.isDownloadable ?? false),
             })
             .select('*')
             .single();
@@ -215,16 +263,8 @@ export class MediaService {
             throw new InternalServerErrorException('Failed to create media asset record');
         }
 
-        // 3. Record storage consumption in tenant_storage_ledgers
-        await this.supabase.adminClient.from('tenant_storage_ledgers').insert({
-            tenant_id: caller.tenantId,
-            resource_id: data.id,
-            resource_type: 'video_master',
-            bytes: dto.fileSizeBytes,
-            format: 'mp4',
-            idempotency_key: `upload_${data.id}`,
-            metadata: { title: dto.title, cloudinaryPublicId: dto.cloudinaryPublicId },
-        });
+        // Note: Storage ledger is recorded when the Cloudinary webhook confirms actual uploaded bytes,
+        // preventing double-counting between createAsset and the webhook.
 
         return {
             success: true,
@@ -233,7 +273,7 @@ export class MediaService {
     }
 
     /**
-     * Soft-deletes a media asset and logs ledger credit entry to reclaim tenant storage quota.
+     * Soft-deletes a media asset with teacher ownership enforcement and logs ledger credit entry.
      */
     async deleteAsset(caller: JwtPayload, assetId: string) {
         assertUuid(caller.tenantId, 'tenantId');
@@ -246,13 +286,18 @@ export class MediaService {
             .eq('id', assetId)
             .maybeSingle();
 
-        if (getErr || !existing) {
+        if (getErr || !existing || existing.status === 'deleted') {
             throw new NotFoundException(`Media asset ${assetId} not found`);
+        }
+
+        // Enforce teacher deletion ownership: teachers can only delete their own uploads
+        if (caller.role === UserRole.TEACHER && existing.uploaded_by !== caller.sub) {
+            throw new ForbiddenException('Teachers are only permitted to delete media resources they uploaded');
         }
 
         const { error: delErr } = await this.supabase.adminClient
             .from('media_assets')
-            .update({ status: 'failed', updated_at: new Date().toISOString() })
+            .update({ status: 'deleted', updated_at: new Date().toISOString() })
             .eq('id', assetId);
 
         if (delErr) {
@@ -261,15 +306,17 @@ export class MediaService {
         }
 
         // Reclaim storage quota in ledger with negative bytes
-        await this.supabase.adminClient.from('tenant_storage_ledgers').insert({
-            tenant_id: caller.tenantId,
-            resource_id: assetId,
-            resource_type: 'video_deleted',
-            bytes: -Math.abs(Number(existing.file_size_bytes) || 0),
-            format: 'mp4',
-            idempotency_key: `delete_${assetId}`,
-            metadata: { deletedAt: new Date().toISOString() },
-        });
+        if (Number(existing.file_size_bytes) > 0) {
+            await this.supabase.adminClient.from('tenant_storage_ledgers').insert({
+                tenant_id: caller.tenantId,
+                resource_id: assetId,
+                resource_type: 'video_deleted',
+                bytes: -Math.abs(Number(existing.file_size_bytes)),
+                format: 'mp4',
+                idempotency_key: `delete_${assetId}`,
+                metadata: { deletedAt: new Date().toISOString(), deletedBy: caller.sub },
+            });
+        }
 
         return {
             success: true,
@@ -318,4 +365,3 @@ export class MediaService {
         };
     }
 }
-

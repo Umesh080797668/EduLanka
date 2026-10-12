@@ -18,6 +18,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Dialog } from '@/components/ui/Dialog';
+import { HlsPlayer } from '@/components/video/HlsPlayer';
 
 interface MediaAsset {
     id: string;
@@ -270,16 +271,12 @@ export default function StudentResourcesPage() {
                             </Button>
                         </div>
 
-                        <div className="rounded-lg overflow-hidden bg-black aspect-video flex items-center justify-center">
-                            <video
-                                src={activeVideo.mp4_url || activeVideo.cloudinary_secure_url}
-                                controls
-                                autoPlay
-                                className="w-full h-full"
-                            >
-                                Your browser does not support HTML5 video streaming.
-                            </video>
-                        </div>
+                        <HlsPlayer
+                            hlsUrl={activeVideo.hls_url}
+                            mp4Url={activeVideo.mp4_url || activeVideo.cloudinary_secure_url}
+                            title={activeVideo.title}
+                            autoPlay={true}
+                        />
 
                         {activeVideo.description && (
                             <p className="text-xs text-muted-foreground pt-1">

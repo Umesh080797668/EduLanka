@@ -77,6 +77,7 @@ export class UploadService {
             folder,
             signature,
             apiKey,
+            cloudName: process.env.CLOUDINARY_CLOUD_NAME || 'edulanka',
             allowedFormats,
             uploadPreset: uploadPreset || null,
             maxFileSize: folderType === 'videos' ? 200 * 1024 * 1024 : 10 * 1024 * 1024,
@@ -275,6 +276,29 @@ export class UploadService {
         this.logger.log(
             `Storage ledger updated for tenant ${tenantId}: master ${bytes} bytes, ${eagerRenditions.length} renditions recorded.`,
         );
+
+        // 3. Mark media_assets record as ready and sync transcoded renditions if present
+        try {
+            const hlsRendition = eagerRenditions.find((r: any) =>
+                (r.format === 'm3u8' || String(r.transformation || '').includes('m3u8') || String(r.secure_url || '').includes('.m3u8')),
+            );
+            const mp4Rendition = eagerRenditions.find((r: any) => r.format === 'mp4' || String(r.secure_url || '').includes('.mp4'));
+
+            await this.supabase.adminClient
+                .from('media_assets')
+                .update({
+                    status: 'ready',
+                    file_size_bytes: bytes,
+                    duration_seconds: payload.duration ? Math.round(Number(payload.duration)) : undefined,
+                    cloudinary_secure_url: payload.secure_url || undefined,
+                    hls_url: hlsRendition?.secure_url || undefined,
+                    mp4_url: mp4Rendition?.secure_url || payload.secure_url || undefined,
+                    updated_at: new Date().toISOString(),
+                })
+                .eq('cloudinary_public_id', String(publicId));
+        } catch (mediaErr: any) {
+            this.logger.warn(`Could not sync media_assets table for ${publicId}: ${mediaErr?.message}`);
+        }
 
         return {
             success: true,

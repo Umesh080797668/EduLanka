@@ -69,7 +69,26 @@ export class TenantContextMiddleware implements NestMiddleware {
             return next();
         }
 
-        const tenantId = (req.headers['x-tenant-id'] as string | undefined)?.trim();
+        let jwtTenantId: string | undefined;
+        const authHeader = req.headers.authorization;
+        if (authHeader && typeof authHeader === 'string' && authHeader.startsWith('Bearer ')) {
+            const token = authHeader.slice(7).trim();
+            try {
+                const parts = token.split('.');
+                if (parts.length === 3) {
+                    const payloadJson = Buffer.from(parts[1], 'base64url').toString('utf8');
+                    const parsed = JSON.parse(payloadJson);
+                    if (parsed && typeof parsed === 'object' && parsed.tenantId) {
+                        jwtTenantId = parsed.tenantId;
+                    }
+                }
+            } catch {
+                // Ignore decoding errors here; JwtAuthGuard verifies cryptographically downstream
+            }
+        }
+
+        // Prioritize verified JWT claim over client-sent x-tenant-id header
+        const tenantId = jwtTenantId || (req.headers['x-tenant-id'] as string | undefined)?.trim();
 
         if (!tenantId) {
             throw new BadRequestException(

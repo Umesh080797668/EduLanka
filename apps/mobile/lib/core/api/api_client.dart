@@ -1,16 +1,23 @@
+import 'dart:async';
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../auth/token_storage.dart';
+import '../auth/auth_state.dart';
 import '../config/app_config.dart';
 
 class ApiClient {
   late final Dio dio;
+  late final Dio _refreshDio;
   final TokenStorage tokenStorage;
   final String baseUrl;
+  final void Function()? onSessionExpired;
+
+  Completer<String?>? _refreshCompleter;
 
   ApiClient({
     required this.tokenStorage,
     required this.baseUrl,
+    this.onSessionExpired,
   }) {
     dio = Dio(
       BaseOptions(
@@ -21,29 +28,55 @@ class ApiClient {
       ),
     );
 
+    // Dedicated unintercepted Dio instance for /auth/refresh to eliminate interceptor loops
+    _refreshDio = Dio(
+      BaseOptions(
+        baseUrl: baseUrl,
+        connectTimeout: const Duration(seconds: 10),
+        receiveTimeout: const Duration(seconds: 10),
+        headers: {'Content-Type': 'application/json'},
+      ),
+    );
+
     dio.interceptors.add(
       InterceptorsWrapper(
         onRequest: (options, handler) async {
           final token = await tokenStorage.getAccessToken();
-          final tenantId = await tokenStorage.getTenantId();
-
-          if (token != null) {
+          if (token != null && token.isNotEmpty) {
             options.headers['Authorization'] = 'Bearer $token';
           }
-          if (tenantId != null && tenantId.isNotEmpty) {
-            options.headers['X-Tenant-Id'] = tenantId;
-          }
+          // The API strictly scopes tenant access from the validated JWT claim
           return handler.next(options);
         },
         onError: (DioException error, handler) async {
-          if (error.response?.statusCode == 401 &&
-              !error.requestOptions.path.contains('/auth/login') &&
-              !error.requestOptions.path.contains('/auth/refresh')) {
-            // Attempt auto refresh
+          final is401 = error.response?.statusCode == 401;
+          final isAuthPath = error.requestOptions.path.contains('/auth/login') ||
+              error.requestOptions.path.contains('/auth/refresh');
+
+          if (is401 && !isAuthPath) {
+            // Concurrency lock: If a refresh is already in-flight, await its completion
+            if (_refreshCompleter != null) {
+              final newAccess = await _refreshCompleter!.future;
+              if (newAccess != null && newAccess.isNotEmpty) {
+                error.requestOptions.headers['Authorization'] = 'Bearer $newAccess';
+                try {
+                  final retryRes = await dio.fetch(error.requestOptions);
+                  return handler.resolve(retryRes);
+                } catch (retryErr) {
+                  return handler.next(error);
+                }
+              } else {
+                return handler.next(error);
+              }
+            }
+
+            _refreshCompleter = Completer<String?>();
+
             final refreshToken = await tokenStorage.getRefreshToken();
-            if (refreshToken != null) {
+            if (refreshToken != null && refreshToken.isNotEmpty) {
               try {
-                final refreshRes = await dio.post(
+                // Route refresh through unintercepted Dio instance
+                final refreshRes = await _refreshDio.post(
                   '/auth/refresh',
                   data: {'refreshToken': refreshToken},
                 );
@@ -54,30 +87,44 @@ class ApiClient {
                     ? refreshRes.data['data']
                     : refreshRes.data;
 
-                final newAccess = data?['accessToken'];
+                final newAccess = data?['accessToken'] as String?;
+                // Crucial: Rotate and store the NEW refresh token returned by backend
+                final newRefresh = data?['refreshToken'] as String? ?? refreshToken;
 
-                if (newAccess != null) {
+                if (newAccess != null && newAccess.isNotEmpty) {
                   final tenantId = await tokenStorage.getTenantId() ?? '';
                   final role = await tokenStorage.getUserRole() ?? '';
                   final userId = await tokenStorage.getUserId() ?? '';
 
                   await tokenStorage.saveTokens(
                     accessToken: newAccess,
-                    refreshToken: refreshToken,
+                    refreshToken: newRefresh,
                     tenantId: tenantId,
                     role: role,
                     userId: userId,
                   );
 
-                  // Retry original request
-                  error.requestOptions.headers['Authorization'] =
-                      'Bearer $newAccess';
+                  _refreshCompleter?.complete(newAccess);
+                  _refreshCompleter = null;
+
+                  // Retry original request with newly minted access token
+                  error.requestOptions.headers['Authorization'] = 'Bearer $newAccess';
                   final retryRes = await dio.fetch(error.requestOptions);
                   return handler.resolve(retryRes);
+                } else {
+                  throw Exception('Invalid token payload in refresh response');
                 }
               } catch (_) {
+                _refreshCompleter?.complete(null);
+                _refreshCompleter = null;
                 await tokenStorage.clearAll();
+                onSessionExpired?.call();
               }
+            } else {
+              _refreshCompleter?.complete(null);
+              _refreshCompleter = null;
+              await tokenStorage.clearAll();
+              onSessionExpired?.call();
             }
           }
           return handler.next(error);
@@ -220,5 +267,9 @@ class ApiClient {
 final apiClientProvider = Provider<ApiClient>((ref) {
   final tokenStorage = ref.watch(tokenStorageProvider);
   final config = ref.watch(appConfigProvider);
-  return ApiClient(tokenStorage: tokenStorage, baseUrl: config.apiBaseUrl);
+  return ApiClient(
+    tokenStorage: tokenStorage,
+    baseUrl: config.apiBaseUrl,
+    onSessionExpired: () => ref.read(authProvider.notifier).logout(),
+  );
 });
