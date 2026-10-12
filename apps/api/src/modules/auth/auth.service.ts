@@ -87,10 +87,10 @@ export class AuthService {
     private async resolveTenantUser(
         tenantId: string,
         authUid: string,
-    ): Promise<{ tenantId: string; userId: string; role: UserRole }> {
+    ): Promise<{ tenantId: string; userId: string; role: UserRole; tenantPlan?: 'COMMUNITY' | 'STARTER' | 'GROWTH' | 'INSTITUTIONAL'; tenantSlug?: string }> {
         const { data: tenantData, error: tenantError } = await this.supabaseService.adminClient
             .from('tenants')
-            .select('id, status')
+            .select('id, status, plan, slug')
             .eq('id', tenantId)
             .maybeSingle();
 
@@ -117,7 +117,13 @@ export class AuthService {
             throw new UnauthorizedException(`User account is deactivated|${payload}`);
         }
 
-        return { tenantId: tenantData.id, userId: userData.id as string, role: userData.role as UserRole };
+        return {
+            tenantId: tenantData.id,
+            userId: userData.id as string,
+            role: userData.role as UserRole,
+            tenantPlan: (tenantData.plan as any) || 'COMMUNITY',
+            tenantSlug: tenantData.slug,
+        };
     }
 
     // ── Public API ─────────────────────────────────────────────────────────────
@@ -457,12 +463,18 @@ export class AuthService {
 
         if (adminData) {
             const rootTenantId = this.configService.get('app.systemTenantId', { infer: true }) ?? '91c85e7c-7907-4915-ae70-4d5b7f3a843c';
-            const tokens = await this.issueTokenPair({ sub: adminData.id as string, tenantId: rootTenantId, role: adminData.role as UserRole, email: authUser.email ?? authUser.phone ?? identifier });
+            const tokens = await this.issueTokenPair({
+                sub: adminData.id as string,
+                tenantId: rootTenantId,
+                role: adminData.role as UserRole,
+                tenantPlan: 'INSTITUTIONAL',
+                email: authUser.email ?? authUser.phone ?? identifier,
+            });
             return {
                 accessToken: tokens.accessToken,
                 refreshToken: tokens.refreshToken,
                 expiresIn: tokens.expiresIn,
-                user: { id: adminData.id, role: adminData.role, tenantId: rootTenantId }
+                user: { id: adminData.id, role: adminData.role, tenantId: rootTenantId, tenantPlan: 'INSTITUTIONAL' }
             };
         }
 
@@ -476,9 +488,16 @@ export class AuthService {
             throw new UnauthorizedException('User credentials do not belong to the selected school');
         }
 
-        const { userId, role: userRole } = await this.resolveTenantUser(userTenantId, authUser.id);
+        const { userId, role: userRole, tenantPlan, tenantSlug } = await this.resolveTenantUser(userTenantId, authUser.id);
 
-        const tokens = await this.issueTokenPair({ sub: userId, tenantId: userTenantId, role: userRole, email: authUser.email ?? authUser.phone ?? identifier });
+        const tokens = await this.issueTokenPair({
+            sub: userId,
+            tenantId: userTenantId,
+            role: userRole,
+            tenantPlan,
+            tenantSlug,
+            email: authUser.email ?? authUser.phone ?? identifier,
+        });
         return {
             accessToken: tokens.accessToken,
             refreshToken: tokens.refreshToken,
@@ -486,7 +505,9 @@ export class AuthService {
             user: {
                 id: userId,
                 role: userRole,
-                tenantId: userTenantId
+                tenantId: userTenantId,
+                tenantPlan,
+                tenantSlug,
             }
         };
     }
@@ -645,9 +666,20 @@ export class AuthService {
             throw new InternalServerErrorException('Failed to register user in tenant: ' + insertError?.message);
         }
 
+        const { data: tenantInfo } = await this.supabaseService.adminClient
+            .from('tenants')
+            .select('plan, slug')
+            .eq('id', dto.tenantId)
+            .maybeSingle();
+
+        const tenantPlan = (tenantInfo?.plan as any) || 'COMMUNITY';
+        const tenantSlug = tenantInfo?.slug;
+
         const tokens = await this.issueTokenPair({
             sub: newUser.id as string,
             tenantId: dto.tenantId,
+            tenantPlan,
+            tenantSlug,
             role: dto.role,
             email: dto.email,
         });
@@ -657,7 +689,9 @@ export class AuthService {
             user: {
                 id: newUser.id as string,
                 role: dto.role,
-                tenantId: dto.tenantId
+                tenantId: dto.tenantId,
+                tenantPlan,
+                tenantSlug,
             }
         };
     }
@@ -831,9 +865,25 @@ export class AuthService {
         // Rotate: revoke old, issue new
         await this.redisService.revokeRefreshToken(jti);
 
+        let tenantPlan = payload.tenantPlan;
+        let tenantSlug = payload.tenantSlug;
+        if (!tenantPlan) {
+            const { data: tData } = await this.supabaseService.adminClient
+                .from('tenants')
+                .select('plan, slug')
+                .eq('id', payload.tenantId)
+                .maybeSingle();
+            if (tData) {
+                tenantPlan = tData.plan as any;
+                tenantSlug = tData.slug;
+            }
+        }
+
         return this.issueTokenPair({
             sub: payload.sub,
             tenantId: payload.tenantId,
+            tenantPlan: tenantPlan || 'COMMUNITY',
+            tenantSlug,
             role: payload.role,
             email: payload.email,
         });

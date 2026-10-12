@@ -11,7 +11,7 @@ export class PrismaService implements OnModuleInit, OnModuleDestroy {
       process.env.ANALYTICS_DATABASE_URL ||
       process.env.DATABASE_URL ||
       process.env.SUPABASE_DB_URL ||
-      'postgresql://postgres:postgres@localhost:54322/postgres';
+      'postgresql://analytics_ro:analytics_ro_secret_dev@localhost:54322/postgres';
 
     this.pool = new Pool({
       connectionString,

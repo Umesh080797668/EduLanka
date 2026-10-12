@@ -8,6 +8,7 @@ import {
     Logger,
     BadRequestException,
     ForbiddenException,
+    NotFoundException,
     ConflictException,
     GoneException,
     ServiceUnavailableException,
@@ -18,7 +19,7 @@ import { Queue } from 'bullmq';
 
 import { SupabaseService, assertUuid } from '../supabase/supabase.service';
 
-import type { RegisterDeviceTokenDto, AppendSyncEventDto, TriggerDisasterPushDto } from './dto/mobile.dto';
+import type { RegisterDeviceTokenDto, AppendSyncEventDto, TriggerDisasterPushDto, UpsertEmergencyContactDto, UpsertShelterDto } from './dto/mobile.dto';
 import type { FcmPushJobPayload } from './fcm.processor';
 
 @Injectable()
@@ -1046,10 +1047,28 @@ export class MobileService {
     }
 
     /**
-     * Updates or inserts emergency contact (P3-S8).
+     * Updates or inserts emergency contact (P3-S8) with tenant isolation verification.
      */
-    async upsertEmergencyContact(caller: JwtPayload, contact: { id?: string; name: string; role: string; phone: string; isPrimary?: boolean; displayOrder?: number }) {
+    async upsertEmergencyContact(caller: JwtPayload, contact: UpsertEmergencyContactDto) {
         assertUuid(caller.tenantId, 'tenantId');
+
+        if (contact.id) {
+            assertUuid(contact.id, 'contactId');
+            const { data: existing, error: checkError } = await this.supabase.adminClient
+                .from('school_emergency_contacts')
+                .select('id, tenant_id')
+                .eq('id', contact.id)
+                .maybeSingle();
+
+            if (checkError) {
+                throw new InternalServerErrorException('Failed to verify emergency contact ownership');
+            }
+
+            if (existing && existing.tenant_id !== caller.tenantId) {
+                throw new ForbiddenException('Cannot overwrite emergency contacts belonging to another institution');
+            }
+        }
+
         const { data, error } = await this.supabase.adminClient
             .from('school_emergency_contacts')
             .upsert({
@@ -1072,6 +1091,40 @@ export class MobileService {
     }
 
     /**
+     * Deletes an emergency contact (P3-S8) ensuring tenant ownership.
+     */
+    async deleteEmergencyContact(caller: JwtPayload, id: string) {
+        assertUuid(caller.tenantId, 'tenantId');
+        assertUuid(id, 'contactId');
+
+        const { data: existing, error: checkError } = await this.supabase.adminClient
+            .from('school_emergency_contacts')
+            .select('id, tenant_id')
+            .eq('id', id)
+            .maybeSingle();
+
+        if (checkError || !existing) {
+            throw new NotFoundException(`Emergency contact ${id} not found`);
+        }
+
+        if (existing.tenant_id !== caller.tenantId && caller.role !== UserRole.SUPER_ADMIN) {
+            throw new ForbiddenException('Cannot delete emergency contacts belonging to another institution');
+        }
+
+        const { error } = await this.supabase.adminClient
+            .from('school_emergency_contacts')
+            .delete()
+            .eq('id', id)
+            .eq('tenant_id', caller.tenantId);
+
+        if (error) {
+            throw new InternalServerErrorException('Failed to delete emergency contact');
+        }
+
+        return { success: true };
+    }
+
+    /**
      * Retrieves designated emergency shelters for tenant (P3-S8).
      */
     async getShelters(caller: JwtPayload) {
@@ -1089,10 +1142,28 @@ export class MobileService {
     }
 
     /**
-     * Updates or inserts school shelter (P3-S8).
+     * Updates or inserts school shelter (P3-S8) with tenant isolation verification.
      */
-    async upsertShelter(caller: JwtPayload, shelter: { id?: string; name: string; address: string; capacity?: number; gpsLat?: number; gpsLng?: number; notes?: string }) {
+    async upsertShelter(caller: JwtPayload, shelter: UpsertShelterDto) {
         assertUuid(caller.tenantId, 'tenantId');
+
+        if (shelter.id) {
+            assertUuid(shelter.id, 'shelterId');
+            const { data: existing, error: checkError } = await this.supabase.adminClient
+                .from('school_shelters')
+                .select('id, tenant_id')
+                .eq('id', shelter.id)
+                .maybeSingle();
+
+            if (checkError) {
+                throw new InternalServerErrorException('Failed to verify shelter ownership');
+            }
+
+            if (existing && existing.tenant_id !== caller.tenantId) {
+                throw new ForbiddenException('Cannot overwrite shelters belonging to another institution');
+            }
+        }
+
         const { data, error } = await this.supabase.adminClient
             .from('school_shelters')
             .upsert({
@@ -1113,6 +1184,40 @@ export class MobileService {
             throw new InternalServerErrorException('Failed to save shelter record');
         }
         return data;
+    }
+
+    /**
+     * Deletes a school shelter (P3-S8) ensuring tenant ownership.
+     */
+    async deleteShelter(caller: JwtPayload, id: string) {
+        assertUuid(caller.tenantId, 'tenantId');
+        assertUuid(id, 'shelterId');
+
+        const { data: existing, error: checkError } = await this.supabase.adminClient
+            .from('school_shelters')
+            .select('id, tenant_id')
+            .eq('id', id)
+            .maybeSingle();
+
+        if (checkError || !existing) {
+            throw new NotFoundException(`Shelter ${id} not found`);
+        }
+
+        if (existing.tenant_id !== caller.tenantId && caller.role !== UserRole.SUPER_ADMIN) {
+            throw new ForbiddenException('Cannot delete shelters belonging to another institution');
+        }
+
+        const { error } = await this.supabase.adminClient
+            .from('school_shelters')
+            .delete()
+            .eq('id', id)
+            .eq('tenant_id', caller.tenantId);
+
+        if (error) {
+            throw new InternalServerErrorException('Failed to delete shelter record');
+        }
+
+        return { success: true };
     }
 
     /**

@@ -5,6 +5,8 @@ import {
     Post,
     Get,
     Put,
+    Delete,
+    Param,
     Body,
     Query,
     UseGuards,
@@ -19,7 +21,13 @@ import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { TenantGuard } from '../../common/guards/tenant.guard';
 
-import { RegisterDeviceTokenDto, AppendSyncEventDto, TriggerDisasterPushDto } from './dto/mobile.dto';
+import {
+    RegisterDeviceTokenDto,
+    AppendSyncEventDto,
+    TriggerDisasterPushDto,
+    UpsertEmergencyContactDto,
+    UpsertShelterDto,
+} from './dto/mobile.dto';
 import { MobileService } from './mobile.service';
 
 @ApiTags('mobile')
@@ -131,9 +139,19 @@ export class MobileController {
     @ApiOperation({ summary: 'Upsert school emergency contact (P3-S8)' })
     upsertEmergencyContact(
         @CurrentUser() user: JwtPayload,
-        @Body() contact: { id?: string; name: string; role: string; phone: string; isPrimary?: boolean; displayOrder?: number },
+        @Body() contact: UpsertEmergencyContactDto,
     ) {
         return this.mobileService.upsertEmergencyContact(user, contact);
+    }
+
+    @Delete('emergency-contacts/:id')
+    @Roles(UserRole.SCHOOL_ADMIN, UserRole.SUPER_ADMIN)
+    @ApiOperation({ summary: 'Delete school emergency contact (P3-S8)' })
+    deleteEmergencyContact(
+        @CurrentUser() user: JwtPayload,
+        @Param('id') id: string,
+    ) {
+        return this.mobileService.deleteEmergencyContact(user, id);
     }
 
     @Get('shelters')
@@ -147,8 +165,18 @@ export class MobileController {
     @ApiOperation({ summary: 'Upsert school emergency evacuation shelter (P3-S8)' })
     upsertShelter(
         @CurrentUser() user: JwtPayload,
-        @Body() shelter: { id?: string; name: string; address: string; capacity?: number; gpsLat?: number; gpsLng?: number; notes?: string },
+        @Body() shelter: UpsertShelterDto,
     ) {
         return this.mobileService.upsertShelter(user, shelter);
+    }
+
+    @Delete('shelters/:id')
+    @Roles(UserRole.SCHOOL_ADMIN, UserRole.SUPER_ADMIN)
+    @ApiOperation({ summary: 'Delete school emergency evacuation shelter (P3-S8)' })
+    deleteShelter(
+        @CurrentUser() user: JwtPayload,
+        @Param('id') id: string,
+    ) {
+        return this.mobileService.deleteShelter(user, id);
     }
 }

@@ -44,7 +44,8 @@
         "resources": "Learning Resources",
         "pastPapers": "Past Papers Hub",
         "storageQuota": "Storage Quota",
-        "mobileReleases": "Mobile App Releases"
+        "mobileReleases": "Mobile App Releases",
+        "analytics": "Platform Analytics"
     },
     "Header": {
         "searchPlaceholder": "Search...",

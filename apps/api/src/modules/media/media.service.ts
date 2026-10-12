@@ -141,6 +141,20 @@ export class MediaService {
 
         const expiresAt = new Date(Date.now() + 3600 * 1000).toISOString();
 
+        // Record media download telemetry event (P3-S6, P3-S9)
+        try {
+            await this.supabase.adminClient
+                .from('media_download_logs')
+                .insert({
+                    tenant_id: caller.tenantId,
+                    asset_id: asset.id,
+                    user_id: caller.sub,
+                    file_size_bytes: asset.file_size_bytes || 0,
+                });
+        } catch (logErr: any) {
+            this.logger.warn(`Failed to log media download event: ${logErr?.message}`);
+        }
+
         return {
             success: true,
             assetId: asset.id,

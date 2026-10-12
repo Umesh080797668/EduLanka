@@ -44,7 +44,8 @@
         "resources": "கற்றல் வளங்கள்",
         "pastPapers": "கடந்த கால வினாத்தாள்கள்",
         "storageQuota": "சேமிப்பக ஒதுக்கீடு",
-        "mobileReleases": "மொபைல் செயலி வெளியீடுகள்"
+        "mobileReleases": "மொபைல் செயலி வெளியீடுகள்",
+        "analytics": "தளப் பகுப்பாய்வு"
     },
     "Header": {
         "searchPlaceholder": "தேடுக...",

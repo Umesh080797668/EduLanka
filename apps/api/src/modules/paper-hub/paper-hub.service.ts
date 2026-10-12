@@ -2,9 +2,11 @@ import {
     Injectable,
     Logger,
     NotFoundException,
+    ForbiddenException,
     InternalServerErrorException,
 } from '@nestjs/common';
 import type { JwtPayload } from '@edu-lanka/shared-types';
+import { UserRole } from '@edu-lanka/shared-types';
 import { SupabaseService, assertUuid } from '../supabase/supabase.service';
 import type { CreatePaperDto, AttachMarkingSchemeDto } from './dto/create-paper.dto';
 
@@ -78,9 +80,9 @@ export class PaperHubService {
     }
 
     /**
-     * Retrieves a single paper by ID.
+     * Retrieves a single paper by ID with tenant isolation check.
      */
-    async getPaperById(paperId: string) {
+    async getPaperById(caller: JwtPayload, paperId: string) {
         assertUuid(paperId, 'paperId');
 
         const { data, error } = await this.supabase.adminClient
@@ -91,6 +93,14 @@ export class PaperHubService {
 
         if (error || !data) {
             throw new NotFoundException(`Paper with ID ${paperId} not found`);
+        }
+
+        // Cross-tenant protection:
+        // National papers (tenant_id IS NULL) are accessible to all authenticated users.
+        // School-specific papers (tenant_id IS NOT NULL) can only be viewed by users
+        // belonging to that school or platform SUPER_ADMIN.
+        if (data.tenant_id !== null && caller.role !== UserRole.SUPER_ADMIN && caller.tenantId !== data.tenant_id) {
+            throw new ForbiddenException('Access denied: You do not have permission to view examination papers of another institution');
         }
 
         return data;
@@ -176,10 +186,33 @@ export class PaperHubService {
     }
 
     /**
-     * Attaches a marking scheme to an existing paper and marks it paired.
+     * Attaches a marking scheme to an existing paper and marks it paired with ownership checks.
      */
-    async attachMarkingScheme(paperId: string, dto: AttachMarkingSchemeDto) {
+    async attachMarkingScheme(caller: JwtPayload, paperId: string, dto: AttachMarkingSchemeDto) {
         assertUuid(paperId, 'paperId');
+
+        const { data: existingPaper, error: fetchError } = await this.supabase.adminClient
+            .from('papers')
+            .select('*')
+            .eq('id', paperId)
+            .maybeSingle();
+
+        if (fetchError || !existingPaper) {
+            throw new NotFoundException(`Paper with ID ${paperId} not found`);
+        }
+
+        // Ownership checks:
+        // National papers (tenant_id IS NULL) can ONLY be modified by SUPER_ADMIN.
+        // School papers can only be modified by SUPER_ADMIN or admins of that school.
+        if (existingPaper.tenant_id === null) {
+            if (caller.role !== UserRole.SUPER_ADMIN) {
+                throw new ForbiddenException('Only Super Admins can attach marking schemes to national papers');
+            }
+        } else {
+            if (caller.role !== UserRole.SUPER_ADMIN && caller.tenantId !== existingPaper.tenant_id) {
+                throw new ForbiddenException('Access denied: You cannot modify examination papers of another institution');
+            }
+        }
 
         const { data, error } = await this.supabase.adminClient
             .from('papers')

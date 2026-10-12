@@ -44,7 +44,8 @@
         "resources": "ඉගෙනුම් සම්පත්",
         "pastPapers": "පසුගිය ප්‍රශ්න පත්‍ර",
         "storageQuota": "ගබඩා ඉඩ ප්‍රමාණය",
-        "mobileReleases": "ජංගම යෙදුම් නිකුතු"
+        "mobileReleases": "ජංගම යෙදුම් නිකුතු",
+        "analytics": "වේදිකා විශ්ලේෂණ"
     },
     "Header": {
         "searchPlaceholder": "සොයන්න...",

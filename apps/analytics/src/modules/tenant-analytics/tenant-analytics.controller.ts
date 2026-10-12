@@ -1,16 +1,20 @@
 import {
   Controller,
   Get,
+  Post,
   Query,
+  Body,
   UseGuards,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiQuery } from '@nestjs/swagger';
+import { ApiTags, ApiBearerAuth, ApiOperation, ApiQuery } from '@nestjs/swagger';
+import { JwtAuthGuard } from '../../guards/jwt-auth.guard';
 import { SuperAdminGuard } from '../../guards/super-admin.guard';
 import { TenantAnalyticsService } from './tenant-analytics.service';
 
 @ApiTags('analytics')
+@ApiBearerAuth()
 @Controller()
-@UseGuards(SuperAdminGuard)
+@UseGuards(JwtAuthGuard, SuperAdminGuard)
 export class TenantAnalyticsController {
   constructor(private readonly analyticsService: TenantAnalyticsService) {}
 
@@ -45,5 +49,18 @@ export class TenantAnalyticsController {
   @ApiOperation({ summary: 'Media asset offline downloads and distribution statistics' })
   getMediaDownloads() {
     return this.analyticsService.getMediaDownloads();
+  }
+
+  @Get('billing/snapshots')
+  @ApiOperation({ summary: 'Tenant billing snapshots per month' })
+  @ApiQuery({ name: 'billingMonth', required: false })
+  getBillingSnapshots(@Query('billingMonth') billingMonth?: string) {
+    return this.analyticsService.getBillingSnapshots(billingMonth);
+  }
+
+  @Post('billing/snapshots/generate')
+  @ApiOperation({ summary: 'Calculate and generate billing snapshots for a billing month' })
+  generateBillingSnapshots(@Body() body: { billingMonth?: string }) {
+    return this.analyticsService.generateBillingSnapshots(body?.billingMonth);
   }
 }

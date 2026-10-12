@@ -70,3 +70,68 @@ export class TriggerDisasterPushDto {
     @IsString()
     expectedDuration?: string;
 }
+
+export class UpsertEmergencyContactDto {
+    @ApiPropertyOptional({ description: 'Emergency contact UUID (if updating existing contact)' })
+    @IsOptional()
+    @IsUuidString()
+    id?: string;
+
+    @ApiProperty({ description: 'Contact person or service name' })
+    @IsString()
+    @IsNotEmpty()
+    name!: string;
+
+    @ApiProperty({ description: 'Role or designation (e.g. Principal, First Aid Officer, Fire Station)' })
+    @IsString()
+    @IsNotEmpty()
+    role!: string;
+
+    @ApiProperty({ description: 'Contact phone number' })
+    @IsString()
+    @IsNotEmpty()
+    phone!: string;
+
+    @ApiPropertyOptional({ description: 'Whether this is the primary emergency contact' })
+    @IsOptional()
+    isPrimary?: boolean;
+
+    @ApiPropertyOptional({ description: 'Display order priority' })
+    @IsOptional()
+    displayOrder?: number;
+}
+
+export class UpsertShelterDto {
+    @ApiPropertyOptional({ description: 'Shelter UUID (if updating existing shelter)' })
+    @IsOptional()
+    @IsUuidString()
+    id?: string;
+
+    @ApiProperty({ description: 'Shelter name' })
+    @IsString()
+    @IsNotEmpty()
+    name!: string;
+
+    @ApiProperty({ description: 'Shelter physical address or location' })
+    @IsString()
+    @IsNotEmpty()
+    address!: string;
+
+    @ApiPropertyOptional({ description: 'Capacity of occupants' })
+    @IsOptional()
+    capacity?: number;
+
+    @ApiPropertyOptional({ description: 'GPS Latitude' })
+    @IsOptional()
+    gpsLat?: number;
+
+    @ApiPropertyOptional({ description: 'GPS Longitude' })
+    @IsOptional()
+    gpsLng?: number;
+
+    @ApiPropertyOptional({ description: 'Additional instructions or facilities' })
+    @IsOptional()
+    @IsString()
+    notes?: string;
+}
+

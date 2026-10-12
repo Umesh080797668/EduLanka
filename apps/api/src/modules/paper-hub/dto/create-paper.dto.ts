@@ -1,4 +1,5 @@
-import { IsString, IsNotEmpty, IsOptional, IsInt, IsIn, Min, Max } from 'class-validator';
+import { IsString, IsNotEmpty, IsOptional, IsInt, IsIn, Min, Max, IsArray, ValidateNested, ArrayMinSize } from 'class-validator';
+import { Type } from 'class-transformer';
 
 export class CreatePaperDto {
     @IsString()
@@ -55,5 +56,9 @@ export class AttachMarkingSchemeDto {
 }
 
 export class BulkUploadPapersDto {
+    @IsArray()
+    @ArrayMinSize(1)
+    @ValidateNested({ each: true })
+    @Type(() => CreatePaperDto)
     papers!: CreatePaperDto[];
 }

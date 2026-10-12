@@ -7,6 +7,7 @@ import { useTranslations } from 'next-intl';
 import {
     Activity,
     Baby,
+    BarChart3,
     Bell,
     BookOpen,
     Building2,
@@ -158,6 +159,7 @@ const NAV: Record<Role, NavSection[]> = {
                 { nameKey: 'tenants', href: '/system-admin/tenants', icon: Building2, id: 'nav-tenants' },
                 { nameKey: 'users', href: '/system-admin/users', icon: Users },
                 { nameKey: 'storageQuota', href: '/system-admin/storage', icon: HardDrive, id: 'nav-storage' },
+                { nameKey: 'analytics', href: '/system-admin/analytics', icon: BarChart3, id: 'nav-analytics' },
                 { nameKey: 'mobileReleases', href: '/system-admin/releases', icon: Smartphone, id: 'nav-releases' },
                 { nameKey: 'tutorials', href: '/system-admin/tutorials', icon: BookOpen, id: 'nav-tutorials' },
             ],

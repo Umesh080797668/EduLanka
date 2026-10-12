@@ -60,8 +60,8 @@ export class PaperHubController {
 
     @Get(':id')
     @ApiOperation({ summary: 'Get a specific paper and its paired marking scheme' })
-    getPaperById(@Param('id') id: string) {
-        return this.paperHubService.getPaperById(id);
+    getPaperById(@CurrentUser() user: JwtPayload, @Param('id') id: string) {
+        return this.paperHubService.getPaperById(user, id);
     }
 
     @Post()
@@ -83,7 +83,11 @@ export class PaperHubController {
     @Patch(':id/scheme')
     @Roles(UserRole.SCHOOL_ADMIN, UserRole.SUPER_ADMIN)
     @ApiOperation({ summary: 'Attach a marking scheme to an existing paper' })
-    attachMarkingScheme(@Param('id') id: string, @Body() dto: AttachMarkingSchemeDto) {
-        return this.paperHubService.attachMarkingScheme(id, dto);
+    attachMarkingScheme(
+        @CurrentUser() user: JwtPayload,
+        @Param('id') id: string,
+        @Body() dto: AttachMarkingSchemeDto,
+    ) {
+        return this.paperHubService.attachMarkingScheme(user, id, dto);
     }
 }

@@ -15,14 +15,14 @@ export class TenantAnalyticsService {
         t.id AS "tenantId",
         t.name AS "tenantName",
         t.plan AS "plan",
-        COUNT(u.id)::int AS "activeStudentCount",
-        $1 AS "billingMonth"
+        COUNT(u.id)::int AS "activeStudentCount"
       FROM public.tenants t
-      LEFT JOIN public.users u ON u.tenant_id = t.id AND u.role = 'STUDENT' AND u.status = 'ACTIVE'
+      LEFT JOIN public.users u ON u.tenant_id = t.id AND u.role = 'STUDENT' AND u.is_active = true
       GROUP BY t.id, t.name, t.plan
       ORDER BY "activeStudentCount" DESC;
     `;
-    return this.prisma.query(sql, [month]);
+    const rows = await this.prisma.query(sql);
+    return rows.map((r) => ({ ...r, billingMonth: month }));
   }
 
   /**
@@ -86,20 +86,139 @@ export class TenantAnalyticsService {
   }
 
   /**
-   * Media asset download and distribution statistics.
+   * Media asset download and distribution statistics from actual download logs.
    */
   async getMediaDownloads() {
-    const sql = `
+    const downloadLogsSql = `
       SELECT 
         m.subject,
-        COUNT(m.id)::int AS "assetCount",
-        SUM(m.file_size_bytes)::bigint AS "totalSizeBytes",
+        COUNT(l.id)::int AS "downloadCount",
+        COUNT(DISTINCT l.user_id)::int AS "uniqueDownloadersCount",
+        COALESCE(SUM(l.file_size_bytes), 0)::bigint AS "totalDownloadedBytes",
+        COUNT(DISTINCT m.id)::int AS "distinctAssetsDownloaded"
+      FROM public.media_download_logs l
+      JOIN public.media_assets m ON m.id = l.asset_id
+      GROUP BY m.subject
+      ORDER BY "downloadCount" DESC;
+    `;
+
+    try {
+      const records = await this.prisma.query(downloadLogsSql);
+      if (records && records.length > 0) {
+        return records;
+      }
+    } catch {
+      // Table may be newly migrated
+    }
+
+    // Fallback: If no downloads recorded yet, present downloadable media catalog breakdown
+    const catalogSql = `
+      SELECT 
+        m.subject,
+        0::int AS "downloadCount",
+        0::int AS "uniqueDownloadersCount",
+        0::bigint AS "totalDownloadedBytes",
+        COUNT(m.id)::int AS "distinctAssetsDownloaded",
         COUNT(CASE WHEN m.is_downloadable = true THEN 1 END)::int AS "downloadableCount"
       FROM public.media_assets m
       WHERE m.status = 'ready'
       GROUP BY m.subject
-      ORDER BY "assetCount" DESC;
+      ORDER BY "distinctAssetsDownloaded" DESC;
     `;
-    return this.prisma.query(sql);
+    return this.prisma.query(catalogSql);
+  }
+
+  /**
+   * Retrieves billing snapshots for invoicing.
+   */
+  async getBillingSnapshots(billingMonth?: string) {
+    const month = billingMonth || new Date().toISOString().slice(0, 7);
+    const sql = `
+      SELECT 
+        b.id,
+        b.tenant_id AS "tenantId",
+        t.name AS "tenantName",
+        b.billing_month AS "billingMonth",
+        b.plan,
+        b.active_student_count AS "activeStudentCount",
+        b.base_fee_lkr AS "baseFeeLkr",
+        b.per_student_fee_lkr AS "perStudentFeeLkr",
+        b.sms_count AS "smsCount",
+        b.sms_overage_charge_lkr AS "smsOverageChargeLkr",
+        b.total_amount_lkr AS "totalAmountLkr",
+        b.status,
+        b.created_at AS "createdAt"
+      FROM public.billing_snapshots b
+      JOIN public.tenants t ON t.id = b.tenant_id
+      WHERE b.billing_month = $1
+      ORDER BY b.total_amount_lkr DESC;
+    `;
+    try {
+      return await this.prisma.query(sql, [month]);
+    } catch {
+      return [];
+    }
+  }
+
+  /**
+   * Computes and writes billing snapshots for all tenants for the specified month.
+   */
+  async generateBillingSnapshots(billingMonth?: string) {
+    const month = billingMonth || new Date().toISOString().slice(0, 7);
+
+    const computeSql = `
+      SELECT 
+        t.id AS "tenantId",
+        t.plan AS "plan",
+        COALESCE(p.base_fee_lkr, 0)::int AS "baseFeeLkr",
+        COALESCE(p.price_per_student_lkr, 0)::int AS "pricePerStudentLkr",
+        COUNT(DISTINCT u.id)::int AS "activeStudentCount",
+        COUNT(DISTINCT s.id)::int AS "smsCount"
+      FROM public.tenants t
+      LEFT JOIN public.plans p ON p.code = t.plan
+      LEFT JOIN public.users u ON u.tenant_id = t.id AND u.role = 'STUDENT' AND u.is_active = true
+      LEFT JOIN public.sms_logs s ON s.tenant_id = t.id AND TO_CHAR(s.created_at, 'YYYY-MM') = $1
+      WHERE t.status = 'ACTIVE'
+      GROUP BY t.id, t.plan, p.base_fee_lkr, p.price_per_student_lkr;
+    `;
+
+    const tenantData = await this.prisma.query(computeSql, [month]);
+
+    for (const td of tenantData) {
+      const studentCharge = td.activeStudentCount * td.pricePerStudentLkr;
+      const smsOverage = Math.max(0, td.smsCount - 100) * 2;
+      const totalAmount = td.baseFeeLkr + studentCharge + smsOverage;
+
+      const upsertSql = `
+        INSERT INTO public.billing_snapshots (
+          tenant_id, billing_month, plan, active_student_count, base_fee_lkr,
+          per_student_fee_lkr, sms_count, sms_overage_charge_lkr, total_amount_lkr, status, updated_at
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'DRAFT', NOW())
+        ON CONFLICT (tenant_id, billing_month)
+        DO UPDATE SET
+          plan = EXCLUDED.plan,
+          active_student_count = EXCLUDED.active_student_count,
+          base_fee_lkr = EXCLUDED.base_fee_lkr,
+          per_student_fee_lkr = EXCLUDED.per_student_fee_lkr,
+          sms_count = EXCLUDED.sms_count,
+          sms_overage_charge_lkr = EXCLUDED.sms_overage_charge_lkr,
+          total_amount_lkr = EXCLUDED.total_amount_lkr,
+          updated_at = NOW();
+      `;
+
+      await this.prisma.query(upsertSql, [
+        td.tenantId,
+        month,
+        td.plan || 'COMMUNITY',
+        td.activeStudentCount,
+        td.baseFeeLkr,
+        td.pricePerStudentLkr,
+        td.smsCount,
+        smsOverage,
+        totalAmount,
+      ]);
+    }
+
+    return this.getBillingSnapshots(month);
   }
 }

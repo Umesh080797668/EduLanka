@@ -91,8 +91,8 @@ services:
     environment:
       NODE_ENV: development
       PORT: 8083
-    ports:
-      - "8083:8083"
+    expose:
+      - "8083" # Accessible only through Nginx API gateway on port 8081
     networks:
       - edu-network
 
