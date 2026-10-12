@@ -1,12 +1,157 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/auth/auth_state.dart';
+import '../../core/database/local_database.dart';
+import '../../core/sync/sync_service.dart';
+import '../disaster/disaster_pack_dialog.dart';
 
-class TeacherHomeScreen extends ConsumerWidget {
+class TeacherHomeScreen extends ConsumerStatefulWidget {
   const TeacherHomeScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<TeacherHomeScreen> createState() => _TeacherHomeScreenState();
+}
+
+class _TeacherHomeScreenState extends ConsumerState<TeacherHomeScreen> {
+  bool _isSyncing = false;
+  int _pendingCount = 0;
+  int _lastSequence = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _refreshSyncState();
+  }
+
+  Future<void> _refreshSyncState() async {
+    final pending = await LocalDatabase.instance.getPendingOutboxCount();
+    final seq = await LocalDatabase.instance.getLastSequence();
+    if (mounted) {
+      setState(() {
+        _pendingCount = pending;
+        _lastSequence = seq;
+      });
+    }
+  }
+
+  Future<void> _handleSync() async {
+    setState(() {
+      _isSyncing = true;
+    });
+
+    final result = await ref.read(syncServiceProvider).syncAll();
+    await _refreshSyncState();
+
+    if (mounted) {
+      setState(() {
+        _isSyncing = false;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(result.message),
+          backgroundColor: result.success ? const Color(0xFF10B981) : const Color(0xFFEF4444),
+        ),
+      );
+    }
+  }
+
+  Future<void> _openMarkAttendanceDialog() async {
+    final studentIdController = TextEditingController(text: 'STD-1001');
+    final classIdController = TextEditingController(text: 'CLASS-10A');
+    String selectedStatus = 'PRESENT';
+
+    await showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          title: const Row(
+            children: [
+              Icon(Icons.how_to_reg_rounded, color: Color(0xFF0D9488)),
+              SizedBox(width: 8),
+              Text('Mark Attendance (Offline)'),
+            ],
+          ),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: studentIdController,
+                  decoration: const InputDecoration(labelText: 'Student ID / Registration #'),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: classIdController,
+                  decoration: const InputDecoration(labelText: 'Class ID / Grade Section'),
+                ),
+                const SizedBox(height: 16),
+                DropdownButtonFormField<String>(
+                  initialValue: selectedStatus,
+                  decoration: const InputDecoration(labelText: 'Attendance Status'),
+                  items: const [
+                    DropdownMenuItem(value: 'PRESENT', child: Text('Present')),
+                    DropdownMenuItem(value: 'ABSENT', child: Text('Absent')),
+                    DropdownMenuItem(value: 'LATE', child: Text('Late')),
+                  ],
+                  onChanged: (val) {
+                    if (val != null) {
+                      setDialogState(() => selectedStatus = val);
+                    }
+                  },
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF0D9488),
+                foregroundColor: Colors.white,
+              ),
+              onPressed: () async {
+                final studentId = studentIdController.text.trim();
+                final classId = classIdController.text.trim();
+                if (studentId.isEmpty || classId.isEmpty) return;
+
+                final now = DateTime.now();
+                final todayStr = '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+                final recordId = '${studentId}_${classId}_$todayStr';
+
+                await LocalDatabase.instance.recordAttendance(
+                  id: recordId,
+                  studentId: studentId,
+                  classId: classId,
+                  date: todayStr,
+                  status: selectedStatus,
+                  markedAt: now.toUtc().toIso8601String(),
+                );
+
+                if (ctx.mounted) Navigator.of(ctx).pop();
+                await _refreshSyncState();
+
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Marked $studentId as $selectedStatus. Queued in offline outbox.'),
+                    ),
+                  );
+                }
+              },
+              child: const Text('Save to Outbox'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Teacher Portal'),
@@ -14,14 +159,22 @@ class TeacherHomeScreen extends ConsumerWidget {
         foregroundColor: Colors.white,
         actions: [
           IconButton(
-            icon: const Icon(Icons.sync_rounded),
-            onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Outbox: Attendance records queued for sync.')),
-              );
-            },
+            tooltip: 'Sync Outbox',
+            icon: _isSyncing
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                  )
+                : Badge(
+                    isLabelVisible: _pendingCount > 0,
+                    label: Text('$_pendingCount'),
+                    child: const Icon(Icons.sync_rounded),
+                  ),
+            onPressed: _isSyncing ? null : _handleSync,
           ),
           IconButton(
+            tooltip: 'Sign Out',
             icon: const Icon(Icons.logout_rounded),
             onPressed: () => ref.read(authProvider.notifier).logout(),
           ),
@@ -33,23 +186,26 @@ class TeacherHomeScreen extends ConsumerWidget {
           Card(
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             color: const Color(0xFFF0FDFA),
-            child: const Padding(
-              padding: EdgeInsets.all(16),
+            child: Padding(
+              padding: const EdgeInsets.all(16),
               child: Row(
                 children: [
-                  Icon(Icons.how_to_reg_rounded, color: Color(0xFF0D9488), size: 36),
-                  SizedBox(width: 12),
+                  const Icon(Icons.how_to_reg_rounded, color: Color(0xFF0D9488), size: 36),
+                  const SizedBox(width: 12),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Offline Attendance Engine',
-                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                          _pendingCount > 0
+                              ? '$_pendingCount Attendance Record(s) Queued'
+                              : 'Attendance Engine Synchronized',
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                         ),
+                        const SizedBox(height: 2),
                         Text(
-                          'Mark student attendance without internet connection. Mutations persist to local outbox.',
-                          style: TextStyle(color: Color(0xFF64748B), fontSize: 12),
+                          'Last server sync sequence #$_lastSequence. Roll calls recorded offline persist safely to local SQLite.',
+                          style: const TextStyle(color: Color(0xFF64748B), fontSize: 12),
                         ),
                       ],
                     ),
@@ -77,13 +233,16 @@ class TeacherHomeScreen extends ConsumerWidget {
               _buildCard(
                 icon: Icons.checklist_rounded,
                 title: 'Mark Attendance',
-                subtitle: 'Period & Daily',
+                subtitle: 'Period & Daily Roll-Call',
                 color: const Color(0xFF0D9488),
-                onTap: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Opening Class Register...')),
-                  );
-                },
+                onTap: _openMarkAttendanceDialog,
+              ),
+              _buildCard(
+                icon: Icons.emergency_rounded,
+                title: 'Emergency Contacts',
+                subtitle: 'Offline Disaster Pack',
+                color: const Color(0xFFEF4444),
+                onTap: () => DisasterPackSheet.show(context),
               ),
               _buildCard(
                 icon: Icons.edit_calendar_rounded,
@@ -92,29 +251,18 @@ class TeacherHomeScreen extends ConsumerWidget {
                 color: const Color(0xFF3B82F6),
                 onTap: () {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Creating Homework Assignment...')),
+                    const SnackBar(content: Text('Homework tasks queue into local outbox stream.')),
                   );
                 },
               ),
               _buildCard(
                 icon: Icons.video_library_rounded,
                 title: 'Media Lessons',
-                subtitle: 'Upload & Quota',
+                subtitle: 'Upload & Review',
                 color: const Color(0xFF8B5CF6),
                 onTap: () {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Managing Media Resources...')),
-                  );
-                },
-              ),
-              _buildCard(
-                icon: Icons.emergency_rounded,
-                title: 'Emergency Contacts',
-                subtitle: 'Disaster Pack',
-                color: const Color(0xFFEF4444),
-                onTap: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Opening Emergency Directory...')),
+                    const SnackBar(content: Text('Media quota synchronized with tenant storage.')),
                   );
                 },
               ),

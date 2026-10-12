@@ -1,12 +1,65 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/auth/auth_state.dart';
+import '../../core/database/local_database.dart';
+import '../../core/sync/sync_service.dart';
+import '../disaster/disaster_pack_dialog.dart';
 
-class StudentHomeScreen extends ConsumerWidget {
+class StudentHomeScreen extends ConsumerStatefulWidget {
   const StudentHomeScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<StudentHomeScreen> createState() => _StudentHomeScreenState();
+}
+
+class _StudentHomeScreenState extends ConsumerState<StudentHomeScreen> {
+  bool _isSyncing = false;
+  int _pendingCount = 0;
+  int _lastSequence = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _refreshSyncState();
+  }
+
+  Future<void> _refreshSyncState() async {
+    final pending = await LocalDatabase.instance.getPendingOutboxCount();
+    final seq = await LocalDatabase.instance.getLastSequence();
+    if (mounted) {
+      setState(() {
+        _pendingCount = pending;
+        _lastSequence = seq;
+      });
+    }
+  }
+
+  Future<void> _handleSync() async {
+    setState(() {
+      _isSyncing = true;
+    });
+
+    final result = await ref.read(syncServiceProvider).syncAll();
+    await _refreshSyncState();
+
+    if (mounted) {
+      setState(() {
+        _isSyncing = false;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(result.message),
+          backgroundColor: result.success ? const Color(0xFF10B981) : const Color(0xFFEF4444),
+        ),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final authState = ref.watch(authProvider);
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Student Learning Hub'),
@@ -14,14 +67,18 @@ class StudentHomeScreen extends ConsumerWidget {
         foregroundColor: Colors.white,
         actions: [
           IconButton(
-            icon: const Icon(Icons.sync_rounded),
-            onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Offline Outbox: All changes synchronized.')),
-              );
-            },
+            tooltip: 'Sync Changes',
+            icon: _isSyncing
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                  )
+                : const Icon(Icons.sync_rounded),
+            onPressed: _isSyncing ? null : _handleSync,
           ),
           IconButton(
+            tooltip: 'Sign Out',
             icon: const Icon(Icons.logout_rounded),
             onPressed: () => ref.read(authProvider.notifier).logout(),
           ),
@@ -34,24 +91,32 @@ class StudentHomeScreen extends ConsumerWidget {
           Card(
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             color: const Color(0xFFEFF6FF),
-            child: const Padding(
-              padding: EdgeInsets.all(16),
+            child: Padding(
+              padding: const EdgeInsets.all(16),
               child: Row(
                 children: [
-                  Icon(Icons.offline_pin_rounded, color: Color(0xFF2563EB), size: 36),
-                  SizedBox(width: 12),
+                  const Icon(Icons.offline_pin_rounded, color: Color(0xFF2563EB), size: 36),
+                  const SizedBox(width: 12),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Offline Mode Active',
-                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                          _pendingCount > 0 ? 'Offline Changes Queued' : 'Offline Ready',
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                         ),
+                        const SizedBox(height: 2),
                         Text(
-                          'Encrypted SQLCipher storage and downloaded video lessons available offline.',
-                          style: TextStyle(color: Color(0xFF64748B), fontSize: 12),
+                          'Synced up to sequence #$_lastSequence • Outbox queue: $_pendingCount pending',
+                          style: const TextStyle(color: Color(0xFF64748B), fontSize: 12),
                         ),
+                        if (authState.userId != null)
+                          Text(
+                            'User ID: ${authState.userId}',
+                            style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 11),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
                       ],
                     ),
                   ),
@@ -77,13 +142,21 @@ class StudentHomeScreen extends ConsumerWidget {
             childAspectRatio: 1.2,
             children: [
               _buildFeatureCard(
+                icon: Icons.emergency_share_rounded,
+                title: 'Disaster Readiness',
+                subtitle: 'Emergency Shelters & Contacts',
+                color: const Color(0xFFEF4444),
+                onTap: () => DisasterPackSheet.show(context),
+              ),
+              _buildFeatureCard(
                 icon: Icons.video_collection_rounded,
-                title: 'Offline Video Lessons',
-                subtitle: 'AES-256 Protected',
+                title: 'Video Lessons',
+                subtitle: 'Offline Curriculum Playback',
                 color: const Color(0xFF3B82F6),
                 onTap: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Opening Offline Video Library...')),
+                  _showFeatureDialog(
+                    title: 'Offline Video Lessons',
+                    content: 'Educational video lessons are stored locally in application cache. Tap "Sync Changes" in the top bar to update downloads.',
                   );
                 },
               ),
@@ -93,8 +166,9 @@ class StudentHomeScreen extends ConsumerWidget {
                 subtitle: 'Paired Marking Schemes',
                 color: const Color(0xFF10B981),
                 onTap: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Opening Past Paper Hub...')),
+                  _showFeatureDialog(
+                    title: 'Past Paper Hub',
+                    content: 'Access downloaded past papers and official marking schemes offline.',
                   );
                 },
               ),
@@ -104,23 +178,29 @@ class StudentHomeScreen extends ConsumerWidget {
                 subtitle: 'Submit Offline',
                 color: const Color(0xFFF59E0B),
                 onTap: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Viewing Homework Tasks...')),
-                  );
-                },
-              ),
-              _buildFeatureCard(
-                icon: Icons.emergency_share_rounded,
-                title: 'Disaster Readiness',
-                subtitle: 'Emergency Shelters & Contacts',
-                color: const Color(0xFFEF4444),
-                onTap: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Offline Disaster Readiness Pack loaded.')),
+                  _showFeatureDialog(
+                    title: 'Homework Tasks',
+                    content: 'Completed homework is queued in the SQLite outbox and synchronizes when network connectivity is restored.',
                   );
                 },
               ),
             ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showFeatureDialog({required String title, required String content}) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(title),
+        content: Text(content),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('Close'),
           ),
         ],
       ),

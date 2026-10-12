@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../api/api_client.dart';
 import 'token_storage.dart';
 
 enum AuthStatus { initial, authenticated, unauthenticated }
@@ -45,6 +46,39 @@ class AuthNotifier extends StateNotifier<AuthState> {
     }
   }
 
+  Future<void> login({
+    required String identifier,
+    required String password,
+    String? tenantId,
+    required ApiClient apiClient,
+  }) async {
+    final response = await apiClient.login(
+      identifier: identifier,
+      password: password,
+      tenantId: tenantId,
+    );
+
+    final accessToken = response['accessToken'] as String?;
+    final refreshToken = response['refreshToken'] as String?;
+    final user = response['user'] is Map ? Map<String, dynamic>.from(response['user']) : null;
+
+    if (accessToken == null || refreshToken == null || user == null) {
+      throw Exception('Incomplete authentication response from server');
+    }
+
+    final userId = user['id']?.toString() ?? '';
+    final role = user['role']?.toString().toUpperCase() ?? 'STUDENT';
+    final resolvedTenantId = user['tenantId']?.toString() ?? tenantId ?? '';
+
+    await setAuthenticated(
+      accessToken: accessToken,
+      refreshToken: refreshToken,
+      tenantId: resolvedTenantId,
+      role: role,
+      userId: userId,
+    );
+  }
+
   Future<void> setAuthenticated({
     required String accessToken,
     required String refreshToken,
@@ -74,9 +108,8 @@ class AuthNotifier extends StateNotifier<AuthState> {
   }
 }
 
-final tokenStorageProvider = Provider<TokenStorage>((ref) => TokenStorage());
-
 final authProvider = StateNotifierProvider<AuthNotifier, AuthState>((ref) {
   final tokenStorage = ref.watch(tokenStorageProvider);
   return AuthNotifier(tokenStorage: tokenStorage);
 });
+
