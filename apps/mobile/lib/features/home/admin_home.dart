@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/api/api_client.dart';
 import '../../core/auth/auth_state.dart';
 import '../disaster/disaster_pack_dialog.dart';
+import '../tutorial/tutorial_engine.dart';
 
 class AdminHomeScreen extends ConsumerStatefulWidget {
   const AdminHomeScreen({super.key});
@@ -20,6 +21,9 @@ class _AdminHomeScreenState extends ConsumerState<AdminHomeScreen> {
   void initState() {
     super.initState();
     _loadSyncHealth();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      TutorialEngine.showTourIfUnseen(context, 'phase3_disaster_pack');
+    });
   }
 
   Future<void> _loadSyncHealth() async {
@@ -80,10 +84,13 @@ class _AdminHomeScreenState extends ConsumerState<AdminHomeScreen> {
 
     try {
       final client = ref.read(apiClientProvider);
-      await client.dio.post('/mobile/test-disaster-push', data: {
-        'reason': 'EMERGENCY_WEATHER_CLOSURE',
-        'expectedDuration': '3_DAYS',
-      });
+      await client.dio.post(
+        '/mobile/test-disaster-push',
+        data: {
+          'reason': 'EMERGENCY_WEATHER_CLOSURE',
+          'expectedDuration': '3_DAYS',
+        },
+      );
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -228,7 +235,10 @@ class _AdminHomeScreenState extends ConsumerState<AdminHomeScreen> {
                     Expanded(
                       child: Text(
                         'Failed to load health metrics: $_errorMessage',
-                        style: const TextStyle(color: Colors.white70, fontSize: 13),
+                        style: const TextStyle(
+                          color: Colors.white70,
+                          fontSize: 13,
+                        ),
                       ),
                     ),
                   ],
@@ -309,13 +319,19 @@ class _AdminHomeScreenState extends ConsumerState<AdminHomeScreen> {
                 ),
                 title: const Text(
                   'Broadcast Disaster Activation',
-                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
                 subtitle: const Text(
                   'Notify mobile devices and push offline disaster packs',
                   style: TextStyle(color: Colors.white60, fontSize: 12),
                 ),
-                trailing: const Icon(Icons.chevron_right, color: Colors.white38),
+                trailing: const Icon(
+                  Icons.chevron_right,
+                  color: Colors.white38,
+                ),
                 onTap: _triggerDisasterPush,
               ),
             ),
@@ -335,13 +351,19 @@ class _AdminHomeScreenState extends ConsumerState<AdminHomeScreen> {
                 ),
                 title: const Text(
                   'View Disaster Pack Bundle',
-                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
                 subtitle: const Text(
                   'Inspect offline circulars, contacts, and shelters',
                   style: TextStyle(color: Colors.white60, fontSize: 12),
                 ),
-                trailing: const Icon(Icons.chevron_right, color: Colors.white38),
+                trailing: const Icon(
+                  Icons.chevron_right,
+                  color: Colors.white38,
+                ),
                 onTap: () {
                   DisasterPackSheet.show(context);
                 },

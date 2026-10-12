@@ -15,6 +15,7 @@ import {
 } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation, ApiQuery } from '@nestjs/swagger';
 
+import { AppVersionGuard } from '../../common/guards/app-version.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
@@ -27,12 +28,13 @@ import {
     TriggerDisasterPushDto,
     UpsertEmergencyContactDto,
     UpsertShelterDto,
+    UpdateMobileVersionDto,
 } from './dto/mobile.dto';
 import { MobileService } from './mobile.service';
 
 @ApiTags('mobile')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard, TenantGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, TenantGuard, RolesGuard, AppVersionGuard)
 @Controller('mobile')
 export class MobileController {
     constructor(private readonly mobileService: MobileService) { }
@@ -107,8 +109,9 @@ export class MobileController {
 
     @Get('version')
     @ApiOperation({ summary: 'Returns minimum supported mobile app version and release metadata (P3-S1)' })
-    getVersion() {
-        return this.mobileService.getVersion();
+    @ApiQuery({ name: 'platform', required: false, enum: ['android', 'ios', 'all'], description: 'Platform target' })
+    getVersion(@Query('platform') platform?: string) {
+        return this.mobileService.getVersion(platform);
     }
 
     @Put('version')
@@ -116,7 +119,7 @@ export class MobileController {
     @ApiOperation({ summary: 'Update mobile app release and min supported version (P3-S9)' })
     updateVersion(
         @CurrentUser() user: JwtPayload,
-        @Body() dto: { minVersion: string; latestVersion: string; releaseNotes: string; forceUpdate: boolean },
+        @Body() dto: UpdateMobileVersionDto,
     ) {
         return this.mobileService.updateVersion(user, dto);
     }

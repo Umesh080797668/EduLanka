@@ -41,4 +41,3 @@ class TokenStorage {
 }
 
 final tokenStorageProvider = Provider<TokenStorage>((ref) => TokenStorage());
-

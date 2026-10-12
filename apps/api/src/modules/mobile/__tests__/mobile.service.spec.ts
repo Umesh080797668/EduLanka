@@ -7,6 +7,10 @@ import { Test } from '@nestjs/testing';
 import { getQueueToken } from '@nestjs/bullmq';
 import { SupabaseService } from '../../supabase/supabase.service';
 import { SmsService } from '../../sms/sms.service';
+import { MobileDisasterService } from '../mobile-disaster.service';
+import { MobilePushService } from '../mobile-push.service';
+import { MobileReleaseService } from '../mobile-release.service';
+import { MobileSyncService } from '../mobile-sync.service';
 import { MobileService } from '../mobile.service';
 
 describe('MobileService', () => {
@@ -49,6 +53,7 @@ describe('MobileService', () => {
                         });
                     }),
                     eq: jest.fn().mockReturnThis(),
+                    is: jest.fn().mockReturnThis(),
                     gt: jest.fn().mockReturnThis(),
                     gte: jest.fn().mockReturnThis(),
                     in: jest.fn().mockReturnThis(),
@@ -137,6 +142,10 @@ describe('MobileService', () => {
 
         const module: TestingModule = await Test.createTestingModule({
             providers: [
+                MobileSyncService,
+                MobilePushService,
+                MobileDisasterService,
+                MobileReleaseService,
                 MobileService,
                 { provide: SupabaseService, useValue: mockSupabase },
                 { provide: getQueueToken('fcm-push'), useValue: mockFcmQueue },

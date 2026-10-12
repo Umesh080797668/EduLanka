@@ -71,11 +71,18 @@ class _DisasterPackSheetState extends State<DisasterPackSheet> {
                     const SizedBox(height: 16),
                     const Row(
                       children: [
-                        Icon(Icons.emergency_share_rounded, color: Color(0xFFEF4444), size: 28),
+                        Icon(
+                          Icons.emergency_share_rounded,
+                          color: Color(0xFFEF4444),
+                          size: 28,
+                        ),
                         SizedBox(width: 10),
                         Text(
                           'Disaster Readiness Pack',
-                          style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       ],
                     ),
@@ -89,7 +96,10 @@ class _DisasterPackSheetState extends State<DisasterPackSheet> {
                     // ── Emergency Contacts Section ───────────────────
                     const Text(
                       'Emergency Contacts',
-                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                     const SizedBox(height: 8),
                     if (_contacts.isEmpty)
@@ -101,7 +111,10 @@ class _DisasterPackSheetState extends State<DisasterPackSheet> {
                         ),
                         child: const Text(
                           'No contacts cached. Tap the top sync button to download the latest disaster pack.',
-                          style: TextStyle(color: Color(0xFF64748B), fontSize: 13),
+                          style: TextStyle(
+                            color: Color(0xFF64748B),
+                            fontSize: 13,
+                          ),
                         ),
                       )
                     else
@@ -118,9 +131,13 @@ class _DisasterPackSheetState extends State<DisasterPackSheet> {
                             ),
                             title: Text(
                               c['name'] ?? 'Contact',
-                              style: const TextStyle(fontWeight: FontWeight.bold),
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
-                            subtitle: Text('${c['role'] ?? 'Official'} • ${c['phone'] ?? ''}'),
+                            subtitle: Text(
+                              '${c['role'] ?? 'Official'} • ${c['phone'] ?? ''}',
+                            ),
                             trailing: Text(
                               c['phone'] ?? '',
                               style: const TextStyle(
@@ -137,7 +154,10 @@ class _DisasterPackSheetState extends State<DisasterPackSheet> {
                     // ── Emergency Shelters Section ───────────────────
                     const Text(
                       'Evacuation Shelters',
-                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                     const SizedBox(height: 8),
                     if (_shelters.isEmpty)
@@ -149,7 +169,10 @@ class _DisasterPackSheetState extends State<DisasterPackSheet> {
                         ),
                         child: const Text(
                           'No shelters cached. Sync with your school server to download local evacuation shelters.',
-                          style: TextStyle(color: Color(0xFF64748B), fontSize: 13),
+                          style: TextStyle(
+                            color: Color(0xFF64748B),
+                            fontSize: 13,
+                          ),
                         ),
                       )
                     else
@@ -164,13 +187,18 @@ class _DisasterPackSheetState extends State<DisasterPackSheet> {
                             ),
                             title: Text(
                               s['name'] ?? 'Shelter',
-                              style: const TextStyle(fontWeight: FontWeight.bold),
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
                             subtitle: Text(
                               '${s['address'] ?? ''}${s['capacity'] != null ? ' • Cap: ${s['capacity']}' : ''}',
                             ),
                             trailing: s['gps_lat'] != null
-                                ? const Icon(Icons.navigation, color: Color(0xFF10B981))
+                                ? const Icon(
+                                    Icons.navigation,
+                                    color: Color(0xFF10B981),
+                                  )
                                 : null,
                           ),
                         ),

@@ -80,7 +80,7 @@ We adopt **Progressive MP4 with Chunked AES-256-GCM Streaming AEAD Encryption**,
 All synthetic fallbacks have been completely removed from `SpikeATestRunner`. Every failure throws explicitly.
 
 ### Raw Benchmark Execution Output (Physical Device & Host)
-See raw benchmark artifact: [`docs/benchmarks/spike-a-low-end-android-benchmark.json`](file:///home/imantha/Desktop/EduLanka/docs/benchmarks/spike-a-low-end-android-benchmark.json)
+See raw benchmark artifact: [`docs/benchmarks/spike-a-low-end-android-benchmark.json`](../benchmarks/spike-a-low-end-android-benchmark.json)
 
 ```json
 {

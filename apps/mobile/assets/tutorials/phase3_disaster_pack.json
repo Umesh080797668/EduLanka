@@ -1,0 +1,39 @@
+{
+  "tourId": "phase3_disaster_pack",
+  "version": 1,
+  "title": {
+    "en": "Disaster Readiness Pack",
+    "si": "ආපදා සූදානම් පැකේජය",
+    "ta": "பேரிடர் தயார்நிலை பொதி"
+  },
+  "steps": [
+    {
+      "stepId": "emergency_hotlines",
+      "target": "hotline_contacts_card",
+      "title": {
+        "en": "National Hotlines",
+        "si": "ජාතික හදිසි ඇමතුම්",
+        "ta": "தேசிய அவசர எண்கள்"
+      },
+      "description": {
+        "en": "Direct offline dialer access to DMC 117, Police 119, Suwa Seriya 1990, and your school principal.",
+        "si": "ආපදා කළමනාකරණ මධ්‍යස්ථානය 117, පොලිසිය 119, සුවසැරිය 1990 සහ විදුහල්පති වෙත සෘජු ඇමතුම් ලබා ගන්න.",
+        "ta": "DMC 117, பொலிஸ் 119, 1990 ஆம்புலன்ஸ் மற்றும் அதிபருக்கு நேரடியாக ஆஃப்லைனில் அழைக்கவும்."
+      }
+    },
+    {
+      "stepId": "evacuation_shelters",
+      "target": "shelters_card",
+      "title": {
+        "en": "Evacuation Shelters",
+        "si": "ආරක්ෂිත නවාතැන් මධ්‍යස්ථාන",
+        "ta": "வெளியேற்ற தங்குமிடங்கள்"
+      },
+      "description": {
+        "en": "Offline GPS coordinates and capacities of designated community emergency shelters.",
+        "si": "ප්‍රජා ආරක්ෂිත මධ්‍යස්ථානවල නොබැඳි GPS පිහිටීම් සහ ධාරිතාවන් පරීක්ෂා කරන්න.",
+        "ta": "சமூக அவசரகால தங்குமிடங்களின் ஆஃப்லைன் ஜிபிஎஸ் அமைவிடங்கள் மற்றும் கொள்ளளவுகளைக் காண்க."
+      }
+    }
+  ]
+}

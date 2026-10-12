@@ -297,7 +297,11 @@ export class MediaService {
 
         const { error: delErr } = await this.supabase.adminClient
             .from('media_assets')
-            .update({ status: 'deleted', updated_at: new Date().toISOString() })
+            .update({
+                status: 'deleted',
+                deleted_at: new Date().toISOString(),
+                updated_at: new Date().toISOString(),
+            })
             .eq('id', assetId);
 
         if (delErr) {

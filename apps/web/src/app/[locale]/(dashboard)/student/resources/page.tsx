@@ -14,6 +14,7 @@ import {
 import { toast } from 'sonner';
 
 import { apiClient } from '@/lib/api-client';
+import { TutorialProvider } from '@/components/TutorialProvider';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
@@ -96,7 +97,8 @@ export default function StudentResourcesPage() {
     };
 
     return (
-        <div className="space-y-6 p-6 max-w-7xl mx-auto">
+        <TutorialProvider role="STUDENT" screenId="resources">
+            <div className="space-y-6 p-6 max-w-7xl mx-auto">
             {/* Header */}
             <div>
                 <h1 className="text-2xl font-bold tracking-tight text-foreground flex items-center gap-2">
@@ -287,5 +289,6 @@ export default function StudentResourcesPage() {
                 )}
             </Dialog>
         </div>
+        </TutorialProvider>
     );
 }

@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
+import '../tutorial/tutorial_engine.dart';
 
 class VideoPlayerScreen extends StatefulWidget {
   final String title;
@@ -27,6 +28,9 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   void initState() {
     super.initState();
     _initializePlayer();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      TutorialEngine.showTourIfUnseen(context, 'phase3_video_tour');
+    });
   }
 
   Future<void> _initializePlayer() async {

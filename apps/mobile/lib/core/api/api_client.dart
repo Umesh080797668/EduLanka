@@ -45,6 +45,8 @@ class ApiClient {
           if (token != null && token.isNotEmpty) {
             options.headers['Authorization'] = 'Bearer $token';
           }
+          options.headers['X-Client-Version'] = '1.0.0';
+          options.headers['X-Client-Platform'] = 'android';
           // The API strictly scopes tenant access from the validated JWT claim
           return handler.next(options);
         },

@@ -24,7 +24,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
   final TokenStorage tokenStorage;
 
   AuthNotifier({required this.tokenStorage})
-      : super(const AuthState(status: AuthStatus.initial)) {
+    : super(const AuthState(status: AuthStatus.initial)) {
     checkInitialAuth();
   }
 
@@ -60,7 +60,9 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
     final accessToken = response['accessToken'] as String?;
     final refreshToken = response['refreshToken'] as String?;
-    final user = response['user'] is Map ? Map<String, dynamic>.from(response['user']) : null;
+    final user = response['user'] is Map
+        ? Map<String, dynamic>.from(response['user'])
+        : null;
 
     if (accessToken == null || refreshToken == null || user == null) {
       throw Exception('Incomplete authentication response from server');
@@ -112,4 +114,3 @@ final authProvider = StateNotifierProvider<AuthNotifier, AuthState>((ref) {
   final tokenStorage = ref.watch(tokenStorageProvider);
   return AuthNotifier(tokenStorage: tokenStorage);
 });
-

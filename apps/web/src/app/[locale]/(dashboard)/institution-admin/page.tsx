@@ -10,6 +10,7 @@ import {
     Compass,
     History,
     Settings,
+    ShieldAlert,
     ShieldCheck,
     Users,
 } from 'lucide-react';
@@ -75,6 +76,7 @@ export default function InstitutionAdminDashboard() {
     const [isHistoryOpen, setHistoryOpen] = useState(false);
     const [historyList, setHistoryList] = useState<any[]>([]);
     const [loadingHistory, setLoadingHistory] = useState(false);
+    const [emergencyMissing, setEmergencyMissing] = useState(false);
     const [loading, setLoading] = useState(true);
 
     const formatReason = (reason?: string) => {
@@ -94,16 +96,21 @@ export default function InstitutionAdminDashboard() {
             try {
                 // Onboarding adoption is advisory — a failure there must not blank
                 // the dashboard, so it resolves to an empty list instead.
-                const [data, tutorialStats] = await Promise.all([
+                const [data, tutorialStats, contactsRes, sheltersRes] = await Promise.all([
                     apiClient.get<any>('/tenants/stats'),
                     apiClient
                         .get<TutorialStat[]>('/institution-admin/tutorials/stats', {
                             skipGlobalToast: true,
                         })
                         .catch(() => []),
+                    apiClient.get<any[]>('/mobile/emergency-contacts', { skipGlobalToast: true }).catch(() => []),
+                    apiClient.get<any[]>('/mobile/shelters', { skipGlobalToast: true }).catch(() => []),
                 ]);
                 setStats(data);
                 setTutorials(Array.isArray(tutorialStats) ? tutorialStats : []);
+                const contactsCount = Array.isArray(contactsRes) ? contactsRes.length : 0;
+                const sheltersCount = Array.isArray(sheltersRes) ? sheltersRes.length : 0;
+                setEmergencyMissing(contactsCount === 0 || sheltersCount === 0);
             } catch (e) {
                 console.error(e);
             } finally {
@@ -229,6 +236,14 @@ export default function InstitutionAdminDashboard() {
                                     <Settings className="size-4" />
                                     {t('schoolPolicies')}
                                 </Link>
+                                <Link
+                                    id="nav-emergency-hero"
+                                    href="/institution-admin/emergency"
+                                    className="inline-flex h-10 items-center gap-2 rounded-input border border-white/25 bg-white/10 px-4 text-sm font-semibold text-white backdrop-blur-sm transition-colors hover:bg-white/20 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+                                >
+                                    <ShieldAlert className="size-4" />
+                                    Emergency Readiness
+                                </Link>
                             </div>
                         </div>
 
@@ -285,6 +300,39 @@ export default function InstitutionAdminDashboard() {
                         </div>
                     </div>
                 </motion.section>
+
+                {/* ── Emergency Readiness Warning Prompt ──────────────────────── */}
+                {emergencyMissing && !loading && (
+                    <motion.div
+                        initial={{ opacity: 0, y: -8 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="rounded-card border-2 border-danger-300 bg-danger-50/90 p-4 text-danger-950 shadow-sm dark:border-danger-700/60 dark:bg-danger-950/40 dark:text-danger-100"
+                    >
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                            <div className="flex items-start gap-3">
+                                <div className="rounded-full bg-danger-200/80 p-2 text-danger-800 dark:bg-danger-900/60 dark:text-danger-200">
+                                    <AlertTriangle className="size-5 shrink-0" />
+                                </div>
+                                <div>
+                                    <h3 className="font-semibold text-sm">
+                                        Onboarding Warning: Emergency Contacts & Shelters Missing
+                                    </h3>
+                                    <p className="mt-0.5 text-xs text-danger-800/90 dark:text-danger-300/90">
+                                        Your institution has not configured designated emergency evacuation shelters or emergency response personnel.
+                                        Without this data, student offline disaster packs will ship completely empty.
+                                    </p>
+                                </div>
+                            </div>
+                            <Link
+                                href="/institution-admin/emergency"
+                                className="inline-flex shrink-0 items-center gap-1.5 rounded-input bg-danger-600 px-4 py-2 text-xs font-semibold text-white shadow-sm transition-colors hover:bg-danger-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-danger-600"
+                            >
+                                Configure Contacts & Shelters
+                                <ChevronRight className="size-4" />
+                            </Link>
+                        </div>
+                    </motion.div>
+                )}
 
                 {/* ── Stats ─────────────────────────────────────────────────── */}
                 <motion.div

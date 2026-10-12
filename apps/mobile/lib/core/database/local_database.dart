@@ -19,7 +19,8 @@ class LocalDatabase {
 
   Future<Database> _initDB(String filePath) async {
     // Enable FFI for desktop and unit tests
-    if (!kIsWeb && (Platform.isLinux || Platform.isWindows || Platform.isMacOS)) {
+    if (!kIsWeb &&
+        (Platform.isLinux || Platform.isWindows || Platform.isMacOS)) {
       sqfliteFfiInit();
       databaseFactory = databaseFactoryFfi;
     }
@@ -27,11 +28,7 @@ class LocalDatabase {
     final dbPath = await getDatabasesPath();
     final path = join(dbPath, filePath);
 
-    return await openDatabase(
-      path,
-      version: 1,
-      onCreate: _createDB,
-    );
+    return await openDatabase(path, version: 1, onCreate: _createDB);
   }
 
   Future<void> _createDB(Database db, int version) async {
@@ -106,21 +103,17 @@ class LocalDatabase {
     required Map<String, dynamic> payload,
   }) async {
     final db = await database;
-    await db.insert(
-      'sync_outbox',
-      {
-        'client_uuid': clientUuid,
-        'entity_type': entityType,
-        'entity_id': entityId,
-        'event_type': eventType,
-        'payload': jsonEncode(payload),
-        'created_at': DateTime.now().millisecondsSinceEpoch,
-        'status': 'PENDING',
-        'server_sequence': null,
-        'error_message': null,
-      },
-      conflictAlgorithm: ConflictAlgorithm.replace,
-    );
+    await db.insert('sync_outbox', {
+      'client_uuid': clientUuid,
+      'entity_type': entityType,
+      'entity_id': entityId,
+      'event_type': eventType,
+      'payload': jsonEncode(payload),
+      'created_at': DateTime.now().millisecondsSinceEpoch,
+      'status': 'PENDING',
+      'server_sequence': null,
+      'error_message': null,
+    }, conflictAlgorithm: ConflictAlgorithm.replace);
   }
 
   Future<List<Map<String, dynamic>>> getPendingOutboxEvents() async {
@@ -145,10 +138,7 @@ class LocalDatabase {
     final db = await database;
     await db.update(
       'sync_outbox',
-      {
-        'status': 'SYNCED',
-        'server_sequence': serverSeq,
-      },
+      {'status': 'SYNCED', 'server_sequence': serverSeq},
       where: 'client_uuid = ?',
       whereArgs: [clientUuid],
     );
@@ -171,11 +161,10 @@ class LocalDatabase {
 
   Future<void> setLastSequence(int seq) async {
     final db = await database;
-    await db.insert(
-      'sync_metadata',
-      {'key': 'last_sequence', 'value': seq.toString()},
-      conflictAlgorithm: ConflictAlgorithm.replace,
-    );
+    await db.insert('sync_metadata', {
+      'key': 'last_sequence',
+      'value': seq.toString(),
+    }, conflictAlgorithm: ConflictAlgorithm.replace);
   }
 
   // ── Attendance Operations ──────────────────────────────────────────
@@ -189,19 +178,15 @@ class LocalDatabase {
     required String markedAt,
   }) async {
     final db = await database;
-    await db.insert(
-      'offline_attendance',
-      {
-        'id': id,
-        'student_id': studentId,
-        'class_id': classId,
-        'date': date,
-        'status': status,
-        'marked_at': markedAt,
-        'sync_status': 'PENDING',
-      },
-      conflictAlgorithm: ConflictAlgorithm.replace,
-    );
+    await db.insert('offline_attendance', {
+      'id': id,
+      'student_id': studentId,
+      'class_id': classId,
+      'date': date,
+      'status': status,
+      'marked_at': markedAt,
+      'sync_status': 'PENDING',
+    }, conflictAlgorithm: ConflictAlgorithm.replace);
 
     // Queue as a monotonic sync event (ADR-002)
     await queueSyncEvent(
@@ -240,7 +225,10 @@ class LocalDatabase {
       for (final c in contacts) {
         if (c is Map) {
           await txn.insert('emergency_contacts', {
-            'id': c['id']?.toString() ?? c['phone']?.toString() ?? UniqueKey().toString(),
+            'id':
+                c['id']?.toString() ??
+                c['phone']?.toString() ??
+                UniqueKey().toString(),
             'name': c['name']?.toString() ?? 'Emergency Contact',
             'role': c['role']?.toString() ?? 'Official',
             'phone': c['phone']?.toString() ?? '',
@@ -257,8 +245,12 @@ class LocalDatabase {
             'name': s['name']?.toString() ?? 'Shelter',
             'address': s['address']?.toString() ?? '',
             'capacity': s['capacity'] is int ? s['capacity'] : null,
-            'gps_lat': s['gpsLat'] is num ? (s['gpsLat'] as num).toDouble() : null,
-            'gps_lng': s['gpsLng'] is num ? (s['gpsLng'] as num).toDouble() : null,
+            'gps_lat': s['gpsLat'] is num
+                ? (s['gpsLat'] as num).toDouble()
+                : null,
+            'gps_lng': s['gpsLng'] is num
+                ? (s['gpsLng'] as num).toDouble()
+                : null,
             'notes': s['notes']?.toString(),
           });
         }
@@ -268,7 +260,10 @@ class LocalDatabase {
 
   Future<List<Map<String, dynamic>>> getEmergencyContacts() async {
     final db = await database;
-    return await db.query('emergency_contacts', orderBy: 'is_primary DESC, name ASC');
+    return await db.query(
+      'emergency_contacts',
+      orderBy: 'is_primary DESC, name ASC',
+    );
   }
 
   Future<List<Map<String, dynamic>>> getEmergencyShelters() async {

@@ -45,7 +45,9 @@ class TutorialTour {
       tourId: json['tourId'] as String,
       version: json['version'] as int? ?? 1,
       title: Map<String, String>.from(json['title'] as Map),
-      steps: rawSteps.map((s) => TutorialStep.fromJson(s as Map<String, dynamic>)).toList(),
+      steps: rawSteps
+          .map((s) => TutorialStep.fromJson(s as Map<String, dynamic>))
+          .toList(),
     );
   }
 }
@@ -65,7 +67,9 @@ class TutorialEngine {
 
   static Future<TutorialTour?> loadTour(String tourId) async {
     try {
-      final jsonStr = await rootBundle.loadString('assets/tutorials/$tourId.json');
+      final jsonStr = await rootBundle.loadString(
+        'assets/tutorials/$tourId.json',
+      );
       final data = jsonDecode(jsonStr) as Map<String, dynamic>;
       return TutorialTour.fromJson(data);
     } catch (_) {
@@ -73,7 +77,10 @@ class TutorialEngine {
     }
   }
 
-  static Future<void> showTourIfUnseen(BuildContext context, String tourId) async {
+  static Future<void> showTourIfUnseen(
+    BuildContext context,
+    String tourId,
+  ) async {
     final seen = await hasSeenTour(tourId);
     if (!seen && context.mounted) {
       await showTour(context, tourId);

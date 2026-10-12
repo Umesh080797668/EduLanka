@@ -113,8 +113,6 @@ export class PaperHubService {
         assertUuid(caller.tenantId, 'tenantId');
         assertUuid(caller.sub, 'userId');
 
-        const isPaired = Boolean(dto.markingSchemeUrl);
-
         const { data, error } = await this.supabase.adminClient
             .from('papers')
             .insert({
@@ -129,7 +127,6 @@ export class PaperHubService {
                 paper_url: dto.paperUrl,
                 marking_scheme_cloudinary_id: dto.markingSchemeCloudinaryId || null,
                 marking_scheme_url: dto.markingSchemeUrl || null,
-                is_paired: isPaired,
                 uploaded_by: caller.sub,
             })
             .select('*')
@@ -164,7 +161,6 @@ export class PaperHubService {
             paper_url: p.paperUrl,
             marking_scheme_cloudinary_id: p.markingSchemeCloudinaryId || null,
             marking_scheme_url: p.markingSchemeUrl || null,
-            is_paired: Boolean(p.markingSchemeUrl),
             uploaded_by: caller.sub,
         }));
 
@@ -219,7 +215,6 @@ export class PaperHubService {
             .update({
                 marking_scheme_cloudinary_id: dto.markingSchemeCloudinaryId,
                 marking_scheme_url: dto.markingSchemeUrl,
-                is_paired: true,
                 updated_at: new Date().toISOString(),
             })
             .eq('id', paperId)

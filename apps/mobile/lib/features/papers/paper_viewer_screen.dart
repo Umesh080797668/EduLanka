@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:syncfusion_flutter_pdfviewer/pdfviewer.dart';
+import '../tutorial/tutorial_engine.dart';
 
 class PaperViewerScreen extends StatefulWidget {
   final String title;
@@ -22,6 +23,14 @@ class PaperViewerScreen extends StatefulWidget {
 
 class _PaperViewerScreenState extends State<PaperViewerScreen> {
   bool _showingMarkingScheme = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      TutorialEngine.showTourIfUnseen(context, 'phase3_paper_hub');
+    });
+  }
 
   @override
   Widget build(BuildContext context) {

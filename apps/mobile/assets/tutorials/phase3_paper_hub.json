@@ -1,0 +1,39 @@
+{
+  "tourId": "phase3_paper_hub",
+  "version": 1,
+  "title": {
+    "en": "National Past Paper Hub",
+    "si": "ජාතික පසුගිය විභාග ප්‍රශ්න පත්‍ර",
+    "ta": "தேசிய கடந்தகால வினாத்தாள்கள் மையம்"
+  },
+  "steps": [
+    {
+      "stepId": "trilingual_filters",
+      "target": "exam_filter_bar",
+      "title": {
+        "en": "Trilingual Exam Papers",
+        "si": "භාෂා ත්‍රිත්ව විභාග ප්‍රශ්න පත්‍ර",
+        "ta": "மும்மொழி தேர்வு வினாத்தாள்கள்"
+      },
+      "description": {
+        "en": "Filter O/L, A/L and Grade 5 Scholarship papers by subject, year, and medium (Sinhala, Tamil, English).",
+        "si": "විෂය, වර්ෂය සහ මාධ්‍යය අනුව සා/පෙළ, උ/පෙළ සහ 5 ශිෂ්‍යත්ව ප්‍රශ්න පත්‍ර පෙරහන් කරන්න.",
+        "ta": "பாடம், வருடம் மற்றும் மொழி வாரியாக தாள்களை வடிகட்டி படிக்கவும்."
+      }
+    },
+    {
+      "stepId": "paired_marking_schemes",
+      "target": "split_view_toggle",
+      "title": {
+        "en": "Paired Marking Schemes",
+        "si": "ලකුණු ලබා දීමේ පටිපාටිය",
+        "ta": "இணைக்கப்பட்ட புள்ளித்திட்டம்"
+      },
+      "description": {
+        "en": "Switch between questions and official marking schemes with dual-page side-by-side split screen.",
+        "si": "ප්‍රශ්න පත්‍රය සහ නිල ලකුණු ලබා දීමේ ක්‍රමවේදය එකවර දෙපසින් තිරයේ නරඹන්න.",
+        "ta": "வினாத்தாள் மற்றும் அதிகாரப்பூர்வ புள்ளித்திட்டத்தை ஒரே திரையில் அருகருகே பார்க்கவும்."
+      }
+    }
+  ]
+}

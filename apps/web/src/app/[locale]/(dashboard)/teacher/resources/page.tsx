@@ -18,6 +18,7 @@ import {
 import { toast } from 'sonner';
 
 import { apiClient } from '@/lib/api-client';
+import { TutorialProvider } from '@/components/TutorialProvider';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
@@ -302,7 +303,8 @@ export default function TeacherResourcesPage() {
     const quotaPercent = Math.min(100, Math.round((usedGb / quotaGb) * 100));
 
     return (
-        <div className="space-y-6 p-6 max-w-7xl mx-auto">
+        <TutorialProvider role="TEACHER" screenId="resources">
+            <div className="space-y-6 p-6 max-w-7xl mx-auto">
             {/* Header */}
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
@@ -701,5 +703,6 @@ export default function TeacherResourcesPage() {
                 </div>
             </Dialog>
         </div>
+        </TutorialProvider>
     );
 }

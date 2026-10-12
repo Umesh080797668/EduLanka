@@ -27,13 +27,25 @@ class AppConfig {
 
   factory AppConfig.fromEnvironment() {
     const envString = String.fromEnvironment('APP_ENV', defaultValue: '');
-    const injectedApiUrl = String.fromEnvironment('API_BASE_URL', defaultValue: '');
-    const injectedWsUrl = String.fromEnvironment('WS_BASE_URL', defaultValue: '');
-    const injectedSentryDsn = String.fromEnvironment('SENTRY_DSN', defaultValue: '');
+    const injectedApiUrl = String.fromEnvironment(
+      'API_BASE_URL',
+      defaultValue: '',
+    );
+    const injectedWsUrl = String.fromEnvironment(
+      'WS_BASE_URL',
+      defaultValue: '',
+    );
+    const injectedSentryDsn = String.fromEnvironment(
+      'SENTRY_DSN',
+      defaultValue: '',
+    );
 
     // Determine environment tier
     final Environment env;
-    if (envString == 'production' || (kReleaseMode && envString != 'staging' && envString != 'development')) {
+    if (envString == 'production' ||
+        (kReleaseMode &&
+            envString != 'staging' &&
+            envString != 'development')) {
       env = Environment.production;
     } else if (envString == 'staging') {
       env = Environment.staging;

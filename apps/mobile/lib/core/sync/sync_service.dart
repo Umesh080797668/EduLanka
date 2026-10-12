@@ -22,10 +22,7 @@ class SyncService {
   final ApiClient apiClient;
   final LocalDatabase localDb;
 
-  SyncService({
-    required this.apiClient,
-    required this.localDb,
-  });
+  SyncService({required this.apiClient, required this.localDb});
 
   /// Pushes queued offline mutations from local SQLite outbox to server monotonic event log
   Future<int> pushOutbox() async {
@@ -73,7 +70,9 @@ class SyncService {
       // Check if client cursor predates the 90-day retention window (HTTP 410 Gone / resyncRequired)
       if (res['resyncRequired'] == true) {
         final snapshot = await apiClient.getSnapshot();
-        final snapSeq = snapshot['lastSequence'] is int ? snapshot['lastSequence'] as int : 0;
+        final snapSeq = snapshot['lastSequence'] is int
+            ? snapshot['lastSequence'] as int
+            : 0;
         await localDb.setLastSequence(snapSeq);
         return 1;
       }
@@ -95,7 +94,9 @@ class SyncService {
       if (e is DioException && e.response?.statusCode == 410) {
         // Handle 410 Gone snapshot recovery
         final snapshot = await apiClient.getSnapshot();
-        final snapSeq = snapshot['lastSequence'] is int ? snapshot['lastSequence'] as int : 0;
+        final snapSeq = snapshot['lastSequence'] is int
+            ? snapshot['lastSequence'] as int
+            : 0;
         await localDb.setLastSequence(snapSeq);
         return 1;
       }
@@ -112,10 +113,7 @@ class SyncService {
           : await apiClient.getEmergencyContacts();
       final shelters = await apiClient.getShelters();
 
-      await localDb.saveDisasterPack(
-        contacts: contacts,
-        shelters: shelters,
-      );
+      await localDb.saveDisasterPack(contacts: contacts, shelters: shelters);
     } catch (_) {
       // Offline fallback: keep existing SQLite cached disaster pack intact
     }
@@ -132,7 +130,8 @@ class SyncService {
         pushedCount: pushed,
         pulledCount: pulled,
         success: true,
-        message: 'Synchronized $pushed outgoing mutation(s), $pulled incoming event(s).',
+        message:
+            'Synchronized $pushed outgoing mutation(s), $pulled incoming event(s).',
       );
     } catch (e) {
       return SyncResult(
@@ -147,8 +146,5 @@ class SyncService {
 
 final syncServiceProvider = Provider<SyncService>((ref) {
   final apiClient = ref.watch(apiClientProvider);
-  return SyncService(
-    apiClient: apiClient,
-    localDb: LocalDatabase.instance,
-  );
+  return SyncService(apiClient: apiClient, localDb: LocalDatabase.instance);
 });

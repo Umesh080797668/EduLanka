@@ -16,10 +16,7 @@ class WebSocketService {
   bool get isConnected => _isConnected;
   Stream<Map<String, dynamic>> get messages => _messageController.stream;
 
-  WebSocketService({
-    required this.tokenStorage,
-    required this.defaultWsUrl,
-  });
+  WebSocketService({required this.tokenStorage, required this.defaultWsUrl});
 
   Future<void> connect({String? wsUrl}) async {
     if (_isConnected) return;

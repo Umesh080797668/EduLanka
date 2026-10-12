@@ -47,7 +47,9 @@ class _ParentHomeScreenState extends ConsumerState<ParentHomeScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(result.message),
-          backgroundColor: result.success ? const Color(0xFF10B981) : const Color(0xFFEF4444),
+          backgroundColor: result.success
+              ? const Color(0xFF10B981)
+              : const Color(0xFFEF4444),
         ),
       );
     }
@@ -69,7 +71,10 @@ class _ParentHomeScreenState extends ConsumerState<ParentHomeScreen> {
                 ? const SizedBox(
                     width: 20,
                     height: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.white,
+                    ),
                   )
                 : const Icon(Icons.sync_rounded),
             onPressed: _isSyncing ? null : _handleSync,
@@ -85,13 +90,19 @@ class _ParentHomeScreenState extends ConsumerState<ParentHomeScreen> {
         padding: const EdgeInsets.all(16),
         children: [
           Card(
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
             color: const Color(0xFFEEF2FF),
             child: Padding(
               padding: const EdgeInsets.all(16),
               child: Row(
                 children: [
-                  const Icon(Icons.child_care_rounded, color: Color(0xFF6366F1), size: 36),
+                  const Icon(
+                    Icons.child_care_rounded,
+                    color: Color(0xFF6366F1),
+                    size: 36,
+                  ),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Column(
@@ -99,17 +110,26 @@ class _ParentHomeScreenState extends ConsumerState<ParentHomeScreen> {
                       children: [
                         const Text(
                           'Student Monitoring',
-                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                          ),
                         ),
                         const SizedBox(height: 2),
                         Text(
                           'Synchronized up to sequence #$_lastSequence. Child attendance & emergency notices cache for offline viewing.',
-                          style: const TextStyle(color: Color(0xFF64748B), fontSize: 12),
+                          style: const TextStyle(
+                            color: Color(0xFF64748B),
+                            fontSize: 12,
+                          ),
                         ),
                         if (authState.userId != null)
                           Text(
                             'Account: ${authState.userId}',
-                            style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 11),
+                            style: const TextStyle(
+                              color: Color(0xFF94A3B8),
+                              fontSize: 11,
+                            ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
@@ -150,7 +170,9 @@ class _ParentHomeScreenState extends ConsumerState<ParentHomeScreen> {
                 color: const Color(0xFF10B981),
                 onTap: () {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Viewing child attendance history...')),
+                    const SnackBar(
+                      content: Text('Viewing child attendance history...'),
+                    ),
                   );
                 },
               ),
@@ -161,7 +183,9 @@ class _ParentHomeScreenState extends ConsumerState<ParentHomeScreen> {
                 color: const Color(0xFF3B82F6),
                 onTap: () {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Checking latest school circulars...')),
+                    const SnackBar(
+                      content: Text('Checking latest school circulars...'),
+                    ),
                   );
                 },
               ),
@@ -172,7 +196,9 @@ class _ParentHomeScreenState extends ConsumerState<ParentHomeScreen> {
                 color: const Color(0xFF8B5CF6),
                 onTap: () {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Opening secure messaging channel...')),
+                    const SnackBar(
+                      content: Text('Opening secure messaging channel...'),
+                    ),
                   );
                 },
               ),
@@ -209,7 +235,10 @@ class _ParentHomeScreenState extends ConsumerState<ParentHomeScreen> {
               const SizedBox(height: 10),
               Text(
                 title,
-                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                ),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),

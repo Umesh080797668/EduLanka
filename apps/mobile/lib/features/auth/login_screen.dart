@@ -37,7 +37,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
     try {
       final apiClient = ref.read(apiClientProvider);
-      await ref.read(authProvider.notifier).login(
+      await ref
+          .read(authProvider.notifier)
+          .login(
             identifier: identifier,
             password: password,
             tenantId: tenant.isNotEmpty ? tenant : null,
@@ -45,7 +47,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           );
       // Navigation is handled reactively by appRouter observing authProvider
     } on DioException catch (dioErr) {
-      String msg = 'Authentication failed. Please check your network and credentials.';
+      String msg =
+          'Authentication failed. Please check your network and credentials.';
       final resData = dioErr.response?.data;
       if (resData is Map) {
         if (resData['message'] is String) {
@@ -54,8 +57,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           msg = (resData['message'] as List).join(', ');
         }
       } else if (dioErr.type == DioExceptionType.connectionError ||
-                 dioErr.type == DioExceptionType.connectionTimeout) {
-        msg = 'Cannot connect to server. Please verify your internet connection.';
+          dioErr.type == DioExceptionType.connectionTimeout) {
+        msg =
+            'Cannot connect to server. Please verify your internet connection.';
       }
 
       if (mounted) {
@@ -118,10 +122,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   const Text(
                     'Offline-First School Learning Platform',
                     textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: Color(0xFF64748B),
-                    ),
+                    style: TextStyle(fontSize: 14, color: Color(0xFF64748B)),
                   ),
                   const SizedBox(height: 32),
 
@@ -135,12 +136,19 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       ),
                       child: Row(
                         children: [
-                          const Icon(Icons.error_outline, color: Color(0xFFDC2626), size: 20),
+                          const Icon(
+                            Icons.error_outline,
+                            color: Color(0xFFDC2626),
+                            size: 20,
+                          ),
                           const SizedBox(width: 8),
                           Expanded(
                             child: Text(
                               _errorMessage!,
-                              style: const TextStyle(color: Color(0xFFDC2626), fontSize: 13),
+                              style: const TextStyle(
+                                color: Color(0xFFDC2626),
+                                fontSize: 13,
+                              ),
                             ),
                           ),
                         ],
@@ -158,7 +166,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       prefixIcon: const Icon(Icons.domain_rounded),
                       filled: true,
                       fillColor: Colors.white,
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
                     ),
                   ),
                   const SizedBox(height: 16),
@@ -179,7 +189,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       prefixIcon: const Icon(Icons.person_outline),
                       filled: true,
                       fillColor: Colors.white,
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
                     ),
                   ),
                   const SizedBox(height: 16),
@@ -199,7 +211,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       prefixIcon: const Icon(Icons.lock_outline),
                       suffixIcon: IconButton(
                         icon: Icon(
-                          _obscurePassword ? Icons.visibility_outlined : Icons.visibility_off_outlined,
+                          _obscurePassword
+                              ? Icons.visibility_outlined
+                              : Icons.visibility_off_outlined,
                         ),
                         onPressed: () {
                           setState(() {
@@ -209,7 +223,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       ),
                       filled: true,
                       fillColor: Colors.white,
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
                     ),
                   ),
                   const SizedBox(height: 24),
@@ -220,17 +236,25 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       padding: const EdgeInsets.symmetric(vertical: 14),
                       backgroundColor: const Color(0xFF1E40AF),
                       foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
                     ),
                     child: _isLoading
                         ? const SizedBox(
                             height: 20,
                             width: 20,
-                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
                           )
                         : const Text(
                             'Sign In to EduLanka',
-                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                   ),
                 ],

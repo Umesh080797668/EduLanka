@@ -23,6 +23,7 @@ import {
     Server,
     Settings,
     Shield,
+    ShieldAlert,
     Smartphone,
     UserCheck,
     UserCog,
@@ -142,6 +143,7 @@ const NAV: Record<Role, NavSection[]> = {
             titleKey: 'sectionSettings',
             items: [
                 { nameKey: 'policy', href: '/institution-admin/policy', icon: Settings, id: 'nav-policies' },
+                { nameKey: 'emergencyReadiness', href: '/institution-admin/emergency', icon: ShieldAlert, id: 'nav-emergency' },
                 { nameKey: 'syncHealth', href: '/institution-admin/sync-health', icon: Activity, id: 'nav-sync-health' },
             ],
         },

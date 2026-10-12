@@ -50,7 +50,9 @@ class _TeacherHomeScreenState extends ConsumerState<TeacherHomeScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(result.message),
-          backgroundColor: result.success ? const Color(0xFF10B981) : const Color(0xFFEF4444),
+          backgroundColor: result.success
+              ? const Color(0xFF10B981)
+              : const Color(0xFFEF4444),
         ),
       );
     }
@@ -78,17 +80,23 @@ class _TeacherHomeScreenState extends ConsumerState<TeacherHomeScreen> {
               children: [
                 TextField(
                   controller: studentIdController,
-                  decoration: const InputDecoration(labelText: 'Student ID / Registration #'),
+                  decoration: const InputDecoration(
+                    labelText: 'Student ID / Registration #',
+                  ),
                 ),
                 const SizedBox(height: 12),
                 TextField(
                   controller: classIdController,
-                  decoration: const InputDecoration(labelText: 'Class ID / Grade Section'),
+                  decoration: const InputDecoration(
+                    labelText: 'Class ID / Grade Section',
+                  ),
                 ),
                 const SizedBox(height: 16),
                 DropdownButtonFormField<String>(
                   initialValue: selectedStatus,
-                  decoration: const InputDecoration(labelText: 'Attendance Status'),
+                  decoration: const InputDecoration(
+                    labelText: 'Attendance Status',
+                  ),
                   items: const [
                     DropdownMenuItem(value: 'PRESENT', child: Text('Present')),
                     DropdownMenuItem(value: 'ABSENT', child: Text('Absent')),
@@ -119,7 +127,8 @@ class _TeacherHomeScreenState extends ConsumerState<TeacherHomeScreen> {
                 if (studentId.isEmpty || classId.isEmpty) return;
 
                 final now = DateTime.now();
-                final todayStr = '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+                final todayStr =
+                    '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
                 final recordId = '${studentId}_${classId}_$todayStr';
 
                 await LocalDatabase.instance.recordAttendance(
@@ -137,7 +146,9 @@ class _TeacherHomeScreenState extends ConsumerState<TeacherHomeScreen> {
                 if (mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
-                      content: Text('Marked $studentId as $selectedStatus. Queued in offline outbox.'),
+                      content: Text(
+                        'Marked $studentId as $selectedStatus. Queued in offline outbox.',
+                      ),
                     ),
                   );
                 }
@@ -164,7 +175,10 @@ class _TeacherHomeScreenState extends ConsumerState<TeacherHomeScreen> {
                 ? const SizedBox(
                     width: 20,
                     height: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.white,
+                    ),
                   )
                 : Badge(
                     isLabelVisible: _pendingCount > 0,
@@ -184,13 +198,19 @@ class _TeacherHomeScreenState extends ConsumerState<TeacherHomeScreen> {
         padding: const EdgeInsets.all(16),
         children: [
           Card(
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
             color: const Color(0xFFF0FDFA),
             child: Padding(
               padding: const EdgeInsets.all(16),
               child: Row(
                 children: [
-                  const Icon(Icons.how_to_reg_rounded, color: Color(0xFF0D9488), size: 36),
+                  const Icon(
+                    Icons.how_to_reg_rounded,
+                    color: Color(0xFF0D9488),
+                    size: 36,
+                  ),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Column(
@@ -200,12 +220,18 @@ class _TeacherHomeScreenState extends ConsumerState<TeacherHomeScreen> {
                           _pendingCount > 0
                               ? '$_pendingCount Attendance Record(s) Queued'
                               : 'Attendance Engine Synchronized',
-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                          ),
                         ),
                         const SizedBox(height: 2),
                         Text(
                           'Last server sync sequence #$_lastSequence. Roll calls recorded offline persist safely to local SQLite.',
-                          style: const TextStyle(color: Color(0xFF64748B), fontSize: 12),
+                          style: const TextStyle(
+                            color: Color(0xFF64748B),
+                            fontSize: 12,
+                          ),
                         ),
                       ],
                     ),
@@ -251,7 +277,11 @@ class _TeacherHomeScreenState extends ConsumerState<TeacherHomeScreen> {
                 color: const Color(0xFF3B82F6),
                 onTap: () {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Homework tasks queue into local outbox stream.')),
+                    const SnackBar(
+                      content: Text(
+                        'Homework tasks queue into local outbox stream.',
+                      ),
+                    ),
                   );
                 },
               ),
@@ -262,7 +292,11 @@ class _TeacherHomeScreenState extends ConsumerState<TeacherHomeScreen> {
                 color: const Color(0xFF8B5CF6),
                 onTap: () {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Media quota synchronized with tenant storage.')),
+                    const SnackBar(
+                      content: Text(
+                        'Media quota synchronized with tenant storage.',
+                      ),
+                    ),
                   );
                 },
               ),
@@ -299,7 +333,10 @@ class _TeacherHomeScreenState extends ConsumerState<TeacherHomeScreen> {
               const SizedBox(height: 10),
               Text(
                 title,
-                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                ),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),

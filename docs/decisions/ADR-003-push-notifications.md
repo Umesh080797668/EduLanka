@@ -108,7 +108,7 @@ The Disaster Pack response bundles all essential offline resources for students 
 Live Google Firebase Cloud Messaging HTTP v1 delivery has been tested and verified against project `edulanka-spike` with live service account credentials.
 
 ### Live Cloud Dispatch & Dead-Token Cleanup Benchmark
-See raw delivery log: [`docs/benchmarks/spike-c-fcm-delivery-log.json`](file:///home/imantha/Desktop/EduLanka/docs/benchmarks/spike-c-fcm-delivery-log.json)
+See raw delivery log: [`docs/benchmarks/spike-c-fcm-delivery-log.json`](../benchmarks/spike-c-fcm-delivery-log.json)
 
 ```json
 {

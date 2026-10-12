@@ -1,0 +1,39 @@
+{
+  "tourId": "phase3_video_tour",
+  "version": 1,
+  "title": {
+    "en": "Curriculum Video Lessons",
+    "si": "විෂයමාලා වීඩියෝ පාඩම්",
+    "ta": "பாடத்திட்ட வீடியோ பாடங்கள்"
+  },
+  "steps": [
+    {
+      "stepId": "adaptive_streaming",
+      "target": "video_player_adaptive",
+      "title": {
+        "en": "Adaptive Streaming",
+        "si": "අනුවර්තී ප්‍රවාහය",
+        "ta": "தகவமைப்பு ஸ்ட்ரீமிங்"
+      },
+      "description": {
+        "en": "Videos automatically adjust to your 3G/4G bandwidth using HLS multi-bitrate streaming.",
+        "si": "ඔබගේ අන්තර්ජාල වේගයට ගැලපෙන පරිදි වීඩියෝ ගුණාත්මකභාවය ස්වයංක්‍රීයව වෙනස් වේ.",
+        "ta": "உங்கள் இணைய வேகத்திற்கு ஏற்ப வீடியோ தரம் தானாகவே மாறும்."
+      }
+    },
+    {
+      "stepId": "encrypted_download",
+      "target": "btn_download_offline",
+      "title": {
+        "en": "Encrypted Offline Playback",
+        "si": "නොබැඳි ආරක්ෂිත නැරඹීම",
+        "ta": "பாதுகாப்பான ஆஃப்லைன் பின்னணி"
+      },
+      "description": {
+        "en": "Save lessons offline with AES-256 chunked encryption. Valid for up to 30 days of offline study.",
+        "si": "දින 30ක් දක්වා අන්තර්ජාලය නොමැතිව නැරඹීමට ආරක්ෂිතව පාඩම් ඔබගේ දුරකථනයට බාගත කරන්න.",
+        "ta": "30 நாட்கள் வரை ஆஃப்லைனில் படிக்க வீடியோக்களை உங்கள் போனில் பாதுகாப்பாக பதிவிறக்கவும்."
+      }
+    }
+  ]
+}

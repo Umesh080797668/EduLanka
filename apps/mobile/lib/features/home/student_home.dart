@@ -55,7 +55,9 @@ class _StudentHomeScreenState extends ConsumerState<StudentHomeScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(result.message),
-          backgroundColor: result.success ? const Color(0xFF10B981) : const Color(0xFFEF4444),
+          backgroundColor: result.success
+              ? const Color(0xFF10B981)
+              : const Color(0xFFEF4444),
         ),
       );
     }
@@ -74,7 +76,8 @@ class _StudentHomeScreenState extends ConsumerState<StudentHomeScreen> {
           IconButton(
             tooltip: 'App Tour & Help',
             icon: const Icon(Icons.help_outline_rounded),
-            onPressed: () => TutorialEngine.showTour(context, 'onboarding_tour'),
+            onPressed: () =>
+                TutorialEngine.showTour(context, 'onboarding_tour'),
           ),
           IconButton(
             tooltip: 'Sync Changes',
@@ -82,7 +85,10 @@ class _StudentHomeScreenState extends ConsumerState<StudentHomeScreen> {
                 ? const SizedBox(
                     width: 20,
                     height: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.white,
+                    ),
                   )
                 : const Icon(Icons.sync_rounded),
             onPressed: _isSyncing ? null : _handleSync,
@@ -99,31 +105,48 @@ class _StudentHomeScreenState extends ConsumerState<StudentHomeScreen> {
         children: [
           // Offline Status Card
           Card(
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
             color: const Color(0xFFEFF6FF),
             child: Padding(
               padding: const EdgeInsets.all(16),
               child: Row(
                 children: [
-                  const Icon(Icons.offline_pin_rounded, color: Color(0xFF2563EB), size: 36),
+                  const Icon(
+                    Icons.offline_pin_rounded,
+                    color: Color(0xFF2563EB),
+                    size: 36,
+                  ),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          _pendingCount > 0 ? 'Offline Changes Queued' : 'Offline Ready',
-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                          _pendingCount > 0
+                              ? 'Offline Changes Queued'
+                              : 'Offline Ready',
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                          ),
                         ),
                         const SizedBox(height: 2),
                         Text(
                           'Synced up to sequence #$_lastSequence • Outbox queue: $_pendingCount pending',
-                          style: const TextStyle(color: Color(0xFF64748B), fontSize: 12),
+                          style: const TextStyle(
+                            color: Color(0xFF64748B),
+                            fontSize: 12,
+                          ),
                         ),
                         if (authState.userId != null)
                           Text(
                             'User ID: ${authState.userId}',
-                            style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 11),
+                            style: const TextStyle(
+                              color: Color(0xFF94A3B8),
+                              fontSize: 11,
+                            ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
@@ -168,7 +191,8 @@ class _StudentHomeScreenState extends ConsumerState<StudentHomeScreen> {
                     '/video-player',
                     extra: {
                       'title': 'Science Grade 10 — Lesson 01',
-                      'videoUrl': 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
+                      'videoUrl':
+                          'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
                     },
                   );
                 },
@@ -183,8 +207,10 @@ class _StudentHomeScreenState extends ConsumerState<StudentHomeScreen> {
                     '/paper-viewer',
                     extra: {
                       'title': 'O/L Mathematics Model Paper',
-                      'paperUrl': 'https://cdn.syncfusion.com/content/PDFViewer/flutter-succinctly.pdf',
-                      'markingSchemeUrl': 'https://cdn.syncfusion.com/content/PDFViewer/flutter-succinctly.pdf',
+                      'paperUrl':
+                          'https://cdn.syncfusion.com/content/PDFViewer/flutter-succinctly.pdf',
+                      'markingSchemeUrl':
+                          'https://cdn.syncfusion.com/content/PDFViewer/flutter-succinctly.pdf',
                     },
                   );
                 },
@@ -197,7 +223,8 @@ class _StudentHomeScreenState extends ConsumerState<StudentHomeScreen> {
                 onTap: () {
                   _showFeatureDialog(
                     title: 'Homework Tasks',
-                    content: 'Completed homework is queued in the SQLite outbox and synchronizes when network connectivity is restored.',
+                    content:
+                        'Completed homework is queued in the SQLite outbox and synchronizes when network connectivity is restored.',
                   );
                 },
               ),
@@ -250,7 +277,10 @@ class _StudentHomeScreenState extends ConsumerState<StudentHomeScreen> {
               const SizedBox(height: 10),
               Text(
                 title,
-                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                ),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),

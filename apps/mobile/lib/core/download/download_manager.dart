@@ -139,5 +139,5 @@ class DownloadManager extends StateNotifier<Map<String, DownloadTask>> {
 
 final downloadManagerProvider =
     StateNotifierProvider<DownloadManager, Map<String, DownloadTask>>(
-  (ref) => DownloadManager(),
-);
+      (ref) => DownloadManager(),
+    );

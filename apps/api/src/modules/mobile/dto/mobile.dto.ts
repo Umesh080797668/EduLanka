@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsNotEmpty, IsString, IsIn, IsOptional } from 'class-validator';
+import { IsNotEmpty, IsString, IsIn, IsOptional, Matches, IsBoolean } from 'class-validator';
 
 import { IsUuidString } from '../../../common/decorators/is-uuid-string.decorator';
 
@@ -134,4 +134,34 @@ export class UpsertShelterDto {
     @IsString()
     notes?: string;
 }
+
+export class UpdateMobileVersionDto {
+    @ApiPropertyOptional({ description: 'Target platform', enum: ['android', 'ios', 'all'], default: 'android' })
+    @IsOptional()
+    @IsIn(['android', 'ios', 'all'])
+    platform?: 'android' | 'ios' | 'all';
+
+    @ApiProperty({ description: 'Minimum supported semver string (e.g. 1.0.0)' })
+    @IsString()
+    @IsNotEmpty()
+    @Matches(/^\d+\.\d+\.\d+$/, { message: 'minVersion must be a valid semver string (e.g. 1.0.0)' })
+    minVersion!: string;
+
+    @ApiProperty({ description: 'Latest release semver string (e.g. 1.1.0)' })
+    @IsString()
+    @IsNotEmpty()
+    @Matches(/^\d+\.\d+\.\d+$/, { message: 'latestVersion must be a valid semver string (e.g. 1.1.0)' })
+    latestVersion!: string;
+
+    @ApiPropertyOptional({ description: 'Release notes or change summary' })
+    @IsOptional()
+    @IsString()
+    releaseNotes?: string;
+
+    @ApiPropertyOptional({ description: 'Whether to force an immediate update' })
+    @IsOptional()
+    @IsBoolean()
+    forceUpdate?: boolean;
+}
+
 

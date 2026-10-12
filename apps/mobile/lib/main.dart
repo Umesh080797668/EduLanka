@@ -26,18 +26,10 @@ Future<void> main() async {
         options.dsn = config.sentryDsn;
         options.tracesSampleRate = 1.0;
       },
-      appRunner: () => runApp(
-        const ProviderScope(
-          child: EduLankaMobileApp(),
-        ),
-      ),
+      appRunner: () => runApp(const ProviderScope(child: EduLankaMobileApp())),
     );
   } else {
-    runApp(
-      const ProviderScope(
-        child: EduLankaMobileApp(),
-      ),
-    );
+    runApp(const ProviderScope(child: EduLankaMobileApp()));
   }
 }
 
@@ -66,10 +58,7 @@ class EduLankaMobileApp extends ConsumerWidget {
           'Inter',
           'sans-serif',
         ],
-        cardTheme: const CardThemeData(
-          elevation: 0.5,
-          color: Colors.white,
-        ),
+        cardTheme: const CardThemeData(elevation: 0.5, color: Colors.white),
       ),
       darkTheme: ThemeData(
         useMaterial3: true,
