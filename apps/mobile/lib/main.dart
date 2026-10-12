@@ -1,16 +1,44 @@
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sentry_flutter/sentry_flutter.dart';
 
+import 'l10n/app_localizations.dart';
+import 'core/config/app_config.dart';
 import 'core/navigation/app_router.dart';
 
-void main() {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  runApp(
-    const ProviderScope(
-      child: EduLankaMobileApp(),
-    ),
-  );
+
+  // 1. Firebase Background & Push Notification Initialization (ADR-003)
+  try {
+    await Firebase.initializeApp();
+  } catch (_) {
+    // Graceful fallback for local development or CI where google-services.json is absent
+  }
+
+  // 2. Sentry Crash Reporting Initialization (P3-S10)
+  final config = AppConfig.fromEnvironment();
+  if (config.sentryDsn != null && config.sentryDsn!.isNotEmpty) {
+    await SentryFlutter.init(
+      (options) {
+        options.dsn = config.sentryDsn;
+        options.tracesSampleRate = 1.0;
+      },
+      appRunner: () => runApp(
+        const ProviderScope(
+          child: EduLankaMobileApp(),
+        ),
+      ),
+    );
+  } else {
+    runApp(
+      const ProviderScope(
+        child: EduLankaMobileApp(),
+      ),
+    );
+  }
 }
 
 class EduLankaMobileApp extends ConsumerWidget {
@@ -32,7 +60,12 @@ class EduLankaMobileApp extends ConsumerWidget {
           secondary: const Color(0xFF0D9488),
           surface: Colors.white,
         ),
-        fontFamily: 'Inter',
+        fontFamilyFallback: const [
+          'NotoSansSinhala',
+          'NotoSansTamil',
+          'Inter',
+          'sans-serif',
+        ],
         cardTheme: const CardThemeData(
           elevation: 0.5,
           color: Colors.white,
@@ -45,18 +78,20 @@ class EduLankaMobileApp extends ConsumerWidget {
           seedColor: const Color(0xFF3B82F6),
           brightness: Brightness.dark,
         ),
-        fontFamily: 'Inter',
+        fontFamilyFallback: const [
+          'NotoSansSinhala',
+          'NotoSansTamil',
+          'Inter',
+          'sans-serif',
+        ],
       ),
       localizationsDelegates: const [
+        AppLocalizations.delegate,
         GlobalMaterialLocalizations.delegate,
         GlobalWidgetsLocalizations.delegate,
         GlobalCupertinoLocalizations.delegate,
       ],
-      supportedLocales: const [
-        Locale('en', ''), // English
-        Locale('si', ''), // Sinhala
-        Locale('ta', ''), // Tamil
-      ],
+      supportedLocales: AppLocalizations.supportedLocales,
     );
   }
 }

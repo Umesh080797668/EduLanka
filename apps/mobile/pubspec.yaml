@@ -25,6 +25,16 @@ dependencies:
   intl: any
   sqflite: ^2.4.2+1
   sqflite_common_ffi: ^2.4.0+3
+  drift: ^2.35.2
+  drift_sqflite: ^2.0.1
+  sqlcipher_flutter_libs: ^0.7.0+eol
+  connectivity_plus: ^7.3.2
+  web_socket_channel: ^3.0.3
+  video_player: ^2.11.1
+  sentry_flutter: ^8.14.2
+  syncfusion_flutter_pdfviewer: ^33.2.13
+  firebase_core: ^4.15.0
+  firebase_messaging: ^16.7.0
 
 dev_dependencies:
   flutter_test:
@@ -34,3 +44,7 @@ dev_dependencies:
 flutter:
   uses-material-design: true
   generate: true
+
+  assets:
+    - assets/tutorials/
+

@@ -43,3 +43,10 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Local environment & keystore properties
+config.json
+key.properties
+*.jks
+*.keystore
+

@@ -1,0 +1,21 @@
+{
+  "@@locale": "en",
+  "appTitle": "EduLanka Mobile",
+  "appSubtitle": "Offline-First School Learning Platform",
+  "signIn": "Sign In to EduLanka",
+  "emailOrPhone": "Email, Phone, or ID",
+  "password": "Password",
+  "schoolDomain": "School Domain / Tenant Slug",
+  "offlineMode": "Offline Mode Active",
+  "offlineReady": "Offline Ready",
+  "syncChanges": "Sync Changes",
+  "allSynchronized": "All changes synchronized.",
+  "disasterReadiness": "Disaster Readiness Pack",
+  "emergencyContacts": "Emergency Contacts",
+  "evacuationShelters": "Evacuation Shelters",
+  "markAttendance": "Mark Attendance",
+  "pastPaperHub": "Past Paper Hub",
+  "videoLessons": "Offline Video Lessons",
+  "homeworkTasks": "Homework Tasks",
+  "signOut": "Sign Out"
+}

@@ -1,0 +1,53 @@
+{
+  "tourId": "onboarding_tour",
+  "version": 1,
+  "title": {
+    "en": "Welcome to EduLanka",
+    "si": "එඩියුලංකා වෙත සාදරයෙන් පිළිගනිමු",
+    "ta": "எஜூலங்காவிற்கு நல்வரவு"
+  },
+  "steps": [
+    {
+      "stepId": "offline_status",
+      "target": "offline_card",
+      "title": {
+        "en": "Offline-First Design",
+        "si": "නොබැඳි ප්‍රමුඛ නිර්මාණය",
+        "ta": "ஆஃப்லைன் வடிவமைப்பு"
+      },
+      "description": {
+        "en": "All core lessons and past papers are cached locally so you can study even during power cuts or signal loss.",
+        "si": "විදුලිය හෝ සංඥා නොමැති විටදී පවා අධ්‍යාපනය ලැබිය හැකි වන පරිදි පාඩම් ඔබගේ දුරකථනයේ සුරැකේ.",
+        "ta": "மின்சாரம் அல்லது அலைவரிசை இல்லாத நேரத்திலும் நீங்கள் படிக்கும் வகையில் பாடங்கள் சேமிக்கப்படும்."
+      }
+    },
+    {
+      "stepId": "sync_button",
+      "target": "app_bar_sync",
+      "title": {
+        "en": "Monotonic Event Sync",
+        "si": "දත්ත සමමුහුර්තකරණය",
+        "ta": "தரவு ஒத்திசைவு"
+      },
+      "description": {
+        "en": "Whenever connectivity resumes, tap the sync icon or let the app sync automatically in the background.",
+        "si": "අන්තර්ජාලය සම්බන්ධ වූ විට සමමුහුර්ත නිරූපකය ස්පර්ශ කිරීමෙන් සියලු දත්ත යාවත්කාලීන වේ.",
+        "ta": "இணைய இணைப்பு கிடைத்ததும் ஒத்திசைவு ஐகானை அழுத்தி தரவை புதுப்பிக்கவும்."
+      }
+    },
+    {
+      "stepId": "disaster_pack",
+      "target": "feature_disaster",
+      "title": {
+        "en": "Disaster Readiness Pack",
+        "si": "ආපදා සූදානම් පැකේජය",
+        "ta": "பேரிடர் தயார்நிலை"
+      },
+      "description": {
+        "en": "Instant offline access to emergency hotline numbers, police, medical contacts, and nearest evacuation shelters.",
+        "si": "හදිසි ආපදා අවස්ථාවන්හිදී භාවිතයට හදිසි ඇමතුම් සහ ඉවත් කිරීමේ මධ්‍යස්ථාන තොරතුරු නොබැඳිව බලන්න.",
+        "ta": "அவசரகால உதவி எண்கள் மற்றும் தங்குமிட விவரங்களை உடனடியாக ஆஃப்லைனில் பார்க்கவும்."
+      }
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "@@locale": "si",
+  "appTitle": "එඩියුලංකා මොබයිල්",
+  "appSubtitle": "නොබැඳි පාසල් ඉගෙනුම් වේදිකාව",
+  "signIn": "එඩියුලංකා වෙත පිවිසෙන්න",
+  "emailOrPhone": "විද්‍යුත් තැපෑල හෝ හැඳුනුම් අංකය",
+  "password": "මුරපදය",
+  "schoolDomain": "පාසල් ඩොමේනය",
+  "offlineMode": "නොබැඳි මාදිලිය ක්‍රියාත්මකයි",
+  "offlineReady": "නොබැඳි භාවිතයට සූදානම්",
+  "syncChanges": "වෙනස්කම් සමමුහුර්ත කරන්න",
+  "allSynchronized": "සියලු දත්ත සමමුහුර්ත කර ඇත.",
+  "disasterReadiness": "ආපදා සූදානම් පැකේජය",
+  "emergencyContacts": "හදිසි ඇමතුම් අංක",
+  "evacuationShelters": "හදිසි ඉවත් කිරීමේ මධ්‍යස්ථාන",
+  "markAttendance": "පැමිණීම සටහන් කරන්න",
+  "pastPaperHub": "පසුගිය ප්‍රශ්න පත්‍ර එකතුව",
+  "videoLessons": "නොබැඳි වීඩියෝ පාඩම්",
+  "homeworkTasks": "ගෙදර වැඩ පැවරුම්",
+  "signOut": "ඉවත් වන්න"
+}

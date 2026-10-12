@@ -6,6 +6,8 @@ import '../../features/auth/login_screen.dart';
 import '../../features/home/student_home.dart';
 import '../../features/home/teacher_home.dart';
 import '../../features/home/parent_home.dart';
+import '../../features/papers/paper_viewer_screen.dart';
+import '../../features/video/video_player_screen.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
   final authState = ref.watch(authProvider);
@@ -28,6 +30,29 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/parent',
         builder: (context, state) => const ParentHomeScreen(),
+      ),
+      GoRoute(
+        path: '/paper-viewer',
+        builder: (context, state) {
+          final extra = state.extra as Map<String, dynamic>? ?? {};
+          return PaperViewerScreen(
+            title: extra['title'] as String? ?? 'Past Paper',
+            paperUrl: extra['paperUrl'] as String?,
+            localFilePath: extra['localFilePath'] as String?,
+            markingSchemeUrl: extra['markingSchemeUrl'] as String?,
+          );
+        },
+      ),
+      GoRoute(
+        path: '/video-player',
+        builder: (context, state) {
+          final extra = state.extra as Map<String, dynamic>? ?? {};
+          return VideoPlayerScreen(
+            title: extra['title'] as String? ?? 'Curriculum Video Lesson',
+            videoUrl: extra['videoUrl'] as String?,
+            localFilePath: extra['localFilePath'] as String?,
+          );
+        },
       ),
     ],
     redirect: (context, state) {

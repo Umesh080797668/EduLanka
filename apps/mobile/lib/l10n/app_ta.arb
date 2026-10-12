@@ -1,0 +1,21 @@
+{
+  "@@locale": "ta",
+  "appTitle": "எஜூலங்கா மொபைல்",
+  "appSubtitle": "ஆஃப்லைன் பள்ளி கற்றல் தளம்",
+  "signIn": "எஜூலங்காவில் உள்நுழைக",
+  "emailOrPhone": "மின்னஞ்சல் அல்லது தொலைபேசி எண்",
+  "password": "கடவுச்சொல்",
+  "schoolDomain": "பள்ளி டொமைன்",
+  "offlineMode": "ஆஃப்லைன் பயன்முறை இயங்குகிறது",
+  "offlineReady": "ஆஃப்லைன் தயாராக உள்ளது",
+  "syncChanges": "தரவை ஒத்திசைக்கவும்",
+  "allSynchronized": "அனைத்து மாற்றங்களும் ஒத்திசைக்கப்பட்டன.",
+  "disasterReadiness": "பேரிடர் தயார்நிலை தொகுப்பு",
+  "emergencyContacts": "அவசர தொடர்பு எண்கள்",
+  "evacuationShelters": "அவசர தங்கமிடங்கள்",
+  "markAttendance": "வருகையைப் பதிவுசெய்க",
+  "pastPaperHub": "கடந்தகால வினாத்தாள் மையம்",
+  "videoLessons": "ஆஃப்லைன் வீடியோ பாடங்கள்",
+  "homeworkTasks": "வீட்டுப்பாட பணிகள்",
+  "signOut": "வெளியேறுக"
+}

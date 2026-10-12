@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../auth/token_storage.dart';
+import '../config/app_config.dart';
 
 class ApiClient {
   late final Dio dio;
@@ -9,18 +10,16 @@ class ApiClient {
 
   ApiClient({
     required this.tokenStorage,
-    String? baseUrl,
-  }) : baseUrl = baseUrl ??
-            const String.fromEnvironment(
-              'API_BASE_URL',
-              defaultValue: 'http://10.0.2.2:8081/api/v1',
-            ) {
-    dio = Dio(BaseOptions(
-      baseUrl: this.baseUrl,
-      connectTimeout: const Duration(seconds: 15),
-      receiveTimeout: const Duration(seconds: 15),
-      headers: {'Content-Type': 'application/json'},
-    ));
+    required this.baseUrl,
+  }) {
+    dio = Dio(
+      BaseOptions(
+        baseUrl: baseUrl,
+        connectTimeout: const Duration(seconds: 15),
+        receiveTimeout: const Duration(seconds: 15),
+        headers: {'Content-Type': 'application/json'},
+      ),
+    );
 
     dio.interceptors.add(
       InterceptorsWrapper(
@@ -49,7 +48,9 @@ class ApiClient {
                   data: {'refreshToken': refreshToken},
                 );
 
-                final data = refreshRes.data is Map && refreshRes.data.containsKey('data')
+                final data =
+                    refreshRes.data is Map &&
+                        refreshRes.data.containsKey('data')
                     ? refreshRes.data['data']
                     : refreshRes.data;
 
@@ -69,7 +70,8 @@ class ApiClient {
                   );
 
                   // Retry original request
-                  error.requestOptions.headers['Authorization'] = 'Bearer $newAccess';
+                  error.requestOptions.headers['Authorization'] =
+                      'Bearer $newAccess';
                   final retryRes = await dio.fetch(error.requestOptions);
                   return handler.resolve(retryRes);
                 }
@@ -101,7 +103,9 @@ class ApiClient {
 
     final response = await dio.post('/auth/login', data: payload);
     final rawData = response.data;
-    if (rawData is Map && rawData.containsKey('data') && rawData['data'] is Map) {
+    if (rawData is Map &&
+        rawData.containsKey('data') &&
+        rawData['data'] is Map) {
       return Map<String, dynamic>.from(rawData['data']);
     } else if (rawData is Map) {
       return Map<String, dynamic>.from(rawData);
@@ -129,7 +133,9 @@ class ApiClient {
       },
     );
     final rawData = response.data;
-    if (rawData is Map && rawData.containsKey('data') && rawData['data'] is Map) {
+    if (rawData is Map &&
+        rawData.containsKey('data') &&
+        rawData['data'] is Map) {
       return Map<String, dynamic>.from(rawData['data']);
     } else if (rawData is Map) {
       return Map<String, dynamic>.from(rawData);
@@ -137,13 +143,18 @@ class ApiClient {
     return {};
   }
 
-  Future<Map<String, dynamic>> getSyncEvents({int since = 0, int limit = 50}) async {
+  Future<Map<String, dynamic>> getSyncEvents({
+    int since = 0,
+    int limit = 50,
+  }) async {
     final response = await dio.get(
       '/mobile/sync-events',
       queryParameters: {'since': since, 'limit': limit},
     );
     final rawData = response.data;
-    if (rawData is Map && rawData.containsKey('data') && rawData['data'] is Map) {
+    if (rawData is Map &&
+        rawData.containsKey('data') &&
+        rawData['data'] is Map) {
       return Map<String, dynamic>.from(rawData['data']);
     } else if (rawData is Map) {
       return Map<String, dynamic>.from(rawData);
@@ -154,7 +165,9 @@ class ApiClient {
   Future<Map<String, dynamic>> getSnapshot() async {
     final response = await dio.get('/mobile/snapshot');
     final rawData = response.data;
-    if (rawData is Map && rawData.containsKey('data') && rawData['data'] is Map) {
+    if (rawData is Map &&
+        rawData.containsKey('data') &&
+        rawData['data'] is Map) {
       return Map<String, dynamic>.from(rawData['data']);
     } else if (rawData is Map) {
       return Map<String, dynamic>.from(rawData);
@@ -167,7 +180,9 @@ class ApiClient {
   Future<Map<String, dynamic>> getDisasterPack() async {
     final response = await dio.get('/mobile/disaster-pack');
     final rawData = response.data;
-    if (rawData is Map && rawData.containsKey('data') && rawData['data'] is Map) {
+    if (rawData is Map &&
+        rawData.containsKey('data') &&
+        rawData['data'] is Map) {
       return Map<String, dynamic>.from(rawData['data']);
     } else if (rawData is Map) {
       return Map<String, dynamic>.from(rawData);
@@ -178,7 +193,9 @@ class ApiClient {
   Future<List<dynamic>> getEmergencyContacts() async {
     final response = await dio.get('/mobile/emergency-contacts');
     final rawData = response.data;
-    if (rawData is Map && rawData.containsKey('data') && rawData['data'] is List) {
+    if (rawData is Map &&
+        rawData.containsKey('data') &&
+        rawData['data'] is List) {
       return rawData['data'] as List<dynamic>;
     } else if (rawData is List) {
       return rawData;
@@ -189,7 +206,9 @@ class ApiClient {
   Future<List<dynamic>> getShelters() async {
     final response = await dio.get('/mobile/shelters');
     final rawData = response.data;
-    if (rawData is Map && rawData.containsKey('data') && rawData['data'] is List) {
+    if (rawData is Map &&
+        rawData.containsKey('data') &&
+        rawData['data'] is List) {
       return rawData['data'] as List<dynamic>;
     } else if (rawData is List) {
       return rawData;
@@ -200,5 +219,6 @@ class ApiClient {
 
 final apiClientProvider = Provider<ApiClient>((ref) {
   final tokenStorage = ref.watch(tokenStorageProvider);
-  return ApiClient(tokenStorage: tokenStorage);
+  final config = ref.watch(appConfigProvider);
+  return ApiClient(tokenStorage: tokenStorage, baseUrl: config.apiBaseUrl);
 });

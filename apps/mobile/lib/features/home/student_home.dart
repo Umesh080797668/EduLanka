@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../../core/auth/auth_state.dart';
 import '../../core/database/local_database.dart';
 import '../../core/sync/sync_service.dart';
 import '../disaster/disaster_pack_dialog.dart';
+import '../tutorial/tutorial_engine.dart';
 
 class StudentHomeScreen extends ConsumerStatefulWidget {
   const StudentHomeScreen({super.key});
@@ -21,6 +23,9 @@ class _StudentHomeScreenState extends ConsumerState<StudentHomeScreen> {
   void initState() {
     super.initState();
     _refreshSyncState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      TutorialEngine.showTourIfUnseen(context, 'onboarding_tour');
+    });
   }
 
   Future<void> _refreshSyncState() async {
@@ -66,6 +71,11 @@ class _StudentHomeScreenState extends ConsumerState<StudentHomeScreen> {
         backgroundColor: const Color(0xFF1E40AF),
         foregroundColor: Colors.white,
         actions: [
+          IconButton(
+            tooltip: 'App Tour & Help',
+            icon: const Icon(Icons.help_outline_rounded),
+            onPressed: () => TutorialEngine.showTour(context, 'onboarding_tour'),
+          ),
           IconButton(
             tooltip: 'Sync Changes',
             icon: _isSyncing
@@ -154,9 +164,12 @@ class _StudentHomeScreenState extends ConsumerState<StudentHomeScreen> {
                 subtitle: 'Offline Curriculum Playback',
                 color: const Color(0xFF3B82F6),
                 onTap: () {
-                  _showFeatureDialog(
-                    title: 'Offline Video Lessons',
-                    content: 'Educational video lessons are stored locally in application cache. Tap "Sync Changes" in the top bar to update downloads.',
+                  context.push(
+                    '/video-player',
+                    extra: {
+                      'title': 'Science Grade 10 — Lesson 01',
+                      'videoUrl': 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
+                    },
                   );
                 },
               ),
@@ -166,9 +179,13 @@ class _StudentHomeScreenState extends ConsumerState<StudentHomeScreen> {
                 subtitle: 'Paired Marking Schemes',
                 color: const Color(0xFF10B981),
                 onTap: () {
-                  _showFeatureDialog(
-                    title: 'Past Paper Hub',
-                    content: 'Access downloaded past papers and official marking schemes offline.',
+                  context.push(
+                    '/paper-viewer',
+                    extra: {
+                      'title': 'O/L Mathematics Model Paper',
+                      'paperUrl': 'https://cdn.syncfusion.com/content/PDFViewer/flutter-succinctly.pdf',
+                      'markingSchemeUrl': 'https://cdn.syncfusion.com/content/PDFViewer/flutter-succinctly.pdf',
+                    },
                   );
                 },
               ),
