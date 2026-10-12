@@ -197,11 +197,12 @@ export class MobileService {
                 }
                 if (role === UserRole.TEACHER) {
                     const classId = dto.payload?.class_id ?? dto.payload?.classId;
-                    if (classId) {
-                        const teacherClasses = await this.getTeacherClassIds(caller);
-                        if (!teacherClasses.includes(classId)) {
-                            throw new ForbiddenException('Teachers can only record attendance for their assigned classes');
-                        }
+                    if (!classId) {
+                        throw new BadRequestException('class_id is required for teacher attendance sync events');
+                    }
+                    const teacherClasses = await this.getTeacherClassIds(caller);
+                    if (!teacherClasses.includes(classId)) {
+                        throw new ForbiddenException('Teachers can only record attendance for their assigned classes');
                     }
                 }
                 break;
@@ -290,7 +291,7 @@ export class MobileService {
         // Check whether event was previously ingested with this client UUID (idempotency check)
         const { data: preExistingEvent } = await client
             .from('sync_events')
-            .select('id, client_uuid')
+            .select('id, client_uuid, applied')
             .eq('tenant_id', caller.tenantId)
             .eq('client_uuid', dto.clientUuid)
             .maybeSingle();
@@ -313,8 +314,9 @@ export class MobileService {
             throw new InternalServerErrorException('Sync event ingestion failed');
         }
 
-        // 4. Persist Attendance roll call ONLY on first successful insertion (idempotency safety)
-        if (!preExistingEvent && dto.entityType === 'attendance' && dto.payload) {
+        // 4. Persist Attendance roll call if new OR if previously unapplied (retry recovery)
+        const isAttendanceApplied = preExistingEvent ? preExistingEvent.applied === true : false;
+        if (!isAttendanceApplied && dto.entityType === 'attendance' && dto.payload) {
             const classId = dto.payload.class_id ?? dto.payload.classId;
             const studentId = dto.payload.student_id ?? dto.payload.studentId ?? dto.entityId;
             const date = dto.payload.date;
@@ -398,6 +400,18 @@ export class MobileService {
                     if (attInsertErr) {
                         this.logger.error(`Attendance insert failed: ${attInsertErr.message}`);
                         throw new InternalServerErrorException('Attendance record insert failed');
+                    }
+                }
+
+                // Mark the sync event as applied so subsequent client retries don't duplicate attendance processing
+                const eventId = data?.id ?? preExistingEvent?.id;
+                if (eventId) {
+                    const { error: applyErr } = await client
+                        .from('sync_events')
+                        .update({ applied: true })
+                        .eq('id', eventId);
+                    if (applyErr) {
+                        this.logger.warn(`Failed to mark sync event ${eventId} as applied: ${applyErr.message}`);
                     }
                 }
             }
@@ -950,7 +964,7 @@ export class MobileService {
             throw new InternalServerErrorException('Failed to enqueue disaster push job');
         }
 
-        return {
+            return {
             success: true,
             tenantId: targetTenantId,
             event: syncEvent,
@@ -959,4 +973,186 @@ export class MobileService {
             dispatchedAt: new Date().toISOString(),
         };
     }
+
+    /**
+     * Returns mobile app minimum supported version and release metadata (P3-S1).
+     */
+    async getVersion() {
+        const { data } = await this.supabase.adminClient
+            .from('mobile_app_versions')
+            .select('*')
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+        return {
+            minVersion: data?.min_version || '1.0.0',
+            latestVersion: data?.latest_version || '1.0.0',
+            releaseNotes: data?.release_notes || 'EduLanka Phase 3 Mobile Release — Offline Sync, Encrypted Video, Paper Hub & Disaster Pack',
+            forceUpdate: data?.force_update || false,
+        };
+    }
+
+    /**
+     * Queries sync health indicators for School Admin (P3-S3).
+     */
+    async getSyncHealth(caller: JwtPayload) {
+        assertUuid(caller.tenantId, 'tenantId');
+        const client = this.supabase.adminClient;
+
+        // Fetch active registered devices
+        const { data: devices, count: deviceCount } = await client
+            .from('device_tokens')
+            .select('id, user_id, platform, device_model, last_seen_at, is_active', { count: 'exact' })
+            .eq('tenant_id', caller.tenantId)
+            .eq('is_active', true);
+
+        // Fetch sync event sequence counter
+        const { data: counter } = await client
+            .from('tenant_sync_counters')
+            .select('last_sequence, updated_at')
+            .eq('tenant_id', caller.tenantId)
+            .maybeSingle();
+
+        // Stale devices: not seen in > 3 days
+        const threeDaysAgo = new Date(Date.now() - 3 * 24 * 3600 * 1000).toISOString();
+        const staleDevices = (devices || []).filter((d: any) => d.last_seen_at && d.last_seen_at < threeDaysAgo);
+
+        return {
+            tenantId: caller.tenantId,
+            totalActiveDevices: deviceCount || 0,
+            latestSyncSequence: Number(counter?.last_sequence || 0),
+            lastSequenceAllocatedAt: counter?.updated_at || null,
+            staleDevicesCount: staleDevices.length,
+            staleDevices: staleDevices.slice(0, 50),
+        };
+    }
+
+    /**
+     * Retrieves emergency contacts for tenant (P3-S8).
+     */
+    async getEmergencyContacts(caller: JwtPayload) {
+        assertUuid(caller.tenantId, 'tenantId');
+        const { data, error } = await this.supabase.adminClient
+            .from('school_emergency_contacts')
+            .select('*')
+            .eq('tenant_id', caller.tenantId)
+            .order('display_order', { ascending: true });
+
+        if (error) {
+            throw new InternalServerErrorException('Failed to fetch emergency contacts');
+        }
+        return data || [];
+    }
+
+    /**
+     * Updates or inserts emergency contact (P3-S8).
+     */
+    async upsertEmergencyContact(caller: JwtPayload, contact: { id?: string; name: string; role: string; phone: string; isPrimary?: boolean; displayOrder?: number }) {
+        assertUuid(caller.tenantId, 'tenantId');
+        const { data, error } = await this.supabase.adminClient
+            .from('school_emergency_contacts')
+            .upsert({
+                id: contact.id,
+                tenant_id: caller.tenantId,
+                name: contact.name,
+                role: contact.role,
+                phone: contact.phone,
+                is_primary: contact.isPrimary ?? false,
+                display_order: contact.displayOrder ?? 0,
+                updated_at: new Date().toISOString(),
+            })
+            .select('*')
+            .single();
+
+        if (error) {
+            throw new InternalServerErrorException('Failed to save emergency contact');
+        }
+        return data;
+    }
+
+    /**
+     * Retrieves designated emergency shelters for tenant (P3-S8).
+     */
+    async getShelters(caller: JwtPayload) {
+        assertUuid(caller.tenantId, 'tenantId');
+        const { data, error } = await this.supabase.adminClient
+            .from('school_shelters')
+            .select('*')
+            .eq('tenant_id', caller.tenantId)
+            .order('created_at', { ascending: true });
+
+        if (error) {
+            throw new InternalServerErrorException('Failed to fetch school shelters');
+        }
+        return data || [];
+    }
+
+    /**
+     * Updates or inserts school shelter (P3-S8).
+     */
+    async upsertShelter(caller: JwtPayload, shelter: { id?: string; name: string; address: string; capacity?: number; gpsLat?: number; gpsLng?: number; notes?: string }) {
+        assertUuid(caller.tenantId, 'tenantId');
+        const { data, error } = await this.supabase.adminClient
+            .from('school_shelters')
+            .upsert({
+                id: shelter.id,
+                tenant_id: caller.tenantId,
+                name: shelter.name,
+                address: shelter.address,
+                capacity: shelter.capacity ?? null,
+                gps_lat: shelter.gpsLat ?? null,
+                gps_lng: shelter.gpsLng ?? null,
+                notes: shelter.notes ?? null,
+                updated_at: new Date().toISOString(),
+            })
+            .select('*')
+            .single();
+
+        if (error) {
+            throw new InternalServerErrorException('Failed to save shelter record');
+        }
+        return data;
+    }
+
+    /**
+     * Updates mobile app release metadata (P3-S9). Super admin only.
+     */
+    async updateVersion(
+        caller: JwtPayload,
+        dto: { minVersion: string; latestVersion: string; releaseNotes: string; forceUpdate: boolean },
+    ) {
+        if (caller.role !== UserRole.SUPER_ADMIN) {
+            throw new ForbiddenException('Super Admin privileges required to update mobile releases');
+        }
+
+        const { data, error } = await this.supabase.adminClient
+            .from('mobile_app_versions')
+            .upsert({
+                id: '00000000-0000-0000-0000-000000000001',
+                min_version: dto.minVersion,
+                latest_version: dto.latestVersion,
+                release_notes: dto.releaseNotes,
+                force_update: dto.forceUpdate,
+                updated_at: new Date().toISOString(),
+            })
+            .select('*')
+            .single();
+
+        if (error) {
+            this.logger.error(`Failed to update mobile app version: ${error.message}`);
+            throw new InternalServerErrorException('Failed to update mobile app version');
+        }
+
+        return {
+            success: true,
+            version: {
+                minVersion: data.min_version,
+                latestVersion: data.latest_version,
+                releaseNotes: data.release_notes,
+                forceUpdate: data.force_update,
+            },
+        };
+    }
 }
+

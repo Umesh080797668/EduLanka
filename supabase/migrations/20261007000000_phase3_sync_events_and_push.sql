@@ -96,10 +96,13 @@ CREATE TABLE IF NOT EXISTS public.sync_events (
     payload         JSONB NOT NULL DEFAULT '{}'::jsonb,
     client_uuid     TEXT NOT NULL,                                              -- Client idempotency key (UUIDv4)
     sequence        BIGINT NOT NULL,                                            -- Monotonic sequence allocated per tenant
+    applied         BOOLEAN NOT NULL DEFAULT FALSE,                             -- Tracks downstream table persistence status
     created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     UNIQUE (tenant_id, client_uuid),
     CONSTRAINT uq_sync_events_tenant_seq UNIQUE (tenant_id, sequence)
 );
+
+ALTER TABLE public.sync_events ADD COLUMN IF NOT EXISTS applied BOOLEAN NOT NULL DEFAULT FALSE;
 
 -- Ensure client_uuid is NOT NULL if table already existed prior to migration
 DO $$
@@ -223,6 +226,7 @@ BEGIN
         payload,
         client_uuid,
         sequence,
+        applied,
         created_at
     )
     SELECT
@@ -233,6 +237,7 @@ BEGIN
         COALESCE(p_payload, '{}'::jsonb),
         p_client_uuid,
         next_seq.last_sequence,
+        (p_entity_type != 'attendance'),
         NOW()
     FROM next_seq
     RETURNING * INTO v_new_event;

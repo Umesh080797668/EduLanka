@@ -1,3 +1,4 @@
+import { execSync } from 'child_process';
 import * as path from 'path';
 
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -16,7 +17,7 @@ const SUPABASE_ANON_KEY =
     || '';
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 
-const shouldRun =
+const hasValidConfig =
     !!SUPABASE_URL
     && !SUPABASE_URL.includes('yourproject')
     && !!SUPABASE_SERVICE_ROLE_KEY
@@ -26,9 +27,33 @@ const shouldRun =
     && !SUPABASE_ANON_KEY.includes('invalid')
     && !SUPABASE_ANON_KEY.includes('placeholder');
 
-if (!shouldRun) {
-    console.warn('Skipping RPC Security Isolation test: Live Supabase credentials not found in environment');
+function checkDbReachable(url: string): boolean {
+    if (!url) return false;
+    try {
+        const code = execSync(
+            `curl -s -o /dev/null -w "%{http_code}" --connect-timeout 1 ${JSON.stringify(url + '/rest/v1/')}`,
+            { encoding: 'utf8', stdio: ['pipe', 'pipe', 'ignore'] },
+        ).trim();
+        return code === '200' || code === '401' || code === '403';
+    } catch {
+        return false;
+    }
 }
+
+const isDbReachable = hasValidConfig && checkDbReachable(SUPABASE_URL);
+const isCI = process.env.CI === 'true';
+
+if (isCI && (!hasValidConfig || !isDbReachable)) {
+    throw new Error(
+        `RPC Security Isolation tests cannot run: Database is unreachable at ${SUPABASE_URL || '<empty>'} in CI environment! CI must start the throwaway database before running tests.`,
+    );
+}
+
+if (!isDbReachable) {
+    console.warn('Skipping RPC Security Isolation test: Live Supabase database unreachable at ' + SUPABASE_URL);
+}
+
+const describeSuite = isDbReachable ? describe : describe.skip;
 
 jest.setTimeout(60000);
 
@@ -53,38 +78,21 @@ async function withRetry<T extends { data?: any; error?: any }>(
     return lastResult!;
 }
 
-describe('RPC Security Isolation (Real Database Anon Key Defense)', () => {
+describeSuite('RPC Security Isolation (Real Database Anon Key Defense)', () => {
     let anonClient: SupabaseClient;
     let serviceClient: SupabaseClient;
-    let isDbReachable = false;
 
     beforeAll(async () => {
-        if (!shouldRun) return;
-
         anonClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
             auth: { persistSession: false, autoRefreshToken: false },
         });
         serviceClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
             auth: { persistSession: false, autoRefreshToken: false },
         });
-
-        try {
-            const timeoutPromise = new Promise((_, reject) =>
-                setTimeout(() => reject(new Error('timeout')), 2500),
-            );
-            await Promise.race([
-                serviceClient.from('tenants').select('id').limit(1),
-                timeoutPromise,
-            ]);
-            isDbReachable = true;
-        } catch {
-            isDbReachable = false;
-        }
     });
 
     describe('Direct Anon Key PostgREST Execution', () => {
         it('should reject anon caller from executing activate_disaster_mode with 42501 permission denied', async () => {
-            if (!isDbReachable) return;
             const { data, error } = await withRetry(() => anonClient.rpc('activate_disaster_mode', {
                 p_tenant_id: '00000000-0000-0000-0000-000000000000',
                 p_triggered_by: '00000000-0000-0000-0000-000000000000',
@@ -98,7 +106,6 @@ describe('RPC Security Isolation (Real Database Anon Key Defense)', () => {
         });
 
         it('should reject anon caller from executing deactivate_disaster_mode with 42501 permission denied', async () => {
-            if (!isDbReachable) return;
             const { data, error } = await withRetry(() => anonClient.rpc('deactivate_disaster_mode', {
                 p_tenant_id: '00000000-0000-0000-0000-000000000000',
                 p_deactivated_by: '00000000-0000-0000-0000-000000000000',
@@ -111,7 +118,6 @@ describe('RPC Security Isolation (Real Database Anon Key Defense)', () => {
         });
 
         it('should reject anon caller from executing increment_disaster_sms_count with 42501 permission denied', async () => {
-            if (!isDbReachable) return;
             const { data, error } = await withRetry(() => anonClient.rpc('increment_disaster_sms_count', {
                 p_event_id: '00000000-0000-0000-0000-000000000000',
                 p_status: 'DELIVERED',
@@ -124,14 +130,12 @@ describe('RPC Security Isolation (Real Database Anon Key Defense)', () => {
         });
 
         it('should verify exec_sql has been dropped from database (not found in schema cache)', async () => {
-            if (!isDbReachable) return;
             const { data, error } = await withRetry(() => anonClient.rpc('exec_sql', {
                 sql: 'SELECT 1;',
             }));
 
             expect(data).toBeNull();
             expect(error).toBeDefined();
-            // PGRST202 or message indicates function does not exist in PostgREST schema cache
             expect(
                 ['PGRST202', '42883'].includes(error?.code || '') ||
                 /could not find the function.*exec_sql/i.test(error?.message || '')
@@ -139,7 +143,6 @@ describe('RPC Security Isolation (Real Database Anon Key Defense)', () => {
         });
 
         it('should reject anon caller from selecting from security_invoker view tenant_sms_quotas', async () => {
-            if (!isDbReachable) return;
             const { data, error } = await withRetry(() => anonClient.from('tenant_sms_quotas').select('*'));
 
             expect(data).toBeNull();
@@ -151,14 +154,12 @@ describe('RPC Security Isolation (Real Database Anon Key Defense)', () => {
 
     describe('Service Role Allowed Execution (Definer Privilege Verification)', () => {
         it('should permit service_role to call activate_disaster_mode without 42501 permission denied', async () => {
-            if (!isDbReachable) return;
             const { error } = await withRetry(() => serviceClient.rpc('activate_disaster_mode', {
                 p_tenant_id: '00000000-0000-0000-0000-000000000000',
                 p_triggered_by: '00000000-0000-0000-0000-000000000000',
                 p_reason: 'FLOOD',
             }));
 
-            // May throw TENANT_NOT_FOUND (P0002), but must NOT fail with 42501 permission denied
             if (error) {
                 expect(error.code).not.toBe('42501');
                 expect(error.message).not.toMatch(/permission denied/i);
@@ -166,13 +167,11 @@ describe('RPC Security Isolation (Real Database Anon Key Defense)', () => {
         });
 
         it('should permit service_role to call deactivate_disaster_mode without 42501 permission denied', async () => {
-            if (!isDbReachable) return;
             const { error } = await withRetry(() => serviceClient.rpc('deactivate_disaster_mode', {
                 p_tenant_id: '00000000-0000-0000-0000-000000000000',
                 p_deactivated_by: '00000000-0000-0000-0000-000000000000',
             }));
 
-            // May throw TENANT_NOT_FOUND (P0002) or DISASTER_NOT_ACTIVE, but must NOT fail with 42501 permission denied
             if (error) {
                 expect(error.code).not.toBe('42501');
                 expect(error.message).not.toMatch(/permission denied/i);
@@ -180,7 +179,6 @@ describe('RPC Security Isolation (Real Database Anon Key Defense)', () => {
         });
 
         it('should verify service_role cannot call dropped exec_sql (PGRST202)', async () => {
-            if (!isDbReachable) return;
             const { data, error } = await withRetry(() => serviceClient.rpc('exec_sql', {
                 sql: 'SELECT 1;',
             }));

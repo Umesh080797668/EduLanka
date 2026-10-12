@@ -27,18 +27,26 @@ describe('MobileService', () => {
             from: jest.fn().mockImplementation((table: string) => {
                 const builder: any = {
                     upsert: jest.fn().mockReturnThis(),
+                    insert: jest.fn().mockReturnThis(),
+                    update: jest.fn().mockReturnThis(),
+                    delete: jest.fn().mockReturnThis(),
                     select: jest.fn().mockReturnThis(),
                     single: jest.fn().mockResolvedValue({ data: { id: 'device-1' }, error: null }),
-                    maybeSingle: jest.fn().mockResolvedValue({
-                        data: {
-                            id: caller.tenantId,
-                            name: 'Royal College',
-                            contact_email: 'info@royal.lk',
-                            disaster_mode: true,
-                            disaster_reason: 'FLOOD',
-                            disaster_resume_date: '2026-10-15T00:00:00.000Z',
-                        },
-                        error: null,
+                    maybeSingle: jest.fn().mockImplementation(() => {
+                        if (table === 'teachers') {
+                            return Promise.resolve({ data: { id: 'teacher-1' }, error: null });
+                        }
+                        return Promise.resolve({
+                            data: {
+                                id: caller.tenantId,
+                                name: 'Royal College',
+                                contact_email: 'info@royal.lk',
+                                disaster_mode: true,
+                                disaster_reason: 'FLOOD',
+                                disaster_resume_date: '2026-10-15T00:00:00.000Z',
+                            },
+                            error: null,
+                        });
                     }),
                     eq: jest.fn().mockReturnThis(),
                     gt: jest.fn().mockReturnThis(),
@@ -69,6 +77,9 @@ describe('MobileService', () => {
                         }
                         if (table === 'users') {
                             return resolve({ data: [{ phone: '+94771234567' }], error: null });
+                        }
+                        if (table === 'class_teachers') {
+                            return resolve({ data: [{ class_id: '45f9722b-eda0-453f-88d2-2c9ad06ec169' }], error: null });
                         }
                         return resolve({ data: [], error: null });
                     },
@@ -159,6 +170,12 @@ describe('MobileService', () => {
                 entityId: '45f9722b-eda0-453f-88d2-2c9ad06ec169',
                 eventType: 'CREATED',
                 clientUuid: '91c85e7c-7907-4915-ae70-4d5b7f3a843c',
+                payload: {
+                    class_id: '45f9722b-eda0-453f-88d2-2c9ad06ec169',
+                    student_id: '45f9722b-eda0-453f-88d2-2c9ad06ec169',
+                    date: '2026-10-12',
+                    status: 'PRESENT',
+                },
             },
             caller,
         );
@@ -167,6 +184,25 @@ describe('MobileService', () => {
             'append_sync_event',
             expect.objectContaining({ p_tenant_id: caller.tenantId }),
         );
+    });
+
+    it('should reject teacher attendance sync event when class_id is missing', async () => {
+        await expect(
+            service.appendSyncEvent(
+                {
+                    entityType: 'attendance',
+                    entityId: '45f9722b-eda0-453f-88d2-2c9ad06ec169',
+                    eventType: 'CREATED',
+                    clientUuid: '91c85e7c-7907-4915-ae70-4d5b7f3a843c',
+                    payload: {
+                        student_id: '45f9722b-eda0-453f-88d2-2c9ad06ec169',
+                        date: '2026-10-12',
+                        status: 'PRESENT',
+                    },
+                },
+                caller,
+            ),
+        ).rejects.toThrow(BadRequestException);
     });
 
     it('should reject student appending attendance sync event', async () => {

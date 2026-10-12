@@ -30,7 +30,9 @@ pnpm-debug.log*
 
 # local env files
 .env
-.env*.local
+.env.*
+!.env*.example
+!*.example
 
 # vercel
 .vercel
@@ -48,3 +50,7 @@ next-env.d.ts
 google-services.json
 GoogleService-Info.plist
 firebase-adminsdk*.json
+
+# Supabase
+supabase/.temp/
+.temp/

@@ -5,12 +5,15 @@ import { usePathname } from 'next/navigation';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useTranslations } from 'next-intl';
 import {
+    Activity,
     Baby,
     Bell,
     BookOpen,
     Building2,
     ChevronsLeft,
+    FileText,
     GraduationCap,
+    HardDrive,
     LayoutDashboard,
     LogOut,
     MessageSquare,
@@ -19,6 +22,7 @@ import {
     Server,
     Settings,
     Shield,
+    Smartphone,
     UserCheck,
     UserCog,
     Users,
@@ -61,6 +65,8 @@ const NAV: Record<Role, NavSection[]> = {
             items: [
                 { nameKey: 'dashboard', href: '/student', icon: LayoutDashboard, exact: true, id: 'nav-dashboard' },
                 { nameKey: 'gradesReports', href: '/student/grades', icon: GraduationCap, id: 'nav-grades' },
+                { nameKey: 'resources', href: '/student/resources', icon: BookOpen, id: 'nav-resources' },
+                { nameKey: 'pastPapers', href: '/student/papers', icon: FileText, id: 'nav-papers' },
                 { nameKey: 'notices', href: '/notices', icon: Bell, id: 'nav-notices' },
                 { nameKey: 'chat', href: '/chat', icon: MessagesSquare, id: 'nav-chat' },
             ],
@@ -81,6 +87,7 @@ const NAV: Record<Role, NavSection[]> = {
                 { nameKey: 'dashboard', href: '/teacher', icon: LayoutDashboard, exact: true, id: 'nav-dashboard' },
                 { nameKey: 'classes', href: '/teacher/classes', icon: BookOpen, id: 'nav-classes' },
                 { nameKey: 'gradebook', href: '/teacher/classes', icon: GraduationCap, id: 'nav-gradebook' },
+                { nameKey: 'resources', href: '/teacher/resources', icon: BookOpen, id: 'nav-teacher-resources' },
                 { nameKey: 'notices', href: '/notices', icon: Bell, id: 'nav-notices' },
                 { nameKey: 'chat', href: '/chat', icon: MessagesSquare, id: 'nav-chat' },
             ],
@@ -134,6 +141,7 @@ const NAV: Record<Role, NavSection[]> = {
             titleKey: 'sectionSettings',
             items: [
                 { nameKey: 'policy', href: '/institution-admin/policy', icon: Settings, id: 'nav-policies' },
+                { nameKey: 'syncHealth', href: '/institution-admin/sync-health', icon: Activity, id: 'nav-sync-health' },
             ],
         },
     ],
@@ -149,6 +157,8 @@ const NAV: Record<Role, NavSection[]> = {
             items: [
                 { nameKey: 'tenants', href: '/system-admin/tenants', icon: Building2, id: 'nav-tenants' },
                 { nameKey: 'users', href: '/system-admin/users', icon: Users },
+                { nameKey: 'storageQuota', href: '/system-admin/storage', icon: HardDrive, id: 'nav-storage' },
+                { nameKey: 'mobileReleases', href: '/system-admin/releases', icon: Smartphone, id: 'nav-releases' },
                 { nameKey: 'tutorials', href: '/system-admin/tutorials', icon: BookOpen, id: 'nav-tutorials' },
             ],
         },

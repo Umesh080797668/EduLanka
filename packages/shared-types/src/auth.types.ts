@@ -17,6 +17,8 @@ export enum UserRole {
 export interface JwtPayload {
     sub: string; // user UUID
     tenantId: string; // school tenant UUID
+    tenantSlug?: string;
+    tenantPlan?: 'COMMUNITY' | 'STARTER' | 'GROWTH' | 'INSTITUTIONAL'; // Tier-gated feature claims per P3-S1
     role: UserRole;
     email: string;
     type?: 'access' | 'refresh'; // token category

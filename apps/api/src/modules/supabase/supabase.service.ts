@@ -137,9 +137,6 @@ export class SupabaseService implements OnModuleInit {
                     // receive the extra argument or PostgREST will reject the call.
                     const TENANT_AWARE_RPCS = new Set([
                         'append_sync_event',
-                        'get_tenant_storage_usage',
-                        'tenant_storage_delta',
-                        'purge_old_sync_events',
                     ]);
 
                     return (fnName: string, args: Record<string, any> = {}, options?: any) => {

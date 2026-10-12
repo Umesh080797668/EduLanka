@@ -17,9 +17,13 @@ const nextConfig: NextConfig = {
     // Output standalone bundle for optimized Docker deployments
     output: 'standalone',
 
-    // Proxy API requests to backend API server
+    // Proxy API requests to backend API servers
     async rewrites() {
         return [
+            {
+                source: '/api/analytics/:path*',
+                destination: `${process.env.ANALYTICS_API_URL || 'http://localhost:8083/api/analytics'}/:path*`,
+            },
             {
                 source: '/api/:path*',
                 destination: `${process.env.API_URL || 'http://localhost:8081/api'}/:path*`, // Proxy to backend

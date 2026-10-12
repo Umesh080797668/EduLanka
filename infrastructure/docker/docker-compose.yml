@@ -79,6 +79,23 @@ services:
     networks:
       - edu-network
 
+  # ── Analytics Service (SUPER_ADMIN only) ──────────────────────────────────
+  edu-analytics:
+    build:
+      context: ../..
+      dockerfile: infrastructure/docker/Dockerfile.analytics
+    container_name: edu-analytics
+    restart: unless-stopped
+    env_file:
+      - ../../apps/analytics/.env
+    environment:
+      NODE_ENV: development
+      PORT: 8083
+    ports:
+      - "8083:8083"
+    networks:
+      - edu-network
+
   # ── Nginx API Gateway ─────────────────────────────────────────────────────
   # Port 8081 — port 80 conflicts with Tomcat on the host machine.
   edu-nginx:
@@ -93,6 +110,7 @@ services:
     depends_on:
       - edu-api
       - edu-web
+      - edu-analytics
     networks:
       - edu-network
 

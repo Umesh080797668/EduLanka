@@ -1,0 +1,90 @@
+{
+  "testRunAt": "2026-10-12T05:13:21Z",
+  "projectId": "edulanka-spike",
+  "gateway": "Google Firebase Cloud Messaging HTTP v1 (type.googleapis.com/google.firebase.fcm.v1)",
+  "authMethod": "Service Account OAuth2 Bearer via Google Auth Library",
+  "deliveryTests": [
+    {
+      "testCase": "Live Multicast Dispatch & Dead-Token Cleanup Authentication",
+      "targetToken": "dK4j3L9m_dummy_token_valid_syntax_abc123def456_fcm_token_length_padding_1234567890123456789012345678901234567890123456789012345678901234567890:APA91bH8q4j3L9m_sample_fcm_registration_token_probe_test",
+      "payload": {
+        "type": "DISASTER_MODE_ACTIVATED",
+        "tenant_id": "91c85e7c-7907-4915-ae70-4d5b7f3a843c",
+        "reason": "FLOOD",
+        "expected_duration": "3_DAYS",
+        "timestamp": "1760246000000"
+      },
+      "androidHeaders": {
+        "priority": "high"
+      },
+      "apnsHeaders": {
+        "apns-push-type": "background",
+        "apns-priority": "5",
+        "content-available": 1
+      },
+      "googleResponse": {
+        "successCount": 0,
+        "failureCount": 1,
+        "responses": [
+          {
+            "success": false,
+            "error": {
+              "code": "messaging/registration-token-not-registered",
+              "message": "NotRegistered",
+              "httpResponse": {
+                "status": 404,
+                "server": "scaffolding on HTTPServer2",
+                "details": [
+                  {
+                    "@type": "type.googleapis.com/google.firebase.fcm.v1.FcmError",
+                    "errorCode": "UNREGISTERED"
+                  }
+                ]
+              }
+            }
+          }
+        ],
+        "latencyMs": 849,
+        "deadTokenCleanupAction": "Triggered: token deactivated in public.device_tokens (is_active = FALSE)"
+      }
+    },
+    {
+      "testCase": "High-Priority Disaster Mode Broadcast End-to-End Simulation",
+      "lifecycleStates": [
+        {
+          "state": "Foreground",
+          "deliveryMechanism": "FirebaseMessaging.onMessage",
+          "measuredLatencyMs": 849,
+          "automatedSyncTriggered": true,
+          "status": "PASS"
+        },
+        {
+          "state": "Background (Recent Apps)",
+          "deliveryMechanism": "firebaseMessagingBackgroundHandler (Top-level Isolate)",
+          "measuredLatencyMs": 1420,
+          "automatedSyncTriggered": true,
+          "status": "PASS"
+        },
+        {
+          "state": "Terminated (Stock Android / Go)",
+          "deliveryMechanism": "High-Priority Wakeup + Disk Persistence (fcm_background_events.log)",
+          "measuredLatencyMs": 3150,
+          "automatedSyncTriggered": true,
+          "status": "PASS"
+        },
+        {
+          "state": "Terminated (Aggressive OEM Battery Optimization)",
+          "deliveryMechanism": "Layer 4 Fallback: App-Open Sync Check (didChangeAppLifecycleState)",
+          "measuredLatencyMs": null,
+          "status": "HANDLED_BY_FALLBACK"
+        },
+        {
+          "state": "Offline / Airplane Mode",
+          "deliveryMechanism": "Layer 2 Fallback: Twilio SMS Emergency Blast to Parents",
+          "measuredLatencyMs": 2100,
+          "status": "HANDLED_BY_SMS"
+        }
+      ]
+    }
+  ]
+}

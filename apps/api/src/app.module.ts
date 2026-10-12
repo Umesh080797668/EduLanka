@@ -15,9 +15,11 @@ import { ChatModule } from './modules/chat/chat.module';
 import { ClassesModule } from './modules/classes/classes.module';
 import { GradesModule } from './modules/grades/grades.module';
 import { HealthModule } from './modules/health/health.module';
+import { MediaModule } from './modules/media/media.module';
 import { MobileModule } from './modules/mobile/mobile.module';
 import { NoticesModule } from './modules/notices/notices.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
+import { PaperHubModule } from './modules/paper-hub/paper-hub.module';
 import { ParentsModule } from './modules/parents/parents.module';
 import { RedisModule } from './modules/redis/redis.module';
 import { ReportCardsModule } from './modules/report-cards/report-cards.module';
@@ -143,6 +145,8 @@ import { UsersModule } from './modules/users/users.module';
         SmsModule,
         SystemAdminModule,
         MobileModule,
+        MediaModule,
+        PaperHubModule,
     ],
     providers: [
         {
@@ -157,11 +161,12 @@ export class AppModule implements NestModule {
 
         consumer
             .apply(TenantContextMiddleware)
-            // Exclude health checks and auth routes — everything else requires a tenant slug
+            // Exclude health checks, auth routes, and public mobile version — everything else requires a tenant slug
             .exclude(
                 { path: 'api/v1/health', method: RequestMethod.ALL },
                 { path: 'api/v1/health/(.*)', method: RequestMethod.ALL },
                 { path: 'api/v1/auth/(.*)', method: RequestMethod.ALL },
+                { path: 'api/v1/mobile/version', method: RequestMethod.ALL },
                 { path: 'api/docs', method: RequestMethod.ALL },
                 { path: 'api/docs/(.*)', method: RequestMethod.ALL },
             )

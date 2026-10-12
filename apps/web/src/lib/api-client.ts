@@ -167,6 +167,13 @@ export const apiClient = {
             ...options,
         }),
 
+    put: <T>(path: string, body: unknown, options?: RequestOptions) =>
+        apiFetch<T>(path, {
+            method: 'PUT',
+            body: JSON.stringify(body),
+            ...options,
+        }),
+
     delete: <T>(path: string, options?: RequestOptions) =>
         apiFetch<T>(path, { method: 'DELETE', ...options }),
 };

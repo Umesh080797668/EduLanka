@@ -4,6 +4,7 @@ import {
     Controller,
     Post,
     Get,
+    Put,
     Body,
     Query,
     UseGuards,
@@ -94,5 +95,60 @@ export class MobileController {
     @ApiOperation({ summary: 'Trigger an emergency Disaster Mode push notification to tenant devices' })
     triggerDisasterPush(@Body() dto: TriggerDisasterPushDto, @CurrentUser() user: JwtPayload) {
         return this.mobileService.triggerDisasterPush(dto, user);
+    }
+
+    @Get('version')
+    @ApiOperation({ summary: 'Returns minimum supported mobile app version and release metadata (P3-S1)' })
+    getVersion() {
+        return this.mobileService.getVersion();
+    }
+
+    @Put('version')
+    @Roles(UserRole.SUPER_ADMIN)
+    @ApiOperation({ summary: 'Update mobile app release and min supported version (P3-S9)' })
+    updateVersion(
+        @CurrentUser() user: JwtPayload,
+        @Body() dto: { minVersion: string; latestVersion: string; releaseNotes: string; forceUpdate: boolean },
+    ) {
+        return this.mobileService.updateVersion(user, dto);
+    }
+
+    @Get('sync-health')
+    @Roles(UserRole.SCHOOL_ADMIN, UserRole.SUPER_ADMIN)
+    @ApiOperation({ summary: 'Query sync health metrics and stale devices for School Admin (P3-S3)' })
+    getSyncHealth(@CurrentUser() user: JwtPayload) {
+        return this.mobileService.getSyncHealth(user);
+    }
+
+    @Get('emergency-contacts')
+    @ApiOperation({ summary: 'List school emergency contacts for disaster pack (P3-S8)' })
+    getEmergencyContacts(@CurrentUser() user: JwtPayload) {
+        return this.mobileService.getEmergencyContacts(user);
+    }
+
+    @Post('emergency-contacts')
+    @Roles(UserRole.SCHOOL_ADMIN, UserRole.SUPER_ADMIN)
+    @ApiOperation({ summary: 'Upsert school emergency contact (P3-S8)' })
+    upsertEmergencyContact(
+        @CurrentUser() user: JwtPayload,
+        @Body() contact: { id?: string; name: string; role: string; phone: string; isPrimary?: boolean; displayOrder?: number },
+    ) {
+        return this.mobileService.upsertEmergencyContact(user, contact);
+    }
+
+    @Get('shelters')
+    @ApiOperation({ summary: 'List school emergency evacuation shelters (P3-S8)' })
+    getShelters(@CurrentUser() user: JwtPayload) {
+        return this.mobileService.getShelters(user);
+    }
+
+    @Post('shelters')
+    @Roles(UserRole.SCHOOL_ADMIN, UserRole.SUPER_ADMIN)
+    @ApiOperation({ summary: 'Upsert school emergency evacuation shelter (P3-S8)' })
+    upsertShelter(
+        @CurrentUser() user: JwtPayload,
+        @Body() shelter: { id?: string; name: string; address: string; capacity?: number; gpsLat?: number; gpsLng?: number; notes?: string },
+    ) {
+        return this.mobileService.upsertShelter(user, shelter);
     }
 }

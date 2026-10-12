@@ -46,37 +46,56 @@ jobs:
       - name: Typecheck
         run: pnpm turbo run typecheck
 
-      - name: Test
-        run: pnpm turbo run test:cov
-
-      - name: Start Throwaway Database & Seed
+      - name: Start Throwaway Database
         run: |
-          if command -v docker &> /dev/null; then
-            echo "Starting local Supabase throwaway database..."
-            npx --yes supabase start || true
-            if [ -f supabase/seed.sql ]; then
-              DB_CONTAINER=$(docker ps -q --filter "name=supabase_db" | head -n 1)
-              if [ -n "$DB_CONTAINER" ]; then
-                echo "Seeding database from supabase/seed.sql..."
-                docker exec -i "$DB_CONTAINER" psql -U postgres -d postgres < supabase/seed.sql || true
-              fi
+          echo "Starting local Supabase throwaway database..."
+          npx --yes supabase start
+
+          echo "Extracting runtime credentials from started Supabase instance..."
+          STATUS_JSON=$(npx --yes supabase status -o json)
+          node -e "
+            const fs = require('fs');
+            const data = JSON.parse(process.argv[1]);
+            const envFile = process.env.GITHUB_ENV;
+            if (envFile) {
+              fs.appendFileSync(envFile, \`SUPABASE_URL=\${data.API_URL || 'http://127.0.0.1:54321'}\n\`);
+              fs.appendFileSync(envFile, \`SUPABASE_ANON_KEY=\${data.ANON_KEY}\n\`);
+              fs.appendFileSync(envFile, \`SUPABASE_SERVICE_ROLE_KEY=\${data.SERVICE_ROLE_KEY}\n\`);
+            }
+          " "$STATUS_JSON"
+
+          echo "Verifying database health check on REST endpoint..."
+          STATUS=0
+          for i in {1..30}; do
+            HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" "http://127.0.0.1:54321/rest/v1/" || true)
+            if [ "$HTTP_CODE" = "200" ] || [ "$HTTP_CODE" = "401" ]; then
+              echo "Database is healthy and reachable at http://127.0.0.1:54321"
+              STATUS=1
+              break
             fi
-          else
-            echo "Docker not available; tests with live database dependency will skip gracefully."
+            sleep 1
+          done
+          if [ $STATUS -ne 1 ]; then
+            echo "Database health check failed: http://127.0.0.1:54321/rest/v1/ did not respond"
+            exit 1
           fi
+
+      - name: Test
+        env:
+          NODE_ENV: test
+          CI: "true"
+        run: pnpm turbo run test:cov
 
       - name: Test E2E
         env:
-          SUPABASE_URL: http://127.0.0.1:54321
-          SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4Nzk2MDB9.CRX1ElSmPrCu-COlhkh1AnlPr_bfqvgtpmecTeA_X_8
-          SUPABASE_SERVICE_ROLE_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4Mzg3OTYwMH0.EG-vlsmLh4-WRp_rEQj8m2UktW_2n19-qZ-d1s2s9yM
           NODE_ENV: test
+          CI: "true"
         run: pnpm turbo run test:e2e
 
       - name: Teardown Throwaway Database
         if: always()
         run: |
-          npx --yes supabase stop || true
+          npx --yes supabase stop
 
       - name: Build
         run: pnpm turbo run build

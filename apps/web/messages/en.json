@@ -39,7 +39,12 @@
         "signedInAs": "Signed in as",
         "gradebook": "Gradebook",
         "tutorials": "Tutorials",
-        "profile": "My Profile"
+        "profile": "My Profile",
+        "syncHealth": "Device Sync Health",
+        "resources": "Learning Resources",
+        "pastPapers": "Past Papers Hub",
+        "storageQuota": "Storage Quota",
+        "mobileReleases": "Mobile App Releases"
     },
     "Header": {
         "searchPlaceholder": "Search...",

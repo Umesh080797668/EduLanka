@@ -1,3 +1,4 @@
+import { execSync } from 'child_process';
 import * as path from 'path';
 
 import { ForbiddenException } from '@nestjs/common';
@@ -21,16 +22,40 @@ dotenv.config({ path: path.resolve(__dirname, '../../../../.env') });
 const SUPABASE_URL = process.env.SUPABASE_URL || '';
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 
-const shouldRun =
+const hasValidConfig =
     !!SUPABASE_URL
     && !SUPABASE_URL.includes('yourproject')
     && !!SUPABASE_SERVICE_ROLE_KEY
     && !SUPABASE_SERVICE_ROLE_KEY.includes('invalid')
     && !SUPABASE_SERVICE_ROLE_KEY.includes('placeholder');
 
-if (!shouldRun) {
-    console.warn('Skipping Socket & Chat Tenant Isolation test: Live Supabase credentials not found in environment');
+function checkDbReachable(url: string): boolean {
+    if (!url) return false;
+    try {
+        const code = execSync(
+            `curl -s -o /dev/null -w "%{http_code}" --connect-timeout 1 ${JSON.stringify(url + '/rest/v1/')}`,
+            { encoding: 'utf8', stdio: ['pipe', 'pipe', 'ignore'] },
+        ).trim();
+        return code === '200' || code === '401' || code === '403';
+    } catch {
+        return false;
+    }
 }
+
+const isDbReachable = hasValidConfig && checkDbReachable(SUPABASE_URL);
+const isCI = process.env.CI === 'true';
+
+if (isCI && (!hasValidConfig || !isDbReachable)) {
+    throw new Error(
+        `Socket & Chat Tenant Isolation tests cannot run: Database is unreachable at ${SUPABASE_URL || '<empty>'} in CI environment! CI must start the throwaway database before running tests.`,
+    );
+}
+
+if (!isDbReachable) {
+    console.warn('Skipping Socket & Chat Tenant Isolation test: Live Supabase database unreachable at ' + SUPABASE_URL);
+}
+
+const describeSuite = isDbReachable ? describe : describe.skip;
 
 jest.setTimeout(120000);
 
@@ -55,12 +80,11 @@ async function withRetry<T extends { data?: any; error?: any }>(
     return lastResult!;
 }
 
-describe('Socket & Chat Tenant Isolation (Real Database Integration)', () => {
+describeSuite('Socket & Chat Tenant Isolation (Real Database Integration)', () => {
     let gateway: ChatGateway;
     let chatService: ChatService;
     let supabaseService: SupabaseService;
     let moduleRef: TestingModule;
-    let isDbReachable = false;
 
     const TENANT_A = 'a1111111-0000-0000-0000-000000000001';
     const TENANT_B = 'b2222222-0000-0000-0000-000000000002';
@@ -69,24 +93,6 @@ describe('Socket & Chat Tenant Isolation (Real Database Integration)', () => {
     const CONVERSATION_A = '33333333-cccc-cccc-cccc-333333333333';
 
     beforeAll(async () => {
-        if (!shouldRun) return;
-
-        // Verify database connectivity before initializing modules
-        try {
-            const tempClient = (await import('@supabase/supabase-js')).createClient(
-                SUPABASE_URL,
-                SUPABASE_SERVICE_ROLE_KEY,
-                { auth: { persistSession: false, autoRefreshToken: false } },
-            );
-            const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 2500));
-            await Promise.race([tempClient.from('tenants').select('id').limit(1), timeoutPromise]);
-            isDbReachable = true;
-        } catch {
-            isDbReachable = false;
-            console.warn('Skipping Socket & Chat Tenant Isolation: Database unreachable at ' + SUPABASE_URL);
-            return;
-        }
-
         const module: TestingModule = await Test.createTestingModule({
             imports: [
                 ConfigModule.forRoot({
@@ -206,7 +212,6 @@ describe('Socket & Chat Tenant Isolation (Real Database Integration)', () => {
 
     describe('Cross-Tenant Room Subscription Defense', () => {
         it('should permit legitimate User A from Tenant A to access their own conversation', async () => {
-            if (!isDbReachable) return;
             // Proves conversation exists and query succeeds for real participant in same tenant
             await expect(
                 chatService.assertParticipantAccess(
@@ -219,7 +224,6 @@ describe('Socket & Chat Tenant Isolation (Real Database Integration)', () => {
         });
 
         it('should strictly reject User B from Tenant B attempting to access Tenant A conversation', async () => {
-            if (!isDbReachable) return;
             // Because getTenantClient(TENANT_B) partitions query with tenant_id = TENANT_B,
             // the participant record in Tenant A is invisible and returns not found
             await expect(
@@ -233,7 +237,6 @@ describe('Socket & Chat Tenant Isolation (Real Database Integration)', () => {
         });
 
         it('should reject a socket from Tenant B joining a conversation in Tenant A', async () => {
-            if (!isDbReachable) return;
             const mockSocketB: any = {
                 id: 'socket_tenant_b_intruder',
                 data: {
@@ -270,7 +273,6 @@ describe('Socket & Chat Tenant Isolation (Real Database Integration)', () => {
         });
 
         it('should allow legitimate socket from Tenant A to join conversation room', async () => {
-            if (!isDbReachable) return;
             const mockSocketA: any = {
                 id: 'socket_tenant_a_member',
                 data: {
@@ -297,7 +299,6 @@ describe('Socket & Chat Tenant Isolation (Real Database Integration)', () => {
         });
 
         it('should verify typing broadcasts assert strictly on client.to', async () => {
-            if (!isDbReachable) return;
             const roomName = `conversation_${CONVERSATION_A}`;
 
             // Case A: Socket has not joined the room -> client.to MUST NOT be called

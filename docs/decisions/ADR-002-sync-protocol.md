@@ -33,12 +33,12 @@ We adopt an **Event-Sourced Architecture** with transactional sequence counters,
    - Re-transmissions safely return the existing `(sequence, id)` tuple without duplicating the event or interfering with other schools.
 3. **Conflict Resolution Strategy & Attendance Storage:**
    - **Attendance Table (`public.attendance`):** Roll call attendance is persisted to `public.attendance` partitioned by `tenant_id`, with unique constraint `(tenant_id, class_id, student_id, date)`.
-   - **Clock-Skew Clamping:** Device timestamp `marked_at` is validated and clamped to server time $[-5\text{ min}, +1\text{ min}]$ before comparison.
+   - **Future-Only Clock-Skew Clamping:** Device timestamp `marked_at` is validated and clamped to a maximum of server time $+1\text{ min}$ (server now + 60 seconds) to prevent future-dating and clock-gaming attacks, while preserving legitimate historical roll-call edits recorded while offline without backward clamping.
    - **Conflict Logging (`public.attendance_conflicts_log`):** When competing teacher edits occur, the newest clamped `marked_at` prevails, and conflicting versions are written to `attendance_conflicts_log` recording `client_marked_at`, `server_clamped_at`, and resolution status.
    - **Homework & Chat:** Scoped append-only event streams. Grades and student enrollment remain server-authoritative.
-4. **Data Retention, 410 Resync Detection, and Snapshot Re-Hydration:**
+4. **Data Retention, 410 Stale Cursor Protocol, and Snapshot Re-Hydration:**
    - **90-Day Retention Window:** Events older than 90 days are purged by database worker (`purge_old_sync_events()`).
-   - **410 Gone / Resync Required Protocol:** When a device that has been offline $>90$ days requests `GET /api/v1/mobile/sync-events?since=N` where $N < \text{MIN}(\text{retained sequence})$, the server returns **HTTP 410 Gone** with `{ resyncRequired: true }`.
+   - **Stale Cursor 410 Gone Protocol (`getSyncEvents`):** When a client requests `GET /api/v1/mobile/sync-events?since=N` where `since < oldest_retained_sequence - 1` (cursor predates the 90-day retention window), `getSyncEvents` immediately returns **HTTP 410 Gone** with `{ resyncRequired: true }`, signaling the client that incremental catchup is impossible.
    - **Full Snapshot Endpoint (`GET /api/v1/mobile/snapshot`):** Upon receiving HTTP 410, devices call the snapshot endpoint to re-hydrate complete active tenant state (classes, subjects, student records, circulars, and policies) before resuming incremental streaming.
    - **User Account Erasure:** Deactivating or removing a user invokes `scrub_user_sync_events_pii()` to redact PII in matching event payloads (`{"redacted": true}`).
 
