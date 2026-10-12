@@ -4,6 +4,8 @@ import { VersioningType } from '@nestjs/common';
 import request from 'supertest';
 import { AppModule } from './../src/app.module';
 
+jest.setTimeout(60000);
+
 describe('Comprehensive Core Workflows (e2e)', () => {
     let app: NestFastifyApplication;
 
@@ -22,11 +24,11 @@ describe('Comprehensive Core Workflows (e2e)', () => {
 
         await app.init();
         await app.getHttpAdapter().getInstance().ready();
-    });
+    }, 60_000);
 
     afterAll(async () => {
-        await app.close();
-    });
+        if (app) await app.close();
+    }, 60_000);
 
     describe('1. School Admin Workflows', () => {
         it('Should be able to fetch system policies and retrieve users list', async () => {

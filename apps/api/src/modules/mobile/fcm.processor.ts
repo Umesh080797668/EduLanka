@@ -38,7 +38,18 @@ export class FcmProcessor extends WorkerHost {
         const saJson = process.env.FIREBASE_SERVICE_ACCOUNT;
         if (saJson) {
             try {
-                const sa = JSON.parse(saJson);
+                let raw = saJson.trim();
+                if (!raw.startsWith('{') && !raw.startsWith('[')) {
+                    try {
+                        raw = Buffer.from(raw, 'base64').toString('utf8');
+                    } catch (decodeErr) {
+                        this.logger.debug(`Could not base64-decode service account string: ${(decodeErr as Error).message}`);
+                    }
+                }
+                const sa = JSON.parse(raw);
+                if (sa.private_key && typeof sa.private_key === 'string') {
+                    sa.private_key = sa.private_key.replace(/\\n/g, '\n');
+                }
                 initializeApp({
                     credential: cert(sa),
                 });

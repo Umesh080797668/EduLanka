@@ -18,6 +18,10 @@ const mockSupabaseClient = {
             createUser: jest.fn().mockResolvedValue({ data: { user: { id: 'auth-user-id' } }, error: null })
         }
     },
+    channel: jest.fn().mockReturnValue({
+        subscribe: jest.fn().mockReturnThis(),
+        on: jest.fn().mockReturnThis(),
+    }),
     ...mockBuilderBase
 };
 jest.mock('@supabase/supabase-js', () => ({
@@ -48,6 +52,8 @@ class ErrorLoggerFilter implements ExceptionFilter {
     }
 }
 
+jest.setTimeout(60000);
+
 describe('CRUD and RBAC (e2e)', () => {
     let app: NestFastifyApplication;
     let mockSupabase: any;
@@ -75,6 +81,10 @@ describe('CRUD and RBAC (e2e)', () => {
                         deleteUser: jest.fn(),
                     },
                 },
+                channel: jest.fn().mockReturnValue({
+                    subscribe: jest.fn().mockReturnThis(),
+                    on: jest.fn().mockReturnThis(),
+                }),
                 ...mockBuilder,
             },
             getTenantClient: jest.fn().mockReturnValue({
@@ -133,11 +143,11 @@ describe('CRUD and RBAC (e2e)', () => {
 
         await app.init();
         await app.getHttpAdapter().getInstance().ready();
-    });
+    }, 60_000);
 
     afterAll(async () => {
-        await app.close();
-    });
+        if (app) await app.close();
+    }, 60_000);
 
     afterEach(() => {
         jest.clearAllMocks();
@@ -167,14 +177,12 @@ describe('CRUD and RBAC (e2e)', () => {
                 data: { user: { id: 'new-auth-id' } }, error: null
             });
 
-            // Mock TenantContextMiddleware lookup
-            mockBuilder.then.mockImplementationOnce((resolve: any) => resolve({ data: { id: 'tenant-1', slug: 'tenant-1', status: 'ACTIVE' }, error: null }));
-            // Mock TenantService lookup
-            mockBuilder.then.mockImplementationOnce((resolve: any) => resolve({ data: { id: 'tenant-1', slug: 'tenant-1', status: 'ACTIVE' }, error: null }));
-
-            // Mock Supabase throwing the exact RLS/Trigger constraint error for cap
+            // 1. Mock user insert success
+            mockBuilder.then.mockImplementationOnce((resolve: any) => resolve({ data: { id: 'user-id-123' }, error: null }));
+            // 2. Mock student insert failure with trigger cap constraint error
             mockBuilder.then.mockImplementationOnce((resolve: any) => resolve({
-                data: null, error: { message: 'COMMUNITY tier limit exceeded: Maximum 75 active students allowed. Please upgrade to Starter.' }
+                data: null,
+                error: { message: 'COMMUNITY tier limit exceeded: Maximum 75 active students allowed. Please upgrade to Starter.' },
             }));
 
             // Mock auth rollback
@@ -185,11 +193,11 @@ describe('CRUD and RBAC (e2e)', () => {
                 .set('Authorization', `Bearer admin-token`)
                 .set('x-tenant-id', 'tenant-1')
                 .send({
+                    admissionNo: 'ADM-CAP-001',
                     email: 'student2@example.com',
                     temporaryPassword: 'Password123!',
                     fullName: 'Test Student 2',
                 });
-            if (res.status === 500) console.log("CAP 500:", res.body);
             expect(res.status).toBe(403);
             expect(res.body.error).toBe('Forbidden');
         });

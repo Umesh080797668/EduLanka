@@ -67,8 +67,10 @@ export default function ImageUpload({
                 formData.append('upload_preset', (sigRes as any).uploadPreset);
             }
 
-            const cloudName =
-                process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME || 'dx2c48mou';
+            const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
+            if (!cloudName) {
+                throw new Error('Cloudinary cloud name is not configured');
+            }
 
             const res = await fetch(
                 `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`,

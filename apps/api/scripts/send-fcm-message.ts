@@ -29,7 +29,18 @@ async function main() {
     if (getApps().length === 0) {
         const saJson = process.env.FIREBASE_SERVICE_ACCOUNT;
         if (saJson) {
-            const sa = JSON.parse(saJson);
+            let raw = saJson.trim();
+            if (!raw.startsWith('{') && !raw.startsWith('[')) {
+                try {
+                    raw = Buffer.from(raw, 'base64').toString('utf8');
+                } catch {
+                    // Fall back to raw string if base64 decoding fails
+                }
+            }
+            const sa = JSON.parse(raw);
+            if (sa.private_key && typeof sa.private_key === 'string') {
+                sa.private_key = sa.private_key.replace(/\\n/g, '\n');
+            }
             initializeApp({ credential: cert(sa) });
         } else if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
             initializeApp();

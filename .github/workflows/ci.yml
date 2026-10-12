@@ -49,8 +49,34 @@ jobs:
       - name: Test
         run: pnpm turbo run test:cov
 
+      - name: Start Throwaway Database & Seed
+        run: |
+          if command -v docker &> /dev/null; then
+            echo "Starting local Supabase throwaway database..."
+            npx --yes supabase start || true
+            if [ -f supabase/seed.sql ]; then
+              DB_CONTAINER=$(docker ps -q --filter "name=supabase_db" | head -n 1)
+              if [ -n "$DB_CONTAINER" ]; then
+                echo "Seeding database from supabase/seed.sql..."
+                docker exec -i "$DB_CONTAINER" psql -U postgres -d postgres < supabase/seed.sql || true
+              fi
+            fi
+          else
+            echo "Docker not available; tests with live database dependency will skip gracefully."
+          fi
+
       - name: Test E2E
+        env:
+          SUPABASE_URL: http://127.0.0.1:54321
+          SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4Nzk2MDB9.CRX1ElSmPrCu-COlhkh1AnlPr_bfqvgtpmecTeA_X_8
+          SUPABASE_SERVICE_ROLE_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4Mzg3OTYwMH0.EG-vlsmLh4-WRp_rEQj8m2UktW_2n19-qZ-d1s2s9yM
+          NODE_ENV: test
         run: pnpm turbo run test:e2e
+
+      - name: Teardown Throwaway Database
+        if: always()
+        run: |
+          npx --yes supabase stop || true
 
       - name: Build
         run: pnpm turbo run build

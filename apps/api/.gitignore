@@ -49,4 +49,4 @@ Thumbs.db
 
 # Environments
 .env
-.env.*
+.env.local

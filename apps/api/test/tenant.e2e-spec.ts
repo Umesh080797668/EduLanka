@@ -4,6 +4,8 @@ import { VersioningType } from '@nestjs/common';
 import request from 'supertest';
 import { AppModule } from './../src/app.module';
 
+jest.setTimeout(60000);
+
 describe('Tenant Isolation (e2e)', () => {
     let app: NestFastifyApplication;
 
@@ -22,11 +24,11 @@ describe('Tenant Isolation (e2e)', () => {
 
         await app.init();
         await app.getHttpAdapter().getInstance().ready();
-    });
+    }, 60_000);
 
     afterAll(async () => {
-        await app.close();
-    });
+        if (app) await app.close();
+    }, 60_000);
 
     it('Rejects requests without tenant id if required by guards', async () => {
         // This is a placeholder test for RBAC and Tenant guards

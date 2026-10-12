@@ -131,10 +131,24 @@ export class SupabaseService implements OnModuleInit {
                 }
 
                 if (prop === 'rpc') {
-                    // Intercept .rpc('fn', args, options) to inject tenant_id parameter
+                    // Intercept .rpc('fn', args, options) — only inject p_tenant_id for
+                    // functions that are documented to accept it.  Functions that have no
+                    // p_tenant_id parameter (e.g. increment_disaster_sms_count) must NOT
+                    // receive the extra argument or PostgREST will reject the call.
+                    const TENANT_AWARE_RPCS = new Set([
+                        'append_sync_event',
+                        'get_tenant_storage_usage',
+                        'tenant_storage_delta',
+                        'purge_old_sync_events',
+                    ]);
+
                     return (fnName: string, args: Record<string, any> = {}, options?: any) => {
                         const scopedArgs = typeof args === 'object' && args !== null ? { ...args } : {};
-                        if (scopedArgs.p_tenant_id === undefined && scopedArgs.tenant_id === undefined) {
+                        if (
+                            TENANT_AWARE_RPCS.has(fnName) &&
+                            scopedArgs.p_tenant_id === undefined &&
+                            scopedArgs.tenant_id === undefined
+                        ) {
                             scopedArgs.p_tenant_id = tenantId;
                         }
                         return (target as any).rpc(fnName, scopedArgs, options);

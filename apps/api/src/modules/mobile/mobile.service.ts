@@ -34,20 +34,22 @@ export class MobileService {
             return MobileService.signingKeyPair;
         }
 
-        const isProd = process.env.NODE_ENV === 'production';
+        const env = process.env.NODE_ENV || 'development';
+        const isStrictEnv = env === 'production' || env === 'staging';
         const envKey = process.env.OFFLINE_LICENSE_PRIVATE_KEY;
 
-        if (isProd && !envKey) {
+        if (isStrictEnv && !envKey) {
             throw new InternalServerErrorException(
-                'OFFLINE_LICENSE_PRIVATE_KEY must be configured in production environment',
+                'OFFLINE_LICENSE_PRIVATE_KEY must be configured in production and staging environments',
             );
         }
 
         if (envKey) {
             try {
-                const privateKey = createPrivateKey(
-                    envKey.includes('-----BEGIN') ? envKey : Buffer.from(envKey, 'base64'),
-                );
+                const keyInput = envKey.includes('-----BEGIN')
+                    ? envKey.replace(/\\n/g, '\n')
+                    : { key: Buffer.from(envKey, 'base64'), format: 'der' as const, type: 'pkcs8' as const };
+                const privateKey = createPrivateKey(keyInput as any);
                 const publicKey = createPublicKey(privateKey);
                 MobileService.signingKeyPair = { privateKey, publicKey };
                 return MobileService.signingKeyPair;
@@ -59,6 +61,12 @@ export class MobileService {
         }
 
         // Non-production fallback (development / test only): derive strictly from JWT_SECRET
+        if (env !== 'development' && env !== 'test') {
+            throw new InternalServerErrorException(
+                'OFFLINE_LICENSE_PRIVATE_KEY must be configured outside development/test environments',
+            );
+        }
+
         const jwtSecret = process.env.JWT_SECRET;
         if (!jwtSecret) {
             throw new InternalServerErrorException(
@@ -235,12 +243,15 @@ export class MobileService {
                         }
                     }
                 } else if (role === UserRole.TEACHER) {
+                    // Teachers MUST provide a class_id so we can verify assignment.
+                    // An absent class_id is not a pass-through — it is a missing required field.
                     const classId = dto.payload?.class_id ?? dto.payload?.classId;
-                    if (classId) {
-                        const teacherClasses = await this.getTeacherClassIds(caller);
-                        if (!teacherClasses.includes(classId)) {
-                            throw new ForbiddenException('Teachers can only record homework for their assigned classes');
-                        }
+                    if (!classId) {
+                        throw new BadRequestException('class_id is required for teacher homework sync events');
+                    }
+                    const teacherClasses = await this.getTeacherClassIds(caller);
+                    if (!teacherClasses.includes(classId)) {
+                        throw new ForbiddenException('Teachers can only record homework for their assigned classes');
                     }
                 } else if (role !== UserRole.SCHOOL_ADMIN && role !== UserRole.SUPER_ADMIN) {
                     throw new ForbiddenException('Only students, teachers, or administrators can append homework events');
@@ -322,10 +333,12 @@ export class MobileService {
                     resolvedStudentUserId = sRow.user_id;
                 }
 
-                // Clock-Skew Clamping per ADR-002: [-5 min, +1 min] relative to server time
+                // Clock-Skew Clamping per ADR-002:
+                // Only clamp future timestamps to +1 min to prevent clock-gaming attacks,
+                // while preserving legitimate historical edits recorded while offline.
                 const serverNow = Date.now();
                 const clientTime = new Date(clientMarkedAt).getTime();
-                const clampedTimeMs = Math.min(Math.max(clientTime, serverNow - 300_000), serverNow + 60_000);
+                const clampedTimeMs = Math.min(clientTime, serverNow + 60_000);
                 const clampedMarkedAt = new Date(clampedTimeMs).toISOString();
 
                 const { data: existingAtt } = await client
@@ -342,7 +355,7 @@ export class MobileService {
                     const clientWins = clampedTimeMs > existingMarkedAtMs;
 
                     if (existingAtt.status !== status) {
-                        await client.from('attendance_conflicts_log').insert({
+                        const { error: conflictLogErr } = await client.from('attendance_conflicts_log').insert({
                             tenant_id: caller.tenantId,
                             class_id: classId,
                             student_id: resolvedStudentUserId,
@@ -352,10 +365,13 @@ export class MobileService {
                             resolution: clientWins ? 'CLIENT_WINS' : 'SERVER_WINS',
                             resolved_by: caller.sub,
                         });
+                        if (conflictLogErr) {
+                            this.logger.warn(`Attendance conflict log write failed: ${conflictLogErr.message}`);
+                        }
                     }
 
                     if (clientWins) {
-                        await client
+                        const { error: attUpdateErr } = await client
                             .from('attendance')
                             .update({
                                 status,
@@ -364,9 +380,13 @@ export class MobileService {
                                 updated_at: new Date().toISOString(),
                             })
                             .eq('id', existingAtt.id);
+                        if (attUpdateErr) {
+                            this.logger.error(`Attendance update failed: ${attUpdateErr.message}`);
+                            throw new InternalServerErrorException('Attendance record update failed');
+                        }
                     }
                 } else {
-                    await client.from('attendance').insert({
+                    const { error: attInsertErr } = await client.from('attendance').insert({
                         tenant_id: caller.tenantId,
                         class_id: classId,
                         student_id: resolvedStudentUserId,
@@ -375,6 +395,10 @@ export class MobileService {
                         marked_at: clampedMarkedAt,
                         marked_by: caller.sub,
                     });
+                    if (attInsertErr) {
+                        this.logger.error(`Attendance insert failed: ${attInsertErr.message}`);
+                        throw new InternalServerErrorException('Attendance record insert failed');
+                    }
                 }
             }
         }
