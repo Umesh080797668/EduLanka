@@ -1,4 +1,7 @@
+import 'dart:async';
 import 'dart:convert';
+import 'dart:math';
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../api/api_client.dart';
@@ -21,8 +24,73 @@ class SyncResult {
 class SyncService {
   final ApiClient apiClient;
   final LocalDatabase localDb;
+  final void Function(Map<String, dynamic> payload)? onEntitlementRevoked;
 
-  SyncService({required this.apiClient, required this.localDb});
+  StreamSubscription<List<ConnectivityResult>>? _connectivitySubscription;
+  Timer? _periodicTimer;
+  bool _isSyncing = false;
+
+  // Exponential backoff configuration
+  int _currentBackoffMs = 2000;
+  static const int _initialBackoffMs = 2000;
+  static const int _maxBackoffMs = 60000;
+  DateTime? _nextAllowedSyncTime;
+
+  SyncService({
+    required this.apiClient,
+    required this.localDb,
+    this.onEntitlementRevoked,
+  });
+
+  /// Starts automatic background synchronization with connectivity listener and exponential backoff
+  void startAutoSync({Duration period = const Duration(seconds: 30)}) {
+    stopAutoSync();
+
+    // 1. Connectivity listener: triggers sync when network becomes available
+    _connectivitySubscription = Connectivity().onConnectivityChanged.listen((results) {
+      final isOnline = results.any((r) => r != ConnectivityResult.none);
+      if (isOnline) {
+        _currentBackoffMs = _initialBackoffMs;
+        _nextAllowedSyncTime = null;
+        triggerAutoSync();
+      }
+    });
+
+    // 2. Periodic background sync timer
+    _periodicTimer = Timer.periodic(period, (_) {
+      triggerAutoSync();
+    });
+
+    // Initial background attempt
+    triggerAutoSync();
+  }
+
+  /// Cancels background sync timers and connectivity subscriptions
+  void stopAutoSync() {
+    _connectivitySubscription?.cancel();
+    _connectivitySubscription = null;
+    _periodicTimer?.cancel();
+    _periodicTimer = null;
+  }
+
+  /// Evaluates backoff delays and triggers sync
+  Future<void> triggerAutoSync() async {
+    if (_isSyncing) return;
+    if (_nextAllowedSyncTime != null && DateTime.now().isBefore(_nextAllowedSyncTime!)) {
+      return;
+    }
+
+    final result = await syncAll();
+    if (!result.success) {
+      // Exponential backoff upon failure
+      _nextAllowedSyncTime = DateTime.now().add(Duration(milliseconds: _currentBackoffMs));
+      _currentBackoffMs = min(_currentBackoffMs * 2, _maxBackoffMs);
+    } else {
+      // Reset backoff on success
+      _currentBackoffMs = _initialBackoffMs;
+      _nextAllowedSyncTime = null;
+    }
+  }
 
   /// Pushes queued offline mutations from local SQLite outbox to server monotonic event log
   Future<int> pushOutbox() async {
@@ -51,56 +119,108 @@ class SyncService {
         await localDb.markOutboxEventSynced(clientUuid, seq);
         pushed++;
       } catch (e) {
-        // If server returns error, don't halt entire queue unless auth failed
+        // If auth failed, rethrow so session/token refresh can intervene
         if (e is DioException && e.response?.statusCode == 401) {
           rethrow;
         }
+
+        // Record failed state and reason instead of swallowing and leaving PENDING
+        String errorMsg = e.toString();
+        if (e is DioException) {
+          final data = e.response?.data;
+          if (data is Map && data['message'] != null) {
+            errorMsg = data['message'] is List
+                ? (data['message'] as List).join(', ')
+                : data['message'].toString();
+          } else if (e.message != null && e.message!.isNotEmpty) {
+            errorMsg = e.message!;
+          }
+        }
+        await localDb.markOutboxEventFailed(clientUuid, errorMsg);
       }
     }
     return pushed;
   }
 
-  /// Pulls remote monotonic sync stream since local checkpoint sequence
+  /// Pulls remote monotonic sync stream since local checkpoint sequence, paginating while hasMore is true
   Future<int> pullSyncEvents() async {
-    final lastSeq = await localDb.getLastSequence();
+    int totalPulled = 0;
+    bool hasMore = true;
+    int currentSeq = await localDb.getLastSequence();
 
-    try {
-      final res = await apiClient.getSyncEvents(since: lastSeq, limit: 50);
+    while (hasMore) {
+      try {
+        final res = await apiClient.getSyncEvents(since: currentSeq, limit: 50);
 
-      // Check if client cursor predates the 90-day retention window (HTTP 410 Gone / resyncRequired)
-      if (res['resyncRequired'] == true) {
-        final snapshot = await apiClient.getSnapshot();
-        final snapSeq = snapshot['lastSequence'] is int
-            ? snapshot['lastSequence'] as int
-            : 0;
-        await localDb.setLastSequence(snapSeq);
-        return 1;
-      }
-
-      final events = res['events'] is List ? res['events'] as List : [];
-      if (events.isEmpty) return 0;
-
-      int maxSeq = lastSeq;
-      for (final ev in events) {
-        if (ev is Map && ev['sequence'] is int) {
-          final s = ev['sequence'] as int;
-          if (s > maxSeq) maxSeq = s;
+        // Check if client cursor predates the 90-day retention window (HTTP 410 Gone / resyncRequired)
+        if (res['resyncRequired'] == true) {
+          await _recoverFromSnapshot();
+          return totalPulled + 1;
         }
-      }
 
-      await localDb.setLastSequence(maxSeq);
-      return events.length;
-    } catch (e) {
-      if (e is DioException && e.response?.statusCode == 410) {
-        // Handle 410 Gone snapshot recovery
-        final snapshot = await apiClient.getSnapshot();
-        final snapSeq = snapshot['lastSequence'] is int
-            ? snapshot['lastSequence'] as int
-            : 0;
-        await localDb.setLastSequence(snapSeq);
-        return 1;
+        final events = res['events'] is List ? res['events'] as List : [];
+        if (events.isEmpty) {
+          break;
+        }
+
+        int maxSeqInPage = currentSeq;
+        for (final rawEv in events) {
+          if (rawEv is Map) {
+            final ev = Map<String, dynamic>.from(rawEv);
+            await _applyEventLocally(ev);
+            final s = ev['sequence'] is int ? ev['sequence'] as int : null;
+            if (s != null && s > maxSeqInPage) {
+              maxSeqInPage = s;
+            }
+          }
+        }
+
+        currentSeq = maxSeqInPage;
+        await localDb.setLastSequence(currentSeq);
+        totalPulled += events.length;
+
+        hasMore = res['hasMore'] == true;
+      } catch (e) {
+        if (e is DioException && e.response?.statusCode == 410) {
+          await _recoverFromSnapshot();
+          return totalPulled + 1;
+        }
+        if (e is DioException && e.response?.statusCode == 401) {
+          rethrow;
+        }
+        break;
       }
-      return 0;
+    }
+    return totalPulled;
+  }
+
+  /// Recovers from 410 Gone by pulling full snapshot and correctly reading latestSequence
+  Future<void> _recoverFromSnapshot() async {
+    final snapshot = await apiClient.getSnapshot();
+    // Server returns 'latestSequence' (with fallback to 'lastSequence')
+    final snapSeq = (snapshot['latestSequence'] ?? snapshot['lastSequence']) as int? ?? 0;
+    await localDb.applySnapshot(snapshot);
+    await localDb.setLastSequence(snapSeq);
+  }
+
+  /// Dispatches remote events into local SQLite tables
+  Future<void> _applyEventLocally(Map<String, dynamic> event) async {
+    final entityType = event['entity_type']?.toString();
+    final entityId = event['entity_id']?.toString();
+    final payload = event['payload'] is Map
+        ? Map<String, dynamic>.from(event['payload'] as Map)
+        : <String, dynamic>{};
+
+    switch (entityType) {
+      case 'attendance':
+        await localDb.saveSyncedAttendance(payload, entityId: entityId);
+        break;
+      case 'chat_message':
+        await localDb.saveSyncedChatMessage(payload, entityId: entityId);
+        break;
+      case 'entitlement_revocation':
+        onEntitlementRevoked?.call(payload);
+        break;
     }
   }
 
@@ -121,6 +241,16 @@ class SyncService {
 
   /// Full bidirectional synchronization
   Future<SyncResult> syncAll() async {
+    if (_isSyncing) {
+      return const SyncResult(
+        pushedCount: 0,
+        pulledCount: 0,
+        success: true,
+        message: 'Sync already in progress.',
+      );
+    }
+
+    _isSyncing = true;
     try {
       final pushed = await pushOutbox();
       final pulled = await pullSyncEvents();
@@ -140,11 +270,19 @@ class SyncService {
         success: false,
         message: 'Sync failed: ${e.toString()}',
       );
+    } finally {
+      _isSyncing = false;
     }
+  }
+
+  void dispose() {
+    stopAutoSync();
   }
 }
 
 final syncServiceProvider = Provider<SyncService>((ref) {
   final apiClient = ref.watch(apiClientProvider);
-  return SyncService(apiClient: apiClient, localDb: LocalDatabase.instance);
+  final service = SyncService(apiClient: apiClient, localDb: LocalDatabase.instance);
+  ref.onDispose(() => service.dispose());
+  return service;
 });

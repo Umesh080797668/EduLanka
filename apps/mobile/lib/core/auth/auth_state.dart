@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../api/api_client.dart';
+import '../database/local_database.dart';
 import 'token_storage.dart';
 
 enum AuthStatus { initial, authenticated, unauthenticated }
@@ -88,6 +89,15 @@ class AuthNotifier extends StateNotifier<AuthState> {
     required String role,
     required String userId,
   }) async {
+    final prevUserId = await tokenStorage.getUserId();
+    final prevTenantId = await tokenStorage.getTenantId();
+
+    // Prevent cross-user or cross-tenant sync outbox leak and state pollution
+    if ((prevUserId != null && prevUserId != userId) ||
+        (prevTenantId != null && prevTenantId != tenantId)) {
+      await LocalDatabase.instance.clearAll();
+    }
+
     await tokenStorage.saveTokens(
       accessToken: accessToken,
       refreshToken: refreshToken,
@@ -105,6 +115,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
   }
 
   Future<void> logout() async {
+    await LocalDatabase.instance.clearAll();
     await tokenStorage.clearAll();
     state = const AuthState(status: AuthStatus.unauthenticated);
   }

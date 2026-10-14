@@ -125,19 +125,12 @@ async rewrites() {
 - `apps/api` uses transactional connections with tenant Row Level Security (RLS) enforcement.
 - `apps/analytics` bypasses RLS using a dedicated read-only role (`analytics_ro`) to run cross-tenant aggregate metrics (`COUNT`, storage sizes, SMS usage, sync lag) without taking write locks.
 
-### 4. Database Permissions Setup (Run Once in Supabase SQL Editor)
-Run this SQL script in the Supabase Dashboard SQL Editor to create the read-only analytics role:
+### 4. Database Permissions Setup (Password Configuration & Rotation)
+The `analytics_ro` role, its scoped table/view grants, and explicit RLS policies are provisioned via migration `20261013000000_analytics_ro_and_billing_snapshots.sql`.
+Set and periodically rotate the password outside migrations using the Supabase SQL editor or direct admin connection:
 ```sql
--- 1. Create dedicated read-only role
-CREATE ROLE analytics_ro LOGIN PASSWORD '<choose-a-strong-password>';
-
--- 2. Grant connection and schema read access
-GRANT CONNECT ON DATABASE postgres TO analytics_ro;
-GRANT USAGE ON SCHEMA public TO analytics_ro;
-GRANT SELECT ON ALL TABLES IN SCHEMA public TO analytics_ro;
-
--- 3. Ensure future tables created by migrations are also readable
-ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO analytics_ro;
+-- Set or rotate analytics_ro password outside migrations
+ALTER ROLE analytics_ro WITH PASSWORD '<choose-a-strong-password>';
 ```
 
 ---

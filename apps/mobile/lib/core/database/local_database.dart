@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:path/path.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
+import 'package:uuid/uuid.dart';
 
 class LocalDatabase {
   static final LocalDatabase instance = LocalDatabase._init();
@@ -28,13 +29,18 @@ class LocalDatabase {
     final dbPath = await getDatabasesPath();
     final path = join(dbPath, filePath);
 
-    return await openDatabase(path, version: 1, onCreate: _createDB);
+    return await openDatabase(
+      path,
+      version: 1,
+      onCreate: (db, version) async => await _ensureTables(db),
+      onOpen: (db) async => await _ensureTables(db),
+    );
   }
 
-  Future<void> _createDB(Database db, int version) async {
+  Future<void> _ensureTables(Database db) async {
     // 1. Monotonic Outbox Mutations (ADR-002)
     await db.execute('''
-      CREATE TABLE sync_outbox (
+      CREATE TABLE IF NOT EXISTS sync_outbox (
         client_uuid TEXT PRIMARY KEY,
         entity_type TEXT NOT NULL,
         entity_id TEXT NOT NULL,
@@ -49,7 +55,7 @@ class LocalDatabase {
 
     // 2. Sync Metadata (Last sequences, checkpoints)
     await db.execute('''
-      CREATE TABLE sync_metadata (
+      CREATE TABLE IF NOT EXISTS sync_metadata (
         key TEXT PRIMARY KEY,
         value TEXT NOT NULL
       )
@@ -57,7 +63,7 @@ class LocalDatabase {
 
     // 3. Offline Emergency Contacts (P3-S8)
     await db.execute('''
-      CREATE TABLE emergency_contacts (
+      CREATE TABLE IF NOT EXISTS emergency_contacts (
         id TEXT PRIMARY KEY,
         name TEXT NOT NULL,
         role TEXT NOT NULL,
@@ -68,7 +74,7 @@ class LocalDatabase {
 
     // 4. Offline Evacuation Shelters (P3-S8)
     await db.execute('''
-      CREATE TABLE emergency_shelters (
+      CREATE TABLE IF NOT EXISTS emergency_shelters (
         id TEXT PRIMARY KEY,
         name TEXT NOT NULL,
         address TEXT NOT NULL,
@@ -81,7 +87,7 @@ class LocalDatabase {
 
     // 5. Offline Attendance Roll-Call Records
     await db.execute('''
-      CREATE TABLE offline_attendance (
+      CREATE TABLE IF NOT EXISTS offline_attendance (
         id TEXT PRIMARY KEY,
         student_id TEXT NOT NULL,
         class_id TEXT NOT NULL,
@@ -91,6 +97,33 @@ class LocalDatabase {
         sync_status TEXT NOT NULL DEFAULT 'PENDING'
       )
     ''');
+
+    // 6. Offline Chat Messages (Preserved Across Devices)
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS offline_chat_messages (
+        id TEXT PRIMARY KEY,
+        conversation_id TEXT NOT NULL,
+        sender_id TEXT NOT NULL,
+        content TEXT NOT NULL,
+        created_at TEXT NOT NULL
+      )
+    ''');
+  }
+
+  // ── UUID Helpers ────────────────────────────────────────────────────
+
+  static final _uuidRegex = RegExp(
+    r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$',
+  );
+
+  static bool isUuid(String str) => _uuidRegex.hasMatch(str.trim());
+
+  static String toValidUuid(String val, String namespacePrefix) {
+    if (isUuid(val)) return val;
+    return const Uuid().v5(
+      Namespace.url.value,
+      'edulanka:$namespacePrefix:$val',
+    );
   }
 
   // ── Sync Outbox Operations ──────────────────────────────────────────
@@ -144,6 +177,37 @@ class LocalDatabase {
     );
   }
 
+  Future<void> markOutboxEventFailed(
+    String clientUuid,
+    String errorMessage,
+  ) async {
+    final db = await database;
+    await db.update(
+      'sync_outbox',
+      {'status': 'FAILED', 'error_message': errorMessage},
+      where: 'client_uuid = ?',
+      whereArgs: [clientUuid],
+    );
+  }
+
+  Future<int> getFailedOutboxCount() async {
+    final db = await database;
+    final res = await db.rawQuery(
+      "SELECT COUNT(*) as count FROM sync_outbox WHERE status = 'FAILED'",
+    );
+    return Sqflite.firstIntValue(res) ?? 0;
+  }
+
+  Future<void> retryFailedOutboxEvents() async {
+    final db = await database;
+    await db.update(
+      'sync_outbox',
+      {'status': 'PENDING', 'error_message': null},
+      where: 'status = ?',
+      whereArgs: ['FAILED'],
+    );
+  }
+
   // ── Sync Metadata ──────────────────────────────────────────────────
 
   Future<int> getLastSequence() async {
@@ -177,6 +241,11 @@ class LocalDatabase {
     required String status,
     required String markedAt,
   }) async {
+    final clientUuid = isUuid(id) ? id : toValidUuid(id, 'att');
+    final resolvedStudentId = isUuid(studentId) ? studentId : toValidUuid(studentId, 'student');
+    final resolvedClassId = isUuid(classId) ? classId : toValidUuid(classId, 'class');
+    final attendanceEntityId = const Uuid().v4();
+
     final db = await database;
     await db.insert('offline_attendance', {
       'id': id,
@@ -188,20 +257,53 @@ class LocalDatabase {
       'sync_status': 'PENDING',
     }, conflictAlgorithm: ConflictAlgorithm.replace);
 
-    // Queue as a monotonic sync event (ADR-002)
+    // Queue as a monotonic sync event (ADR-002) with guaranteed UUIDs
     await queueSyncEvent(
-      clientUuid: id,
+      clientUuid: clientUuid,
       entityType: 'attendance',
-      entityId: id,
+      entityId: attendanceEntityId,
       eventType: 'CREATED',
       payload: {
-        'classId': classId,
-        'studentId': studentId,
+        'classId': resolvedClassId,
+        'class_id': resolvedClassId,
+        'studentId': resolvedStudentId,
+        'student_id': resolvedStudentId,
         'date': date,
         'status': status,
         'markedAt': markedAt,
+        'marked_at': markedAt,
       },
     );
+  }
+
+  Future<void> saveSyncedAttendance(
+    Map<String, dynamic> payload, {
+    String? entityId,
+  }) async {
+    final db = await database;
+    final classId =
+        (payload['class_id'] ?? payload['classId'])?.toString() ?? '';
+    final studentId =
+        (payload['student_id'] ?? payload['studentId'])?.toString() ??
+        entityId ??
+        '';
+    final date = payload['date']?.toString() ?? '';
+    final status = payload['status']?.toString() ?? 'PRESENT';
+    final markedAt =
+        (payload['marked_at'] ?? payload['markedAt'])?.toString() ??
+        DateTime.now().toUtc().toIso8601String();
+    final id =
+        payload['id']?.toString() ?? entityId ?? '${studentId}_${classId}_$date';
+
+    await db.insert('offline_attendance', {
+      'id': id,
+      'student_id': studentId,
+      'class_id': classId,
+      'date': date,
+      'status': status,
+      'marked_at': markedAt,
+      'sync_status': 'SYNCED',
+    }, conflictAlgorithm: ConflictAlgorithm.replace);
   }
 
   Future<List<Map<String, dynamic>>> getAttendanceRecords() async {
@@ -210,6 +312,52 @@ class LocalDatabase {
       'offline_attendance',
       orderBy: 'marked_at DESC',
       limit: 50,
+    );
+  }
+
+  // ── Chat Operations ────────────────────────────────────────────────
+
+  Future<void> saveSyncedChatMessage(
+    Map<String, dynamic> payload, {
+    String? entityId,
+  }) async {
+    final db = await database;
+    final id = payload['id']?.toString() ?? entityId ?? const Uuid().v4();
+    final conversationId =
+        (payload['conversation_id'] ??
+                payload['conversationId'] ??
+                payload['class_id'] ??
+                payload['classId'])
+            ?.toString() ??
+        'default';
+    final senderId =
+        (payload['sender_id'] ?? payload['senderId'])?.toString() ?? '';
+    final content =
+        (payload['content'] ?? payload['text'] ?? payload['message'])
+            ?.toString() ??
+        '';
+    final createdAt =
+        (payload['created_at'] ?? payload['createdAt'])?.toString() ??
+        DateTime.now().toUtc().toIso8601String();
+
+    await db.insert('offline_chat_messages', {
+      'id': id,
+      'conversation_id': conversationId,
+      'sender_id': senderId,
+      'content': content,
+      'created_at': createdAt,
+    }, conflictAlgorithm: ConflictAlgorithm.replace);
+  }
+
+  Future<List<Map<String, dynamic>>> getChatMessages(
+    String conversationId,
+  ) async {
+    final db = await database;
+    return await db.query(
+      'offline_chat_messages',
+      where: 'conversation_id = ?',
+      whereArgs: [conversationId],
+      orderBy: 'created_at ASC',
     );
   }
 
@@ -271,6 +419,30 @@ class LocalDatabase {
     return await db.query('emergency_shelters', orderBy: 'name ASC');
   }
 
+  // ── Snapshot Application ────────────────────────────────────────────
+
+  Future<void> applySnapshot(Map<String, dynamic> snapshot) async {
+    final db = await database;
+    if (snapshot['classes'] is List) {
+      await db.insert('sync_metadata', {
+        'key': 'cached_classes',
+        'value': jsonEncode(snapshot['classes']),
+      }, conflictAlgorithm: ConflictAlgorithm.replace);
+    }
+    if (snapshot['notices'] is List) {
+      await db.insert('sync_metadata', {
+        'key': 'cached_notices',
+        'value': jsonEncode(snapshot['notices']),
+      }, conflictAlgorithm: ConflictAlgorithm.replace);
+    }
+    if (snapshot['tenant'] is Map) {
+      await db.insert('sync_metadata', {
+        'key': 'cached_tenant',
+        'value': jsonEncode(snapshot['tenant']),
+      }, conflictAlgorithm: ConflictAlgorithm.replace);
+    }
+  }
+
   Future<void> clearAll() async {
     final db = await database;
     await db.delete('sync_outbox');
@@ -278,5 +450,6 @@ class LocalDatabase {
     await db.delete('emergency_contacts');
     await db.delete('emergency_shelters');
     await db.delete('offline_attendance');
+    await db.delete('offline_chat_messages');
   }
 }

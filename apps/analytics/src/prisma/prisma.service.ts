@@ -10,11 +10,19 @@ export class PrismaService implements OnModuleInit, OnModuleDestroy {
     const connectionString =
       process.env.ANALYTICS_DATABASE_URL ||
       process.env.DATABASE_URL ||
-      process.env.SUPABASE_DB_URL ||
-      'postgresql://analytics_ro:analytics_ro_secret_dev@localhost:54322/postgres';
+      process.env.SUPABASE_DB_URL;
+
+    if (!connectionString) {
+      if (process.env.NODE_ENV === 'production') {
+        throw new Error('ANALYTICS_DATABASE_URL must be configured in production');
+      }
+      this.logger.warn(
+        'ANALYTICS_DATABASE_URL not set; using local development default postgresql://localhost:54322/postgres',
+      );
+    }
 
     this.pool = new Pool({
-      connectionString,
+      connectionString: connectionString || 'postgresql://localhost:54322/postgres',
       max: 10,
       idleTimeoutMillis: 30000,
     });

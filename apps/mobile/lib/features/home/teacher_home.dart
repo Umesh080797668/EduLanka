@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:uuid/uuid.dart';
 import '../../core/auth/auth_state.dart';
 import '../../core/database/local_database.dart';
 import '../../core/sync/sync_service.dart';
@@ -15,20 +16,25 @@ class TeacherHomeScreen extends ConsumerStatefulWidget {
 class _TeacherHomeScreenState extends ConsumerState<TeacherHomeScreen> {
   bool _isSyncing = false;
   int _pendingCount = 0;
+  int _failedCount = 0;
   int _lastSequence = 0;
 
   @override
   void initState() {
     super.initState();
     _refreshSyncState();
+    // Start background sync listener
+    ref.read(syncServiceProvider).startAutoSync();
   }
 
   Future<void> _refreshSyncState() async {
     final pending = await LocalDatabase.instance.getPendingOutboxCount();
+    final failed = await LocalDatabase.instance.getFailedOutboxCount();
     final seq = await LocalDatabase.instance.getLastSequence();
     if (mounted) {
       setState(() {
         _pendingCount = pending;
+        _failedCount = failed;
         _lastSequence = seq;
       });
     }
@@ -59,8 +65,10 @@ class _TeacherHomeScreenState extends ConsumerState<TeacherHomeScreen> {
   }
 
   Future<void> _openMarkAttendanceDialog() async {
-    final studentIdController = TextEditingController(text: 'STD-1001');
-    final classIdController = TextEditingController(text: 'CLASS-10A');
+    final sampleStudentId = const Uuid().v4();
+    final sampleClassId = const Uuid().v4();
+    final studentIdController = TextEditingController(text: sampleStudentId);
+    final classIdController = TextEditingController(text: sampleClassId);
     String selectedStatus = 'PRESENT';
 
     await showDialog(
@@ -77,18 +85,21 @@ class _TeacherHomeScreenState extends ConsumerState<TeacherHomeScreen> {
           content: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 TextField(
                   controller: studentIdController,
                   decoration: const InputDecoration(
-                    labelText: 'Student ID / Registration #',
+                    labelText: 'Student UUID / Code',
+                    helperText: 'UUID required by server sync (free-text converted)',
                   ),
                 ),
                 const SizedBox(height: 12),
                 TextField(
                   controller: classIdController,
                   decoration: const InputDecoration(
-                    labelText: 'Class ID / Grade Section',
+                    labelText: 'Class UUID / Code',
+                    helperText: 'UUID required by server sync (free-text converted)',
                   ),
                 ),
                 const SizedBox(height: 16),
@@ -129,7 +140,7 @@ class _TeacherHomeScreenState extends ConsumerState<TeacherHomeScreen> {
                 final now = DateTime.now();
                 final todayStr =
                     '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
-                final recordId = '${studentId}_${classId}_$todayStr';
+                final recordId = const Uuid().v4();
 
                 await LocalDatabase.instance.recordAttendance(
                   id: recordId,
@@ -147,7 +158,7 @@ class _TeacherHomeScreenState extends ConsumerState<TeacherHomeScreen> {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
                       content: Text(
-                        'Marked $studentId as $selectedStatus. Queued in offline outbox.',
+                        'Marked attendance. Queued with UUID in offline outbox.',
                       ),
                     ),
                   );
@@ -197,6 +208,48 @@ class _TeacherHomeScreenState extends ConsumerState<TeacherHomeScreen> {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
+          if (_failedCount > 0) ...[
+            Card(
+              color: const Color(0xFFFEF2F2),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+                side: const BorderSide(color: Color(0xFFFECACA)),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                child: Row(
+                  children: [
+                    const Icon(Icons.sync_problem_rounded, color: Color(0xFFDC2626)),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        '$_failedCount sync event(s) failed validation. Tap to retry.',
+                        style: const TextStyle(
+                          color: Color(0xFFB91C1C),
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                    TextButton(
+                      onPressed: () async {
+                        await LocalDatabase.instance.retryFailedOutboxEvents();
+                        await _handleSync();
+                      },
+                      child: const Text(
+                        'Retry',
+                        style: TextStyle(
+                          color: Color(0xFFDC2626),
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+          ],
           Card(
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12),

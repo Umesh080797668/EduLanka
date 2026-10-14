@@ -6,17 +6,15 @@
 -- 3. Create public.billing_snapshots for nightly tenant usage and invoice generation.
 -- =============================================================================
 
--- 1. Analytics Read-Only Role
+-- 1. Analytics Read-Only Role (Password provisioned and rotated outside migrations)
 DO $$
 BEGIN
     IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'analytics_ro') THEN
-        CREATE ROLE analytics_ro WITH LOGIN PASSWORD 'analytics_ro_secret_dev';
+        CREATE ROLE analytics_ro WITH LOGIN;
     END IF;
 END $$;
 
 GRANT USAGE ON SCHEMA public TO analytics_ro;
-GRANT SELECT ON ALL TABLES IN SCHEMA public TO analytics_ro;
-ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO analytics_ro;
 
 -- 2. Media Download Logs Table (P3-S6, P3-S9)
 CREATE TABLE IF NOT EXISTS public.media_download_logs (
@@ -34,7 +32,6 @@ CREATE INDEX IF NOT EXISTS idx_media_download_logs_asset ON public.media_downloa
 ALTER TABLE public.media_download_logs ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON public.media_download_logs FROM anon, authenticated;
 GRANT ALL ON public.media_download_logs TO service_role;
-GRANT SELECT ON public.media_download_logs TO analytics_ro;
 
 -- 3. Billing Snapshots Table (P3-S9)
 CREATE TABLE IF NOT EXISTS public.billing_snapshots (
@@ -59,7 +56,49 @@ CREATE INDEX IF NOT EXISTS idx_billing_snapshots_month ON public.billing_snapsho
 ALTER TABLE public.billing_snapshots ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON public.billing_snapshots FROM anon, authenticated;
 GRANT ALL ON public.billing_snapshots TO service_role;
-GRANT SELECT ON public.billing_snapshots TO analytics_ro;
+
+-- 4. Scoped Grants for Analytics Service (Least Privilege: No access to sync payloads, auth, or personal data)
+GRANT SELECT ON public.tenants TO analytics_ro;
+GRANT SELECT ON public.users TO analytics_ro;
+GRANT SELECT ON public.plans TO analytics_ro;
+GRANT SELECT ON public.sms_logs TO analytics_ro;
+GRANT SELECT ON public.device_tokens TO analytics_ro;
+GRANT SELECT ON public.media_assets TO analytics_ro;
+GRANT SELECT ON public.media_download_logs TO analytics_ro;
+GRANT SELECT, INSERT, UPDATE ON public.billing_snapshots TO analytics_ro;
+
+-- Scoped Grants on Analytics Views
+GRANT SELECT ON public.tenant_storage_usage TO analytics_ro;
+GRANT SELECT ON public.monthly_sms_usage TO analytics_ro;
+GRANT SELECT ON public.tenant_sms_quotas TO analytics_ro;
+
+-- 5. Explicit RLS Policies for analytics_ro Role
+DROP POLICY IF EXISTS "analytics_ro_select_tenants" ON public.tenants;
+CREATE POLICY "analytics_ro_select_tenants" ON public.tenants FOR SELECT TO analytics_ro USING (true);
+
+DROP POLICY IF EXISTS "analytics_ro_select_users" ON public.users;
+CREATE POLICY "analytics_ro_select_users" ON public.users FOR SELECT TO analytics_ro USING (true);
+
+DROP POLICY IF EXISTS "analytics_ro_select_plans" ON public.plans;
+CREATE POLICY "analytics_ro_select_plans" ON public.plans FOR SELECT TO analytics_ro USING (true);
+
+DROP POLICY IF EXISTS "analytics_ro_select_sms_logs" ON public.sms_logs;
+CREATE POLICY "analytics_ro_select_sms_logs" ON public.sms_logs FOR SELECT TO analytics_ro USING (true);
+
+DROP POLICY IF EXISTS "analytics_ro_select_device_tokens" ON public.device_tokens;
+CREATE POLICY "analytics_ro_select_device_tokens" ON public.device_tokens FOR SELECT TO analytics_ro USING (true);
+
+DROP POLICY IF EXISTS "analytics_ro_select_media_assets" ON public.media_assets;
+CREATE POLICY "analytics_ro_select_media_assets" ON public.media_assets FOR SELECT TO analytics_ro USING (true);
+
+DROP POLICY IF EXISTS "analytics_ro_select_media_download_logs" ON public.media_download_logs;
+CREATE POLICY "analytics_ro_select_media_download_logs" ON public.media_download_logs FOR SELECT TO analytics_ro USING (true);
+
+DROP POLICY IF EXISTS "analytics_ro_select_billing_snapshots" ON public.billing_snapshots;
+CREATE POLICY "analytics_ro_select_billing_snapshots" ON public.billing_snapshots FOR SELECT TO analytics_ro USING (true);
+
+DROP POLICY IF EXISTS "analytics_ro_modify_billing_snapshots" ON public.billing_snapshots;
+CREATE POLICY "analytics_ro_modify_billing_snapshots" ON public.billing_snapshots FOR ALL TO analytics_ro USING (true) WITH CHECK (true);
 
 -- Reload PostgREST schema cache
 NOTIFY pgrst, 'reload schema';
