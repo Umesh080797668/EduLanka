@@ -8,11 +8,16 @@ import { SuperAdminGuard } from './guards/super-admin.guard';
 import { TenantAnalyticsController } from './modules/tenant-analytics/tenant-analytics.controller';
 import { TenantAnalyticsService } from './modules/tenant-analytics/tenant-analytics.service';
 
+const jwtSecret = process.env.JWT_SECRET || 'edulanka-jwt-secret-dev-super-key';
+if (process.env.NODE_ENV === 'production' && !process.env.JWT_SECRET) {
+  throw new Error('JWT_SECRET must be configured in production');
+}
+
 @Module({
   imports: [
     PassportModule.register({ defaultStrategy: 'jwt' }),
     JwtModule.register({
-      secret: process.env.JWT_SECRET || 'edulanka-jwt-secret-dev-super-key',
+      secret: jwtSecret,
     }),
   ],
   controllers: [TenantAnalyticsController],

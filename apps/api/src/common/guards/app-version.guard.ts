@@ -14,7 +14,12 @@ export class AppVersionGuard implements CanActivate {
         const path = (request as any).originalUrl || request.url || '';
 
         // Allow version inspection and public key endpoints to bypass
-        if (path.includes('/mobile/version') || path.includes('/mobile/public-key')) {
+        if (
+            path.includes('/mobile/version') ||
+            path.includes('/mobile/public-key') ||
+            path.includes('/health') ||
+            path.includes('/docs')
+        ) {
             return true;
         }
 
@@ -22,19 +27,45 @@ export class AppVersionGuard implements CanActivate {
             request.headers['x-client-version'] || request.headers['x-app-version']
         ) as string | undefined;
 
-        if (!clientVersionHeader) {
-            // Header is optional for non-mobile or legacy clients
+        const platformHeader = (
+            request.headers['x-client-platform'] as string | undefined
+        )?.toLowerCase();
+
+        const isMobileRoute = path.includes('/mobile/');
+        const isMobilePlatform = platformHeader === 'android' || platformHeader === 'ios';
+        const isMobileClient = isMobilePlatform || isMobileRoute || Boolean(clientVersionHeader);
+
+        // Allow requests from web browsers, cron, or legacy non-mobile clients
+        if (!isMobileClient) {
             return true;
+        }
+
+        // If client is mobile (via platform header or mobile route), X-Client-Version MUST NOT be omitted
+        if (!clientVersionHeader || !clientVersionHeader.trim()) {
+            throw new HttpException(
+                {
+                    statusCode: HTTP_STATUS_UPGRADE_REQUIRED,
+                    error: 'Upgrade Required',
+                    message: 'Mobile client version header (x-client-version) is required for mobile requests.',
+                    forceUpdate: true,
+                },
+                HTTP_STATUS_UPGRADE_REQUIRED,
+            );
         }
 
         const clientVersion = clientVersionHeader.trim();
         if (!parseSemver(clientVersion)) {
-            return true;
+            throw new HttpException(
+                {
+                    statusCode: HTTP_STATUS_UPGRADE_REQUIRED,
+                    error: 'Upgrade Required',
+                    message: `Invalid semantic version "${clientVersion}" provided in x-client-version header.`,
+                    forceUpdate: true,
+                },
+                HTTP_STATUS_UPGRADE_REQUIRED,
+            );
         }
 
-        const platformHeader = (
-            request.headers['x-client-platform'] as string | undefined
-        )?.toLowerCase() || 'android';
         const platform = platformHeader === 'ios' ? 'ios' : 'android';
 
         // Query minimum version for the platform
@@ -50,23 +81,19 @@ export class AppVersionGuard implements CanActivate {
             return true;
         }
 
-        try {
-            if (compareSemver(clientVersion, verRow.min_version) < 0) {
-                throw new HttpException(
-                    {
-                        statusCode: HTTP_STATUS_UPGRADE_REQUIRED,
-                        error: 'Upgrade Required',
-                        message: `Mobile client version ${clientVersion} is deprecated. Minimum required version is ${verRow.min_version}.`,
-                        minVersion: verRow.min_version,
-                        latestVersion: verRow.latest_version,
-                        releaseNotes: verRow.release_notes,
-                        forceUpdate: true,
-                    },
-                    HTTP_STATUS_UPGRADE_REQUIRED,
-                );
-            }
-        } catch (err) {
-            if (err instanceof HttpException) throw err;
+        if (compareSemver(clientVersion, verRow.min_version) < 0) {
+            throw new HttpException(
+                {
+                    statusCode: HTTP_STATUS_UPGRADE_REQUIRED,
+                    error: 'Upgrade Required',
+                    message: `Mobile client version ${clientVersion} is deprecated. Minimum required version is ${verRow.min_version}.`,
+                    minVersion: verRow.min_version,
+                    latestVersion: verRow.latest_version,
+                    releaseNotes: verRow.release_notes,
+                    forceUpdate: true,
+                },
+                HTTP_STATUS_UPGRADE_REQUIRED,
+            );
         }
 
         return true;

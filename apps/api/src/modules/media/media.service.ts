@@ -3,14 +3,37 @@ import {
     Logger,
     NotFoundException,
     ForbiddenException,
+    BadRequestException,
     InternalServerErrorException,
     PayloadTooLargeException,
 } from '@nestjs/common';
 import { createHmac } from 'crypto';
+import { v2 as cloudinary } from 'cloudinary';
 import type { JwtPayload } from '@edu-lanka/shared-types';
 import { UserRole } from '@edu-lanka/shared-types';
 import { SupabaseService, assertUuid } from '../supabase/supabase.service';
 import type { CreateMediaAssetDto } from './dto/create-media-asset.dto';
+
+export function isAllowedEmbedUrl(urlStr?: string): boolean {
+    if (!urlStr || typeof urlStr !== 'string') return false;
+    try {
+        const parsed = new URL(urlStr);
+        if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+            return false;
+        }
+        const host = parsed.hostname.toLowerCase();
+        return (
+            host === 'youtube.com' ||
+            host.endsWith('.youtube.com') ||
+            host === 'youtu.be' ||
+            host === 'vimeo.com' ||
+            host.endsWith('.vimeo.com') ||
+            host === 'drive.google.com'
+        );
+    } catch {
+        return false;
+    }
+}
 
 @Injectable()
 export class MediaService {
@@ -57,7 +80,7 @@ export class MediaService {
         const isGrowthOrAbove = plan === 'GROWTH' || plan === 'INSTITUTIONAL';
 
         const filtered = (data || []).map((asset: any) => {
-            const isEmbed = asset.cloudinary_public_id?.startsWith('embed_');
+            const isEmbed = isAllowedEmbedUrl(asset.cloudinary_secure_url);
             if (!isGrowthOrAbove) {
                 // Starter and Community tiers: embedded links only, strip direct Cloudinary URLs and downloads
                 return {
@@ -100,7 +123,7 @@ export class MediaService {
 
         const plan = caller.tenantPlan || 'COMMUNITY';
         const isGrowthOrAbove = plan === 'GROWTH' || plan === 'INSTITUTIONAL';
-        const isEmbed = data.cloudinary_public_id?.startsWith('embed_');
+        const isEmbed = isAllowedEmbedUrl(data.cloudinary_secure_url);
 
         if (!isGrowthOrAbove) {
             return {
@@ -158,14 +181,34 @@ export class MediaService {
         // Generate cryptographic expiring token & signed URL
         const expiresTimestamp = Math.floor(Date.now() / 1000) + 3600; // 1-hour validity
         const expiresAt = new Date(expiresTimestamp * 1000).toISOString();
+        if (process.env.NODE_ENV === 'production' && !process.env.JWT_SECRET) {
+            throw new Error('JWT_SECRET must be configured in production');
+        }
         const secret = process.env.JWT_SECRET || 'edulanka-secret-offline-manifest';
         const signature = createHmac('sha256', secret)
             .update(`${caller.tenantId}:${asset.id}:${caller.sub}:${expiresTimestamp}`)
             .digest('hex');
 
-        const signedMp4Url = asset.mp4_url.includes('?')
-            ? `${asset.mp4_url}&exp=${expiresTimestamp}&sig=${signature.slice(0, 32)}`
-            : `${asset.mp4_url}?exp=${expiresTimestamp}&sig=${signature.slice(0, 32)}`;
+        let signedMp4Url = asset.mp4_url;
+        if (asset.cloudinary_public_id && process.env.CLOUDINARY_API_KEY && process.env.CLOUDINARY_API_SECRET) {
+            cloudinary.config({
+                cloud_name: process.env.CLOUDINARY_CLOUD_NAME || 'edulanka',
+                api_key: process.env.CLOUDINARY_API_KEY,
+                api_secret: process.env.CLOUDINARY_API_SECRET,
+                secure: true,
+            });
+            signedMp4Url = cloudinary.url(asset.cloudinary_public_id, {
+                resource_type: 'video',
+                sign_url: true,
+                type: 'authenticated',
+                expires_at: expiresTimestamp,
+                format: 'mp4',
+            });
+        } else {
+            signedMp4Url = asset.mp4_url.includes('?')
+                ? `${asset.mp4_url}&exp=${expiresTimestamp}&sig=${signature.slice(0, 32)}`
+                : `${asset.mp4_url}?exp=${expiresTimestamp}&sig=${signature.slice(0, 32)}`;
+        }
 
         // Record media download telemetry event (P3-S6, P3-S9)
         try {
@@ -208,9 +251,7 @@ export class MediaService {
         const plan = caller.tenantPlan || 'COMMUNITY';
         const isGrowthOrAbove = plan === 'GROWTH' || plan === 'INSTITUTIONAL';
 
-        const isExternalEmbed =
-            dto.cloudinaryPublicId?.startsWith('embed_') ||
-            Boolean(dto.cloudinarySecureUrl?.match(/youtube\.com|youtu\.be|vimeo\.com|drive\.google/));
+        const isExternalEmbed = isAllowedEmbedUrl(dto.cloudinarySecureUrl);
 
         if (!isGrowthOrAbove && !isExternalEmbed) {
             throw new ForbiddenException(
@@ -218,7 +259,15 @@ export class MediaService {
             );
         }
 
+        if (isExternalEmbed && !isAllowedEmbedUrl(dto.cloudinarySecureUrl)) {
+            throw new BadRequestException('Invalid embed URL: must be a valid YouTube, Vimeo, or Google Drive link');
+        }
+
         if (!isExternalEmbed) {
+            if (!dto.cloudinaryPublicId || dto.cloudinaryPublicId.startsWith('embed_')) {
+                throw new BadRequestException('A valid cloudinaryPublicId is required for direct video hosting');
+            }
+
             // Check storage quota from public.tenant_storage_usage before initiating direct upload
             const { data: usage } = await this.supabase.adminClient
                 .from('tenant_storage_usage')
@@ -236,6 +285,9 @@ export class MediaService {
         // Insert media asset record: direct videos start in 'processing'; embeds are immediately 'ready'
         const initialStatus = isExternalEmbed ? 'ready' : 'processing';
         const initialBytes = isExternalEmbed ? 0 : (dto.fileSizeBytes || 0);
+        const publicId = isExternalEmbed
+            ? `embed_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`
+            : dto.cloudinaryPublicId;
 
         const { data, error } = await this.supabase.adminClient
             .from('media_assets')
@@ -244,7 +296,7 @@ export class MediaService {
                 uploaded_by: caller.sub,
                 title: dto.title,
                 description: dto.description || null,
-                cloudinary_public_id: dto.cloudinaryPublicId || `embed_${Date.now()}`,
+                cloudinary_public_id: publicId,
                 cloudinary_secure_url: dto.cloudinarySecureUrl,
                 hls_url: isExternalEmbed ? null : (dto.hlsUrl || null),
                 mp4_url: isExternalEmbed ? null : (dto.mp4Url || null),

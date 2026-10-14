@@ -1,5 +1,7 @@
 import 'dart:async';
+import 'dart:io' show Platform;
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../auth/token_storage.dart';
 import '../auth/auth_state.dart';
@@ -11,6 +13,7 @@ class ApiClient {
   final TokenStorage tokenStorage;
   final String baseUrl;
   final void Function()? onSessionExpired;
+  final void Function(Map<String, dynamic>? data)? onUpgradeRequired;
 
   Completer<String?>? _refreshCompleter;
 
@@ -18,6 +21,7 @@ class ApiClient {
     required this.tokenStorage,
     required this.baseUrl,
     this.onSessionExpired,
+    this.onUpgradeRequired,
   }) {
     dio = Dio(
       BaseOptions(
@@ -45,14 +49,31 @@ class ApiClient {
           if (token != null && token.isNotEmpty) {
             options.headers['Authorization'] = 'Bearer $token';
           }
-          options.headers['X-Client-Version'] = '1.0.0';
-          options.headers['X-Client-Platform'] = 'android';
+          final clientVersion = const String.fromEnvironment(
+            'APP_VERSION',
+            defaultValue: '1.0.0',
+          );
+          final clientPlatform = kIsWeb
+              ? 'web'
+              : (Platform.isIOS ? 'ios' : 'android');
+          options.headers['X-Client-Version'] = clientVersion;
+          options.headers['X-Client-Platform'] = clientPlatform;
           // The API strictly scopes tenant access from the validated JWT claim
           return handler.next(options);
         },
         onError: (DioException error, handler) async {
+          // Handle 426 Upgrade Required (P3-S4)
+          if (error.response?.statusCode == 426) {
+            final data = error.response?.data is Map<String, dynamic>
+                ? error.response!.data as Map<String, dynamic>
+                : null;
+            onUpgradeRequired?.call(data);
+            return handler.next(error);
+          }
+
           final is401 = error.response?.statusCode == 401;
-          final isAuthPath = error.requestOptions.path.contains('/auth/login') ||
+          final isAuthPath =
+              error.requestOptions.path.contains('/auth/login') ||
               error.requestOptions.path.contains('/auth/refresh');
 
           if (is401 && !isAuthPath) {
@@ -60,7 +81,8 @@ class ApiClient {
             if (_refreshCompleter != null) {
               final newAccess = await _refreshCompleter!.future;
               if (newAccess != null && newAccess.isNotEmpty) {
-                error.requestOptions.headers['Authorization'] = 'Bearer $newAccess';
+                error.requestOptions.headers['Authorization'] =
+                    'Bearer $newAccess';
                 try {
                   final retryRes = await dio.fetch(error.requestOptions);
                   return handler.resolve(retryRes);
@@ -73,60 +95,85 @@ class ApiClient {
             }
 
             _refreshCompleter = Completer<String?>();
-
             final refreshToken = await tokenStorage.getRefreshToken();
-            if (refreshToken != null && refreshToken.isNotEmpty) {
-              try {
-                // Route refresh through unintercepted Dio instance
-                final refreshRes = await _refreshDio.post(
-                  '/auth/refresh',
-                  data: {'refreshToken': refreshToken},
-                );
-
-                final data =
-                    refreshRes.data is Map &&
-                        refreshRes.data.containsKey('data')
-                    ? refreshRes.data['data']
-                    : refreshRes.data;
-
-                final newAccess = data?['accessToken'] as String?;
-                // Crucial: Rotate and store the NEW refresh token returned by backend
-                final newRefresh = data?['refreshToken'] as String? ?? refreshToken;
-
-                if (newAccess != null && newAccess.isNotEmpty) {
-                  final tenantId = await tokenStorage.getTenantId() ?? '';
-                  final role = await tokenStorage.getUserRole() ?? '';
-                  final userId = await tokenStorage.getUserId() ?? '';
-
-                  await tokenStorage.saveTokens(
-                    accessToken: newAccess,
-                    refreshToken: newRefresh,
-                    tenantId: tenantId,
-                    role: role,
-                    userId: userId,
-                  );
-
-                  _refreshCompleter?.complete(newAccess);
-                  _refreshCompleter = null;
-
-                  // Retry original request with newly minted access token
-                  error.requestOptions.headers['Authorization'] = 'Bearer $newAccess';
-                  final retryRes = await dio.fetch(error.requestOptions);
-                  return handler.resolve(retryRes);
-                } else {
-                  throw Exception('Invalid token payload in refresh response');
-                }
-              } catch (_) {
-                _refreshCompleter?.complete(null);
-                _refreshCompleter = null;
-                await tokenStorage.clearAll();
-                onSessionExpired?.call();
-              }
-            } else {
+            if (refreshToken == null || refreshToken.isEmpty) {
               _refreshCompleter?.complete(null);
               _refreshCompleter = null;
               await tokenStorage.clearAll();
               onSessionExpired?.call();
+              return handler.next(error);
+            }
+
+            String? newAccess;
+            String? newRefresh;
+            bool refreshSucceeded = false;
+            bool isAuthRejection = false;
+
+            try {
+              // Route refresh through unintercepted Dio instance
+              final refreshRes = await _refreshDio.post(
+                '/auth/refresh',
+                data: {'refreshToken': refreshToken},
+              );
+
+              final data =
+                  refreshRes.data is Map && refreshRes.data.containsKey('data')
+                  ? refreshRes.data['data']
+                  : refreshRes.data;
+
+              newAccess = data?['accessToken'] as String?;
+              newRefresh = data?['refreshToken'] as String? ?? refreshToken;
+
+              if (newAccess != null && newAccess.isNotEmpty) {
+                refreshSucceeded = true;
+              }
+            } on DioException catch (refreshErr) {
+              final status = refreshErr.response?.statusCode;
+              // Only 401 Unauthorized or 403 Forbidden indicates an expired/invalidated session
+              if (status == 401 || status == 403) {
+                isAuthRejection = true;
+              }
+              // Network connectivity errors or 5xx server issues MUST NOT log out offline users!
+            } catch (_) {
+              // Unknown client-side error
+            }
+
+            if (refreshSucceeded && newAccess != null) {
+              final tenantId = await tokenStorage.getTenantId() ?? '';
+              final role = await tokenStorage.getUserRole() ?? '';
+              final userId = await tokenStorage.getUserId() ?? '';
+
+              await tokenStorage.saveTokens(
+                accessToken: newAccess,
+                refreshToken: newRefresh ?? refreshToken,
+                tenantId: tenantId,
+                role: role,
+                userId: userId,
+              );
+
+              _refreshCompleter?.complete(newAccess);
+              _refreshCompleter = null;
+
+              // Retry original request in an isolated try/catch:
+              // Failure of the retried request MUST NEVER clear tokens or log the user out!
+              try {
+                error.requestOptions.headers['Authorization'] =
+                    'Bearer $newAccess';
+                final retryRes = await dio.fetch(error.requestOptions);
+                return handler.resolve(retryRes);
+              } catch (retryErr) {
+                return handler.next(error);
+              }
+            } else {
+              _refreshCompleter?.complete(null);
+              _refreshCompleter = null;
+
+              // Only clear tokens and trigger logout if the server actively rejected the refresh token
+              if (isAuthRejection) {
+                await tokenStorage.clearAll();
+                onSessionExpired?.call();
+              }
+              return handler.next(error);
             }
           }
           return handler.next(error);
@@ -289,11 +336,7 @@ class ApiClient {
   }) async {
     await dio.post(
       '/mobile/device-token',
-      data: {
-        'token': token,
-        'platform': platform,
-        'deviceModel': deviceModel,
-      },
+      data: {'token': token, 'platform': platform, 'deviceModel': deviceModel},
     );
   }
 
@@ -314,7 +357,8 @@ class ApiClient {
   }
 
   Future<Map<String, dynamic>> createHomeworkTask(
-      Map<String, dynamic> data) async {
+    Map<String, dynamic> data,
+  ) async {
     final response = await dio.post('/homework', data: data);
     final rawData = response.data;
     if (rawData is Map && rawData['data'] is Map) {
@@ -337,7 +381,9 @@ class ApiClient {
   }
 
   Future<Map<String, dynamic>> submitHomework(
-      String id, Map<String, dynamic> data) async {
+    String id,
+    Map<String, dynamic> data,
+  ) async {
     final response = await dio.post('/homework/$id/submit', data: data);
     final rawData = response.data;
     if (rawData is Map && rawData['data'] is Map) {
@@ -360,8 +406,13 @@ class ApiClient {
   }
 
   Future<Map<String, dynamic>> gradeHomeworkSubmission(
-      String id, Map<String, dynamic> data) async {
-    final response = await dio.patch('/homework/submissions/$id/grade', data: data);
+    String id,
+    Map<String, dynamic> data,
+  ) async {
+    final response = await dio.patch(
+      '/homework/submissions/$id/grade',
+      data: data,
+    );
     final rawData = response.data;
     if (rawData is Map && rawData['data'] is Map) {
       return Map<String, dynamic>.from(rawData['data']);
@@ -385,7 +436,9 @@ class ApiClient {
   }
 
   Future<List<dynamic>> getConversationMessages(String conversationId) async {
-    final response = await dio.get('/chat/conversations/$conversationId/messages');
+    final response = await dio.get(
+      '/chat/conversations/$conversationId/messages',
+    );
     final rawData = response.data;
     if (rawData is Map && rawData['data'] is List) {
       return rawData['data'] as List<dynamic>;
@@ -396,7 +449,9 @@ class ApiClient {
   }
 
   Future<Map<String, dynamic>> sendChatMessage(
-      String conversationId, String content) async {
+    String conversationId,
+    String content,
+  ) async {
     final response = await dio.post(
       '/chat/conversations/$conversationId/messages',
       data: {'content': content},

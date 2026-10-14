@@ -166,6 +166,9 @@ export class TenantAnalyticsService {
   async generateBillingSnapshots(billingMonth?: string) {
     const month = billingMonth || new Date().toISOString().slice(0, 7);
 
+    // Dynamic per-student SMS quota calculation matching blueprint and tenant_sms_quotas:
+    // Community: 0, Starter: 3/student (min 100), Growth: 5/student (min 500), Institutional: 8/student (min 2000)
+    // Emergency broadcast SMS (disaster_event_id IS NOT NULL) are explicitly excluded from billing.
     const computeSql = `
       SELECT 
         t.id AS "tenantId",
@@ -173,22 +176,39 @@ export class TenantAnalyticsService {
         COALESCE(p.base_fee_lkr, 0)::int AS "baseFeeLkr",
         COALESCE(p.price_per_student_lkr, 0)::int AS "pricePerStudentLkr",
         COUNT(DISTINCT u.id)::int AS "activeStudentCount",
-        COUNT(DISTINCT s.id)::int AS "smsCount"
+        COUNT(DISTINCT s.id)::int AS "smsCount",
+        COALESCE(q.monthly_quota, 
+          CASE 
+            WHEN t.plan = 'STARTER' THEN GREATEST(COUNT(DISTINCT u.id)::int * 3, 100)
+            WHEN t.plan = 'GROWTH' THEN GREATEST(COUNT(DISTINCT u.id)::int * 5, 500)
+            WHEN t.plan = 'INSTITUTIONAL' THEN GREATEST(COUNT(DISTINCT u.id)::int * 8, 2000)
+            ELSE 0 
+          END
+        )::int AS "smsAllowance"
       FROM public.tenants t
       LEFT JOIN public.plans p ON p.code = t.plan
       LEFT JOIN public.users u ON u.tenant_id = t.id AND u.role = 'STUDENT' AND u.is_active = true
-      LEFT JOIN public.sms_logs s ON s.tenant_id = t.id AND TO_CHAR(s.created_at, 'YYYY-MM') = $1
+      LEFT JOIN public.sms_logs s ON s.tenant_id = t.id AND TO_CHAR(s.created_at, 'YYYY-MM') = $1 AND s.disaster_event_id IS NULL
+      LEFT JOIN public.tenant_sms_quotas q ON q.tenant_id = t.id
       WHERE t.status = 'ACTIVE'
-      GROUP BY t.id, t.plan, p.base_fee_lkr, p.price_per_student_lkr;
+      GROUP BY t.id, t.plan, p.base_fee_lkr, p.price_per_student_lkr, q.monthly_quota;
     `;
 
     const tenantData = await this.prisma.query(computeSql, [month]);
+    const overagePricePerSms = Number(process.env.SMS_OVERAGE_PRICE_LKR) || 2;
 
     for (const td of tenantData) {
       const studentCharge = td.activeStudentCount * td.pricePerStudentLkr;
-      const smsOverage = Math.max(0, td.smsCount - 100) * 2;
-      const totalAmount = td.baseFeeLkr + studentCharge + smsOverage;
+      const allowance = td.smsAllowance !== undefined ? Number(td.smsAllowance) : (
+        td.plan === 'STARTER' ? Math.max(td.activeStudentCount * 3, 100) :
+        td.plan === 'GROWTH' ? Math.max(td.activeStudentCount * 5, 500) :
+        td.plan === 'INSTITUTIONAL' ? Math.max(td.activeStudentCount * 8, 2000) : 0
+      );
+      const smsOverageCount = Math.max(0, td.smsCount - allowance);
+      const smsOverageCharge = smsOverageCount * overagePricePerSms;
+      const totalAmount = td.baseFeeLkr + studentCharge + smsOverageCharge;
 
+      // Safe Upsert: Only modify DRAFT snapshots; never overwrite finalized ISSUED or PAID invoices
       const upsertSql = `
         INSERT INTO public.billing_snapshots (
           tenant_id, billing_month, plan, active_student_count, base_fee_lkr,
@@ -203,10 +223,12 @@ export class TenantAnalyticsService {
           sms_count = EXCLUDED.sms_count,
           sms_overage_charge_lkr = EXCLUDED.sms_overage_charge_lkr,
           total_amount_lkr = EXCLUDED.total_amount_lkr,
-          updated_at = NOW();
+          updated_at = NOW()
+        WHERE public.billing_snapshots.status = 'DRAFT';
       `;
 
-      await this.prisma.query(upsertSql, [
+      const executeWrite = this.prisma.writeQuery ? this.prisma.writeQuery.bind(this.prisma) : this.prisma.query.bind(this.prisma);
+      await executeWrite(upsertSql, [
         td.tenantId,
         month,
         td.plan || 'COMMUNITY',
@@ -214,7 +236,7 @@ export class TenantAnalyticsService {
         td.baseFeeLkr,
         td.pricePerStudentLkr,
         td.smsCount,
-        smsOverage,
+        smsOverageCharge,
         totalAmount,
       ]);
     }

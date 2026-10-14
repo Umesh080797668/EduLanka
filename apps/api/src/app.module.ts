@@ -6,6 +6,7 @@ import { APP_GUARD } from '@nestjs/core';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import * as Joi from 'joi';
 
+import { AppVersionGuard } from './common/guards/app-version.guard';
 import { HttpLoggerMiddleware } from './common/middleware/http-logger.middleware';
 import { TenantContextMiddleware } from './common/middleware/tenant-context.middleware';
 import { configuration } from './config/configuration';
@@ -153,9 +154,13 @@ import { UsersModule } from './modules/users/users.module';
     providers: [
         {
             provide: APP_GUARD,
-            useClass: ThrottlerGuard
-        }
-    ]
+            useClass: ThrottlerGuard,
+        },
+        {
+            provide: APP_GUARD,
+            useClass: AppVersionGuard,
+        },
+    ],
 })
 export class AppModule implements NestModule {
     configure(consumer: MiddlewareConsumer): void {

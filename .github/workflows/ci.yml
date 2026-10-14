@@ -123,3 +123,42 @@ jobs:
             echo "API boot health check failed or timed out"
             exit 1
           fi
+
+  flutter-mobile:
+    runs-on: self-hosted
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+
+      - name: Install dependencies
+        run: |
+          cd apps/mobile
+          flutter pub get
+
+      - name: Flutter Analyze
+        run: |
+          cd apps/mobile
+          flutter analyze
+
+      - name: Flutter Test
+        run: |
+          cd apps/mobile
+          flutter test --concurrency=1
+
+      - name: Build Android APK
+        run: |
+          cd apps/mobile
+          flutter build apk --debug
+

@@ -21,6 +21,7 @@ describe('UploadService', () => {
             eq: jest.fn().mockReturnThis(),
             upsert: jest.fn().mockResolvedValue({ error: null }),
             insert: jest.fn().mockResolvedValue({ error: null }),
+            update: jest.fn().mockReturnValue({ eq: jest.fn().mockResolvedValue({ error: null }) }),
             then: (resolve: any) => resolve({ data: [{ bytes: 5000000 }], error: null }),
         };
 

@@ -64,10 +64,28 @@ describe('AppVersionGuard', () => {
         expect(canActivate).toBe(true);
     });
 
-    it('should allow requests without x-client-version header (web / legacy)', async () => {
-        const context = createMockContext('/mobile/sync-events', {});
+    it('should allow requests without x-client-version header for non-mobile routes (web)', async () => {
+        const context = createMockContext('/api/v1/auth/me', {});
         const canActivate = await guard.canActivate(context);
         expect(canActivate).toBe(true);
+    });
+
+    it('should reject mobile requests missing x-client-version header with 426 Upgrade Required', async () => {
+        const context = createMockContext('/mobile/sync-events', {});
+        await expect(guard.canActivate(context)).rejects.toThrow(HttpException);
+        try {
+            await guard.canActivate(context);
+        } catch (err: any) {
+            expect(err.getStatus()).toBe(HTTP_STATUS_UPGRADE_REQUIRED);
+            expect(err.getResponse().message).toContain('required for mobile requests');
+        }
+    });
+
+    it('should reject mobile requests having platform header but missing x-client-version with 426 Upgrade Required', async () => {
+        const context = createMockContext('/api/v1/homework', {
+            'x-client-platform': 'android',
+        });
+        await expect(guard.canActivate(context)).rejects.toThrow(HttpException);
     });
 
     it('should reject outdated mobile client with 426 Upgrade Required', async () => {

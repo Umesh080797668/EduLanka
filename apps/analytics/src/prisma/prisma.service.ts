@@ -5,12 +5,19 @@ import { Pool } from 'pg';
 export class PrismaService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(PrismaService.name);
   private pool!: Pool;
+  private writePool!: Pool;
 
   onModuleInit() {
     const connectionString =
       process.env.ANALYTICS_DATABASE_URL ||
       process.env.DATABASE_URL ||
       process.env.SUPABASE_DB_URL;
+
+    const writeConnectionString =
+      process.env.WRITE_DATABASE_URL ||
+      process.env.DATABASE_URL ||
+      process.env.SUPABASE_DB_URL ||
+      connectionString;
 
     if (!connectionString) {
       if (process.env.NODE_ENV === 'production') {
@@ -27,15 +34,31 @@ export class PrismaService implements OnModuleInit, OnModuleDestroy {
       idleTimeoutMillis: 30000,
     });
 
-    this.logger.log('Analytics read-only database pool initialized');
+    this.writePool = new Pool({
+      connectionString: writeConnectionString || 'postgresql://localhost:54322/postgres',
+      max: 5,
+      idleTimeoutMillis: 30000,
+    });
+
+    this.logger.log('Analytics read-only and write database pools initialized');
   }
 
   async onModuleDestroy() {
-    await this.pool.end();
+    await Promise.all([this.pool.end(), this.writePool.end()]);
   }
 
   async query<T = any>(sql: string, params: any[] = []): Promise<T[]> {
     const client = await this.pool.connect();
+    try {
+      const res = await client.query(sql, params);
+      return res.rows as T[];
+    } finally {
+      client.release();
+    }
+  }
+
+  async writeQuery<T = any>(sql: string, params: any[] = []): Promise<T[]> {
+    const client = await this.writePool.connect();
     try {
       const res = await client.query(sql, params);
       return res.rows as T[];

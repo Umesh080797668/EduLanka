@@ -867,7 +867,7 @@ export class AuthService {
 
         let tenantPlan = payload.tenantPlan;
         let tenantSlug = payload.tenantSlug;
-        if (!tenantPlan) {
+        if (payload.tenantId) {
             const { data: tData } = await this.supabaseService.adminClient
                 .from('tenants')
                 .select('plan, slug')

@@ -1,7 +1,8 @@
-import { Injectable, BadRequestException, NotFoundException, Logger , NestMiddleware } from '@nestjs/common';
+import { Injectable, BadRequestException, NotFoundException, Logger, NestMiddleware } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { createClient } from '@supabase/supabase-js';
 import type { FastifyRequest } from 'fastify';
+import * as jwt from 'jsonwebtoken';
 
 import type { AppConfiguration } from '../../config/configuration';
 
@@ -73,21 +74,20 @@ export class TenantContextMiddleware implements NestMiddleware {
         const authHeader = req.headers.authorization;
         if (authHeader && typeof authHeader === 'string' && authHeader.startsWith('Bearer ')) {
             const token = authHeader.slice(7).trim();
-            try {
-                const parts = token.split('.');
-                if (parts.length === 3) {
-                    const payloadJson = Buffer.from(parts[1], 'base64url').toString('utf8');
-                    const parsed = JSON.parse(payloadJson);
-                    if (parsed && typeof parsed === 'object' && parsed.tenantId) {
-                        jwtTenantId = parsed.tenantId;
+            const jwtSecret = this.configService.get('jwt.secret', { infer: true }) || process.env.JWT_SECRET;
+            if (jwtSecret) {
+                try {
+                    const verified = jwt.verify(token, jwtSecret) as any;
+                    if (verified && typeof verified === 'object' && verified.tenantId) {
+                        jwtTenantId = verified.tenantId;
                     }
+                } catch {
+                    // Signature mismatch, expired token, or forged payload — DO NOT TRUST claim!
                 }
-            } catch {
-                // Ignore decoding errors here; JwtAuthGuard verifies cryptographically downstream
             }
         }
 
-        // Prioritize verified JWT claim over client-sent x-tenant-id header
+        // Prioritize cryptographically verified JWT claim over client-sent x-tenant-id header
         const tenantId = jwtTenantId || (req.headers['x-tenant-id'] as string | undefined)?.trim();
 
         if (!tenantId) {

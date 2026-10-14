@@ -277,17 +277,22 @@ export class UploadService {
             `Storage ledger updated for tenant ${tenantId}: master ${bytes} bytes, ${eagerRenditions.length} renditions recorded.`,
         );
 
-        // 3. Mark media_assets record as ready and sync transcoded renditions if present
+        // 3. Mark media_assets record as ready ONLY once HLS transcoding is complete (or if non-video)
         try {
             const hlsRendition = eagerRenditions.find((r: any) =>
                 (r.format === 'm3u8' || String(r.transformation || '').includes('m3u8') || String(r.secure_url || '').includes('.m3u8')),
             );
             const mp4Rendition = eagerRenditions.find((r: any) => r.format === 'mp4' || String(r.secure_url || '').includes('.mp4'));
 
-            await this.supabase.adminClient
+            const isVideo = payload.resource_type === 'video' || format === 'mp4' || format === 'mov';
+            const hasHls = Boolean(hlsRendition?.secure_url);
+            // Videos must NOT be marked ready until HLS rendition is complete
+            const assetStatus = isVideo ? (hasHls ? 'ready' : 'processing') : 'ready';
+
+            const { error: mediaErr } = await this.supabase.adminClient
                 .from('media_assets')
                 .update({
-                    status: 'ready',
+                    status: assetStatus,
                     file_size_bytes: bytes,
                     duration_seconds: payload.duration ? Math.round(Number(payload.duration)) : undefined,
                     cloudinary_secure_url: payload.secure_url || undefined,
@@ -296,8 +301,14 @@ export class UploadService {
                     updated_at: new Date().toISOString(),
                 })
                 .eq('cloudinary_public_id', String(publicId));
+
+            if (mediaErr) {
+                this.logger.error(`Supabase error updating media_assets for ${publicId}: ${mediaErr.message}`);
+                throw new InternalServerErrorException(`Failed to sync media asset: ${mediaErr.message}`);
+            }
         } catch (mediaErr: any) {
-            this.logger.warn(`Could not sync media_assets table for ${publicId}: ${mediaErr?.message}`);
+            this.logger.error(`Could not sync media_assets table for ${publicId}: ${mediaErr?.message}`);
+            throw mediaErr;
         }
 
         return {

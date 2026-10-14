@@ -6,10 +6,15 @@ import type { JwtPayload } from '@edu-lanka/shared-types';
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
   constructor() {
+    const jwtSecret = process.env.JWT_SECRET || 'edulanka-jwt-secret-dev-super-key';
+    if (process.env.NODE_ENV === 'production' && !process.env.JWT_SECRET) {
+      throw new Error('JWT_SECRET must be configured in production');
+    }
+
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
-      secretOrKey: process.env.JWT_SECRET || 'edulanka-jwt-secret-dev-super-key',
+      secretOrKey: jwtSecret,
     });
   }
 

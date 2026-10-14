@@ -107,4 +107,27 @@ describe('TenantContextMiddleware', () => {
 
         await expect(middleware.use(mockRequest, {}, mockNext)).rejects.toThrow(BadRequestException);
     });
+
+    it('should reject tampered JWT without falling for forged tenant claim', async () => {
+        // Forged token: header.forgedPayload.fakeSig
+        const forgedPayload = Buffer.from(JSON.stringify({ tenantId: 'forged-tenant' })).toString('base64url');
+        mockRequest.headers['authorization'] = `Bearer eyJhbGciOiJIUzI1NiJ9.${forgedPayload}.invalidsig`;
+        // No valid x-tenant-id provided
+        await expect(middleware.use(mockRequest, {}, mockNext)).rejects.toThrow(BadRequestException);
+    });
+
+    it('should accept cryptographically verified JWT and extract tenantId', async () => {
+        const jwt = require('jsonwebtoken');
+        const validToken = jwt.sign({ tenantId: 'valid-tenant-789' }, 'mock-val');
+        mockRequest.headers['authorization'] = `Bearer ${validToken}`;
+
+        mockSupabase.maybeSingle.mockResolvedValueOnce({
+            data: { id: 'valid-tenant-789', slug: 'valid-school', plan: 'COMMUNITY', status: 'ACTIVE' },
+            error: null,
+        });
+
+        await middleware.use(mockRequest, {}, mockNext);
+        expect(mockNext).toHaveBeenCalled();
+        expect(mockRequest.tenantContext.tenantId).toBe('valid-tenant-789');
+    });
 });
