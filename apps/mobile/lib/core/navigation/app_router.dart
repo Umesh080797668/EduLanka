@@ -10,13 +10,15 @@ import '../../features/home/teacher_home.dart';
 import '../../features/home/parent_home.dart';
 import '../../features/papers/paper_viewer_screen.dart';
 import '../../features/video/video_player_screen.dart';
+import '../../features/homework/homework_screen.dart';
+import '../../features/chat/chat_screen.dart';
 
 /// Notifier that bridges Riverpod AuthState changes to GoRouter's refreshListenable
 /// without destroying and rebuilding the GoRouter instance.
 class AuthChangeNotifier extends ChangeNotifier {
   final Ref _ref;
   AuthChangeNotifier(this._ref) {
-    _ref.listen<AuthState>(authProvider, (_, __) {
+    _ref.listen<AuthState>(authProvider, (previous, next) {
       notifyListeners();
     });
   }
@@ -85,6 +87,21 @@ final routerProvider = Provider<GoRouter>((ref) {
             title: extra['title'] as String? ?? 'Curriculum Video Lesson',
             videoUrl: extra['videoUrl'] as String?,
             localFilePath: extra['localFilePath'] as String?,
+          );
+        },
+      ),
+      GoRoute(
+        path: '/homework',
+        builder: (context, state) => const HomeworkScreen(),
+      ),
+      GoRoute(
+        path: '/chat',
+        builder: (context, state) {
+          final extra = state.extra as Map<String, dynamic>? ?? {};
+          return ChatScreen(
+            conversationId:
+                extra['conversationId'] as String? ?? 'general_class_room',
+            title: extra['title'] as String? ?? 'Teacher & Parent Chat',
           );
         },
       ),

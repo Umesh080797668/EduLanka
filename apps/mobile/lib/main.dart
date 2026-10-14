@@ -1,4 +1,5 @@
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -7,19 +8,32 @@ import 'package:sentry_flutter/sentry_flutter.dart';
 import 'l10n/app_localizations.dart';
 import 'core/config/app_config.dart';
 import 'core/navigation/app_router.dart';
+import 'core/notifications/push_notification_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  final config = AppConfig.fromEnvironment();
 
   // 1. Firebase Background & Push Notification Initialization (ADR-003)
   try {
-    await Firebase.initializeApp();
-  } catch (_) {
-    // Graceful fallback for local development or CI where google-services.json is absent
+    if (config.firebaseApiKey != null && config.firebaseApiKey!.isNotEmpty) {
+      await Firebase.initializeApp(
+        options: FirebaseOptions(
+          apiKey: config.firebaseApiKey!,
+          appId: config.firebaseAppId ?? '',
+          messagingSenderId: config.firebaseMessagingSenderId ?? '',
+          projectId: config.firebaseProjectId ?? '',
+        ),
+      );
+    } else {
+      await Firebase.initializeApp();
+    }
+    FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
+  } catch (err) {
+    debugPrint('Firebase.initializeApp() notice: $err');
   }
 
   // 2. Sentry Crash Reporting Initialization (P3-S10)
-  final config = AppConfig.fromEnvironment();
   if (config.sentryDsn != null && config.sentryDsn!.isNotEmpty) {
     await SentryFlutter.init(
       (options) {

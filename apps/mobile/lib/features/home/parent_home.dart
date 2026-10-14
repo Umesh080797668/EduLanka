@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../../core/auth/auth_state.dart';
 import '../../core/database/local_database.dart';
 import '../../core/sync/sync_service.dart';
@@ -65,6 +66,11 @@ class _ParentHomeScreenState extends ConsumerState<ParentHomeScreen> {
         backgroundColor: const Color(0xFF6366F1),
         foregroundColor: Colors.white,
         actions: [
+          IconButton(
+            tooltip: 'Teacher Chat',
+            icon: const Icon(Icons.chat_bubble_outline_rounded),
+            onPressed: () => context.push('/chat'),
+          ),
           IconButton(
             tooltip: 'Sync with School',
             icon: _isSyncing
@@ -177,30 +183,18 @@ class _ParentHomeScreenState extends ConsumerState<ParentHomeScreen> {
                 },
               ),
               _buildCard(
-                icon: Icons.campaign_rounded,
-                title: 'School Notices',
-                subtitle: 'Circulars & Bulletins',
-                color: const Color(0xFF3B82F6),
-                onTap: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Checking latest school circulars...'),
-                    ),
-                  );
-                },
+                icon: Icons.assignment_turned_in_outlined,
+                title: 'Child Homework',
+                subtitle: 'Track Tasks & Grades',
+                color: const Color(0xFFF59E0B),
+                onTap: () => context.push('/homework'),
               ),
               _buildCard(
                 icon: Icons.chat_bubble_outline_rounded,
                 title: 'Teacher Chat',
                 subtitle: 'Direct Messaging',
                 color: const Color(0xFF8B5CF6),
-                onTap: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Opening secure messaging channel...'),
-                    ),
-                  );
-                },
+                onTap: () => context.push('/chat'),
               ),
             ],
           ),

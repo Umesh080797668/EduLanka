@@ -15,6 +15,7 @@ import { ChatModule } from './modules/chat/chat.module';
 import { ClassesModule } from './modules/classes/classes.module';
 import { GradesModule } from './modules/grades/grades.module';
 import { HealthModule } from './modules/health/health.module';
+import { HomeworkModule } from './modules/homework/homework.module';
 import { MediaModule } from './modules/media/media.module';
 import { MobileModule } from './modules/mobile/mobile.module';
 import { NoticesModule } from './modules/notices/notices.module';
@@ -147,6 +148,7 @@ import { UsersModule } from './modules/users/users.module';
         MobileModule,
         MediaModule,
         PaperHubModule,
+        HomeworkModule,
     ],
     providers: [
         {

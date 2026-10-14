@@ -17,12 +17,30 @@ class AppConfig {
   final String apiBaseUrl;
   final String wsBaseUrl;
   final String? sentryDsn;
+  final String? supabaseUrl;
+  final String? supabaseAnonKey;
+  final String? firebaseApiKey;
+  final String? firebaseProjectId;
+  final String? firebaseMessagingSenderId;
+  final String? firebaseAppId;
+  final String? encryptionKey;
+  final String? offlineLicenseKeyId;
+  final String? offlineLicensePublicKey;
 
   const AppConfig({
     required this.environment,
     required this.apiBaseUrl,
     required this.wsBaseUrl,
     this.sentryDsn,
+    this.supabaseUrl,
+    this.supabaseAnonKey,
+    this.firebaseApiKey,
+    this.firebaseProjectId,
+    this.firebaseMessagingSenderId,
+    this.firebaseAppId,
+    this.encryptionKey,
+    this.offlineLicenseKeyId,
+    this.offlineLicensePublicKey,
   });
 
   factory AppConfig.fromEnvironment() {
@@ -37,6 +55,42 @@ class AppConfig {
     );
     const injectedSentryDsn = String.fromEnvironment(
       'SENTRY_DSN',
+      defaultValue: '',
+    );
+    const injectedSupabaseUrl = String.fromEnvironment(
+      'SUPABASE_URL',
+      defaultValue: '',
+    );
+    const injectedSupabaseAnonKey = String.fromEnvironment(
+      'SUPABASE_ANON_KEY',
+      defaultValue: '',
+    );
+    const injectedFirebaseApiKey = String.fromEnvironment(
+      'FIREBASE_API_KEY',
+      defaultValue: '',
+    );
+    const injectedFirebaseProjectId = String.fromEnvironment(
+      'FIREBASE_PROJECT_ID',
+      defaultValue: '',
+    );
+    const injectedFirebaseSenderId = String.fromEnvironment(
+      'FIREBASE_MESSAGING_SENDER_ID',
+      defaultValue: '',
+    );
+    const injectedFirebaseAppId = String.fromEnvironment(
+      'FIREBASE_APP_ID',
+      defaultValue: '',
+    );
+    const injectedEncryptionKey = String.fromEnvironment(
+      'ENCRYPTION_KEY',
+      defaultValue: '',
+    );
+    const injectedLicenseKeyId = String.fromEnvironment(
+      'OFFLINE_LICENSE_KEY_ID',
+      defaultValue: '',
+    );
+    const injectedLicensePublicKey = String.fromEnvironment(
+      'OFFLINE_LICENSE_PUBLIC_KEY',
       defaultValue: '',
     );
 
@@ -83,6 +137,15 @@ class AppConfig {
       apiBaseUrl: apiBaseUrl,
       wsBaseUrl: wsBaseUrl,
       sentryDsn: injectedSentryDsn.isNotEmpty ? injectedSentryDsn : null,
+      supabaseUrl: injectedSupabaseUrl.isNotEmpty ? injectedSupabaseUrl : null,
+      supabaseAnonKey: injectedSupabaseAnonKey.isNotEmpty ? injectedSupabaseAnonKey : null,
+      firebaseApiKey: injectedFirebaseApiKey.isNotEmpty ? injectedFirebaseApiKey : null,
+      firebaseProjectId: injectedFirebaseProjectId.isNotEmpty ? injectedFirebaseProjectId : null,
+      firebaseMessagingSenderId: injectedFirebaseSenderId.isNotEmpty ? injectedFirebaseSenderId : null,
+      firebaseAppId: injectedFirebaseAppId.isNotEmpty ? injectedFirebaseAppId : null,
+      encryptionKey: injectedEncryptionKey.isNotEmpty ? injectedEncryptionKey : null,
+      offlineLicenseKeyId: injectedLicenseKeyId.isNotEmpty ? injectedLicenseKeyId : null,
+      offlineLicensePublicKey: injectedLicensePublicKey.isNotEmpty ? injectedLicensePublicKey : null,
     );
   }
 }

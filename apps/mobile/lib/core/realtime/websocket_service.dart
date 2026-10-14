@@ -1,10 +1,12 @@
 import 'dart:async';
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 import '../auth/token_storage.dart';
 import '../config/app_config.dart';
 
+/// Realtime chat service implementing Socket.IO v4 over WebSocket for NestJS ChatGateway
 class WebSocketService {
   final TokenStorage tokenStorage;
   final String defaultWsUrl;
@@ -22,44 +24,101 @@ class WebSocketService {
     if (_isConnected) return;
 
     final token = await tokenStorage.getAccessToken();
-    final tenantId = await tokenStorage.getTenantId();
+    if (token == null || token.isEmpty) return;
 
-    final targetUrl = wsUrl ?? defaultWsUrl;
-    final uri = Uri.parse('$targetUrl?token=$token&tenantId=$tenantId');
+    final targetBase = (wsUrl ?? defaultWsUrl)
+        .replaceAll('http://', 'ws://')
+        .replaceAll('https://', 'wss://');
+    
+    // Connect using Socket.IO v4 transport
+    final uri = Uri.parse('$targetBase/socket.io/?EIO=4&transport=websocket');
 
     try {
       _channel = WebSocketChannel.connect(uri);
-      _isConnected = true;
 
       _subscription = _channel?.stream.listen(
         (data) {
-          try {
-            final decoded = jsonDecode(data.toString()) as Map<String, dynamic>;
-            _messageController.add(decoded);
-          } catch (_) {}
+          _handleIncoming(data.toString(), token);
         },
-        onError: (_) {
+        onError: (err) {
+          debugPrint('WebSocket chat error: $err');
           _isConnected = false;
         },
         onDone: () {
+          debugPrint('WebSocket chat connection closed');
           _isConnected = false;
         },
       );
-    } catch (_) {
+    } catch (e) {
+      debugPrint('WebSocket connection exception: $e');
       _isConnected = false;
     }
   }
 
-  void sendMessage(String event, Map<String, dynamic> data) {
-    if (_isConnected && _channel != null) {
-      final payload = jsonEncode({'event': event, 'data': data});
-      _channel?.sink.add(payload);
+  void _handleIncoming(String data, String token) {
+    // 1. Engine.IO Ping/Pong
+    if (data == '2') {
+      _channel?.sink.add('3'); // Pong
+      return;
+    }
+
+    // 2. Engine.IO Handshake response (packet type 0) -> send Socket.IO CONNECT packet with auth token
+    if (data.startsWith('0')) {
+      _channel?.sink.add('40{"token":"$token"}');
+      return;
+    }
+
+    // 3. Socket.IO CONNECT acknowledgment (packet type 40)
+    if (data.startsWith('40')) {
+      _isConnected = true;
+      debugPrint('Connected to Socket.IO ChatGateway successfully');
+      return;
+    }
+
+    // 4. Socket.IO Event messages (packet type 42 e.g. 42["new_message", {...}])
+    if (data.startsWith('42')) {
+      try {
+        final payloadStr = data.substring(2);
+        final decoded = jsonDecode(payloadStr);
+        if (decoded is List && decoded.isNotEmpty) {
+          final event = decoded[0]?.toString() ?? '';
+          final body = decoded.length > 1 && decoded[1] is Map
+              ? Map<String, dynamic>.from(decoded[1] as Map)
+              : <String, dynamic>{};
+
+          _messageController.add({'event': event, 'data': body});
+        }
+      } catch (err) {
+        debugPrint('Failed to parse Socket.IO event frame: $err');
+      }
+    }
+  }
+
+  /// Joins a specific conversation room on the ChatGateway
+  void joinConversation(String conversationId) {
+    _sendSocketIoEvent('join_conversation', {'conversationId': conversationId});
+  }
+
+  /// Sends a chat message over the real-time gateway
+  void sendMessage(String conversationId, String content) {
+    _sendSocketIoEvent('send_message', {
+      'conversationId': conversationId,
+      'content': content,
+    });
+  }
+
+  void _sendSocketIoEvent(String event, Map<String, dynamic> data) {
+    if (_channel != null) {
+      final packet = '42${jsonEncode([event, data])}';
+      _channel?.sink.add(packet);
     }
   }
 
   void disconnect() {
     _subscription?.cancel();
+    _subscription = null;
     _channel?.sink.close();
+    _channel = null;
     _isConnected = false;
   }
 

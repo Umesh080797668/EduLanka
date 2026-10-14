@@ -157,7 +157,7 @@ class _AdminHomeScreenState extends ConsumerState<AdminHomeScreen> {
                 borderRadius: BorderRadius.circular(16.0),
                 boxShadow: [
                   BoxShadow(
-                    color: const Color(0xFF1D4ED8).withOpacity(0.3),
+                    color: const Color(0xFF1D4ED8).withValues(alpha: 0.3),
                     blurRadius: 10,
                     offset: const Offset(0, 4),
                   ),
@@ -226,7 +226,7 @@ class _AdminHomeScreenState extends ConsumerState<AdminHomeScreen> {
                 decoration: BoxDecoration(
                   color: const Color(0xFF1E293B),
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.redAccent.withOpacity(0.4)),
+                  border: Border.all(color: Colors.redAccent.withValues(alpha: 0.4)),
                 ),
                 child: Row(
                   children: [

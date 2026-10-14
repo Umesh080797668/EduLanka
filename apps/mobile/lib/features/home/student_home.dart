@@ -74,6 +74,11 @@ class _StudentHomeScreenState extends ConsumerState<StudentHomeScreen> {
         foregroundColor: Colors.white,
         actions: [
           IconButton(
+            tooltip: 'Chat',
+            icon: const Icon(Icons.chat_bubble_outline_rounded),
+            onPressed: () => context.push('/chat'),
+          ),
+          IconButton(
             tooltip: 'App Tour & Help',
             icon: const Icon(Icons.help_outline_rounded),
             onPressed: () =>
@@ -220,31 +225,9 @@ class _StudentHomeScreenState extends ConsumerState<StudentHomeScreen> {
                 title: 'Homework Tasks',
                 subtitle: 'Submit Offline',
                 color: const Color(0xFFF59E0B),
-                onTap: () {
-                  _showFeatureDialog(
-                    title: 'Homework Tasks',
-                    content:
-                        'Completed homework is queued in the SQLite outbox and synchronizes when network connectivity is restored.',
-                  );
-                },
+                onTap: () => context.push('/homework'),
               ),
             ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showFeatureDialog({required String title, required String content}) {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(title),
-        content: Text(content),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('Close'),
           ),
         ],
       ),

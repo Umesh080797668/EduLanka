@@ -264,6 +264,151 @@ class ApiClient {
     }
     return [];
   }
+
+  // ── S6 Offline Video Download Manifest (ADR-001, P3-S6) ─────────────
+
+  Future<Map<String, dynamic>> getDownloadManifest(String assetId) async {
+    final response = await dio.get('/media/$assetId/download-manifest');
+    final rawData = response.data;
+    if (rawData is Map &&
+        rawData.containsKey('data') &&
+        rawData['data'] is Map) {
+      return Map<String, dynamic>.from(rawData['data']);
+    } else if (rawData is Map) {
+      return Map<String, dynamic>.from(rawData);
+    }
+    return {};
+  }
+
+  // ── Push Device Token Registration (ADR-003, P3-S4) ─────────────────
+
+  Future<void> registerDeviceToken({
+    required String token,
+    required String platform,
+    String? deviceModel,
+  }) async {
+    await dio.post(
+      '/mobile/device-token',
+      data: {
+        'token': token,
+        'platform': platform,
+        'deviceModel': deviceModel,
+      },
+    );
+  }
+
+  // ── Homework Flow (P3-S3) ──────────────────────────────────────────
+
+  Future<List<dynamic>> getHomeworkTasks({String? classId}) async {
+    final response = await dio.get(
+      '/homework',
+      queryParameters: classId != null ? {'classId': classId} : null,
+    );
+    final rawData = response.data;
+    if (rawData is Map && rawData['data'] is List) {
+      return rawData['data'] as List<dynamic>;
+    } else if (rawData is List) {
+      return rawData;
+    }
+    return [];
+  }
+
+  Future<Map<String, dynamic>> createHomeworkTask(
+      Map<String, dynamic> data) async {
+    final response = await dio.post('/homework', data: data);
+    final rawData = response.data;
+    if (rawData is Map && rawData['data'] is Map) {
+      return Map<String, dynamic>.from(rawData['data']);
+    } else if (rawData is Map) {
+      return Map<String, dynamic>.from(rawData);
+    }
+    return {};
+  }
+
+  Future<Map<String, dynamic>> getHomeworkTask(String id) async {
+    final response = await dio.get('/homework/$id');
+    final rawData = response.data;
+    if (rawData is Map && rawData['data'] is Map) {
+      return Map<String, dynamic>.from(rawData['data']);
+    } else if (rawData is Map) {
+      return Map<String, dynamic>.from(rawData);
+    }
+    return {};
+  }
+
+  Future<Map<String, dynamic>> submitHomework(
+      String id, Map<String, dynamic> data) async {
+    final response = await dio.post('/homework/$id/submit', data: data);
+    final rawData = response.data;
+    if (rawData is Map && rawData['data'] is Map) {
+      return Map<String, dynamic>.from(rawData['data']);
+    } else if (rawData is Map) {
+      return Map<String, dynamic>.from(rawData);
+    }
+    return {};
+  }
+
+  Future<List<dynamic>> getHomeworkSubmissions(String id) async {
+    final response = await dio.get('/homework/$id/submissions');
+    final rawData = response.data;
+    if (rawData is Map && rawData['data'] is List) {
+      return rawData['data'] as List<dynamic>;
+    } else if (rawData is List) {
+      return rawData;
+    }
+    return [];
+  }
+
+  Future<Map<String, dynamic>> gradeHomeworkSubmission(
+      String id, Map<String, dynamic> data) async {
+    final response = await dio.patch('/homework/submissions/$id/grade', data: data);
+    final rawData = response.data;
+    if (rawData is Map && rawData['data'] is Map) {
+      return Map<String, dynamic>.from(rawData['data']);
+    } else if (rawData is Map) {
+      return Map<String, dynamic>.from(rawData);
+    }
+    return {};
+  }
+
+  // ── Chat Realtime & Messages ───────────────────────────────────────
+
+  Future<List<dynamic>> getConversations() async {
+    final response = await dio.get('/chat/conversations');
+    final rawData = response.data;
+    if (rawData is Map && rawData['data'] is List) {
+      return rawData['data'] as List<dynamic>;
+    } else if (rawData is List) {
+      return rawData;
+    }
+    return [];
+  }
+
+  Future<List<dynamic>> getConversationMessages(String conversationId) async {
+    final response = await dio.get('/chat/conversations/$conversationId/messages');
+    final rawData = response.data;
+    if (rawData is Map && rawData['data'] is List) {
+      return rawData['data'] as List<dynamic>;
+    } else if (rawData is List) {
+      return rawData;
+    }
+    return [];
+  }
+
+  Future<Map<String, dynamic>> sendChatMessage(
+      String conversationId, String content) async {
+    final response = await dio.post(
+      '/chat/conversations/$conversationId/messages',
+      data: {'content': content},
+    );
+    final rawData = response.data;
+    if (rawData is Map && rawData['data'] is Map) {
+      return Map<String, dynamic>.from(rawData['data']);
+    } else if (rawData is Map) {
+      return Map<String, dynamic>.from(rawData);
+    }
+    return {};
+  }
 }
 
 final apiClientProvider = Provider<ApiClient>((ref) {

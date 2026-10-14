@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:uuid/uuid.dart';
 import '../../core/auth/auth_state.dart';
 import '../../core/database/local_database.dart';
@@ -181,6 +182,11 @@ class _TeacherHomeScreenState extends ConsumerState<TeacherHomeScreen> {
         foregroundColor: Colors.white,
         actions: [
           IconButton(
+            tooltip: 'Chat',
+            icon: const Icon(Icons.chat_bubble_outline_rounded),
+            onPressed: () => context.push('/chat'),
+          ),
+          IconButton(
             tooltip: 'Sync Outbox',
             icon: _isSyncing
                 ? const SizedBox(
@@ -328,15 +334,7 @@ class _TeacherHomeScreenState extends ConsumerState<TeacherHomeScreen> {
                 title: 'Assign Homework',
                 subtitle: 'Offline Task Queue',
                 color: const Color(0xFF3B82F6),
-                onTap: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text(
-                        'Homework tasks queue into local outbox stream.',
-                      ),
-                    ),
-                  );
-                },
+                onTap: () => context.push('/homework'),
               ),
               _buildCard(
                 icon: Icons.video_library_rounded,
