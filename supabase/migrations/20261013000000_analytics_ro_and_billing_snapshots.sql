@@ -59,12 +59,13 @@ GRANT ALL ON public.billing_snapshots TO service_role;
 
 -- 4. Scoped Grants for Analytics Service (Least Privilege: No access to sync payloads, auth, or personal data)
 GRANT SELECT ON public.tenants TO analytics_ro;
-GRANT SELECT ON public.users TO analytics_ro;
+GRANT SELECT (id, tenant_id, role, is_active) ON public.users TO analytics_ro;
 GRANT SELECT ON public.plans TO analytics_ro;
 GRANT SELECT ON public.sms_logs TO analytics_ro;
-GRANT SELECT ON public.device_tokens TO analytics_ro;
+GRANT SELECT (id, tenant_id, last_seen_at, is_active) ON public.device_tokens TO analytics_ro;
 GRANT SELECT ON public.media_assets TO analytics_ro;
 GRANT SELECT ON public.media_download_logs TO analytics_ro;
+GRANT SELECT ON public.tenant_storage_ledgers TO analytics_ro;
 GRANT SELECT, INSERT, UPDATE ON public.billing_snapshots TO analytics_ro;
 
 -- Scoped Grants on Analytics Views
@@ -93,6 +94,9 @@ CREATE POLICY "analytics_ro_select_media_assets" ON public.media_assets FOR SELE
 
 DROP POLICY IF EXISTS "analytics_ro_select_media_download_logs" ON public.media_download_logs;
 CREATE POLICY "analytics_ro_select_media_download_logs" ON public.media_download_logs FOR SELECT TO analytics_ro USING (true);
+
+DROP POLICY IF EXISTS "analytics_ro_select_tenant_storage_ledgers" ON public.tenant_storage_ledgers;
+CREATE POLICY "analytics_ro_select_tenant_storage_ledgers" ON public.tenant_storage_ledgers FOR SELECT TO analytics_ro USING (true);
 
 DROP POLICY IF EXISTS "analytics_ro_select_billing_snapshots" ON public.billing_snapshots;
 CREATE POLICY "analytics_ro_select_billing_snapshots" ON public.billing_snapshots FOR SELECT TO analytics_ro USING (true);

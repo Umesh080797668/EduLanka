@@ -664,6 +664,13 @@ class _TeacherHomeScreenState extends ConsumerState<TeacherHomeScreen> {
                   );
                 },
               ),
+              _buildCard(
+                icon: Icons.menu_book,
+                title: 'Academic Blogs',
+                subtitle: 'Author & Moderate',
+                color: const Color(0xFF0284C7),
+                onTap: () => context.push('/blogs'),
+              ),
             ],
           ),
         ],

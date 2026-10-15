@@ -228,6 +228,13 @@ class _StudentHomeScreenState extends ConsumerState<StudentHomeScreen> {
                 color: const Color(0xFFF59E0B),
                 onTap: () => context.push('/homework'),
               ),
+              _buildFeatureCard(
+                icon: Icons.menu_book,
+                title: 'Academic Blogs',
+                subtitle: 'Class & School Discourse',
+                color: const Color(0xFF8B5CF6),
+                onTap: () => context.push('/blogs'),
+              ),
             ],
           ),
         ],

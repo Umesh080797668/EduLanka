@@ -141,6 +141,61 @@ class AppDriftDatabase extends GeneratedDatabase {
         feedback TEXT
       );
     ''');
+
+    // 10. Offline Educational Blogs (P3-S11)
+    await customStatement('''
+      CREATE TABLE IF NOT EXISTS offline_blogs (
+        id TEXT PRIMARY KEY,
+        tenant_id TEXT,
+        scope TEXT NOT NULL,
+        class_id TEXT,
+        author_id TEXT NOT NULL,
+        author_name TEXT NOT NULL,
+        author_role TEXT NOT NULL DEFAULT 'TEACHER',
+        title TEXT NOT NULL,
+        content_markdown TEXT NOT NULL,
+        cover_image_url TEXT,
+        attachments TEXT NOT NULL DEFAULT '[]',
+        tags TEXT NOT NULL DEFAULT '[]',
+        is_published INTEGER NOT NULL DEFAULT 1,
+        is_pinned INTEGER NOT NULL DEFAULT 0,
+        likes_count INTEGER NOT NULL DEFAULT 0,
+        comments_count INTEGER NOT NULL DEFAULT 0,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      );
+    ''');
+
+    // 11. Offline Blog Comments & Threaded Replies (P3-S11)
+    await customStatement('''
+      CREATE TABLE IF NOT EXISTS offline_blog_comments (
+        id TEXT PRIMARY KEY,
+        blog_id TEXT NOT NULL,
+        parent_id TEXT,
+        author_id TEXT NOT NULL,
+        author_name TEXT NOT NULL,
+        author_role TEXT NOT NULL,
+        content TEXT NOT NULL,
+        is_pinned INTEGER NOT NULL DEFAULT 0,
+        is_hidden INTEGER NOT NULL DEFAULT 0,
+        likes_count INTEGER NOT NULL DEFAULT 0,
+        created_at TEXT NOT NULL,
+        sync_status TEXT NOT NULL DEFAULT 'SYNCED'
+      );
+    ''');
+
+    // 12. Offline Academic Reactions (P3-S11)
+    await customStatement('''
+      CREATE TABLE IF NOT EXISTS offline_blog_reactions (
+        id TEXT PRIMARY KEY,
+        blog_id TEXT,
+        comment_id TEXT,
+        user_id TEXT NOT NULL,
+        reaction_type TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        sync_status TEXT NOT NULL DEFAULT 'SYNCED'
+      );
+    ''');
   }
 
   static AppDriftDatabase createEncrypted() {

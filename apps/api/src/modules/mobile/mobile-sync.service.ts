@@ -1,4 +1,4 @@
-import { createPrivateKey, createPublicKey, KeyObject, sign } from 'crypto';
+import { createPrivateKey, createPublicKey, KeyObject, sign, randomUUID } from 'crypto';
 
 import type { JwtPayload } from '@edu-lanka/shared-types';
 import { UserRole } from '@edu-lanka/shared-types';
@@ -86,7 +86,7 @@ export class MobileSyncService {
         }
     }
 
-    constructor(private readonly supabase: SupabaseService) {}
+    constructor(private readonly supabase: SupabaseService) { }
 
     getKeyId(): string {
         return MobileSyncService.keyId;
@@ -271,6 +271,17 @@ export class MobileSyncService {
                 }
                 break;
 
+            case 'blog_post':
+                if (role !== UserRole.TEACHER && role !== UserRole.SCHOOL_ADMIN && role !== UserRole.SUPER_ADMIN) {
+                    throw new ForbiddenException('Only teachers and administrators can append educational blog sync events');
+                }
+                break;
+
+            case 'blog_comment':
+            case 'blog_reaction':
+                // Both teachers and students can participate in discourse
+                break;
+
             default:
                 throw new BadRequestException(`Unsupported sync entity type: ${String(dto.entityType)}`);
         }
@@ -438,6 +449,53 @@ export class MobileSyncService {
             }
         }
 
+        // 6. Materialize offline Blog comments if new
+        if (dto.entityType === 'blog_comment' && dto.payload) {
+            const commentId = dto.entityId || dto.payload.id || randomUUID();
+            const { error: commentErr } = await client
+                .from('blog_comments')
+                .upsert({
+                    id: commentId,
+                    tenant_id: caller.tenantId,
+                    blog_id: dto.payload.blog_id ?? dto.payload.blogId,
+                    parent_id: dto.payload.parent_id ?? dto.payload.parentId ?? null,
+                    author_id: caller.sub,
+                    author_name: dto.payload.author_name ?? dto.payload.authorName ?? 'EduLanka Member',
+                    author_role: caller.role,
+                    content: dto.payload.content ?? '',
+                    created_at: dto.payload.created_at ?? new Date().toISOString(),
+                }, { onConflict: 'id' });
+
+            if (!commentErr) {
+                const eventId = data?.id ?? preExistingEvent?.id;
+                if (eventId) {
+                    await client.from('sync_events').update({ applied: true }).eq('id', eventId);
+                }
+            }
+        }
+
+        // 7. Materialize offline Blog reactions if new
+        if (dto.entityType === 'blog_reaction' && dto.payload) {
+            const reactionId = dto.entityId || dto.payload.id || randomUUID();
+            const { error: reactionErr } = await client
+                .from('blog_reactions')
+                .upsert({
+                    id: reactionId,
+                    tenant_id: caller.tenantId,
+                    blog_id: dto.payload.blog_id ?? dto.payload.blogId ?? null,
+                    comment_id: dto.payload.comment_id ?? dto.payload.commentId ?? null,
+                    user_id: caller.sub,
+                    reaction_type: dto.payload.reaction_type ?? dto.payload.reactionType ?? 'LIKE',
+                }, { onConflict: 'id' });
+
+            if (!reactionErr) {
+                const eventId = data?.id ?? preExistingEvent?.id;
+                if (eventId) {
+                    await client.from('sync_events').update({ applied: true }).eq('id', eventId);
+                }
+            }
+        }
+
         await this.touchDeviceActivity(caller.tenantId, caller.sub, data?.sequence ? Number(data.sequence) : undefined, deviceIdOrToken);
 
         return {
@@ -549,6 +607,12 @@ export class MobileSyncService {
                     const classId = event.payload?.class_id ?? event.payload?.classId;
                     return sender === caller.sub || recipient === caller.sub || (classId && teacherClassIds.includes(classId));
                 }
+                if (event.entity_type === 'blog_post' || event.entity_type === 'blog_comment' || event.entity_type === 'blog_reaction') {
+                    const scope = event.payload?.scope;
+                    if (!scope || scope === 'PLATFORM' || scope === 'SCHOOL') return true;
+                    const classId = event.payload?.class_id ?? event.payload?.classId;
+                    return !classId || teacherClassIds.includes(classId);
+                }
                 return false;
             }
 
@@ -570,6 +634,12 @@ export class MobileSyncService {
                         recipient === caller.sub ||
                         (classId && studentClassId && classId === studentClassId)
                     );
+                }
+                if (event.entity_type === 'blog_post' || event.entity_type === 'blog_comment' || event.entity_type === 'blog_reaction') {
+                    const scope = event.payload?.scope;
+                    if (!scope || scope === 'PLATFORM' || scope === 'SCHOOL') return true;
+                    const classId = event.payload?.class_id ?? event.payload?.classId;
+                    return !classId || (studentClassId && classId === studentClassId);
                 }
                 return false;
             }

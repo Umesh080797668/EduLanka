@@ -8,7 +8,7 @@ import type { TestingModule } from '@nestjs/testing';
 import { Test } from '@nestjs/testing';
 
 import { SupabaseService } from '../../supabase/supabase.service';
-import { MediaService } from '../media.service';
+import { MediaService, isAllowedMediaUrl } from '../media.service';
 
 describe('MediaService', () => {
     let service: MediaService;
@@ -254,5 +254,26 @@ describe('MediaService', () => {
     it('should allow teacher who uploaded the asset to soft-delete it and adjust ledger', async () => {
         const result = await service.deleteAsset(teacherGrowth, assetUuid);
         expect(result.success).toBe(true);
+    });
+
+    describe('isAllowedMediaUrl security', () => {
+        const originalEnv = process.env['NODE_ENV'];
+
+        afterEach(() => {
+            process.env['NODE_ENV'] = originalEnv;
+        });
+
+        it('rejects localhost and 127.0.0.1 when NODE_ENV is production', () => {
+            process.env['NODE_ENV'] = 'production';
+            expect(isAllowedMediaUrl('https://localhost/video.mp4')).toBe(false);
+            expect(isAllowedMediaUrl('https://127.0.0.1/video.mp4')).toBe(false);
+            expect(isAllowedMediaUrl('https://res.cloudinary.com/demo/video.mp4')).toBe(true);
+        });
+
+        it('allows localhost and 127.0.0.1 when NODE_ENV is development or test', () => {
+            process.env['NODE_ENV'] = 'development';
+            expect(isAllowedMediaUrl('https://localhost/video.mp4')).toBe(true);
+            expect(isAllowedMediaUrl('https://127.0.0.1/video.mp4')).toBe(true);
+        });
     });
 });

@@ -5,8 +5,20 @@ import { compareSemver, parseSemver } from '../utils/semver.util';
 
 export const HTTP_STATUS_UPGRADE_REQUIRED = 426;
 
+interface VersionCacheEntry {
+    verRow: any;
+    expiresAt: number;
+}
+
 @Injectable()
 export class AppVersionGuard implements CanActivate {
+    private static readonly versionCache = new Map<string, VersionCacheEntry>();
+    private static readonly CACHE_TTL_MS = 60_000; // 60 seconds TTL
+
+    static clearCache(): void {
+        AppVersionGuard.versionCache.clear();
+    }
+
     constructor(private readonly supabase: SupabaseService) { }
 
     async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -68,14 +80,28 @@ export class AppVersionGuard implements CanActivate {
 
         const platform = platformHeader === 'ios' ? 'ios' : 'android';
 
-        // Query minimum version for the platform
-        const { data: verRow } = await this.supabase.adminClient
-            .from('mobile_app_versions')
-            .select('min_version, latest_version, force_update, release_notes')
-            .or(`platform.eq.${platform},platform.eq.all`)
-            .order('created_at', { ascending: false })
-            .limit(1)
-            .maybeSingle();
+        // Query minimum version for the platform with in-memory TTL caching
+        const now = Date.now();
+        const cached = AppVersionGuard.versionCache.get(platform);
+        let verRow: any;
+
+        if (cached && cached.expiresAt > now) {
+            verRow = cached.verRow;
+        } else {
+            const { data } = await this.supabase.adminClient
+                .from('mobile_app_versions')
+                .select('min_version, latest_version, force_update, release_notes')
+                .or(`platform.eq.${platform},platform.eq.all`)
+                .order('created_at', { ascending: false })
+                .limit(1)
+                .maybeSingle();
+
+            verRow = data;
+            AppVersionGuard.versionCache.set(platform, {
+                verRow,
+                expiresAt: now + AppVersionGuard.CACHE_TTL_MS,
+            });
+        }
 
         if (!verRow || !verRow.min_version) {
             return true;

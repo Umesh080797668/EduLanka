@@ -2,7 +2,7 @@ name: edulanka_mobile
 description: "EduLanka — Phase 3 Offline-First Mobile Application"
 publish_to: 'none'
 
-version: 1.0.0+1
+version: 1.1.0+1
 
 environment:
   sdk: ^3.10.3

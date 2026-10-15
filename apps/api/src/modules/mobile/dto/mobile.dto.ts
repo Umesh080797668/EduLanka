@@ -25,6 +25,9 @@ export const ALLOWED_SYNC_ENTITY_TYPES = [
     'chat_message',
     'disaster_mode',
     'entitlement_revocation',
+    'blog_post',
+    'blog_comment',
+    'blog_reaction'
 ] as const;
 
 export type SyncEntityType = (typeof ALLOWED_SYNC_ENTITY_TYPES)[number];

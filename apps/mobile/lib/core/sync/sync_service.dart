@@ -250,6 +250,27 @@ class SyncService {
       case 'entitlement_revocation':
         onEntitlementRevoked?.call(payload);
         break;
+      case 'blog_post':
+        await localDb.saveSyncedBlogPost(
+          payload,
+          entityId: entityId,
+          eventType: event['event_type']?.toString(),
+        );
+        break;
+      case 'blog_comment':
+        await localDb.saveSyncedBlogComment(
+          payload,
+          entityId: entityId,
+          eventType: event['event_type']?.toString(),
+        );
+        break;
+      case 'blog_reaction':
+        await localDb.saveSyncedBlogReaction(
+          payload,
+          entityId: entityId,
+          eventType: event['event_type']?.toString(),
+        );
+        break;
     }
   }
 

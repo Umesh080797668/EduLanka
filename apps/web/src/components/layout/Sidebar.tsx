@@ -19,6 +19,7 @@ import {
     LogOut,
     MessageSquare,
     MessagesSquare,
+    Newspaper,
     PanelLeftOpen,
     Server,
     Settings,
@@ -69,6 +70,7 @@ const NAV: Record<Role, NavSection[]> = {
                 { nameKey: 'gradesReports', href: '/student/grades', icon: GraduationCap, id: 'nav-grades' },
                 { nameKey: 'resources', href: '/student/resources', icon: BookOpen, id: 'nav-resources' },
                 { nameKey: 'pastPapers', href: '/student/papers', icon: FileText, id: 'nav-papers' },
+                { nameKey: 'blogs', href: '/blogs', icon: Newspaper, id: 'nav-blogs' },
                 { nameKey: 'notices', href: '/notices', icon: Bell, id: 'nav-notices' },
                 { nameKey: 'chat', href: '/chat', icon: MessagesSquare, id: 'nav-chat' },
             ],
@@ -90,6 +92,7 @@ const NAV: Record<Role, NavSection[]> = {
                 { nameKey: 'classes', href: '/teacher/classes', icon: BookOpen, id: 'nav-classes' },
                 { nameKey: 'gradebook', href: '/teacher/classes', icon: GraduationCap, id: 'nav-gradebook' },
                 { nameKey: 'resources', href: '/teacher/resources', icon: BookOpen, id: 'nav-teacher-resources' },
+                { nameKey: 'blogs', href: '/blogs', icon: Newspaper, id: 'nav-blogs' },
                 { nameKey: 'notices', href: '/notices', icon: Bell, id: 'nav-notices' },
                 { nameKey: 'chat', href: '/chat', icon: MessagesSquare, id: 'nav-chat' },
             ],
@@ -131,6 +134,7 @@ const NAV: Record<Role, NavSection[]> = {
             titleKey: 'sectionCommunication',
             items: [
                 { nameKey: 'notices', href: '/institution-admin/notices', icon: Bell, id: 'nav-notices' },
+                { nameKey: 'blogs', href: '/blogs', icon: Newspaper, id: 'nav-blogs' },
                 { nameKey: 'chat', href: '/chat', icon: MessagesSquare },
                 {
                     nameKey: 'inquiries',
@@ -170,6 +174,7 @@ const NAV: Record<Role, NavSection[]> = {
             titleKey: 'sectionCommunication',
             items: [
                 { nameKey: 'smsGateway', href: '/system-admin/sms', icon: MessageSquare },
+                { nameKey: 'blogs', href: '/blogs', icon: Newspaper, id: 'nav-blogs' },
                 { nameKey: 'inquiries', href: '/system-admin/inquiries', icon: MessagesSquare },
                 { nameKey: 'maintenance', href: '/system-admin/maintenance', icon: Bell, id: 'nav-infrastructure' },
             ],

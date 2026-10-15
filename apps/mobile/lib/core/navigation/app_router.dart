@@ -12,6 +12,9 @@ import '../../features/papers/paper_viewer_screen.dart';
 import '../../features/video/video_player_screen.dart';
 import '../../features/homework/homework_screen.dart';
 import '../../features/chat/chat_screen.dart';
+import '../../features/blog/blog_list_screen.dart';
+import '../../features/blog/blog_detail_screen.dart';
+import '../../features/blog/create_blog_screen.dart';
 
 /// Notifier that bridges Riverpod AuthState changes to GoRouter's refreshListenable
 /// without destroying and rebuilding the GoRouter instance.
@@ -104,6 +107,21 @@ final routerProvider = Provider<GoRouter>((ref) {
             title: extra['title'] as String? ?? 'Teacher & Parent Chat',
           );
         },
+      ),
+      GoRoute(
+        path: '/blogs',
+        builder: (context, state) => const BlogListScreen(),
+      ),
+      GoRoute(
+        path: '/blogs/detail',
+        builder: (context, state) {
+          final blog = state.extra as Map<String, dynamic>? ?? {};
+          return BlogDetailScreen(blog: blog);
+        },
+      ),
+      GoRoute(
+        path: '/blogs/create',
+        builder: (context, state) => const CreateBlogScreen(),
       ),
     ],
     redirect: (context, state) {

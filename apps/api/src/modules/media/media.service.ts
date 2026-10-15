@@ -46,12 +46,15 @@ export function isAllowedMediaUrl(urlStr?: string, isEmbed = false): boolean {
         if (isEmbed) {
             return isAllowedEmbedUrl(urlStr);
         }
+        const isProd = process.env['NODE_ENV'] === 'production';
+        if (isProd && (host === 'localhost' || host === '127.0.0.1' || host === '::1')) {
+            return false;
+        }
         return (
             host === 'res.cloudinary.com' ||
             host.endsWith('.cloudinary.com') ||
             host.endsWith('.supabase.co') ||
-            host === 'localhost' ||
-            host === '127.0.0.1'
+            (!isProd && (host === 'localhost' || host === '127.0.0.1'))
         );
     } catch {
         return false;

@@ -11,6 +11,7 @@ describe('AppVersionGuard', () => {
     let mockSupabase: any;
 
     beforeEach(async () => {
+        AppVersionGuard.clearCache();
         mockSupabase = {
             adminClient: {
                 from: jest.fn().mockReturnValue({
@@ -110,5 +111,16 @@ describe('AppVersionGuard', () => {
         });
         const canActivate = await guard.canActivate(context);
         expect(canActivate).toBe(true);
+    });
+
+    it('should use in-memory cache and not re-query DB on subsequent requests', async () => {
+        const context = createMockContext('/mobile/sync-events', {
+            'x-client-version': '2.0.0',
+            'x-client-platform': 'android',
+        });
+        await guard.canActivate(context);
+        await guard.canActivate(context);
+
+        expect(mockSupabase.adminClient.from).toHaveBeenCalledTimes(1);
     });
 });

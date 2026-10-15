@@ -657,6 +657,339 @@ class LocalDatabase {
     return rows.map((r) => Map<String, dynamic>.from(r.data)).toList();
   }
 
+  // ── Educational Blogs & Discourse (P3-S11) ──────────────────────────
+
+  Future<void> saveSyncedBlogPost(
+    Map<String, dynamic> payload, {
+    String? entityId,
+    String? eventType,
+  }) async {
+    await _initDb();
+    final id = entityId ?? payload['id']?.toString() ?? '';
+    if (id.isEmpty) return;
+
+    if (eventType == 'DELETED') {
+      await driftDb.customUpdate(
+        'DELETE FROM offline_blogs WHERE id = ?',
+        variables: [Variable.withString(id)],
+      );
+      return;
+    }
+
+    final attachments = payload['attachments'] is List
+        ? jsonEncode(payload['attachments'])
+        : (payload['attachments']?.toString() ?? '[]');
+    final tags = payload['tags'] is List
+        ? jsonEncode(payload['tags'])
+        : (payload['tags']?.toString() ?? '[]');
+
+    await driftDb.customInsert(
+      '''
+      INSERT OR REPLACE INTO offline_blogs (
+        id, tenant_id, scope, class_id, author_id, author_name, author_role,
+        title, content_markdown, cover_image_url, attachments, tags,
+        is_published, is_pinned, likes_count, comments_count, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ''',
+      variables: [
+        Variable.withString(id),
+        Variable<String>(payload['tenant_id']?.toString()),
+        Variable.withString(payload['scope']?.toString() ?? 'SCHOOL'),
+        Variable<String>(payload['class_id']?.toString()),
+        Variable.withString(payload['author_id']?.toString() ?? ''),
+        Variable.withString(payload['author_name']?.toString() ?? 'Educator'),
+        Variable.withString(payload['author_role']?.toString() ?? 'TEACHER'),
+        Variable.withString(payload['title']?.toString() ?? ''),
+        Variable.withString(payload['content_markdown']?.toString() ?? ''),
+        Variable<String>(payload['cover_image_url']?.toString()),
+        Variable.withString(attachments),
+        Variable.withString(tags),
+        Variable.withInt(payload['is_published'] == false ? 0 : 1),
+        Variable.withInt(payload['is_pinned'] == true ? 1 : 0),
+        Variable.withInt((payload['likes_count'] as num?)?.toInt() ?? 0),
+        Variable.withInt((payload['comments_count'] as num?)?.toInt() ?? 0),
+        Variable.withString(
+          payload['created_at']?.toString() ?? DateTime.now().toIso8601String(),
+        ),
+        Variable.withString(
+          payload['updated_at']?.toString() ?? DateTime.now().toIso8601String(),
+        ),
+      ],
+    );
+  }
+
+  Future<void> saveSyncedBlogComment(
+    Map<String, dynamic> payload, {
+    String? entityId,
+    String? eventType,
+  }) async {
+    await _initDb();
+    final id = entityId ?? payload['id']?.toString() ?? '';
+    if (id.isEmpty) return;
+
+    if (eventType == 'DELETED') {
+      await driftDb.customUpdate(
+        'DELETE FROM offline_blog_comments WHERE id = ?',
+        variables: [Variable.withString(id)],
+      );
+      return;
+    }
+
+    await driftDb.customInsert(
+      '''
+      INSERT OR REPLACE INTO offline_blog_comments (
+        id, blog_id, parent_id, author_id, author_name, author_role,
+        content, is_pinned, is_hidden, likes_count, created_at, sync_status
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ''',
+      variables: [
+        Variable.withString(id),
+        Variable.withString(
+          payload['blog_id']?.toString() ?? payload['blogId']?.toString() ?? '',
+        ),
+        Variable<String>(
+          payload['parent_id']?.toString() ?? payload['parentId']?.toString(),
+        ),
+        Variable.withString(
+          payload['author_id']?.toString() ??
+              payload['authorId']?.toString() ??
+              '',
+        ),
+        Variable.withString(
+          payload['author_name']?.toString() ??
+              payload['authorName']?.toString() ??
+              'Member',
+        ),
+        Variable.withString(
+          payload['author_role']?.toString() ??
+              payload['authorRole']?.toString() ??
+              'STUDENT',
+        ),
+        Variable.withString(payload['content']?.toString() ?? ''),
+        Variable.withInt(payload['is_pinned'] == true ? 1 : 0),
+        Variable.withInt(payload['is_hidden'] == true ? 1 : 0),
+        Variable.withInt((payload['likes_count'] as num?)?.toInt() ?? 0),
+        Variable.withString(
+          payload['created_at']?.toString() ?? DateTime.now().toIso8601String(),
+        ),
+        Variable.withString('SYNCED'),
+      ],
+    );
+  }
+
+  Future<void> saveSyncedBlogReaction(
+    Map<String, dynamic> payload, {
+    String? entityId,
+    String? eventType,
+  }) async {
+    await _initDb();
+    final id = entityId ?? payload['id']?.toString() ?? '';
+    if (id.isEmpty) return;
+
+    if (eventType == 'REMOVED' || eventType == 'DELETED') {
+      await driftDb.customUpdate(
+        'DELETE FROM offline_blog_reactions WHERE id = ?',
+        variables: [Variable.withString(id)],
+      );
+      return;
+    }
+
+    await driftDb.customInsert(
+      '''
+      INSERT OR REPLACE INTO offline_blog_reactions (
+        id, blog_id, comment_id, user_id, reaction_type, created_at, sync_status
+      ) VALUES (?, ?, ?, ?, ?, ?, ?)
+      ''',
+      variables: [
+        Variable.withString(id),
+        Variable<String>(
+          payload['blog_id']?.toString() ?? payload['blogId']?.toString(),
+        ),
+        Variable<String>(
+          payload['comment_id']?.toString() ?? payload['commentId']?.toString(),
+        ),
+        Variable.withString(
+          payload['user_id']?.toString() ?? payload['userId']?.toString() ?? '',
+        ),
+        Variable.withString(
+          payload['reaction_type']?.toString() ??
+              payload['reactionType']?.toString() ??
+              'LIKE',
+        ),
+        Variable.withString(
+          payload['created_at']?.toString() ?? DateTime.now().toIso8601String(),
+        ),
+        Variable.withString('SYNCED'),
+      ],
+    );
+  }
+
+  Future<List<Map<String, dynamic>>> getOfflineBlogs({
+    String? scope,
+    String? classId,
+  }) async {
+    await _initDb();
+    String query = 'SELECT * FROM offline_blogs WHERE is_published = 1';
+    final List<Variable> variables = [];
+
+    if (scope != null) {
+      query += ' AND scope = ?';
+      variables.add(Variable.withString(scope));
+    }
+    if (classId != null) {
+      query += ' AND class_id = ?';
+      variables.add(Variable.withString(classId));
+    }
+
+    query += ' ORDER BY is_pinned DESC, created_at DESC';
+    final rows = await driftDb.customSelect(query, variables: variables).get();
+    return rows.map((r) => Map<String, dynamic>.from(r.data)).toList();
+  }
+
+  Future<Map<String, dynamic>?> getOfflineBlogById(String id) async {
+    await _initDb();
+    final rows = await driftDb
+        .customSelect(
+          'SELECT * FROM offline_blogs WHERE id = ?',
+          variables: [Variable.withString(id)],
+        )
+        .get();
+    if (rows.isEmpty) return null;
+    return Map<String, dynamic>.from(rows.first.data);
+  }
+
+  Future<List<Map<String, dynamic>>> getOfflineCommentsForBlog(
+    String blogId,
+  ) async {
+    await _initDb();
+    final rows = await driftDb
+        .customSelect(
+          'SELECT * FROM offline_blog_comments WHERE blog_id = ? AND is_hidden = 0 ORDER BY is_pinned DESC, created_at ASC',
+          variables: [Variable.withString(blogId)],
+        )
+        .get();
+    return rows.map((r) => Map<String, dynamic>.from(r.data)).toList();
+  }
+
+  Future<List<Map<String, dynamic>>> getOfflineReactionsForBlog(
+    String blogId,
+  ) async {
+    await _initDb();
+    final rows = await driftDb
+        .customSelect(
+          'SELECT * FROM offline_blog_reactions WHERE blog_id = ?',
+          variables: [Variable.withString(blogId)],
+        )
+        .get();
+    return rows.map((r) => Map<String, dynamic>.from(r.data)).toList();
+  }
+
+  Future<void> saveOfflineComment({
+    required String blogId,
+    required String authorId,
+    required String authorName,
+    required String authorRole,
+    required String content,
+    String? parentId,
+  }) async {
+    await _initDb();
+    final commentId = const Uuid().v4();
+    final clientUuid = const Uuid().v4();
+    final nowIso = DateTime.now().toIso8601String();
+
+    await driftDb.customInsert(
+      '''
+      INSERT INTO offline_blog_comments (
+        id, blog_id, parent_id, author_id, author_name, author_role,
+        content, is_pinned, is_hidden, likes_count, created_at, sync_status
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, 0, 0, 0, ?, 'PENDING')
+      ''',
+      variables: [
+        Variable.withString(commentId),
+        Variable.withString(blogId),
+        Variable<String>(parentId),
+        Variable.withString(authorId),
+        Variable.withString(authorName),
+        Variable.withString(authorRole),
+        Variable.withString(content),
+        Variable.withString(nowIso),
+      ],
+    );
+
+    // Increment comments_count locally on the blog
+    await driftDb.customUpdate(
+      'UPDATE offline_blogs SET comments_count = comments_count + 1 WHERE id = ?',
+      variables: [Variable.withString(blogId)],
+    );
+
+    // Queue in sync_outbox
+    await queueSyncEvent(
+      clientUuid: clientUuid,
+      entityType: 'blog_comment',
+      entityId: commentId,
+      eventType: 'CREATED',
+      payload: {
+        'id': commentId,
+        'blog_id': blogId,
+        'blogId': blogId,
+        'parent_id': parentId,
+        'parentId': parentId,
+        'author_id': authorId,
+        'author_name': authorName,
+        'author_role': authorRole,
+        'content': content,
+        'created_at': nowIso,
+      },
+    );
+  }
+
+  Future<void> saveOfflineReaction({
+    required String? blogId,
+    required String? commentId,
+    required String userId,
+    required String reactionType,
+  }) async {
+    await _initDb();
+    final reactionId = const Uuid().v4();
+    final clientUuid = const Uuid().v4();
+    final nowIso = DateTime.now().toIso8601String();
+
+    await driftDb.customInsert(
+      '''
+      INSERT INTO offline_blog_reactions (
+        id, blog_id, comment_id, user_id, reaction_type, created_at, sync_status
+      ) VALUES (?, ?, ?, ?, ?, ?, 'PENDING')
+      ''',
+      variables: [
+        Variable.withString(reactionId),
+        Variable<String>(blogId),
+        Variable<String>(commentId),
+        Variable.withString(userId),
+        Variable.withString(reactionType),
+        Variable.withString(nowIso),
+      ],
+    );
+
+    // Queue in sync_outbox
+    await queueSyncEvent(
+      clientUuid: clientUuid,
+      entityType: 'blog_reaction',
+      entityId: reactionId,
+      eventType: 'CREATED',
+      payload: {
+        'id': reactionId,
+        'blog_id': blogId,
+        'blogId': blogId,
+        'comment_id': commentId,
+        'commentId': commentId,
+        'user_id': userId,
+        'reaction_type': reactionType,
+        'reactionType': reactionType,
+        'created_at': nowIso,
+      },
+    );
+  }
+
   // ── Database Wipe (Logout & User/Tenant Switch) ──────────────────────
 
   Future<void> clearAll() async {
@@ -673,6 +1006,9 @@ class LocalDatabase {
       await driftDb.customStatement(
         'DELETE FROM offline_homework_submissions;',
       );
+      await driftDb.customStatement('DELETE FROM offline_blogs;');
+      await driftDb.customStatement('DELETE FROM offline_blog_comments;');
+      await driftDb.customStatement('DELETE FROM offline_blog_reactions;');
     });
   }
 }

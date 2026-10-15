@@ -220,14 +220,17 @@ describe('HomeworkService', () => {
         ).rejects.toThrow(ForbiddenException);
     });
 
-    it('should allow teacher to grade homework submission', async () => {
+    it('should allow teacher to grade homework submission for assigned class', async () => {
         const subUuid = '66666666-6666-6666-6666-666666666666';
         mockSupabase.adminClient.from.mockImplementation((table: string) => {
             if (table === 'homework_submissions') {
                 return {
-                    update: jest.fn().mockReturnThis(),
-                    eq: jest.fn().mockReturnThis(),
                     select: jest.fn().mockReturnThis(),
+                    eq: jest.fn().mockReturnThis(),
+                    maybeSingle: jest.fn().mockResolvedValue({
+                        data: { homework_id: homeworkUuid },
+                    }),
+                    update: jest.fn().mockReturnThis(),
                     single: jest.fn().mockResolvedValue({
                         data: {
                             id: subUuid,
@@ -238,6 +241,29 @@ describe('HomeworkService', () => {
                         error: null,
                     }),
                 };
+            }
+            if (table === 'homework_tasks') {
+                return {
+                    select: jest.fn().mockReturnThis(),
+                    eq: jest.fn().mockReturnThis(),
+                    maybeSingle: jest.fn().mockResolvedValue({
+                        data: { class_id: classUuid },
+                    }),
+                };
+            }
+            if (table === 'teachers') {
+                return {
+                    select: jest.fn().mockReturnThis(),
+                    eq: jest.fn().mockReturnThis(),
+                    maybeSingle: jest.fn().mockResolvedValue({ data: { id: 'teacher-rec-1' } }),
+                };
+            }
+            if (table === 'class_teachers') {
+                const chain: any = {};
+                chain.select = jest.fn().mockReturnValue(chain);
+                chain.eq = jest.fn().mockImplementation(() => chain);
+                chain.then = (resolve: any) => resolve({ data: [{ class_id: classUuid }] });
+                return chain;
             }
             return { select: jest.fn().mockReturnThis() };
         });
@@ -250,5 +276,85 @@ describe('HomeworkService', () => {
 
         expect(graded.grade).toBe('A');
         expect(graded.status).toBe('GRADED');
+    });
+
+    it('should reject teacher grading homework for an unassigned class', async () => {
+        const subUuid = '66666666-6666-6666-6666-666666666666';
+        mockSupabase.adminClient.from.mockImplementation((table: string) => {
+            if (table === 'homework_submissions') {
+                return {
+                    select: jest.fn().mockReturnThis(),
+                    eq: jest.fn().mockReturnThis(),
+                    maybeSingle: jest.fn().mockResolvedValue({
+                        data: { homework_id: homeworkUuid },
+                    }),
+                };
+            }
+            if (table === 'homework_tasks') {
+                return {
+                    select: jest.fn().mockReturnThis(),
+                    eq: jest.fn().mockReturnThis(),
+                    maybeSingle: jest.fn().mockResolvedValue({
+                        data: { class_id: 'different-class-uuid' },
+                    }),
+                };
+            }
+            if (table === 'teachers') {
+                return {
+                    select: jest.fn().mockReturnThis(),
+                    eq: jest.fn().mockReturnThis(),
+                    maybeSingle: jest.fn().mockResolvedValue({ data: { id: 'teacher-rec-1' } }),
+                };
+            }
+            if (table === 'class_teachers') {
+                const chain: any = {};
+                chain.select = jest.fn().mockReturnValue(chain);
+                chain.eq = jest.fn().mockImplementation(() => chain);
+                chain.then = (resolve: any) => resolve({ data: [{ class_id: classUuid }] });
+                return chain;
+            }
+            return { select: jest.fn().mockReturnThis() };
+        });
+
+        await expect(
+            service.gradeSubmission(
+                subUuid,
+                { grade: 'A', feedback: 'Work' },
+                teacherCaller,
+            ),
+        ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('should reject teacher viewing submissions for an unassigned class', async () => {
+        mockSupabase.adminClient.from.mockImplementation((table: string) => {
+            if (table === 'homework_tasks') {
+                return {
+                    select: jest.fn().mockReturnThis(),
+                    eq: jest.fn().mockReturnThis(),
+                    maybeSingle: jest.fn().mockResolvedValue({
+                        data: { class_id: 'unassigned-class-uuid' },
+                    }),
+                };
+            }
+            if (table === 'teachers') {
+                return {
+                    select: jest.fn().mockReturnThis(),
+                    eq: jest.fn().mockReturnThis(),
+                    maybeSingle: jest.fn().mockResolvedValue({ data: { id: 'teacher-rec-1' } }),
+                };
+            }
+            if (table === 'class_teachers') {
+                const chain: any = {};
+                chain.select = jest.fn().mockReturnValue(chain);
+                chain.eq = jest.fn().mockImplementation(() => chain);
+                chain.then = (resolve: any) => resolve({ data: [{ class_id: classUuid }] });
+                return chain;
+            }
+            return { select: jest.fn().mockReturnThis() };
+        });
+
+        await expect(
+            service.getSubmissions(homeworkUuid, teacherCaller),
+        ).rejects.toThrow(ForbiddenException);
     });
 });

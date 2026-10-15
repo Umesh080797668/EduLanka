@@ -297,6 +297,24 @@ export class HomeworkService {
             throw new ForbiddenException('Only teachers and school administrators can view submissions');
         }
 
+        if (caller.role === UserRole.TEACHER) {
+            const { data: task, error: taskError } = await this.supabase.adminClient
+                .from('homework_tasks')
+                .select('class_id')
+                .eq('tenant_id', caller.tenantId)
+                .eq('id', homeworkId)
+                .maybeSingle();
+
+            if (taskError || !task) {
+                throw new NotFoundException(`Homework task ${homeworkId} not found`);
+            }
+
+            const teacherClasses = await this.getTeacherClassIds(caller);
+            if (!teacherClasses.includes(task.class_id)) {
+                throw new ForbiddenException('Teachers can only view submissions for their assigned classes');
+            }
+        }
+
         const { data, error } = await this.supabase.adminClient
             .from('homework_submissions')
             .select('*, users!student_id(id, full_name, email)')
@@ -319,6 +337,35 @@ export class HomeworkService {
 
         if (caller.role !== UserRole.TEACHER && caller.role !== UserRole.SCHOOL_ADMIN && caller.role !== UserRole.SUPER_ADMIN) {
             throw new ForbiddenException('Only teachers and school administrators can grade submissions');
+        }
+
+        if (caller.role === UserRole.TEACHER) {
+            const { data: sub, error: subErr } = await this.supabase.adminClient
+                .from('homework_submissions')
+                .select('homework_id')
+                .eq('tenant_id', caller.tenantId)
+                .eq('id', submissionId)
+                .maybeSingle();
+
+            if (subErr || !sub) {
+                throw new NotFoundException(`Homework submission ${submissionId} not found`);
+            }
+
+            const { data: task, error: taskErr } = await this.supabase.adminClient
+                .from('homework_tasks')
+                .select('class_id')
+                .eq('tenant_id', caller.tenantId)
+                .eq('id', sub.homework_id)
+                .maybeSingle();
+
+            if (taskErr || !task) {
+                throw new NotFoundException(`Homework task for submission not found`);
+            }
+
+            const teacherClasses = await this.getTeacherClassIds(caller);
+            if (!teacherClasses.includes(task.class_id)) {
+                throw new ForbiddenException('Teachers can only grade submissions for their assigned classes');
+            }
         }
 
         const { data, error } = await this.supabase.adminClient

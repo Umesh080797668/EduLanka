@@ -94,7 +94,7 @@ void main() {
       } catch (_) {}
 
       expect(interceptedOptions, isNotNull);
-      expect(interceptedOptions!.headers['X-Client-Version'], '1.0.0');
+      expect(interceptedOptions!.headers['X-Client-Version'], '1.1.0');
       expect(interceptedOptions!.headers['X-Client-Platform'], isNotEmpty);
       expect(interceptedOptions!.headers['X-Device-Id'], deviceId);
       expect(

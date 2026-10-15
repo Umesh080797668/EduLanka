@@ -14,6 +14,7 @@ class ApiClient {
   final String baseUrl;
   final void Function()? onSessionExpired;
   final void Function(Map<String, dynamic>? data)? onUpgradeRequired;
+  final String? appVersion;
 
   Completer<String?>? _refreshCompleter;
 
@@ -22,6 +23,7 @@ class ApiClient {
     required this.baseUrl,
     this.onSessionExpired,
     this.onUpgradeRequired,
+    this.appVersion,
   }) {
     dio = Dio(
       BaseOptions(
@@ -49,10 +51,11 @@ class ApiClient {
           if (token != null && token.isNotEmpty) {
             options.headers['Authorization'] = 'Bearer $token';
           }
-          final clientVersion = const String.fromEnvironment(
-            'APP_VERSION',
-            defaultValue: '1.0.0',
-          );
+          final clientVersion = appVersion ??
+              const String.fromEnvironment(
+                'APP_VERSION',
+                defaultValue: '1.1.0',
+              );
           final clientPlatform = kIsWeb
               ? 'web'
               : (Platform.isIOS ? 'ios' : 'android');
@@ -503,6 +506,7 @@ final apiClientProvider = Provider<ApiClient>((ref) {
   return ApiClient(
     tokenStorage: tokenStorage,
     baseUrl: config.apiBaseUrl,
+    appVersion: config.appVersion,
     onSessionExpired: () => ref.read(authProvider.notifier).logout(force: true),
   );
 });

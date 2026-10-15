@@ -5,7 +5,7 @@ import type { TestingModule } from '@nestjs/testing';
 import { Test } from '@nestjs/testing';
 
 import { SupabaseService } from '../../supabase/supabase.service';
-import { PaperHubService } from '../paper-hub.service';
+import { PaperHubService, isAllowedDocumentUrl } from '../paper-hub.service';
 
 describe('PaperHubService', () => {
     let service: PaperHubService;
@@ -221,5 +221,26 @@ describe('PaperHubService', () => {
                 markingSchemeUrl: 'https://res.cloudinary.com/demo/raw/upload/history_ms.pdf',
             }),
         ).rejects.toThrow(ForbiddenException);
+    });
+
+    describe('isAllowedDocumentUrl security', () => {
+        const originalEnv = process.env['NODE_ENV'];
+
+        afterEach(() => {
+            process.env['NODE_ENV'] = originalEnv;
+        });
+
+        it('rejects localhost and 127.0.0.1 when NODE_ENV is production', () => {
+            process.env['NODE_ENV'] = 'production';
+            expect(isAllowedDocumentUrl('https://localhost/paper.pdf')).toBe(false);
+            expect(isAllowedDocumentUrl('https://127.0.0.1/paper.pdf')).toBe(false);
+            expect(isAllowedDocumentUrl('https://res.cloudinary.com/demo/paper.pdf')).toBe(true);
+        });
+
+        it('allows localhost and 127.0.0.1 when NODE_ENV is development or test', () => {
+            process.env['NODE_ENV'] = 'development';
+            expect(isAllowedDocumentUrl('https://localhost/paper.pdf')).toBe(true);
+            expect(isAllowedDocumentUrl('https://127.0.0.1/paper.pdf')).toBe(true);
+        });
     });
 });

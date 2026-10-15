@@ -27,11 +27,13 @@ class AppConfig {
   final String? offlineLicenseKeyId;
   final String? offlineLicensePublicKey;
   final String? syncfusionLicenseKey;
+  final String appVersion;
 
   const AppConfig({
     required this.environment,
     required this.apiBaseUrl,
     required this.wsBaseUrl,
+    this.appVersion = '1.1.0',
     this.sentryDsn,
     this.supabaseUrl,
     this.supabaseAnonKey,
@@ -47,6 +49,10 @@ class AppConfig {
 
   factory AppConfig.fromEnvironment() {
     const envString = String.fromEnvironment('APP_ENV', defaultValue: '');
+    const injectedAppVersion = String.fromEnvironment(
+      'APP_VERSION',
+      defaultValue: '1.1.0',
+    );
     const injectedApiUrl = String.fromEnvironment(
       'API_BASE_URL',
       defaultValue: '',
@@ -153,6 +159,7 @@ class AppConfig {
       offlineLicenseKeyId: injectedLicenseKeyId.isNotEmpty ? injectedLicenseKeyId : null,
       offlineLicensePublicKey: injectedLicensePublicKey.isNotEmpty ? injectedLicensePublicKey : null,
       syncfusionLicenseKey: injectedSyncfusionLicense.isNotEmpty ? injectedSyncfusionLicense : null,
+      appVersion: injectedAppVersion,
     );
   }
 }
