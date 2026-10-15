@@ -358,6 +358,35 @@ class ApiClient {
     return [];
   }
 
+  Future<List<Map<String, dynamic>>> getClasses({String? teacherId}) async {
+    final response = await dio.get(
+      '/classes',
+      queryParameters: teacherId != null ? {'teacherId': teacherId} : null,
+    );
+    final rawData = response.data;
+    if (rawData is Map && rawData['data'] is List) {
+      return (rawData['data'] as List)
+          .map((e) => Map<String, dynamic>.from(e as Map))
+          .toList();
+    } else if (rawData is List) {
+      return rawData
+          .map((e) => Map<String, dynamic>.from(e as Map))
+          .toList();
+    }
+    return [];
+  }
+
+  Future<Map<String, dynamic>> getClass(String id) async {
+    final response = await dio.get('/classes/$id');
+    final rawData = response.data;
+    if (rawData is Map && rawData['data'] is Map) {
+      return Map<String, dynamic>.from(rawData['data']);
+    } else if (rawData is Map) {
+      return Map<String, dynamic>.from(rawData);
+    }
+    return {};
+  }
+
   Future<Map<String, dynamic>> createHomeworkTask(
     Map<String, dynamic> data,
   ) async {
@@ -474,6 +503,6 @@ final apiClientProvider = Provider<ApiClient>((ref) {
   return ApiClient(
     tokenStorage: tokenStorage,
     baseUrl: config.apiBaseUrl,
-    onSessionExpired: () => ref.read(authProvider.notifier).logout(),
+    onSessionExpired: () => ref.read(authProvider.notifier).logout(force: true),
   );
 });

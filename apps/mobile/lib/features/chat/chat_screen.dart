@@ -83,7 +83,27 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
           LocalDatabase.instance.saveSyncedChatMessage(msgMap);
           if (mounted) {
             setState(() {
-              _messages.add(msgMap);
+              // Deduplicate: replace optimistic bubble or skip if already present
+              final existingIndex = _messages.indexWhere(
+                (m) =>
+                    m['id'] == msgMap['id'] ||
+                    (m['sender_id'] == msgMap['sender_id'] &&
+                        m['content'] == msgMap['content'] &&
+                        (DateTime.tryParse(m['created_at']?.toString() ?? '')
+                                    ?.difference(DateTime.tryParse(
+                                          msgMap['created_at']?.toString() ?? '',
+                                        ) ??
+                                        DateTime.now())
+                                    .inSeconds
+                                    .abs() ??
+                                99) <
+                            10),
+              );
+              if (existingIndex >= 0) {
+                _messages[existingIndex] = msgMap;
+              } else {
+                _messages.add(msgMap);
+              }
             });
             _scrollToBottom();
           }
@@ -131,28 +151,39 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     });
     _scrollToBottom();
 
-    // 1. Emit to Socket.IO real-time gateway
-    ref.read(webSocketServiceProvider).sendMessage(widget.conversationId, text);
+    final wsService = ref.read(webSocketServiceProvider);
 
-    // 2. Save via HTTP REST / sync fallback
-    try {
-      final apiClient = ref.read(apiClientProvider);
-      await apiClient.sendChatMessage(widget.conversationId, text);
-    } catch (_) {
-      // Offline queue as chat_message sync event (ADR-002)
-      await LocalDatabase.instance.queueSyncEvent(
-        clientUuid: messageId,
-        entityType: 'chat_message',
-        entityId: messageId,
-        eventType: 'CREATED',
-        payload: {
-          'id': messageId,
-          'conversation_id': widget.conversationId,
-          'sender_id': senderId,
-          'content': text,
-          'created_at': now,
-        },
-      );
+    // Single transport path (P3-S4): Send via WebSocket if online, else REST fallback
+    if (wsService.isConnected) {
+      wsService.sendMessage(widget.conversationId, text);
+    } else {
+      try {
+        final apiClient = ref.read(apiClientProvider);
+        final sent = await apiClient.sendChatMessage(widget.conversationId, text);
+        if (sent.isNotEmpty && mounted) {
+          setState(() {
+            final idx = _messages.indexWhere((m) => m['id'] == messageId);
+            if (idx >= 0) {
+              _messages[idx] = sent;
+            }
+          });
+        }
+      } catch (_) {
+        // Offline queue as chat_message sync event (ADR-002)
+        await LocalDatabase.instance.queueSyncEvent(
+          clientUuid: messageId,
+          entityType: 'chat_message',
+          entityId: messageId,
+          eventType: 'CREATED',
+          payload: {
+            'id': messageId,
+            'conversation_id': widget.conversationId,
+            'sender_id': senderId,
+            'content': text,
+            'created_at': now,
+          },
+        );
+      }
     }
   }
 

@@ -143,6 +143,19 @@ export class ChatController {
         return saved;
     }
 
+    @Post('conversations/:id/messages')
+    async sendConversationMessage(
+        @Req() req: any,
+        @Param('id', ParseUUIDPipe) conversationId: string,
+        @Body() body: { content: string },
+    ) {
+        const tenantId = req.user.tenantId;
+        const callerRole = req.user.role;
+        const saved = await this.chatService.saveMessage(tenantId, conversationId, this.callerId(req), body.content, callerRole);
+        this.gateway.broadcastMessage(conversationId, saved);
+        return saved;
+    }
+
     @Post('messages/:id/pin')
     async pinMessage(@Req() req: any, @Param('id', ParseUUIDPipe) messageId: string, @Body() body: { messageId?: string, isPinned: boolean }) {
         const tenantId = req.user.tenantId;

@@ -22,6 +22,7 @@ class _StudentHomeScreenState extends ConsumerState<StudentHomeScreen> {
   @override
   void initState() {
     super.initState();
+    ref.read(syncServiceProvider).startAutoSync();
     _refreshSyncState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       TutorialEngine.showTourIfUnseen(context, 'onboarding_tour');
@@ -101,7 +102,7 @@ class _StudentHomeScreenState extends ConsumerState<StudentHomeScreen> {
           IconButton(
             tooltip: 'Sign Out',
             icon: const Icon(Icons.logout_rounded),
-            onPressed: () => ref.read(authProvider.notifier).logout(),
+            onPressed: () => showLogoutConfirmation(context, ref),
           ),
         ],
       ),

@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../api/api_client.dart';
 import '../database/local_database.dart';
@@ -114,10 +115,63 @@ class AuthNotifier extends StateNotifier<AuthState> {
     );
   }
 
-  Future<void> logout() async {
+  Future<void> logout({bool force = false}) async {
+    if (!force) {
+      final pendingCount = await LocalDatabase.instance.getPendingOutboxCount();
+      if (pendingCount > 0) {
+        throw StateError(
+          'Cannot logout: $pendingCount unsynced changes in local outbox. Use force: true to wipe anyway.',
+        );
+      }
+    }
     await LocalDatabase.instance.clearAll();
     await tokenStorage.clearAll();
     state = const AuthState(status: AuthStatus.unauthenticated);
+  }
+}
+
+/// Shows a warning confirmation dialog if the local outbox contains unsynced offline mutations
+Future<void> showLogoutConfirmation(BuildContext context, WidgetRef ref) async {
+  final pending = await LocalDatabase.instance.getPendingOutboxCount();
+  if (pending > 0) {
+    if (!context.mounted) return;
+    final proceed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.warning_amber_rounded, color: Color(0xFFDC2626)),
+            SizedBox(width: 8),
+            Text('Unsynced Changes'),
+          ],
+        ),
+        content: Text(
+          'You have $pending unsynced offline change(s) in your outbox. '
+          'Logging out will wipe the local database and these changes will be lost permanently.\n\n'
+          'Are you sure you want to log out?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFDC2626),
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Log Out Anyway'),
+          ),
+        ],
+      ),
+    );
+
+    if (proceed == true) {
+      await ref.read(authProvider.notifier).logout(force: true);
+    }
+  } else {
+    await ref.read(authProvider.notifier).logout(force: true);
   }
 }
 

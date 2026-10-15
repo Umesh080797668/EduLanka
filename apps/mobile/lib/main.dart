@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
 
 import 'l10n/app_localizations.dart';
+import 'core/auth/auth_state.dart';
 import 'core/config/app_config.dart';
 import 'core/download/download_manager.dart';
 import 'core/navigation/app_router.dart';
@@ -62,11 +63,34 @@ Future<void> main() async {
   }
 }
 
-class EduLankaMobileApp extends ConsumerWidget {
+class EduLankaMobileApp extends ConsumerStatefulWidget {
   const EduLankaMobileApp({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<EduLankaMobileApp> createState() => _EduLankaMobileAppState();
+}
+
+class _EduLankaMobileAppState extends ConsumerState<EduLankaMobileApp> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final auth = ref.read(authProvider);
+      if (auth.status == AuthStatus.authenticated) {
+        ref.read(pushNotificationServiceProvider).initialize();
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    ref.listen<AuthState>(authProvider, (previous, next) {
+      if (next.status == AuthStatus.authenticated &&
+          previous?.status != AuthStatus.authenticated) {
+        ref.read(pushNotificationServiceProvider).initialize();
+      }
+    });
+
     final router = ref.watch(routerProvider);
 
     return MaterialApp.router(

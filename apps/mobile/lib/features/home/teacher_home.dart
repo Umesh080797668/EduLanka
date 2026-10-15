@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:uuid/uuid.dart';
+import '../../core/api/api_client.dart';
 import '../../core/auth/auth_state.dart';
 import '../../core/database/local_database.dart';
 import '../../core/sync/sync_service.dart';
@@ -66,108 +67,414 @@ class _TeacherHomeScreenState extends ConsumerState<TeacherHomeScreen> {
   }
 
   Future<void> _openMarkAttendanceDialog() async {
-    final sampleStudentId = const Uuid().v4();
-    final sampleClassId = const Uuid().v4();
-    final studentIdController = TextEditingController(text: sampleStudentId);
-    final classIdController = TextEditingController(text: sampleClassId);
-    String selectedStatus = 'PRESENT';
+    // 1. Initial classes and default roster
+    List<Map<String, dynamic>> availableClasses = [
+      {
+        'id': 'a1111111-1111-1111-1111-111111111111',
+        'name': 'Grade 10 - Section A',
+      },
+      {
+        'id': 'a2222222-2222-2222-2222-222222222222',
+        'name': 'Grade 11 - Section B',
+      },
+      {
+        'id': 'a3333333-3333-3333-3333-333333333333',
+        'name': 'Grade 12 - Science',
+      },
+    ];
+
+    try {
+      final remoteClasses = await ref.read(apiClientProvider).getClasses();
+      if (remoteClasses.isNotEmpty) {
+        availableClasses = remoteClasses.map((c) {
+          final grade = c['grade'] ?? '';
+          final sec = c['section'] ?? '';
+          final name = 'Grade $grade - Section $sec';
+          return {
+            'id': c['id']?.toString() ?? '',
+            'name': name.trim().isNotEmpty ? name : 'Class ${c['id']}',
+            'students': c['students'],
+          };
+        }).toList();
+      }
+    } catch (_) {
+      // Offline fallback: continue with cached / default class list
+    }
+
+    String selectedClassId = availableClasses.first['id'] as String;
+    String selectedPeriod = 'Full Day';
+    DateTime selectedDate = DateTime.now();
+
+    final periods = const [
+      'Full Day',
+      'Period 1',
+      'Period 2',
+      'Period 3',
+      'Period 4',
+      'Period 5',
+      'Period 6',
+      'Period 7',
+      'Period 8',
+    ];
+
+    // Roster generation / resolution
+    final Map<String, List<Map<String, dynamic>>> classRosters = {
+      selectedClassId: [
+        {
+          'id': 's1111111-1111-1111-1111-111111111111',
+          'name': 'Kasun Perera',
+          'admissionNo': '2026-001',
+        },
+        {
+          'id': 's2222222-2222-2222-2222-222222222222',
+          'name': 'Amali Fernando',
+          'admissionNo': '2026-002',
+        },
+        {
+          'id': 's3333333-3333-3333-3333-333333333333',
+          'name': 'Dinuka Silva',
+          'admissionNo': '2026-003',
+        },
+        {
+          'id': 's4444444-4444-4444-4444-444444444444',
+          'name': 'Nimali Rathnayake',
+          'admissionNo': '2026-004',
+        },
+        {
+          'id': 's5555555-5555-5555-5555-555555555555',
+          'name': 'Kavindu Jayasuriya',
+          'admissionNo': '2026-005',
+        },
+      ],
+    };
+
+    final Map<String, String> studentStatus = {};
+    for (final s in classRosters[selectedClassId]!) {
+      studentStatus[s['id'] as String] = 'PRESENT';
+    }
+
+    if (!mounted) return;
 
     await showDialog(
       context: context,
       builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setDialogState) => AlertDialog(
-          title: const Row(
-            children: [
-              Icon(Icons.how_to_reg_rounded, color: Color(0xFF0D9488)),
-              SizedBox(width: 8),
-              Text('Mark Attendance (Offline)'),
-            ],
-          ),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
+        builder: (ctx, setDialogState) {
+          final currentRoster =
+              classRosters[selectedClassId] ??
+              [
+                {
+                  'id': 's1111111-1111-1111-1111-111111111111',
+                  'name': 'Kasun Perera',
+                  'admissionNo': '2026-001',
+                },
+                {
+                  'id': 's2222222-2222-2222-2222-222222222222',
+                  'name': 'Amali Fernando',
+                  'admissionNo': '2026-002',
+                },
+              ];
+
+          for (final s in currentRoster) {
+            studentStatus.putIfAbsent(s['id'] as String, () => 'PRESENT');
+          }
+
+          final dateStr =
+              '${selectedDate.year}-${selectedDate.month.toString().padLeft(2, '0')}-${selectedDate.day.toString().padLeft(2, '0')}';
+
+          return AlertDialog(
+            title: const Row(
               children: [
-                TextField(
-                  controller: studentIdController,
-                  decoration: const InputDecoration(
-                    labelText: 'Student UUID / Code',
-                    helperText: 'UUID required by server sync (free-text converted)',
-                  ),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: classIdController,
-                  decoration: const InputDecoration(
-                    labelText: 'Class UUID / Code',
-                    helperText: 'UUID required by server sync (free-text converted)',
-                  ),
-                ),
-                const SizedBox(height: 16),
-                DropdownButtonFormField<String>(
-                  initialValue: selectedStatus,
-                  decoration: const InputDecoration(
-                    labelText: 'Attendance Status',
-                  ),
-                  items: const [
-                    DropdownMenuItem(value: 'PRESENT', child: Text('Present')),
-                    DropdownMenuItem(value: 'ABSENT', child: Text('Absent')),
-                    DropdownMenuItem(value: 'LATE', child: Text('Late')),
-                  ],
-                  onChanged: (val) {
-                    if (val != null) {
-                      setDialogState(() => selectedStatus = val);
-                    }
-                  },
-                ),
+                Icon(Icons.how_to_reg_rounded, color: Color(0xFF0D9488)),
+                SizedBox(width: 8),
+                Text('Class Roll-Call Attendance'),
               ],
             ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(ctx).pop(),
-              child: const Text('Cancel'),
-            ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF0D9488),
-                foregroundColor: Colors.white,
-              ),
-              onPressed: () async {
-                final studentId = studentIdController.text.trim();
-                final classId = classIdController.text.trim();
-                if (studentId.isEmpty || classId.isEmpty) return;
-
-                final now = DateTime.now();
-                final todayStr =
-                    '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
-                final recordId = const Uuid().v4();
-
-                await LocalDatabase.instance.recordAttendance(
-                  id: recordId,
-                  studentId: studentId,
-                  classId: classId,
-                  date: todayStr,
-                  status: selectedStatus,
-                  markedAt: now.toUtc().toIso8601String(),
-                );
-
-                if (ctx.mounted) Navigator.of(ctx).pop();
-                await _refreshSyncState();
-
-                if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(
-                        'Marked attendance. Queued with UUID in offline outbox.',
+            content: SizedBox(
+              width: double.maxFinite,
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Class Picker
+                    DropdownButtonFormField<String>(
+                      initialValue: selectedClassId,
+                      decoration: const InputDecoration(
+                        labelText: 'Select Class / Section',
+                        border: OutlineInputBorder(),
+                        contentPadding: EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 8,
+                        ),
                       ),
+                      items: availableClasses.map((c) {
+                        return DropdownMenuItem<String>(
+                          value: c['id'] as String,
+                          child: Text(c['name'] as String),
+                        );
+                      }).toList(),
+                      onChanged: (val) {
+                        if (val != null) {
+                          setDialogState(() {
+                            selectedClassId = val;
+                          });
+                        }
+                      },
                     ),
-                  );
-                }
-              },
-              child: const Text('Save to Outbox'),
+                    const SizedBox(height: 12),
+
+                    // Period & Date row
+                    Row(
+                      children: [
+                        Expanded(
+                          child: DropdownButtonFormField<String>(
+                            initialValue: selectedPeriod,
+                            decoration: const InputDecoration(
+                              labelText: 'Period',
+                              border: OutlineInputBorder(),
+                              contentPadding: EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 8,
+                              ),
+                            ),
+                            items: periods.map((p) {
+                              return DropdownMenuItem(value: p, child: Text(p));
+                            }).toList(),
+                            onChanged: (val) {
+                              if (val != null) {
+                                setDialogState(() => selectedPeriod = val);
+                              }
+                            },
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            style: OutlinedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                            ),
+                            icon: const Icon(
+                              Icons.calendar_today_rounded,
+                              size: 18,
+                            ),
+                            label: Text(
+                              dateStr,
+                              style: const TextStyle(fontSize: 12),
+                            ),
+                            onPressed: () async {
+                              final picked = await showDatePicker(
+                                context: ctx,
+                                initialDate: selectedDate,
+                                firstDate: DateTime.now().subtract(
+                                  const Duration(days: 30),
+                                ),
+                                lastDate: DateTime.now().add(
+                                  const Duration(days: 7),
+                                ),
+                              );
+                              if (picked != null) {
+                                setDialogState(() => selectedDate = picked);
+                              }
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Roster Header & "Mark All Present" Action
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'Student Roster (${currentRoster.length})',
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
+                            color: Color(0xFF1E293B),
+                          ),
+                        ),
+                        TextButton.icon(
+                          icon: const Icon(
+                            Icons.done_all_rounded,
+                            size: 16,
+                            color: Color(0xFF10B981),
+                          ),
+                          label: const Text(
+                            'All Present',
+                            style: TextStyle(
+                              color: Color(0xFF10B981),
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          onPressed: () {
+                            setDialogState(() {
+                              for (final s in currentRoster) {
+                                studentStatus[s['id'] as String] = 'PRESENT';
+                              }
+                            });
+                          },
+                        ),
+                      ],
+                    ),
+                    const Divider(height: 1),
+                    const SizedBox(height: 8),
+
+                    // Roster List
+                    ...currentRoster.map((student) {
+                      final sId = student['id'] as String;
+                      final sName = student['name'] as String;
+                      final sAdm = student['admissionNo'] as String? ?? '';
+                      final currentStatus = studentStatus[sId] ?? 'PRESENT';
+
+                      return Container(
+                        margin: const EdgeInsets.only(bottom: 8),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 8,
+                        ),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF8FAFC),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: const Color(0xFFE2E8F0)),
+                        ),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    sName,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                                  if (sAdm.isNotEmpty)
+                                    Text(
+                                      'Adm: $sAdm',
+                                      style: const TextStyle(
+                                        color: Color(0xFF64748B),
+                                        fontSize: 11,
+                                      ),
+                                    ),
+                                ],
+                              ),
+                            ),
+                            // Status Chips
+                            Wrap(
+                              spacing: 4,
+                              children: [
+                                _statusChip(
+                                  label: 'P',
+                                  activeColor: const Color(0xFF10B981),
+                                  isSelected: currentStatus == 'PRESENT',
+                                  onTap: () => setDialogState(
+                                    () => studentStatus[sId] = 'PRESENT',
+                                  ),
+                                ),
+                                _statusChip(
+                                  label: 'A',
+                                  activeColor: const Color(0xFFEF4444),
+                                  isSelected: currentStatus == 'ABSENT',
+                                  onTap: () => setDialogState(
+                                    () => studentStatus[sId] = 'ABSENT',
+                                  ),
+                                ),
+                                _statusChip(
+                                  label: 'L',
+                                  activeColor: const Color(0xFFF59E0B),
+                                  isSelected: currentStatus == 'LATE',
+                                  onTap: () => setDialogState(
+                                    () => studentStatus[sId] = 'LATE',
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      );
+                    }),
+                  ],
+                ),
+              ),
             ),
-          ],
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(ctx).pop(),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF0D9488),
+                  foregroundColor: Colors.white,
+                ),
+                onPressed: () async {
+                  final now = DateTime.now();
+                  int recordedCount = 0;
+
+                  for (final s in currentRoster) {
+                    final sId = s['id'] as String;
+                    final status = studentStatus[sId] ?? 'PRESENT';
+                    final recordId = const Uuid().v4();
+
+                    await LocalDatabase.instance.recordAttendance(
+                      id: recordId,
+                      studentId: sId,
+                      classId: selectedClassId,
+                      date: dateStr,
+                      status: status,
+                      markedAt: now.toUtc().toIso8601String(),
+                    );
+                    recordedCount++;
+                  }
+
+                  if (ctx.mounted) Navigator.of(ctx).pop();
+                  await _refreshSyncState();
+
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          'Recorded roll-call for $recordedCount student(s) ($selectedPeriod). Queued in offline outbox.',
+                        ),
+                        backgroundColor: const Color(0xFF10B981),
+                      ),
+                    );
+                  }
+                },
+                child: Text('Save Roll-Call (${currentRoster.length})'),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _statusChip({
+    required String label,
+    required Color activeColor,
+    required bool isSelected,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(6),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: isSelected ? activeColor : const Color(0xFFE2E8F0),
+          borderRadius: BorderRadius.circular(6),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.bold,
+            color: isSelected ? Colors.white : const Color(0xFF475569),
+          ),
         ),
       ),
     );
@@ -207,7 +514,7 @@ class _TeacherHomeScreenState extends ConsumerState<TeacherHomeScreen> {
           IconButton(
             tooltip: 'Sign Out',
             icon: const Icon(Icons.logout_rounded),
-            onPressed: () => ref.read(authProvider.notifier).logout(),
+            onPressed: () => showLogoutConfirmation(context, ref),
           ),
         ],
       ),
@@ -222,10 +529,16 @@ class _TeacherHomeScreenState extends ConsumerState<TeacherHomeScreen> {
                 side: const BorderSide(color: Color(0xFFFECACA)),
               ),
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
                 child: Row(
                   children: [
-                    const Icon(Icons.sync_problem_rounded, color: Color(0xFFDC2626)),
+                    const Icon(
+                      Icons.sync_problem_rounded,
+                      color: Color(0xFFDC2626),
+                    ),
                     const SizedBox(width: 12),
                     Expanded(
                       child: Text(

@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:io';
-import 'dart:typed_data';
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as p;
@@ -11,6 +10,7 @@ import '../database/encryption_key_storage.dart';
 import '../database/local_database.dart';
 import 'aes_ctr_cipher.dart';
 import 'decrypted_video_server.dart';
+import 'package:flutter/foundation.dart';
 
 enum DownloadStatus {
   queued,
@@ -71,44 +71,45 @@ class DownloadTask {
     int? expiresAt,
     this.encryptionKey,
     this.error,
-  })  : assetId = assetId ?? id,
-        downloadedAt = downloadedAt ?? 0,
-        expiresAt = expiresAt ?? 0;
+  }) : assetId = assetId ?? id,
+       downloadedAt = downloadedAt ?? 0,
+       expiresAt = expiresAt ?? 0;
 
   bool get isCompleted => status == DownloadStatus.completed;
-  double get progress => totalBytes > 0 ? (receivedBytes / totalBytes).clamp(0.0, 1.0) : 0.0;
+  double get progress =>
+      totalBytes > 0 ? (receivedBytes / totalBytes).clamp(0.0, 1.0) : 0.0;
 
   Map<String, dynamic> toDbMap() => {
-        'id': id,
-        'asset_id': assetId,
-        'title': title,
-        'remote_url': remoteUrl,
-        'local_path': localPath,
-        'total_bytes': totalBytes,
-        'downloaded_bytes': receivedBytes,
-        'status': status.toDbString(),
-        'retention_days': retentionDays,
-        'downloaded_at': downloadedAt,
-        'expires_at': expiresAt,
-        'encryption_key': encryptionKey,
-        'error': error,
-      };
+    'id': id,
+    'asset_id': assetId,
+    'title': title,
+    'remote_url': remoteUrl,
+    'local_path': localPath,
+    'total_bytes': totalBytes,
+    'downloaded_bytes': receivedBytes,
+    'status': status.toDbString(),
+    'retention_days': retentionDays,
+    'downloaded_at': downloadedAt,
+    'expires_at': expiresAt,
+    'encryption_key': encryptionKey,
+    'error': error,
+  };
 
   factory DownloadTask.fromDbMap(Map<String, dynamic> map) => DownloadTask(
-        id: map['id'] as String,
-        assetId: map['asset_id'] as String? ?? map['id'] as String,
-        title: map['title'] as String? ?? 'Lesson Video',
-        remoteUrl: map['remote_url'] as String? ?? '',
-        localPath: map['local_path'] as String? ?? '',
-        totalBytes: (map['total_bytes'] as num?)?.toInt() ?? 0,
-        receivedBytes: (map['downloaded_bytes'] as num?)?.toInt() ?? 0,
-        status: DownloadStatus.fromDbString(map['status'] as String? ?? 'FAILED'),
-        retentionDays: (map['retention_days'] as num?)?.toInt() ?? 30,
-        downloadedAt: (map['downloaded_at'] as num?)?.toInt() ?? 0,
-        expiresAt: (map['expires_at'] as num?)?.toInt() ?? 0,
-        encryptionKey: map['encryption_key'] as String?,
-        error: map['error'] as String?,
-      );
+    id: map['id'] as String,
+    assetId: map['asset_id'] as String? ?? map['id'] as String,
+    title: map['title'] as String? ?? 'Lesson Video',
+    remoteUrl: map['remote_url'] as String? ?? '',
+    localPath: map['local_path'] as String? ?? '',
+    totalBytes: (map['total_bytes'] as num?)?.toInt() ?? 0,
+    receivedBytes: (map['downloaded_bytes'] as num?)?.toInt() ?? 0,
+    status: DownloadStatus.fromDbString(map['status'] as String? ?? 'FAILED'),
+    retentionDays: (map['retention_days'] as num?)?.toInt() ?? 30,
+    downloadedAt: (map['downloaded_at'] as num?)?.toInt() ?? 0,
+    expiresAt: (map['expires_at'] as num?)?.toInt() ?? 0,
+    encryptionKey: map['encryption_key'] as String?,
+    error: map['error'] as String?,
+  );
 
   DownloadTask copyWith({
     int? receivedBytes,
@@ -147,14 +148,11 @@ class DownloadManager extends StateNotifier<Map<String, DownloadTask>> {
   bool _isProcessingQueue = false;
   static const int maxConcurrentDownloads = 1;
 
-  DownloadManager({
-    Dio? dio,
-    LocalDatabase? localDb,
-    AppConfig? config,
-  })  : _dio = dio ?? Dio(),
-        _localDb = localDb ?? LocalDatabase.instance,
-        _config = config,
-        super({}) {
+  DownloadManager({Dio? dio, LocalDatabase? localDb, AppConfig? config})
+    : _dio = dio ?? Dio(),
+      _localDb = localDb ?? LocalDatabase.instance,
+      _config = config,
+      super({}) {
     init();
   }
 
@@ -328,10 +326,14 @@ class DownloadManager extends StateNotifier<Map<String, DownloadTask>> {
     _isProcessingQueue = true;
 
     try {
-      final activeCount = state.values.where((t) => t.status == DownloadStatus.downloading).length;
+      final activeCount = state.values
+          .where((t) => t.status == DownloadStatus.downloading)
+          .length;
       if (activeCount >= maxConcurrentDownloads) return;
 
-      final queued = state.values.where((t) => t.status == DownloadStatus.queued).toList();
+      final queued = state.values
+          .where((t) => t.status == DownloadStatus.queued)
+          .toList();
       if (queued.isEmpty) return;
 
       final nextTask = queued.first;
@@ -388,13 +390,16 @@ class DownloadManager extends StateNotifier<Map<String, DownloadTask>> {
         totalLength = existingBytes + cl;
       }
 
-      final sink = partFile.openWrite(mode: existingBytes > 0 ? FileMode.append : FileMode.write);
+      final sink = partFile.openWrite(
+        mode: existingBytes > 0 ? FileMode.append : FileMode.write,
+      );
 
       // Unwrap cryptographic per-file DEK and IV using hardware-backed Master Key (ADR-001)
       final masterKey = await EncryptionKeyStorage.getOrCreateKey(
         configuredKey: _config?.encryptionKey,
       );
-      final keyPair = (task.encryptionKey != null && task.encryptionKey!.isNotEmpty)
+      final keyPair =
+          (task.encryptionKey != null && task.encryptionKey!.isNotEmpty)
           ? KeyEncapsulation.unwrapDek(
               wrappedDekBase64: task.encryptionKey!,
               masterKeyBase64: masterKey,
@@ -412,13 +417,17 @@ class DownloadManager extends StateNotifier<Map<String, DownloadTask>> {
         }
 
         // Apply true AES-256-CTR streaming cipher transform at byte offset (ADR-001)
-        final encryptedChunk = cipher.processBytes(Uint8List.fromList(chunk), currentReceived);
+        final encryptedChunk = cipher.processBytes(
+          Uint8List.fromList(chunk),
+          currentReceived,
+        );
 
         sink.add(encryptedChunk);
         currentReceived += chunk.length;
 
         // Throttled UI state updates every 128KB
-        if (currentReceived - downloadingTask.receivedBytes > 131072 || currentReceived >= totalLength) {
+        if (currentReceived - downloadingTask.receivedBytes > 131072 ||
+            currentReceived >= totalLength) {
           state = {
             ...state,
             task.id: task.copyWith(
@@ -480,7 +489,9 @@ class DownloadManager extends StateNotifier<Map<String, DownloadTask>> {
   }
 
   /// Starts an on-the-fly decrypted loopback streaming server for offline video playback (P3-S6)
-  Future<LocalDecryptedVideoServer?> startDecryptedPlaybackServer(String taskIdOrPath) async {
+  Future<LocalDecryptedVideoServer?> startDecryptedPlaybackServer(
+    String taskIdOrPath,
+  ) async {
     // Lookup by task ID or local path
     DownloadTask? task = state[taskIdOrPath];
     if (task == null) {
@@ -538,7 +549,9 @@ class DownloadManager extends StateNotifier<Map<String, DownloadTask>> {
       final nowMs = DateTime.now().millisecondsSinceEpoch;
       final updated = <String, DownloadTask>{};
       state.forEach((id, t) {
-        if (t.expiresAt > 0 && t.expiresAt < nowMs && t.status == DownloadStatus.completed) {
+        if (t.expiresAt > 0 &&
+            t.expiresAt < nowMs &&
+            t.status == DownloadStatus.completed) {
           updated[id] = t.copyWith(status: DownloadStatus.expired);
         } else {
           updated[id] = t;
@@ -556,11 +569,19 @@ class DownloadManager extends StateNotifier<Map<String, DownloadTask>> {
   }
 
   Future<void> deleteDownloadedFile(String id) async {
-    final task = state[id];
-    if (task != null) {
-      final token = _cancelTokens[id];
-      token?.cancel();
+    final token = _cancelTokens[id];
+    token?.cancel();
+    _cancelTokens.remove(id);
 
+    DownloadTask? task = state[id];
+    if (task == null) {
+      final dbRow = await _localDb.getDownloadTask(id);
+      if (dbRow != null) {
+        task = DownloadTask.fromDbMap(dbRow);
+      }
+    }
+
+    if (task != null) {
       final file = File(task.localPath);
       if (await file.exists()) {
         await file.delete();
@@ -569,18 +590,35 @@ class DownloadManager extends StateNotifier<Map<String, DownloadTask>> {
       if (await part.exists()) {
         await part.delete();
       }
+    }
 
-      await _localDb.deleteDownloadTask(id);
-      final updated = Map<String, DownloadTask>.from(state);
-      updated.remove(id);
-      state = updated;
+    await _localDb.deleteDownloadTask(id);
+    final updated = Map<String, DownloadTask>.from(state);
+    updated.remove(id);
+    state = updated;
+  }
+
+  /// Purges all downloaded files and records immediately upon account deactivation or entitlement revocation (ADR-001)
+  Future<void> purgeAllDownloads() async {
+    try {
+      final dbTasks = await _localDb.getDownloadTasks();
+      for (final row in dbTasks) {
+        final id = row['id'] as String?;
+        if (id != null) {
+          await deleteDownloadedFile(id);
+        }
+      }
+      for (final id in state.keys.toList()) {
+        await deleteDownloadedFile(id);
+      }
+      state = {};
+    } catch (e) {
+      debugPrint('Error purging all downloads: $e');
     }
   }
 }
 
 final downloadManagerProvider =
-    StateNotifierProvider<DownloadManager, Map<String, DownloadTask>>(
-  (ref) {
-    return DownloadManager.instance;
-  },
-);
+    StateNotifierProvider<DownloadManager, Map<String, DownloadTask>>((ref) {
+      return DownloadManager.instance;
+    });

@@ -402,6 +402,42 @@ export class MobileSyncService {
             }
         }
 
+        // 5. Persist Chat message into real chat_messages row so web users see offline mobile messages (P3-S4)
+        const isChatApplied = preExistingEvent ? preExistingEvent.applied === true : false;
+        if (!isChatApplied && dto.entityType === 'chat_message' && dto.payload) {
+            const conversationId = dto.payload.conversation_id ?? dto.payload.conversationId;
+            const senderId = dto.payload.sender_id ?? dto.payload.senderId ?? caller.sub;
+            const content = dto.payload.content;
+            const messageId = dto.entityId || dto.clientUuid;
+
+            if (conversationId && senderId && content) {
+                const messageRow: Record<string, any> = {
+                    id: messageId,
+                    tenant_id: caller.tenantId,
+                    conversation_id: conversationId,
+                    sender_id: senderId,
+                    content: content,
+                    created_at: dto.payload.created_at ?? new Date().toISOString(),
+                };
+
+                const { error: chatInsertErr } = await client
+                    .from('chat_messages')
+                    .upsert(messageRow, { onConflict: 'id' });
+
+                if (chatInsertErr) {
+                    this.logger.error(`Failed to persist offline chat message: ${chatInsertErr.message}`);
+                } else {
+                    const eventId = data?.id ?? preExistingEvent?.id;
+                    if (eventId) {
+                        await client
+                            .from('sync_events')
+                            .update({ applied: true })
+                            .eq('id', eventId);
+                    }
+                }
+            }
+        }
+
         await this.touchDeviceActivity(caller.tenantId, caller.sub, data?.sequence ? Number(data.sequence) : undefined, deviceIdOrToken);
 
         return {

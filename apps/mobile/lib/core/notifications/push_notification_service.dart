@@ -5,6 +5,10 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../api/api_client.dart';
+import '../auth/token_storage.dart';
+import '../config/app_config.dart';
+import '../database/local_database.dart';
+import '../download/download_manager.dart';
 import '../sync/sync_service.dart';
 
 /// Top-level background message handler required by Firebase Messaging (ADR-003)
@@ -21,9 +25,46 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
     'Received background push notification: ${message.messageId}, payload: $data',
   );
 
-  if (data['entity_type'] == 'disaster_mode' ||
-      data['sync_required'] == 'true') {
-    debugPrint('Disaster alert or sync payload received via background push.');
+  final isDisaster =
+      data['entity_type'] == 'disaster_mode' || data['type'] == 'disaster_mode';
+  final isSyncRequired =
+      data['sync_required'] == 'true' ||
+      data['content_available'] == 'true' ||
+      isDisaster;
+
+  if (isSyncRequired) {
+    try {
+      final tokenStorage = TokenStorage();
+      final token = await tokenStorage.getAccessToken();
+      if (token != null && token.isNotEmpty) {
+        final config = AppConfig.fromEnvironment();
+        final client = ApiClient(
+          tokenStorage: tokenStorage,
+          baseUrl: config.apiBaseUrl,
+        );
+        final sync = SyncService(
+          apiClient: client,
+          localDb: LocalDatabase.instance,
+          onEntitlementRevoked: (payload) async {
+            final assetId =
+                payload['asset_id'] ?? payload['lesson_id'] ?? payload['id'];
+            if (assetId != null && assetId.toString().isNotEmpty) {
+              await DownloadManager.instance.deleteDownloadedFile(
+                assetId.toString(),
+              );
+            } else {
+              await DownloadManager.instance.purgeAllDownloads();
+            }
+          },
+        );
+        await sync.syncAll(forceDisasterPack: isDisaster);
+        debugPrint(
+          'Background sync completed successfully for push notification.',
+        );
+      }
+    } catch (e) {
+      debugPrint('Background push sync execution failed: $e');
+    }
   }
 }
 

@@ -1,11 +1,13 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 import 'dart:math';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../api/api_client.dart';
 import '../database/local_database.dart';
+import '../download/download_manager.dart';
 
 class SyncResult {
   final int pushedCount;
@@ -47,7 +49,9 @@ class SyncService {
     stopAutoSync();
 
     // 1. Connectivity listener: triggers sync when network becomes available
-    _connectivitySubscription = Connectivity().onConnectivityChanged.listen((results) {
+    _connectivitySubscription = Connectivity().onConnectivityChanged.listen((
+      results,
+    ) {
       final isOnline = results.any((r) => r != ConnectivityResult.none);
       if (isOnline) {
         _currentBackoffMs = _initialBackoffMs;
@@ -76,14 +80,17 @@ class SyncService {
   /// Evaluates backoff delays and triggers sync
   Future<void> triggerAutoSync() async {
     if (_isSyncing) return;
-    if (_nextAllowedSyncTime != null && DateTime.now().isBefore(_nextAllowedSyncTime!)) {
+    if (_nextAllowedSyncTime != null &&
+        DateTime.now().isBefore(_nextAllowedSyncTime!)) {
       return;
     }
 
     final result = await syncAll();
     if (!result.success) {
       // Exponential backoff upon failure
-      _nextAllowedSyncTime = DateTime.now().add(Duration(milliseconds: _currentBackoffMs));
+      _nextAllowedSyncTime = DateTime.now().add(
+        Duration(milliseconds: _currentBackoffMs),
+      );
       _currentBackoffMs = min(_currentBackoffMs * 2, _maxBackoffMs);
     } else {
       // Reset backoff on success
@@ -124,7 +131,28 @@ class SyncService {
           rethrow;
         }
 
-        // Record failed state and reason instead of swallowing and leaving PENDING
+        // Check if transient network error or 5xx server error
+        bool isTransient = false;
+        if (e is DioException) {
+          final type = e.type;
+          final status = e.response?.statusCode;
+          if (type == DioExceptionType.connectionTimeout ||
+              type == DioExceptionType.sendTimeout ||
+              type == DioExceptionType.receiveTimeout ||
+              type == DioExceptionType.connectionError ||
+              (status != null && (status >= 500 || status == 429))) {
+            isTransient = true;
+          }
+        } else if (e is SocketException || e is TimeoutException) {
+          isTransient = true;
+        }
+
+        if (isTransient) {
+          // Do NOT mark as FAILED. Keep event PENDING and abort this pass for exponential retry
+          break;
+        }
+
+        // Record permanent failed state (e.g. 400 Bad Request, 422 Unprocessable)
         String errorMsg = e.toString();
         if (e is DioException) {
           final data = e.response?.data;
@@ -198,7 +226,8 @@ class SyncService {
   Future<void> _recoverFromSnapshot() async {
     final snapshot = await apiClient.getSnapshot();
     // Server returns 'latestSequence' (with fallback to 'lastSequence')
-    final snapSeq = (snapshot['latestSequence'] ?? snapshot['lastSequence']) as int? ?? 0;
+    final snapSeq =
+        (snapshot['latestSequence'] ?? snapshot['lastSequence']) as int? ?? 0;
     await localDb.applySnapshot(snapshot);
     await localDb.setLastSequence(snapSeq);
   }
@@ -224,8 +253,17 @@ class SyncService {
     }
   }
 
+  DateTime? _lastDisasterPackFetch;
+
   /// Downloads active disaster notices, policies, emergency contacts, and evacuation shelters
-  Future<void> fetchDisasterPack() async {
+  /// Throttled to at most once per hour unless force is true (e.g. from silent disaster push)
+  Future<void> fetchDisasterPack({bool force = false}) async {
+    if (!force &&
+        _lastDisasterPackFetch != null &&
+        DateTime.now().difference(_lastDisasterPackFetch!) < const Duration(hours: 1)) {
+      return;
+    }
+
     try {
       final pack = await apiClient.getDisasterPack();
       final contacts = pack['emergencyContacts'] is List
@@ -234,13 +272,14 @@ class SyncService {
       final shelters = await apiClient.getShelters();
 
       await localDb.saveDisasterPack(contacts: contacts, shelters: shelters);
+      _lastDisasterPackFetch = DateTime.now();
     } catch (_) {
       // Offline fallback: keep existing SQLite cached disaster pack intact
     }
   }
 
   /// Full bidirectional synchronization
-  Future<SyncResult> syncAll() async {
+  Future<SyncResult> syncAll({bool forceDisasterPack = false}) async {
     if (_isSyncing) {
       return const SyncResult(
         pushedCount: 0,
@@ -254,7 +293,7 @@ class SyncService {
     try {
       final pushed = await pushOutbox();
       final pulled = await pullSyncEvents();
-      await fetchDisasterPack();
+      await fetchDisasterPack(force: forceDisasterPack);
 
       return SyncResult(
         pushedCount: pushed,
@@ -282,7 +321,19 @@ class SyncService {
 
 final syncServiceProvider = Provider<SyncService>((ref) {
   final apiClient = ref.watch(apiClientProvider);
-  final service = SyncService(apiClient: apiClient, localDb: LocalDatabase.instance);
+  final service = SyncService(
+    apiClient: apiClient,
+    localDb: LocalDatabase.instance,
+    onEntitlementRevoked: (payload) async {
+      final assetId = payload['asset_id'] ?? payload['lesson_id'] ?? payload['id'];
+      if (assetId != null && assetId.toString().isNotEmpty) {
+        await DownloadManager.instance.deleteDownloadedFile(assetId.toString());
+      } else {
+        // Account deactivation or full entitlement revocation (ADR-001)
+        await DownloadManager.instance.purgeAllDownloads();
+      }
+    },
+  );
   ref.onDispose(() => service.dispose());
   return service;
 });

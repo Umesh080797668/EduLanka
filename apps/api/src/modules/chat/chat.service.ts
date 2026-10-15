@@ -1,3 +1,5 @@
+import { randomUUID } from 'node:crypto';
+
 import { UserRole } from '@edu-lanka/shared-types';
 import { Injectable, Logger, ForbiddenException, BadRequestException, NotFoundException, HttpException, HttpStatus } from '@nestjs/common';
 
@@ -163,6 +165,27 @@ export class ChatService {
             this.logger.error(`Failed to save message: ${error.message}`);
             throw error;
         }
+
+        // ADR-002: Append to sync stream so offline mobile devices receive message on catch-up sync
+        try {
+            await this.supabaseService.adminClient.rpc('append_sync_event', {
+                p_tenant_id: tenantId,
+                p_entity_type: 'chat_message',
+                p_entity_id: data.id,
+                p_event_type: 'CREATED',
+                p_payload: {
+                    id: data.id,
+                    conversation_id: data.conversation_id,
+                    sender_id: data.sender_id,
+                    content: data.content,
+                    created_at: data.created_at,
+                },
+                p_client_uuid: randomUUID(),
+            });
+        } catch (syncErr: any) {
+            this.logger.warn(`Failed to append chat sync event: ${syncErr?.message}`);
+        }
+
         return data;
     }
 

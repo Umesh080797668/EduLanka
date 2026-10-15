@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/api/api_client.dart';
 import '../../core/auth/auth_state.dart';
+import '../../core/sync/sync_service.dart';
 import '../disaster/disaster_pack_dialog.dart';
 import '../tutorial/tutorial_engine.dart';
 
@@ -20,6 +21,7 @@ class _AdminHomeScreenState extends ConsumerState<AdminHomeScreen> {
   @override
   void initState() {
     super.initState();
+    ref.read(syncServiceProvider).startAutoSync();
     _loadSyncHealth();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       TutorialEngine.showTourIfUnseen(context, 'phase3_disaster_pack');
@@ -136,7 +138,7 @@ class _AdminHomeScreenState extends ConsumerState<AdminHomeScreen> {
           IconButton(
             icon: const Icon(Icons.logout, color: Colors.white),
             tooltip: 'Sign Out',
-            onPressed: () => ref.read(authProvider.notifier).logout(),
+            onPressed: () => showLogoutConfirmation(context, ref),
           ),
         ],
       ),

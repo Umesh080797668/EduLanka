@@ -20,6 +20,7 @@ class _ParentHomeScreenState extends ConsumerState<ParentHomeScreen> {
   @override
   void initState() {
     super.initState();
+    ref.read(syncServiceProvider).startAutoSync();
     _refreshSyncState();
   }
 
@@ -88,7 +89,7 @@ class _ParentHomeScreenState extends ConsumerState<ParentHomeScreen> {
           IconButton(
             tooltip: 'Sign Out',
             icon: const Icon(Icons.logout_rounded),
-            onPressed: () => ref.read(authProvider.notifier).logout(),
+            onPressed: () => showLogoutConfirmation(context, ref),
           ),
         ],
       ),
