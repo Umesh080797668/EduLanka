@@ -13,6 +13,7 @@ import {
 } from '@nestjs/common';
 
 import { SupabaseService, assertUuid } from '../supabase/supabase.service';
+import { assertCleanContent } from '../../common/utils/profanity-filter';
 import type { AppendSyncEventDto } from './dto/mobile.dto';
 import { getTenantSchoolPolicy } from './mobile-policy.util';
 
@@ -275,9 +276,13 @@ export class MobileSyncService {
                 if (role !== UserRole.TEACHER && role !== UserRole.SCHOOL_ADMIN && role !== UserRole.SUPER_ADMIN) {
                     throw new ForbiddenException('Only teachers and administrators can append educational blog sync events');
                 }
+                assertCleanContent(dto.payload?.title, 'Blog title');
+                assertCleanContent(dto.payload?.content_markdown ?? dto.payload?.contentMarkdown, 'Blog content');
                 break;
 
             case 'blog_comment':
+                assertCleanContent(dto.payload?.content, 'Comment');
+                break;
             case 'blog_reaction':
                 // Both teachers and students can participate in discourse
                 break;
@@ -698,7 +703,24 @@ export class MobileSyncService {
         }
 
         const isGrowthOrAbove = planCode === 'GROWTH' || planCode === 'INSTITUTIONAL';
-        const retentionDays = isGrowthOrAbove ? 30 : 7;
+
+        // Single source of truth: read retention from public.plans
+        let retentionDays = isGrowthOrAbove ? 30 : 7;
+        try {
+            const { data: planInfo } = await this.supabase.adminClient
+                .from('plans')
+                .select('offline_retention_days')
+                .eq('code', planCode)
+                .maybeSingle();
+
+            if (typeof planInfo?.offline_retention_days === 'number' && planInfo.offline_retention_days > 0) {
+                retentionDays = planInfo.offline_retention_days;
+            }
+        } catch {
+            // Fallback to plan tier defaults
+            retentionDays = isGrowthOrAbove ? 30 : 7;
+        }
+
         const offlineVideoEnabled = isGrowthOrAbove;
 
         // 3. Centralized deduplicated school policy lookup

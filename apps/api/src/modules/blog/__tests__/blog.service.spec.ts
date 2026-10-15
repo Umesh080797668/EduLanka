@@ -24,6 +24,7 @@ describe('BlogService', () => {
         tenantId: tenantUuid,
         email: 'teacher@school.lk',
         role: UserRole.TEACHER,
+        tenantPlan: 'GROWTH',
     };
 
     const studentCaller: JwtPayload = {
@@ -31,6 +32,7 @@ describe('BlogService', () => {
         tenantId: tenantUuid,
         email: 'student@school.lk',
         role: UserRole.STUDENT,
+        tenantPlan: 'GROWTH',
     };
 
     beforeEach(async () => {
@@ -508,6 +510,94 @@ describe('BlogService', () => {
 
             expect(result.active).toBe(true);
             expect(result.reactionType).toBe('HELPFUL');
+        });
+    });
+
+    describe('Profanity Filter on Blogs & Comments', () => {
+        it('rejects blog with profanity in title', async () => {
+            await expect(
+                service.createBlog(
+                    {
+                        title: 'What the fuck is this lesson',
+                        contentMarkdown: 'Educational body content',
+                        scope: BlogScope.SCHOOL,
+                    },
+                    teacherCaller,
+                ),
+            ).rejects.toThrow(/Blog title contains inappropriate or offensive language/);
+        });
+
+        it('rejects blog with profanity in markdown content', async () => {
+            await expect(
+                service.createBlog(
+                    {
+                        title: 'Clean Title',
+                        contentMarkdown: 'This is bullshit content',
+                        scope: BlogScope.SCHOOL,
+                    },
+                    teacherCaller,
+                ),
+            ).rejects.toThrow(/Blog content contains inappropriate or offensive language/);
+        });
+
+        it('rejects comment with profanity', async () => {
+            await expect(
+                service.createComment(
+                    blogUuid,
+                    { content: 'You are an asshole' },
+                    studentCaller,
+                ),
+            ).rejects.toThrow(/Comment contains inappropriate or offensive language/);
+        });
+    });
+
+    describe('Plan Gating on Platform Blogs', () => {
+        it('rejects Starter plan teacher from publishing platform blog', async () => {
+            const starterTeacher: JwtPayload = {
+                ...teacherCaller,
+                tenantPlan: 'STARTER',
+            };
+
+            await expect(
+                service.createBlog(
+                    {
+                        title: 'National Blog Attempt',
+                        contentMarkdown: 'National content',
+                        scope: BlogScope.PLATFORM,
+                    },
+                    starterTeacher,
+                ),
+            ).rejects.toThrow(/Platform-wide educational blogs require a Growth or Institutional plan/);
+        });
+
+        it('rejects Starter plan user from directly accessing platform blog', async () => {
+            const starterStudent: JwtPayload = {
+                ...studentCaller,
+                tenantPlan: 'STARTER',
+            };
+
+            mockSupabase.adminClient.from.mockImplementation((table: string) => {
+                if (table === 'blogs') {
+                    return {
+                        select: jest.fn().mockReturnThis(),
+                        eq: jest.fn().mockReturnThis(),
+                        is: jest.fn().mockReturnThis(),
+                        maybeSingle: jest.fn().mockResolvedValue({
+                            data: {
+                                id: blogUuid,
+                                scope: BlogScope.PLATFORM,
+                                title: 'National Science Blog',
+                            },
+                            error: null,
+                        }),
+                    };
+                }
+                return { select: jest.fn().mockReturnThis() };
+            });
+
+            await expect(
+                service.getBlogById(blogUuid, starterStudent),
+            ).rejects.toThrow(/Platform-wide educational blogs require a Growth or Institutional plan/);
         });
     });
 });

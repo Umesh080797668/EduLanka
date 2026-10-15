@@ -40,6 +40,27 @@ export class PaperHubService {
 
     constructor(private readonly supabase: SupabaseService) { }
 
+    private async assertPlanEntitlement(caller: JwtPayload) {
+        if (caller.role === UserRole.SUPER_ADMIN) return;
+
+        let plan = caller.tenantPlan;
+        if (!plan && caller.tenantId) {
+            const { data: tenant } = await this.supabase.adminClient
+                .from('tenants')
+                .select('plan')
+                .eq('id', caller.tenantId)
+                .maybeSingle();
+            plan = tenant?.plan as any;
+        }
+
+        const isGrowthOrAbove = plan === 'GROWTH' || plan === 'INSTITUTIONAL';
+        if (!isGrowthOrAbove) {
+            throw new ForbiddenException(
+                'Past Paper Hub requires a Growth or Institutional plan subscription',
+            );
+        }
+    }
+
     /**
      * Lists national past papers and tenant-specific examination papers.
      */
@@ -55,6 +76,7 @@ export class PaperHubService {
             year?: number;
         },
     ) {
+        await this.assertPlanEntitlement(caller);
         if (caller.tenantId) {
             assertUuid(caller.tenantId, 'tenantId');
         }
@@ -107,6 +129,7 @@ export class PaperHubService {
      * Retrieves a single paper by ID with tenant isolation check.
      */
     async getPaperById(caller: JwtPayload, paperId: string) {
+        await this.assertPlanEntitlement(caller);
         assertUuid(paperId, 'paperId');
 
         const { data, error } = await this.supabase.adminClient
@@ -134,6 +157,7 @@ export class PaperHubService {
      * Uploads a tenant-specific examination paper.
      */
     async createPaper(caller: JwtPayload, dto: CreatePaperDto) {
+        await this.assertPlanEntitlement(caller);
         assertUuid(caller.tenantId, 'tenantId');
         assertUuid(caller.sub, 'userId');
 
@@ -229,6 +253,7 @@ export class PaperHubService {
      * Attaches a marking scheme to an existing paper and marks it paired with ownership checks.
      */
     async attachMarkingScheme(caller: JwtPayload, paperId: string, dto: AttachMarkingSchemeDto) {
+        await this.assertPlanEntitlement(caller);
         assertUuid(paperId, 'paperId');
 
         if (!isAllowedDocumentUrl(dto.markingSchemeUrl)) {

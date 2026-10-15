@@ -17,6 +17,7 @@ import { ClassesModule } from './modules/classes/classes.module';
 import { GradesModule } from './modules/grades/grades.module';
 import { HealthModule } from './modules/health/health.module';
 import { HomeworkModule } from './modules/homework/homework.module';
+import { AttendanceModule } from './modules/attendance/attendance.module';
 import { BlogModule } from './modules/blog/blog.module';
 import { MediaModule } from './modules/media/media.module';
 import { MobileModule } from './modules/mobile/mobile.module';
@@ -151,6 +152,7 @@ import { UsersModule } from './modules/users/users.module';
         MediaModule,
         PaperHubModule,
         HomeworkModule,
+        AttendanceModule,
         BlogModule,
     ],
     providers: [

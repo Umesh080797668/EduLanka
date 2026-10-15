@@ -12,6 +12,7 @@ import {
     BookOpen,
     Building2,
     ChevronsLeft,
+    FileEdit,
     FileText,
     GraduationCap,
     HardDrive,
@@ -90,6 +91,8 @@ const NAV: Record<Role, NavSection[]> = {
             items: [
                 { nameKey: 'dashboard', href: '/teacher', icon: LayoutDashboard, exact: true, id: 'nav-dashboard' },
                 { nameKey: 'classes', href: '/teacher/classes', icon: BookOpen, id: 'nav-classes' },
+                { nameKey: 'attendance', href: '/teacher/attendance', icon: UserCheck, id: 'nav-attendance' },
+                { nameKey: 'homework', href: '/teacher/homework', icon: FileEdit, id: 'nav-homework' },
                 { nameKey: 'gradebook', href: '/teacher/classes', icon: GraduationCap, id: 'nav-gradebook' },
                 { nameKey: 'resources', href: '/teacher/resources', icon: BookOpen, id: 'nav-teacher-resources' },
                 { nameKey: 'blogs', href: '/blogs', icon: Newspaper, id: 'nav-blogs' },

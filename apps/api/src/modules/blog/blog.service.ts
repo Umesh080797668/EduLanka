@@ -9,6 +9,7 @@ import type { JwtPayload } from '@edu-lanka/shared-types';
 import { UserRole } from '@edu-lanka/shared-types';
 import { randomUUID } from 'crypto';
 import { SupabaseService, assertUuid } from '../supabase/supabase.service';
+import { assertCleanContent } from '../../common/utils/profanity-filter';
 import type { CreateBlogDto } from './dto/create-blog.dto';
 import { BlogScope } from './dto/create-blog.dto';
 import type { UpdateBlogDto } from './dto/update-blog.dto';
@@ -21,6 +22,24 @@ export class BlogService {
     private readonly logger = new Logger(BlogService.name);
 
     constructor(private readonly supabase: SupabaseService) { }
+
+    private async isCallerGrowthOrAbove(caller: JwtPayload): Promise<boolean> {
+        if (caller.role === UserRole.SUPER_ADMIN) return true;
+        let plan = caller.tenantPlan;
+        if (!plan && caller.tenantId) {
+            try {
+                const { data: tenant } = await this.supabase.adminClient
+                    .from('tenants')
+                    ?.select('plan')
+                    ?.eq('id', caller.tenantId)
+                    ?.maybeSingle() ?? {};
+                plan = tenant?.plan as any;
+            } catch {
+                plan = undefined;
+            }
+        }
+        return plan === 'GROWTH' || plan === 'INSTITUTIONAL';
+    }
 
     private async getTeacherClassIds(caller: JwtPayload): Promise<string[]> {
         const { data: tRec } = await this.supabase.adminClient
@@ -62,12 +81,45 @@ export class BlogService {
     }
 
     private async emitSyncEvent(
-        tenantId: string,
+        tenantId: string | null,
         entityType: 'blog_post' | 'blog_comment' | 'blog_reaction',
         entityId: string,
         eventType: string,
         payload: Record<string, any>,
+        isPlatformScope = false,
     ) {
+        if (isPlatformScope) {
+            try {
+                // Broadcast across all active Growth+ tenants so nationwide students get offline updates
+                const { data: activeTenants } = await this.supabase.adminClient
+                    .from('tenants')
+                    .select('id, plan')
+                    .eq('status', 'ACTIVE');
+
+                for (const t of (activeTenants ?? [])) {
+                    if (t.plan === 'GROWTH' || t.plan === 'INSTITUTIONAL') {
+                        try {
+                            await this.supabase.adminClient.rpc('append_sync_event', {
+                                p_tenant_id: t.id,
+                                p_entity_type: entityType,
+                                p_entity_id: entityId,
+                                p_event_type: eventType,
+                                p_payload: payload,
+                                p_client_uuid: randomUUID(),
+                            });
+                        } catch (tErr: any) {
+                            this.logger.warn(`Failed to broadcast platform sync event to tenant ${t.id}: ${tErr?.message}`);
+                        }
+                    }
+                }
+            } catch (err: any) {
+                this.logger.warn(`Failed to broadcast platform sync events: ${err?.message}`);
+            }
+            return;
+        }
+
+        if (!tenantId) return;
+
         try {
             await this.supabase.adminClient.rpc('append_sync_event', {
                 p_tenant_id: tenantId,
@@ -121,7 +173,12 @@ export class BlogService {
 
         const rows = data ?? [];
 
-        // Scoping filter
+        // Scoping filter & Plan Gating
+        const isGrowth = await this.isCallerGrowthOrAbove(caller);
+        if (options.scope === BlogScope.PLATFORM && !isGrowth) {
+            throw new ForbiddenException('Platform-wide educational blogs require a Growth or Institutional plan');
+        }
+
         let teacherClasses: string[] = [];
         let studentClass: string | null = null;
         if (caller.role === UserRole.TEACHER) {
@@ -132,7 +189,7 @@ export class BlogService {
 
         const filtered = rows.filter((b: any) => {
             if (caller.role === UserRole.SUPER_ADMIN) return true;
-            if (b.scope === BlogScope.PLATFORM) return true;
+            if (b.scope === BlogScope.PLATFORM) return isGrowth;
             if (b.tenant_id !== caller.tenantId) return false;
             if (b.scope === BlogScope.SCHOOL) return true;
             if (b.scope === BlogScope.CLASS) {
@@ -187,8 +244,13 @@ export class BlogService {
             throw new NotFoundException(`Educational blog ${id} not found`);
         }
 
-        // Check scoping access
-        if (caller.role !== UserRole.SUPER_ADMIN && blog.scope !== BlogScope.PLATFORM) {
+        // Check scoping & plan access
+        if (blog.scope === BlogScope.PLATFORM) {
+            const isGrowth = await this.isCallerGrowthOrAbove(caller);
+            if (!isGrowth) {
+                throw new ForbiddenException('Platform-wide educational blogs require a Growth or Institutional plan');
+            }
+        } else if (caller.role !== UserRole.SUPER_ADMIN) {
             if (blog.tenant_id !== caller.tenantId) {
                 throw new ForbiddenException('Cannot access blog from another school');
             }
@@ -261,11 +323,19 @@ export class BlogService {
         assertUuid(caller.tenantId, 'tenantId');
         assertUuid(caller.sub, 'userId');
 
+        assertCleanContent(dto.title, 'Blog title');
+        assertCleanContent(dto.contentMarkdown, 'Blog content');
+
         if (caller.role !== UserRole.TEACHER && caller.role !== UserRole.SCHOOL_ADMIN && caller.role !== UserRole.SUPER_ADMIN) {
             throw new ForbiddenException('Only teachers and administrators can author educational blogs');
         }
 
         if (dto.scope === BlogScope.PLATFORM) {
+            const isGrowth = await this.isCallerGrowthOrAbove(caller);
+            if (!isGrowth) {
+                throw new ForbiddenException('Platform-wide educational blogs require a Growth or Institutional plan');
+            }
+
             if (caller.role === UserRole.TEACHER) {
                 // Check if teacher is vetted as master teacher
                 const { data: teacher } = await this.supabase.adminClient
@@ -325,8 +395,9 @@ export class BlogService {
             throw new BadRequestException('Failed to create educational blog');
         }
 
-        // Emit sync event for mobile sync
-        await this.emitSyncEvent(caller.tenantId, 'blog_post', data.id, 'CREATED', data);
+        // Emit sync event for mobile sync (fanned out across active tenants if platform-wide)
+        const isPlatform = data.scope === BlogScope.PLATFORM;
+        await this.emitSyncEvent(caller.tenantId, 'blog_post', data.id, 'CREATED', data, isPlatform);
 
         return data;
     }
@@ -338,6 +409,13 @@ export class BlogService {
         assertUuid(caller.tenantId, 'tenantId');
         assertUuid(caller.sub, 'userId');
         assertUuid(id, 'id');
+
+        if (dto.title !== undefined) {
+            assertCleanContent(dto.title, 'Blog title');
+        }
+        if (dto.contentMarkdown !== undefined) {
+            assertCleanContent(dto.contentMarkdown, 'Blog content');
+        }
 
         const { data: blog, error: fetchErr } = await this.supabase.adminClient
             .from('blogs')
@@ -390,7 +468,8 @@ export class BlogService {
             throw new BadRequestException(`Failed to update blog: ${error?.message}`);
         }
 
-        await this.emitSyncEvent(caller.tenantId, 'blog_post', data.id, 'UPDATED', data);
+        const isPlatform = blog.scope === BlogScope.PLATFORM;
+        await this.emitSyncEvent(caller.tenantId, 'blog_post', data.id, 'UPDATED', data, isPlatform);
 
         return data;
     }
@@ -436,7 +515,8 @@ export class BlogService {
             .update({ deleted_at: new Date().toISOString() })
             .eq('id', id);
 
-        await this.emitSyncEvent(caller.tenantId, 'blog_post', id, 'DELETED', { id });
+        const isPlatform = blog.scope === BlogScope.PLATFORM;
+        await this.emitSyncEvent(caller.tenantId, 'blog_post', id, 'DELETED', { id }, isPlatform);
 
         return { success: true };
     }
@@ -450,10 +530,12 @@ export class BlogService {
         assertUuid(caller.sub, 'userId');
         assertUuid(blogId, 'blogId');
 
+        assertCleanContent(dto.content, 'Comment');
+
         // Verify blog exists and is active
         const { data: blog } = await this.supabase.adminClient
             .from('blogs')
-            .select('id, tenant_id')
+            .select('id, tenant_id, scope')
             .eq('id', blogId)
             .is('deleted_at', null)
             .maybeSingle();
@@ -509,7 +591,8 @@ export class BlogService {
             .update({ comments_count: count ?? 1 })
             .eq('id', blogId);
 
-        await this.emitSyncEvent(caller.tenantId, 'blog_comment', data.id, 'CREATED', data);
+        const isPlatform = blog.scope === BlogScope.PLATFORM;
+        await this.emitSyncEvent(caller.tenantId, 'blog_comment', data.id, 'CREATED', data, isPlatform);
 
         return data;
     }
@@ -572,7 +655,8 @@ export class BlogService {
             throw new NotFoundException(`Blog comment ${commentId} not found`);
         }
 
-        await this.emitSyncEvent(caller.tenantId, 'blog_comment', data.id, 'MODERATED', data);
+        const isPlatform = blog?.scope === BlogScope.PLATFORM;
+        await this.emitSyncEvent(caller.tenantId, 'blog_comment', data.id, 'MODERATED', data, isPlatform);
 
         return data;
     }
@@ -631,7 +715,8 @@ export class BlogService {
             .update({ comments_count: count ?? 0 })
             .eq('id', comment.blog_id);
 
-        await this.emitSyncEvent(caller.tenantId, 'blog_comment', commentId, 'DELETED', { id: commentId, blogId: comment.blog_id });
+        const isPlatform = blog?.scope === BlogScope.PLATFORM;
+        await this.emitSyncEvent(caller.tenantId, 'blog_comment', commentId, 'DELETED', { id: commentId, blogId: comment.blog_id }, isPlatform);
 
         return { success: true };
     }
@@ -645,6 +730,14 @@ export class BlogService {
         assertUuid(blogId, 'blogId');
 
         const client = this.supabase.adminClient;
+        let isPlatform = false;
+        try {
+            const { data: blogRec } = await client.from('blogs')?.select('scope')?.eq('id', blogId)?.maybeSingle() ?? {};
+            isPlatform = blogRec?.scope === BlogScope.PLATFORM;
+        } catch {
+            isPlatform = false;
+        }
+
         let query = client
             .from('blog_reactions')
             .select('id, reaction_type')
@@ -668,7 +761,7 @@ export class BlogService {
                 blogId,
                 commentId: dto.commentId,
                 userId: caller.sub,
-            });
+            }, isPlatform);
 
             return { active: false, reactionType: null, totalLikes: newCount };
         } else {
@@ -690,7 +783,7 @@ export class BlogService {
             }
 
             const newCount = await this.updateReactionCount(blogId, dto.commentId);
-            await this.emitSyncEvent(caller.tenantId, 'blog_reaction', data.id, 'ADDED', data);
+            await this.emitSyncEvent(caller.tenantId, 'blog_reaction', data.id, 'ADDED', data, isPlatform);
 
             return { active: true, reactionType: dto.reactionType, totalLikes: newCount };
         }

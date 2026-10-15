@@ -22,6 +22,7 @@ describe('PaperHubService', () => {
         tenantId: tenantA,
         email: 'teacher@tenanta.lk',
         role: UserRole.TEACHER,
+        tenantPlan: 'GROWTH',
     };
 
     const studentTenantB: JwtPayload = {
@@ -29,6 +30,15 @@ describe('PaperHubService', () => {
         tenantId: tenantB,
         email: 'student@tenantb.lk',
         role: UserRole.STUDENT,
+        tenantPlan: 'GROWTH',
+    };
+
+    const starterUser: JwtPayload = {
+        sub: '66666666-6666-6666-6666-666666666666',
+        tenantId: tenantA,
+        email: 'starter@tenanta.lk',
+        role: UserRole.TEACHER,
+        tenantPlan: 'STARTER',
     };
 
     const superAdmin: JwtPayload = {
@@ -241,6 +251,32 @@ describe('PaperHubService', () => {
             process.env['NODE_ENV'] = 'development';
             expect(isAllowedDocumentUrl('https://localhost/paper.pdf')).toBe(true);
             expect(isAllowedDocumentUrl('https://127.0.0.1/paper.pdf')).toBe(true);
+        });
+    });
+
+    describe('Plan Gating (Growth+ Only)', () => {
+        it('rejects Starter plan users from accessing Paper Hub', async () => {
+            await expect(service.listPapers(starterUser, {})).rejects.toThrow(ForbiddenException);
+            await expect(service.listPapers(starterUser, {})).rejects.toThrow(
+                /Past Paper Hub requires a Growth or Institutional plan subscription/,
+            );
+        });
+
+        it('rejects Community plan users from accessing Paper Hub', async () => {
+            const communityUser: JwtPayload = {
+                sub: '77777777-7777-7777-7777-777777777777',
+                tenantId: tenantA,
+                email: 'community@tenanta.lk',
+                role: UserRole.TEACHER,
+                tenantPlan: 'COMMUNITY',
+            };
+            await expect(service.getPaperById(communityUser, paperUuid1)).rejects.toThrow(ForbiddenException);
+        });
+
+        it('allows Super Admin even without Growth plan', async () => {
+            const result = await service.listPapers(superAdmin, {});
+            expect(result).toBeDefined();
+            expect(result.data.length).toBe(1);
         });
     });
 });

@@ -144,21 +144,46 @@ class AppConfig {
           .replaceAll('/v1', '/ws');
     }
 
+    // In release or when not overridden via --dart-define, fallback to project config from google-services.json
+    final String? firebaseApiKey = injectedFirebaseApiKey.isNotEmpty
+        ? injectedFirebaseApiKey
+        : (env.isProduction || kReleaseMode ? '' : null);
+    final String? firebaseProjectId = injectedFirebaseProjectId.isNotEmpty
+        ? injectedFirebaseProjectId
+        : (env.isProduction || kReleaseMode ? '' : null);
+    final String? firebaseMessagingSenderId =
+        injectedFirebaseSenderId.isNotEmpty
+        ? injectedFirebaseSenderId
+        : (env.isProduction || kReleaseMode ? '' : null);
+    final String? firebaseAppId = injectedFirebaseAppId.isNotEmpty
+        ? injectedFirebaseAppId
+        : (env.isProduction || kReleaseMode ? '' : null);
+
     return AppConfig(
       environment: env,
       apiBaseUrl: apiBaseUrl,
       wsBaseUrl: wsBaseUrl,
       sentryDsn: injectedSentryDsn.isNotEmpty ? injectedSentryDsn : null,
       supabaseUrl: injectedSupabaseUrl.isNotEmpty ? injectedSupabaseUrl : null,
-      supabaseAnonKey: injectedSupabaseAnonKey.isNotEmpty ? injectedSupabaseAnonKey : null,
-      firebaseApiKey: injectedFirebaseApiKey.isNotEmpty ? injectedFirebaseApiKey : null,
-      firebaseProjectId: injectedFirebaseProjectId.isNotEmpty ? injectedFirebaseProjectId : null,
-      firebaseMessagingSenderId: injectedFirebaseSenderId.isNotEmpty ? injectedFirebaseSenderId : null,
-      firebaseAppId: injectedFirebaseAppId.isNotEmpty ? injectedFirebaseAppId : null,
-      encryptionKey: injectedEncryptionKey.isNotEmpty ? injectedEncryptionKey : null,
-      offlineLicenseKeyId: injectedLicenseKeyId.isNotEmpty ? injectedLicenseKeyId : null,
-      offlineLicensePublicKey: injectedLicensePublicKey.isNotEmpty ? injectedLicensePublicKey : null,
-      syncfusionLicenseKey: injectedSyncfusionLicense.isNotEmpty ? injectedSyncfusionLicense : null,
+      supabaseAnonKey: injectedSupabaseAnonKey.isNotEmpty
+          ? injectedSupabaseAnonKey
+          : null,
+      firebaseApiKey: firebaseApiKey,
+      firebaseProjectId: firebaseProjectId,
+      firebaseMessagingSenderId: firebaseMessagingSenderId,
+      firebaseAppId: firebaseAppId,
+      encryptionKey: injectedEncryptionKey.isNotEmpty
+          ? injectedEncryptionKey
+          : null,
+      offlineLicenseKeyId: injectedLicenseKeyId.isNotEmpty
+          ? injectedLicenseKeyId
+          : null,
+      offlineLicensePublicKey: injectedLicensePublicKey.isNotEmpty
+          ? injectedLicensePublicKey
+          : null,
+      syncfusionLicenseKey: injectedSyncfusionLicense.isNotEmpty
+          ? injectedSyncfusionLicense
+          : null,
       appVersion: injectedAppVersion,
     );
   }

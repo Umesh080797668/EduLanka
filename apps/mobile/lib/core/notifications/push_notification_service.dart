@@ -80,7 +80,22 @@ class PushNotificationService {
   /// Initializes Firebase and registers device push token with EduLanka backend (ADR-003, P3-S4)
   Future<void> initialize() async {
     try {
-      await Firebase.initializeApp();
+      if (Firebase.apps.isEmpty) {
+        final config = AppConfig.fromEnvironment();
+        if (config.firebaseApiKey != null &&
+            config.firebaseApiKey!.isNotEmpty) {
+          await Firebase.initializeApp(
+            options: FirebaseOptions(
+              apiKey: config.firebaseApiKey!,
+              appId: config.firebaseAppId ?? '',
+              messagingSenderId: config.firebaseMessagingSenderId ?? '',
+              projectId: config.firebaseProjectId ?? '',
+            ),
+          );
+        } else {
+          await Firebase.initializeApp();
+        }
+      }
       FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
 
       final messaging = FirebaseMessaging.instance;
@@ -99,31 +114,33 @@ class PushNotificationService {
         if (_fcmToken != null && _fcmToken!.isNotEmpty) {
           await _registerTokenWithBackend(_fcmToken!);
         }
-
-        // Listen for token rotations
-        messaging.onTokenRefresh.listen((newToken) async {
-          _fcmToken = newToken;
-          await _registerTokenWithBackend(newToken);
-        });
-
-        // Handle foreground notifications
-        FirebaseMessaging.onMessage.listen((RemoteMessage message) {
-          debugPrint(
-            'Foreground push received: ${message.notification?.title}',
-          );
-          final data = message.data;
-          if (data['entity_type'] == 'disaster_mode' ||
-              data['sync_required'] == 'true') {
-            syncService.triggerAutoSync();
-          }
-        });
-
-        // Handle notification clicks when app is in background
-        FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
-          debugPrint('User tapped push notification: ${message.messageId}');
-          syncService.triggerAutoSync();
-        });
+      } else {
+        debugPrint(
+          'Push notification permission denied or dismissed: ${settings.authorizationStatus}',
+        );
       }
+
+      // Listen for token rotations
+      messaging.onTokenRefresh.listen((newToken) async {
+        _fcmToken = newToken;
+        await _registerTokenWithBackend(newToken);
+      });
+
+      // Handle foreground notifications
+      FirebaseMessaging.onMessage.listen((RemoteMessage message) {
+        debugPrint('Foreground push received: ${message.notification?.title}');
+        final data = message.data;
+        if (data['entity_type'] == 'disaster_mode' ||
+            data['sync_required'] == 'true') {
+          syncService.triggerAutoSync();
+        }
+      });
+
+      // Handle notification clicks when app is in background
+      FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
+        debugPrint('User tapped push notification: ${message.messageId}');
+        syncService.triggerAutoSync();
+      });
     } catch (e, stackTrace) {
       debugPrint('FirebaseMessaging setup failed: $e\n$stackTrace');
       // Do not silently swallow — report to Sentry/console
