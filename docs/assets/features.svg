@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="640" viewBox="0 0 1280 640" font-family="'Segoe UI',Inter,Helvetica,Arial,sans-serif">
+<defs>
+<linearGradient id="t" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#2DD4BF"/><stop offset="1" stop-color="#0EA5E9"/></linearGradient>
+<linearGradient id="o" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#FBBF24"/><stop offset="1" stop-color="#F97316"/></linearGradient>
+<linearGradient id="p" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#A78BFA"/><stop offset="1" stop-color="#6366F1"/></linearGradient>
+<linearGradient id="r" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#FB7185"/><stop offset="1" stop-color="#E11D48"/></linearGradient>
+<linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#4ADE80"/><stop offset="1" stop-color="#059669"/></linearGradient>
+<linearGradient id="b" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#60A5FA"/><stop offset="1" stop-color="#2563EB"/></linearGradient>
+<linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#0B1F3A"/><stop offset="1" stop-color="#0A2E45"/></linearGradient>
+</defs>
+<rect width="1280" height="640" rx="24" fill="url(#bg)"/>
+<g stroke="#fff" stroke-opacity=".1" fill="#fff" fill-opacity=".045">
+<rect x="40" y="40" width="388" height="270" rx="20"/><rect x="446" y="40" width="388" height="270" rx="20"/><rect x="852" y="40" width="388" height="270" rx="20"/>
+<rect x="40" y="330" width="388" height="270" rx="20"/><rect x="446" y="330" width="388" height="270" rx="20"/><rect x="852" y="330" width="388" height="270" rx="20"/></g>
+<!-- icons -->
+<g stroke="#fff" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round">
+<rect x="68" y="68" width="60" height="60" rx="16" fill="url(#t)" stroke="none"/><path d="M82 106a10 10 0 012-19 14 14 0 0126 3 8 8 0 01-2 16zM88 96l12 12M100 96l-12 12" transform="translate(-1,0)"/>
+<rect x="474" y="68" width="60" height="60" rx="16" fill="url(#o)" stroke="none"/><path d="M504 82v16M504 106v1.5M488 112l16-30 16 30z" transform="translate(0,-2)"/>
+<rect x="880" y="68" width="60" height="60" rx="16" fill="url(#p)" stroke="none"/><path d="M892 84h36v22h-16l-8 8v-8h-12z"/>
+<rect x="68" y="358" width="60" height="60" rx="16" fill="url(#r)" stroke="none"/><rect x="82" y="376" width="32" height="24" rx="4"/><path d="M96 384l8 4-8 4z" fill="#fff"/>
+<rect x="474" y="358" width="60" height="60" rx="16" fill="url(#g)" stroke="none"/><path d="M490 376h28M490 388h20M490 400h24"/><circle cx="520" cy="400" r="0"/>
+<rect x="880" y="358" width="60" height="60" rx="16" fill="url(#b)" stroke="none"/><path d="M894 400l10-12 8 6 12-16"/>
+</g>
+<g fill="#fff">
+<text x="68" y="168" font-size="23" font-weight="700">Offline-first mobile</text>
+<text x="474" y="168" font-size="23" font-weight="700">Disaster Mode</text>
+<text x="880" y="168" font-size="23" font-weight="700">Real-time chat and notices</text>
+<text x="68" y="458" font-size="23" font-weight="700">Encrypted video lessons</text>
+<text x="474" y="458" font-size="23" font-weight="700">Sinhala · Tamil · English</text>
+<text x="880" y="458" font-size="23" font-weight="700">Platform analytics</text></g>
+<g fill="#B6D3E6" font-size="16">
+<text x="68" y="198">Mark attendance and read lessons with no</text><text x="68" y="222">signal. A local encrypted database queues</text><text x="68" y="246">every write and syncs when you reconnect.</text>
+<text x="474" y="198">One tap alerts every parent by SMS and</text><text x="474" y="222">push when floods or cyclones close a school,</text><text x="474" y="246">and caches an emergency pack for offline.</text>
+<text x="880" y="198">Class groups, direct messages, moderation</text><text x="880" y="222">and targeted notices with read and</text><text x="880" y="246">acknowledgement tracking.</text>
+<text x="68" y="488">Lesson videos download encrypted and play</text><text x="68" y="512">only inside the app, with licensed offline</text><text x="68" y="536">access for the right plan.</text>
+<text x="474" y="488">One translation set shared by web and</text><text x="474" y="512">mobile, so every parent and student reads</text><text x="474" y="536">the app in their own language.</text>
+<text x="880" y="488">A separate, read-only service gives platform</text><text x="880" y="512">admins usage, billing and sync health across</text><text x="880" y="536">every school.</text></g>
+<g font-size="13" font-weight="700" letter-spacing="1.2">
+<text x="68" y="285" fill="#2DD4BF">DRIFT · SQLCIPHER · OUTBOX</text>
+<text x="474" y="285" fill="#FBBF24">TWILIO · FCM · EMERGENCY PACK</text>
+<text x="880" y="285" fill="#A78BFA">WEBSOCKETS · READ RECEIPTS</text>
+<text x="68" y="575" fill="#FB7185">AES-CTR · KEYSTORE · LICENCE</text>
+<text x="474" y="575" fill="#4ADE80">NEXT-INTL · SHARED KEYS</text>
+<text x="880" y="575" fill="#60A5FA">ISOLATED · READ-ONLY ROLE</text></g>
+</svg>

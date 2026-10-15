@@ -1,0 +1,55 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="520" viewBox="0 0 1280 520" font-family="'Segoe UI',Inter,Helvetica,Arial,sans-serif">
+<defs>
+<linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#071428"/><stop offset=".55" stop-color="#0B2A4A"/><stop offset="1" stop-color="#0F766E"/></linearGradient>
+<linearGradient id="gl" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#FBBF24"/><stop offset="1" stop-color="#F97316"/></linearGradient>
+<linearGradient id="tl" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#2DD4BF"/><stop offset="1" stop-color="#0EA5E9"/></linearGradient>
+<radialGradient id="glow" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="#2DD4BF" stop-opacity=".35"/><stop offset="1" stop-color="#2DD4BF" stop-opacity="0"/></radialGradient>
+<pattern id="dots" width="28" height="28" patternUnits="userSpaceOnUse"><circle cx="2" cy="2" r="1.3" fill="#fff" fill-opacity=".08"/></pattern>
+<filter id="sh" x="-20%" y="-20%" width="140%" height="150%"><feDropShadow dx="0" dy="18" stdDeviation="18" flood-color="#000" flood-opacity=".45"/></filter>
+</defs>
+<rect width="1280" height="520" fill="url(#bg)"/><rect width="1280" height="520" fill="url(#dots)"/>
+<circle cx="930" cy="260" r="330" fill="url(#glow)"/>
+<!-- wordmark -->
+<g transform="translate(70,92)">
+<rect width="64" height="64" rx="18" fill="url(#tl)"/>
+<path d="M32 46V22M32 22c-5-4-12-5-18-3v22c6-2 13-1 18 3 5-4 12-5 18-3V19c-6-2-13-1-18 3z" fill="none" stroke="#fff" stroke-width="3.4" stroke-linejoin="round" stroke-linecap="round"/>
+<text x="84" y="46" font-size="46" font-weight="800" fill="#fff" letter-spacing="-1">Edu<tspan fill="url(#gl)">Lanka</tspan></text>
+</g>
+<text x="70" y="230" font-size="40" font-weight="700" fill="#fff" letter-spacing="-.5">One platform for</text>
+<text x="70" y="278" font-size="40" font-weight="700" fill="#fff" letter-spacing="-.5">every school in <tspan fill="url(#gl)">Sri Lanka.</tspan></text>
+<text x="70" y="322" font-size="19" fill="#B6D3E6">Management, parent communication and offline learning,</text>
+<text x="70" y="348" font-size="19" fill="#B6D3E6">built for classrooms where the signal comes and goes.</text>
+<!-- pills -->
+<g font-size="15" font-weight="600" fill="#fff">
+<rect x="70" y="392" width="150" height="38" rx="19" fill="#fff" fill-opacity=".12" stroke="#fff" stroke-opacity=".25"/><text x="145" y="416" text-anchor="middle">Offline-first</text>
+<rect x="232" y="392" width="190" height="38" rx="19" fill="#fff" fill-opacity=".12" stroke="#fff" stroke-opacity=".25"/><text x="327" y="416" text-anchor="middle">Multi-tenant SaaS</text>
+<rect x="434" y="392" width="224" height="38" rx="19" fill="#fff" fill-opacity=".12" stroke="#fff" stroke-opacity=".25"/><text x="546" y="416" text-anchor="middle">Sinhala · Tamil · English</text>
+</g>
+<g font-size="13" fill="#7FB4CC" font-weight="600" letter-spacing="1.5"><text x="70" y="480">NEXT.JS · NESTJS · FLUTTER · SUPABASE</text></g>
+<!-- browser -->
+<g filter="url(#sh)"><rect x="700" y="86" width="480" height="300" rx="16" fill="#F8FAFC"/>
+<path d="M700 102a16 16 0 0116-16h448a16 16 0 0116 16v26H700z" fill="#E2E8F0"/>
+<circle cx="722" cy="107" r="5" fill="#F87171"/><circle cx="740" cy="107" r="5" fill="#FBBF24"/><circle cx="758" cy="107" r="5" fill="#34D399"/>
+<rect x="790" y="98" width="260" height="18" rx="9" fill="#fff"/>
+<rect x="700" y="128" width="96" height="258" fill="#0B2A4A"/><path d="M700 370v0a16 16 0 0016 16h80v-16z" fill="#0B2A4A"/>
+<g fill="#fff" fill-opacity=".85"><rect x="714" y="148" width="60" height="8" rx="4"/></g>
+<g fill="#fff" fill-opacity=".35"><rect x="714" y="176" width="52" height="7" rx="3.5"/><rect x="714" y="198" width="64" height="7" rx="3.5"/><rect x="714" y="220" width="46" height="7" rx="3.5"/><rect x="714" y="242" width="58" height="7" rx="3.5"/></g>
+<rect x="708" y="170" width="80" height="19" rx="6" fill="#14B8A6" fill-opacity=".35"/>
+<g><rect x="816" y="146" width="108" height="64" rx="10" fill="#fff" stroke="#E2E8F0"/><text x="830" y="170" font-size="11" fill="#64748B">Students</text><text x="830" y="196" font-size="22" font-weight="700" fill="#0B2A4A">1,284</text>
+<rect x="936" y="146" width="108" height="64" rx="10" fill="#fff" stroke="#E2E8F0"/><text x="950" y="170" font-size="11" fill="#64748B">Attendance</text><text x="950" y="196" font-size="22" font-weight="700" fill="#0F766E">96.4%</text>
+<rect x="1056" y="146" width="108" height="64" rx="10" fill="#fff" stroke="#E2E8F0"/><text x="1070" y="170" font-size="11" fill="#64748B">Notices</text><text x="1070" y="196" font-size="22" font-weight="700" fill="#F97316">12</text></g>
+<rect x="816" y="224" width="348" height="146" rx="10" fill="#fff" stroke="#E2E8F0"/>
+<g fill="url(#tl)"><rect x="836" y="318" width="22" height="34" rx="4"/><rect x="872" y="298" width="22" height="54" rx="4"/><rect x="908" y="308" width="22" height="44" rx="4"/><rect x="944" y="282" width="22" height="70" rx="4"/><rect x="980" y="292" width="22" height="60" rx="4"/><rect x="1016" y="266" width="22" height="86" rx="4"/><rect x="1052" y="276" width="22" height="76" rx="4"/><rect x="1088" y="250" width="22" height="102" rx="4"/><rect x="1124" y="260" width="22" height="92" rx="4"/></g>
+<text x="836" y="246" font-size="12" font-weight="600" fill="#0B2A4A">Weekly attendance</text></g>
+<!-- phone -->
+<g filter="url(#sh)"><rect x="1042" y="170" width="170" height="320" rx="28" fill="#0F172A"/><rect x="1050" y="178" width="154" height="304" rx="22" fill="#F8FAFC"/>
+<rect x="1100" y="186" width="54" height="10" rx="5" fill="#0F172A"/>
+<rect x="1050" y="204" width="154" height="46" fill="url(#tl)"/><text x="1064" y="232" font-size="14" font-weight="700" fill="#fff">Grade 8 · Roll call</text>
+<rect x="1060" y="260" width="134" height="26" rx="13" fill="#FEF3C7"/><circle cx="1076" cy="273" r="5" fill="#F59E0B"/><text x="1088" y="277" font-size="11" font-weight="600" fill="#92400E">Offline · 3 queued</text>
+<g font-size="11" fill="#0B2A4A" font-weight="600">
+<rect x="1060" y="298" width="134" height="34" rx="8" fill="#fff" stroke="#E2E8F0"/><circle cx="1078" cy="315" r="9" fill="#CCFBF1"/><path d="M1073 315l4 4 7-8" stroke="#0F766E" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/><text x="1094" y="319">Nimal P.</text>
+<rect x="1060" y="340" width="134" height="34" rx="8" fill="#fff" stroke="#E2E8F0"/><circle cx="1078" cy="357" r="9" fill="#CCFBF1"/><path d="M1073 357l4 4 7-8" stroke="#0F766E" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/><text x="1094" y="361">Kavindi S.</text>
+<rect x="1060" y="382" width="134" height="34" rx="8" fill="#fff" stroke="#E2E8F0"/><circle cx="1078" cy="399" r="9" fill="#FEE2E2"/><path d="M1074 395l8 8M1082 395l-8 8" stroke="#DC2626" stroke-width="2.2" stroke-linecap="round"/><text x="1094" y="403">Arun T.</text>
+</g>
+<rect x="1060" y="430" width="134" height="32" rx="16" fill="#0B2A4A"/><text x="1127" y="451" font-size="12" font-weight="700" fill="#fff" text-anchor="middle">Save · syncs later</text></g>
+</svg>
