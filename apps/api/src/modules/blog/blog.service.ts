@@ -4,6 +4,7 @@ import {
     NotFoundException,
     ForbiddenException,
     BadRequestException,
+    PayloadTooLargeException,
 } from '@nestjs/common';
 import type { JwtPayload } from '@edu-lanka/shared-types';
 import { UserRole } from '@edu-lanka/shared-types';
@@ -367,6 +368,20 @@ export class BlogService {
             }
         }
 
+        if (dto.attachments && dto.attachments.length > 0) {
+            const { data: usage } = await this.supabase.adminClient
+                .from('tenant_storage_usage')
+                .select('is_quota_exceeded, storage_quota_gb')
+                .eq('tenant_id', caller.tenantId)
+                .maybeSingle();
+
+            if (usage?.is_quota_exceeded) {
+                throw new PayloadTooLargeException(
+                    `Tenant storage quota of ${usage.storage_quota_gb} GB exceeded. Upgrade plan to attach media to blogs.`,
+                );
+            }
+        }
+
         const authorName = await this.getUserDisplayName(caller.sub);
         const tenantId = dto.scope === BlogScope.PLATFORM ? null : caller.tenantId;
 
@@ -451,9 +466,22 @@ export class BlogService {
 
         if (dto.title !== undefined) updatePayload.title = dto.title;
         if (dto.contentMarkdown !== undefined) updatePayload.content_markdown = dto.contentMarkdown;
-        if (dto.coverImageUrl !== undefined) updatePayload.cover_image_url = dto.coverImageUrl;
-        if (dto.attachments !== undefined) updatePayload.attachments = dto.attachments;
-        if (dto.tags !== undefined) updatePayload.tags = dto.tags;
+        if (dto.attachments !== undefined) {
+            if (dto.attachments.length > 0) {
+                const { data: usage } = await this.supabase.adminClient
+                    .from('tenant_storage_usage')
+                    .select('is_quota_exceeded, storage_quota_gb')
+                    .eq('tenant_id', caller.tenantId)
+                    .maybeSingle();
+
+                if (usage?.is_quota_exceeded) {
+                    throw new PayloadTooLargeException(
+                        `Tenant storage quota of ${usage.storage_quota_gb} GB exceeded. Upgrade plan to attach media to blogs.`,
+                    );
+                }
+            }
+            updatePayload.attachments = dto.attachments;
+        }
         if (dto.isPublished !== undefined) updatePayload.is_published = dto.isPublished;
         if (dto.isPinned !== undefined) updatePayload.is_pinned = dto.isPinned;
 
@@ -548,13 +576,17 @@ export class BlogService {
             assertUuid(dto.parentId, 'parentId');
             const { data: parent } = await this.supabase.adminClient
                 .from('blog_comments')
-                .select('id, blog_id')
+                .select('id, blog_id, parent_id')
                 .eq('id', dto.parentId)
                 .is('deleted_at', null)
                 .maybeSingle();
 
             if (!parent || parent.blog_id !== blogId) {
                 throw new BadRequestException('Parent comment does not exist on this blog post');
+            }
+
+            if (parent.parent_id !== null) {
+                throw new BadRequestException('Threaded replies cannot exceed a maximum nesting depth of 2 levels');
             }
         }
 

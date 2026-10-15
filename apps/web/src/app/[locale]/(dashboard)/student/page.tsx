@@ -2,13 +2,14 @@
 
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Bell, Calendar, FileText } from 'lucide-react';
+import { Bell, Calendar, FileText, ShieldAlert } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 
 import { Link } from '@/i18n/routing';
 import { apiClient } from '@/lib/api-client';
 import { HelpButton } from '@/components/HelpButton';
 import { TutorialProvider } from '@/components/TutorialProvider';
+import { DisasterPackModal } from '@/components/DisasterPackModal';
 import NoticeFeed from '@/components/notices/NoticeFeed';
 import { Badge } from '@/components/ui/Badge';
 import {
@@ -32,6 +33,7 @@ export default function StudentDashboard() {
     const t = useTranslations('StudentDashboard');
     const tn = useTranslations('Notices');
     const [studentInfo, setStudentInfo] = useState<StudentInfo | null>(null);
+    const [disasterPackOpen, setDisasterPackOpen] = useState(false);
 
     useEffect(() => {
         const init = async () => {
@@ -125,6 +127,19 @@ export default function StudentDashboard() {
                                     </span>
                                 </Link>
 
+                                <button
+                                    type="button"
+                                    onClick={() => setDisasterPackOpen(true)}
+                                    className="group flex flex-col items-center justify-center gap-3 rounded-card border border-border bg-muted/50 px-4 py-6 text-center transition-colors hover:border-danger-400/40 hover:bg-danger-50/50 dark:hover:bg-danger-950/20 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+                                >
+                                    <span className="grid size-11 place-items-center rounded-full bg-card text-danger-600 shadow-xs transition-transform group-hover:scale-105">
+                                        <ShieldAlert className="size-5" />
+                                    </span>
+                                    <span className="text-[13px] font-semibold text-foreground">
+                                        Emergency Pack
+                                    </span>
+                                </button>
+
                                 <div
                                     aria-disabled
                                     className="relative flex cursor-not-allowed flex-col items-center justify-center gap-3 overflow-hidden rounded-card border border-border bg-muted/40 px-4 py-6 text-center opacity-75"
@@ -142,6 +157,12 @@ export default function StudentDashboard() {
                             </CardContent>
                         </Card>
                     </motion.div>
+
+                    {/* Disaster Pack Modal for Student */}
+                    <DisasterPackModal
+                        isOpen={disasterPackOpen}
+                        onClose={() => setDisasterPackOpen(false)}
+                    />
 
                     {/* ── Notices ───────────────────────────────────────────── */}
                     <motion.div

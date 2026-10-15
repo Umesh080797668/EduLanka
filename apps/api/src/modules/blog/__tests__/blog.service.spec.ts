@@ -1,6 +1,6 @@
 import type { JwtPayload } from '@edu-lanka/shared-types';
 import { UserRole } from '@edu-lanka/shared-types';
-import { ForbiddenException } from '@nestjs/common';
+import { ForbiddenException, BadRequestException, PayloadTooLargeException } from '@nestjs/common';
 import type { TestingModule } from '@nestjs/testing';
 import { Test } from '@nestjs/testing';
 import { SupabaseService } from '../../supabase/supabase.service';
@@ -216,6 +216,71 @@ describe('BlogService', () => {
 
             expect(comment.id).toBe(commentUuid);
             expect(comment.author_id).toBe(studentUuid);
+        });
+
+        it('should reject threaded reply exceeding maximum nesting depth of 2 levels', async () => {
+            mockSupabase.adminClient.from.mockImplementation((table: string) => {
+                if (table === 'blogs') {
+                    return {
+                        select: jest.fn().mockReturnThis(),
+                        eq: jest.fn().mockReturnThis(),
+                        is: jest.fn().mockReturnThis(),
+                        maybeSingle: jest.fn().mockResolvedValue({
+                            data: { id: blogUuid, tenant_id: tenantUuid, scope: BlogScope.SCHOOL },
+                        }),
+                    };
+                }
+                if (table === 'blog_comments') {
+                    return {
+                        select: jest.fn().mockReturnThis(),
+                        eq: jest.fn().mockReturnThis(),
+                        is: jest.fn().mockReturnThis(),
+                        maybeSingle: jest.fn().mockResolvedValue({
+                            data: {
+                                id: commentUuid,
+                                blog_id: blogUuid,
+                                parent_id: '77777777-7777-7777-7777-777777777777', // Already a nested reply
+                            },
+                        }),
+                    };
+                }
+                return { select: jest.fn().mockReturnThis() };
+            });
+
+            await expect(
+                service.createComment(
+                    blogUuid,
+                    { content: 'Deep reply', parentId: commentUuid },
+                    studentCaller,
+                ),
+            ).rejects.toThrow(BadRequestException);
+        });
+
+        it('should reject blog creation when attachments exceed storage quota', async () => {
+            mockSupabase.adminClient.from.mockImplementation((table: string) => {
+                if (table === 'tenant_storage_usage') {
+                    return {
+                        select: jest.fn().mockReturnThis(),
+                        eq: jest.fn().mockReturnThis(),
+                        maybeSingle: jest.fn().mockResolvedValue({
+                            data: { is_quota_exceeded: true, storage_quota_gb: 10 },
+                        }),
+                    };
+                }
+                return { select: jest.fn().mockReturnThis() };
+            });
+
+            await expect(
+                service.createBlog(
+                    {
+                        title: 'Lecture with large attachments',
+                        contentMarkdown: 'Physics slides attached',
+                        scope: BlogScope.SCHOOL,
+                        attachments: [{ name: 'slides.pdf', url: 'https://res.cloudinary.com/test/raw/slides.pdf', fileSizeBytes: 5000000 }],
+                    },
+                    teacherCaller,
+                ),
+            ).rejects.toThrow(PayloadTooLargeException);
         });
 
         it('should reject unvetted teacher from creating platform-wide blog', async () => {

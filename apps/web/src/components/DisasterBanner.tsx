@@ -7,6 +7,7 @@ import { useTranslations } from 'next-intl';
 import { apiClient } from '@/lib/api-client';
 import { Dialog } from '@/components/ui/Dialog';
 import { Button } from '@/components/ui/Button';
+import { DisasterPackModal } from './DisasterPackModal';
 
 interface TenantStatsResponse {
     name?: string;
@@ -20,6 +21,7 @@ export default function DisasterBanner() {
     const t = useTranslations('DisasterMode');
     const [stats, setStats] = React.useState<TenantStatsResponse | null>(null);
     const [showExplanation, setShowExplanation] = React.useState(false);
+    const [showPack, setShowPack] = React.useState(false);
 
     const formatReason = React.useCallback(
         (raw?: string | null): string => {
@@ -123,6 +125,16 @@ export default function DisasterBanner() {
                             type="button"
                             size="sm"
                             variant="secondary"
+                            onClick={() => setShowPack(true)}
+                            className="bg-white/20 text-white hover:bg-white/30 border-white/30 text-xs font-semibold backdrop-blur-sm"
+                        >
+                            <ShieldAlert className="size-3.5 mr-1 text-white" />
+                            Emergency Pack & Contacts
+                        </Button>
+                        <Button
+                            type="button"
+                            size="sm"
+                            variant="secondary"
                             onClick={() => setShowExplanation(true)}
                             className="bg-white/15 text-white hover:bg-white/25 border-white/20 text-xs font-semibold backdrop-blur-sm"
                         >
@@ -132,6 +144,12 @@ export default function DisasterBanner() {
                     </div>
                 </div>
             </aside>
+
+            {/* Disaster Pack & Contacts Modal */}
+            <DisasterPackModal
+                isOpen={showPack}
+                onClose={() => setShowPack(false)}
+            />
 
             {/* Explanation Modal */}
             <Dialog

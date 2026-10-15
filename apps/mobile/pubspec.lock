@@ -169,14 +169,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.35.2"
-  drift_sqflite:
-    dependency: "direct main"
-    description:
-      name: drift_sqflite
-      sha256: dd1afbd72555b7a72ebf053926078d8c302059af4f1eb22040fc27a056429acb
-      url: "https://pub.dev"
-    source: hosted
-    version: "2.0.1"
   encrypt:
     dependency: "direct main"
     description:

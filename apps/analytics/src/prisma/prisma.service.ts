@@ -1,6 +1,17 @@
 import { Injectable, OnModuleInit, OnModuleDestroy, Logger } from '@nestjs/common';
 import { Pool } from 'pg';
 
+/**
+ * Super Admin Analytics Database Service (P3-S9)
+ * 
+ * Architectural Note:
+ * Per EduLanka-Phased-Blueprint.md § 3.9, the analytics microservice performs high-performance,
+ * cross-tenant read-only aggregation queries for Super Admins.
+ * To avoid schema duplication, runtime CLI generation overhead, and cold-start latency,
+ * this service uses direct PostgreSQL connection pooling (`pg.Pool`) while fulfilling the
+ * blueprint's `PrismaService` interface contract (`query` and `writeQuery`).
+ * No `schema.prisma` or `prisma generate` step is required in Docker or CI.
+ */
 @Injectable()
 export class PrismaService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(PrismaService.name);

@@ -266,5 +266,133 @@ void main() {
         expect((await db.getChatMessages('c1')).length, 0);
       },
     );
+
+    test(
+      'queues and replays offline blog comment, threaded reply, and reaction mutations end-to-end',
+      () async {
+        final db = LocalDatabase.instance;
+        final fakeApi = FakeApiClient();
+        final syncService = SyncService(apiClient: fakeApi, localDb: db);
+
+        // Prepopulate a blog
+        await db.saveSyncedBlogPost({
+          'id': 'b100',
+          'title': 'Mechanics & Newton Laws',
+          'content_markdown': 'Full lecture notes on mechanics...',
+          'scope': 'SCHOOL',
+          'author_name': 'Dr. Silva',
+          'created_at': DateTime.now().toIso8601String(),
+        });
+
+        // 1. Save offline comment
+        await db.saveOfflineComment(
+          blogId: 'b100',
+          authorId: 'u-std-1',
+          authorName: 'Nimal',
+          authorRole: 'STUDENT',
+          content: 'Is momentum conserved in inelastic collisions?',
+        );
+
+        final offlineComments = await db.getOfflineCommentsForBlog('b100');
+        expect(offlineComments.length, 1);
+        final parentCommentId = offlineComments.first['id'] as String;
+        expect(offlineComments.first['content'], 'Is momentum conserved in inelastic collisions?');
+        expect(offlineComments.first['sync_status'], 'PENDING');
+
+        // 2. Save offline threaded reply
+        await db.saveOfflineComment(
+          blogId: 'b100',
+          parentId: parentCommentId,
+          authorId: 'u-tch-1',
+          authorName: 'Dr. Silva',
+          authorRole: 'TEACHER',
+          content: 'Yes, total momentum is always conserved regardless of kinetic energy loss.',
+        );
+
+        final allComments = await db.getOfflineCommentsForBlog('b100');
+        expect(allComments.length, 2);
+
+        // 3. Save offline reactions
+        await db.saveOfflineReaction(
+          blogId: 'b100',
+          commentId: null,
+          userId: 'u-std-1',
+          reactionType: 'HELPFUL',
+        );
+
+        await db.saveOfflineReaction(
+          blogId: null,
+          commentId: parentCommentId,
+          userId: 'u-tch-1',
+          reactionType: 'INSIGHTFUL',
+        );
+
+        final blogReactions = await db.getOfflineReactionsForBlog('b100');
+        expect(blogReactions.length, 1);
+        expect(blogReactions.first['reaction_type'], 'HELPFUL');
+
+        // Verify outbox has 4 pending mutations
+        expect(await db.getPendingOutboxCount(), 4);
+
+        // 4. Replay outbox to server
+        final pushedCount = await syncService.pushOutbox();
+        expect(pushedCount, 4);
+        expect(fakeApi.appendCalls.length, 4);
+
+        final entityTypes = fakeApi.appendCalls.map((c) => c['entityType']).toList();
+        expect(entityTypes, containsAll(['blog_comment', 'blog_reaction']));
+
+        // Verify outbox is now empty (synced)
+        expect(await db.getPendingOutboxCount(), 0);
+
+        // 5. Test pulling down blog sync events from server
+        fakeApi.onGetEvents = (since, limit) {
+          return {
+            'latestSequence': 120,
+            'hasMore': false,
+            'events': [
+              {
+                'sequence': 119,
+                'entity_type': 'blog_comment',
+                'event_type': 'CREATED',
+                'payload': {
+                  'id': 'c-server-1',
+                  'blog_id': 'b100',
+                  'author_id': 'u-server-1',
+                  'author_name': 'Sunil',
+                  'author_role': 'STUDENT',
+                  'content': 'Thank you teacher!',
+                  'created_at': DateTime.now().toIso8601String(),
+                },
+              },
+              {
+                'sequence': 120,
+                'entity_type': 'blog_reaction',
+                'event_type': 'CREATED',
+                'payload': {
+                  'id': 'r-server-1',
+                  'blog_id': 'b100',
+                  'user_id': 'u-server-1',
+                  'reaction_type': 'LIKE',
+                  'created_at': DateTime.now().toIso8601String(),
+                },
+              },
+            ],
+          };
+        };
+
+        final pullCount = await syncService.pullSyncEvents();
+        expect(pullCount, 2);
+        expect(await db.getLastSequence(), 120);
+
+        final updatedComments = await db.getOfflineCommentsForBlog('b100');
+        expect(updatedComments.length, 3);
+        expect(updatedComments.any((c) => c['id'] == 'c-server-1'), isTrue);
+
+        final updatedReactions = await db.getOfflineReactionsForBlog('b100');
+        expect(updatedReactions.length, 2);
+        expect(updatedReactions.any((r) => r['id'] == 'r-server-1'), isTrue);
+      },
+    );
   });
 }

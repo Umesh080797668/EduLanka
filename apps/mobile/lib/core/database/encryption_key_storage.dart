@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:math';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 class EncryptionKeyStorage {
@@ -12,21 +13,26 @@ class EncryptionKeyStorage {
   static String? _cachedKey;
 
   /// Retrieves or cryptographically generates a 256-bit AES encryption passphrase (ADR-005).
-  /// Checks compile-time or configured ENCRYPTION_KEY first, followed by secure hardware storage.
+  /// In debug/test environments, configuredKey or compile-time ENCRYPTION_KEY can be used.
+  /// In production release mode, keys are strictly generated and retrieved from hardware secure storage.
   static Future<String> getOrCreateKey({String? configuredKey}) async {
     if (_cachedKey != null && _cachedKey!.isNotEmpty) {
       return _cachedKey!;
     }
 
-    if (configuredKey != null && configuredKey.isNotEmpty) {
-      _cachedKey = configuredKey;
-      return configuredKey;
-    }
+    // In release mode, compile-time static keys are strictly disallowed to prevent
+    // baking a single shared master key into the compiled client binary.
+    if (!kReleaseMode) {
+      if (configuredKey != null && configuredKey.isNotEmpty) {
+        _cachedKey = configuredKey;
+        return configuredKey;
+      }
 
-    const envKey = String.fromEnvironment('ENCRYPTION_KEY', defaultValue: '');
-    if (envKey.isNotEmpty) {
-      _cachedKey = envKey;
-      return envKey;
+      const envKey = String.fromEnvironment('ENCRYPTION_KEY', defaultValue: '');
+      if (envKey.isNotEmpty) {
+        _cachedKey = envKey;
+        return envKey;
+      }
     }
 
     try {

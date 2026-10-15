@@ -27,7 +27,6 @@ dependencies:
   sqflite: ^2.4.2+1
   sqflite_common_ffi: ^2.4.0+3
   drift: ^2.35.2
-  drift_sqflite: ^2.0.1
   sqlcipher_flutter_libs: ^0.7.0+eol
   connectivity_plus: ^7.3.2
   web_socket_channel: ^3.0.3

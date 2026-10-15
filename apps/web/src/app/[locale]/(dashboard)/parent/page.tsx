@@ -3,13 +3,14 @@
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { motion } from 'framer-motion';
-import { Bell, ChevronRight, GraduationCap, Users } from 'lucide-react';
+import { Bell, ChevronRight, GraduationCap, Users, ShieldAlert } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 
 import { Link } from '@/i18n/routing';
 import { apiClient } from '@/lib/api-client';
 import { HelpButton } from '@/components/HelpButton';
 import { TutorialProvider } from '@/components/TutorialProvider';
+import { DisasterPackModal } from '@/components/DisasterPackModal';
 import NoticeFeed from '@/components/notices/NoticeFeed';
 import { Avatar } from '@/components/ui/Avatar';
 import {
@@ -29,6 +30,7 @@ export default function ParentDashboard() {
     const [parentName, setParentName] = useState('');
     const [childrenData, setChildrenData] = useState<any[]>([]);
     const [loaded, setLoaded] = useState(false);
+    const [disasterPackOpen, setDisasterPackOpen] = useState(false);
 
     useEffect(() => {
         const init = async () => {
@@ -71,12 +73,25 @@ export default function ParentDashboard() {
                             <p className="mt-2 max-w-lg text-sm leading-relaxed text-white/80">
                                 {t('dashboardSubtitle')}
                             </p>
+                            <button
+                                type="button"
+                                onClick={() => setDisasterPackOpen(true)}
+                                className="mt-4 inline-flex items-center gap-2 rounded-input bg-white/20 hover:bg-white/30 px-3.5 py-1.5 text-xs font-semibold text-white border border-white/30 backdrop-blur-sm transition-colors"
+                            >
+                                <ShieldAlert className="size-4 text-amber-200" />
+                                School Emergency & Disaster Pack
+                            </button>
                         </div>
                         <span className="hidden size-14 shrink-0 place-items-center rounded-card border border-white/20 bg-white/10 backdrop-blur-sm md:grid">
                             <Users className="size-7" />
                         </span>
                     </div>
                 </motion.section>
+
+                <DisasterPackModal
+                    isOpen={disasterPackOpen}
+                    onClose={() => setDisasterPackOpen(false)}
+                />
 
                 {/* ── Children ──────────────────────────────────────────────── */}
                 <section>

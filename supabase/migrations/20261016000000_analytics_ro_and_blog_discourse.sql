@@ -186,12 +186,22 @@ USING (
             WHERE u.id = auth.uid() AND u.role IN ('TEACHER', 'SCHOOL_ADMIN', 'SUPER_ADMIN')
         )
     )
+    -- Enforce that caller has SELECT permission on the parent blog
+    AND EXISTS (
+        SELECT 1 FROM public.blogs b
+        WHERE b.id = blog_comments.blog_id
+    )
 );
 
 DROP POLICY IF EXISTS "authenticated_insert_blog_comments" ON public.blog_comments;
 CREATE POLICY "authenticated_insert_blog_comments" ON public.blog_comments FOR INSERT TO authenticated
 WITH CHECK (
     author_id = auth.uid()
+    AND tenant_id = (SELECT tenant_id FROM public.users WHERE id = auth.uid())
+    AND EXISTS (
+        SELECT 1 FROM public.blogs b
+        WHERE b.id = blog_comments.blog_id
+    )
 );
 
 DROP POLICY IF EXISTS "authors_and_mods_manage_blog_comments" ON public.blog_comments;
@@ -199,8 +209,17 @@ CREATE POLICY "authors_and_mods_manage_blog_comments" ON public.blog_comments FO
 USING (
     author_id = auth.uid()
     OR EXISTS (
-        SELECT 1 FROM public.users u
-        WHERE u.id = auth.uid() AND u.role IN ('TEACHER', 'SCHOOL_ADMIN', 'SUPER_ADMIN')
+        SELECT 1 FROM public.blogs b
+        WHERE b.id = blog_comments.blog_id AND (
+            b.author_id = auth.uid()
+            OR (
+                b.tenant_id = (SELECT tenant_id FROM public.users WHERE id = auth.uid())
+                AND EXISTS (
+                    SELECT 1 FROM public.users u
+                    WHERE u.id = auth.uid() AND u.role IN ('SCHOOL_ADMIN', 'SUPER_ADMIN')
+                )
+            )
+        )
     )
 );
 
@@ -208,12 +227,23 @@ USING (
 -- 7. RLS Policies for Blog Reactions
 DROP POLICY IF EXISTS "authenticated_select_blog_reactions" ON public.blog_reactions;
 CREATE POLICY "authenticated_select_blog_reactions" ON public.blog_reactions FOR SELECT TO authenticated
-USING (true);
+USING (
+    (blog_id IS NOT NULL AND EXISTS (SELECT 1 FROM public.blogs b WHERE b.id = blog_reactions.blog_id))
+    OR
+    (comment_id IS NOT NULL AND EXISTS (SELECT 1 FROM public.blog_comments bc WHERE bc.id = blog_reactions.comment_id))
+);
 
 DROP POLICY IF EXISTS "authenticated_manage_blog_reactions" ON public.blog_reactions;
 CREATE POLICY "authenticated_manage_blog_reactions" ON public.blog_reactions FOR ALL TO authenticated
 USING (user_id = auth.uid())
-WITH CHECK (user_id = auth.uid());
+WITH CHECK (
+    user_id = auth.uid()
+    AND (
+        (blog_id IS NOT NULL AND EXISTS (SELECT 1 FROM public.blogs b WHERE b.id = blog_reactions.blog_id))
+        OR
+        (comment_id IS NOT NULL AND EXISTS (SELECT 1 FROM public.blog_comments bc WHERE bc.id = blog_reactions.comment_id))
+    )
+);
 
 -- Reload PostgREST schema cache
 NOTIFY pgrst, 'reload schema';

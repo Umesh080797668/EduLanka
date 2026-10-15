@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
@@ -198,10 +199,30 @@ class AppDriftDatabase extends GeneratedDatabase {
     ''');
   }
 
+  /// Formats encryption key for SQLCipher PRAGMA key statement.
+  /// If the key represents 32 bytes (raw hex or base64), passes it as a 256-bit raw hex key: x'...'
+  /// Otherwise, escapes single quotes to prevent syntax breakage and SQL injection.
+  static String formatPragmaKey(String rawKey) {
+    if (RegExp(r'^[0-9a-fA-F]{64}$').hasMatch(rawKey)) {
+      return "x'$rawKey'";
+    }
+    try {
+      final decoded = base64Url.decode(base64Url.normalize(rawKey));
+      if (decoded.length == 32) {
+        final hex = decoded.map((b) => b.toRadixString(16).padLeft(2, '0')).join();
+        return "x'$hex'";
+      }
+    } catch (_) {}
+
+    final safeKey = rawKey.replaceAll("'", "''");
+    return "'$safeKey'";
+  }
+
   static AppDriftDatabase createEncrypted() {
     return AppDriftDatabase(
       LazyDatabase(() async {
         final key = await EncryptionKeyStorage.getOrCreateKey();
+        final formattedKey = formatPragmaKey(key);
 
         // Check if running inside flutter test runner
         if (Platform.environment.containsKey('FLUTTER_TEST')) {
@@ -213,7 +234,7 @@ class AppDriftDatabase extends GeneratedDatabase {
             file,
             setup: (rawDb) {
               try {
-                rawDb.execute("PRAGMA key = '$key';");
+                rawDb.execute('PRAGMA key = $formattedKey;');
                 rawDb.execute('PRAGMA cipher_memory_security = ON;');
                 rawDb.execute('PRAGMA busy_timeout = 30000;');
               } catch (_) {}
@@ -229,7 +250,7 @@ class AppDriftDatabase extends GeneratedDatabase {
             file,
             setup: (rawDb) {
               try {
-                rawDb.execute("PRAGMA key = '$key';");
+                rawDb.execute('PRAGMA key = $formattedKey;');
                 rawDb.execute('PRAGMA cipher_memory_security = ON;');
                 rawDb.execute('PRAGMA busy_timeout = 30000;');
               } catch (_) {}
@@ -242,7 +263,7 @@ class AppDriftDatabase extends GeneratedDatabase {
             file,
             setup: (rawDb) {
               try {
-                rawDb.execute("PRAGMA key = '$key';");
+                rawDb.execute('PRAGMA key = $formattedKey;');
                 rawDb.execute('PRAGMA cipher_memory_security = ON;');
               } catch (_) {}
             },
