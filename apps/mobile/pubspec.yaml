@@ -37,6 +37,8 @@ dependencies:
   syncfusion_flutter_pdfviewer: ^33.2.13
   firebase_core: ^4.15.0
   firebase_messaging: ^16.7.0
+  encrypt: ^5.0.3
+  pointycastle: ^3.9.1
 
 dev_dependencies:
   flutter_test:

@@ -62,6 +62,8 @@ interface UploadSignatureResponse {
     allowedFormats: string;
     uploadPreset: string | null;
     maxFileSize: number;
+    type?: string;
+    eager?: string;
 }
 
 export default function TeacherResourcesPage() {
@@ -163,6 +165,15 @@ export default function TeacherResourcesPage() {
                 formData.append('timestamp', String(sig.timestamp));
                 formData.append('signature', sig.signature);
                 formData.append('folder', sig.folder);
+                if (sig.allowedFormats) {
+                    formData.append('allowed_formats', sig.allowedFormats);
+                }
+                if (sig.type) {
+                    formData.append('type', sig.type);
+                }
+                if (sig.eager) {
+                    formData.append('eager', sig.eager);
+                }
                 if (sig.uploadPreset) {
                     formData.append('upload_preset', sig.uploadPreset);
                 }

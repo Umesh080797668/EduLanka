@@ -1,175 +1,19 @@
 import 'dart:convert';
-import 'dart:io';
+import 'package:drift/drift.dart';
 import 'package:flutter/foundation.dart';
-import 'package:path/path.dart';
-import 'package:sqflite/sqflite.dart';
-import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:uuid/uuid.dart';
-import 'encryption_key_storage.dart';
 import 'drift_database.dart';
 
+/// Offline-first database service for EduLanka mobile, backed by SQLCipher-encrypted Drift (ADR-005)
 class LocalDatabase {
   static final LocalDatabase instance = LocalDatabase._init();
-  static Database? _database;
 
   LocalDatabase._init();
 
   AppDriftDatabase get driftDb => AppDriftDatabase.instance;
 
-  Future<Database> get database async {
-    if (_database != null) return _database!;
-    _database = await _initDB('edulanka_encrypted.db');
-    return _database!;
-  }
-
-  Future<Database> _initDB(String filePath) async {
-    // Enable FFI for desktop and unit tests
-    if (!kIsWeb &&
-        (Platform.isLinux || Platform.isWindows || Platform.isMacOS)) {
-      sqfliteFfiInit();
-      databaseFactory = databaseFactoryFfi;
-    }
-
-    final dbPath = await getDatabasesPath();
-    final path = join(dbPath, filePath);
-
-    return await openDatabase(
-      path,
-      version: 1,
-      onConfigure: (db) async {
-        await db.execute('PRAGMA busy_timeout = 30000;');
-        try {
-          final key = await EncryptionKeyStorage.getOrCreateKey();
-          await db.execute("PRAGMA key = '$key';");
-          await db.execute('PRAGMA cipher_memory_security = ON;');
-        } catch (_) {
-          // Fallback in headless mock test environment
-        }
-      },
-      onCreate: (db, version) async {
-        await db.execute('PRAGMA journal_mode = WAL;');
-        await _ensureTables(db);
-      },
-    );
-  }
-
-  Future<void> _ensureTables(Database db) async {
-    // 1. Monotonic Outbox Mutations (ADR-002)
-    await db.execute('''
-      CREATE TABLE IF NOT EXISTS sync_outbox (
-        client_uuid TEXT PRIMARY KEY,
-        entity_type TEXT NOT NULL,
-        entity_id TEXT NOT NULL,
-        event_type TEXT NOT NULL,
-        payload TEXT NOT NULL,
-        created_at INTEGER NOT NULL,
-        status TEXT NOT NULL DEFAULT 'PENDING',
-        server_sequence INTEGER,
-        error_message TEXT
-      )
-    ''');
-
-    // 2. Sync Metadata (Last sequences, checkpoints)
-    await db.execute('''
-      CREATE TABLE IF NOT EXISTS sync_metadata (
-        key TEXT PRIMARY KEY,
-        value TEXT NOT NULL
-      )
-    ''');
-
-    // 3. Offline Emergency Contacts (P3-S8)
-    await db.execute('''
-      CREATE TABLE IF NOT EXISTS emergency_contacts (
-        id TEXT PRIMARY KEY,
-        name TEXT NOT NULL,
-        role TEXT NOT NULL,
-        phone TEXT NOT NULL,
-        is_primary INTEGER DEFAULT 0
-      )
-    ''');
-
-    // 4. Offline Evacuation Shelters (P3-S8)
-    await db.execute('''
-      CREATE TABLE IF NOT EXISTS emergency_shelters (
-        id TEXT PRIMARY KEY,
-        name TEXT NOT NULL,
-        address TEXT NOT NULL,
-        capacity INTEGER,
-        gps_lat REAL,
-        gps_lng REAL,
-        notes TEXT
-      )
-    ''');
-
-    // 5. Offline Attendance Roll-Call Records
-    await db.execute('''
-      CREATE TABLE IF NOT EXISTS offline_attendance (
-        id TEXT PRIMARY KEY,
-        student_id TEXT NOT NULL,
-        class_id TEXT NOT NULL,
-        date TEXT NOT NULL,
-        status TEXT NOT NULL,
-        marked_at TEXT NOT NULL,
-        sync_status TEXT NOT NULL DEFAULT 'PENDING'
-      )
-    ''');
-
-    // 6. Offline Chat Messages (Preserved Across Devices)
-    await db.execute('''
-      CREATE TABLE IF NOT EXISTS offline_chat_messages (
-        id TEXT PRIMARY KEY,
-        conversation_id TEXT NOT NULL,
-        sender_id TEXT NOT NULL,
-        content TEXT NOT NULL,
-        created_at TEXT NOT NULL
-      )
-    ''');
-
-    // 7. Persistent Resumable Encrypted Download Tasks (ADR-001, P3-S6)
-    await db.execute('''
-      CREATE TABLE IF NOT EXISTS download_tasks (
-        id TEXT PRIMARY KEY,
-        asset_id TEXT NOT NULL,
-        title TEXT NOT NULL,
-        remote_url TEXT NOT NULL,
-        local_path TEXT NOT NULL,
-        total_bytes INTEGER NOT NULL DEFAULT 0,
-        downloaded_bytes INTEGER NOT NULL DEFAULT 0,
-        status TEXT NOT NULL DEFAULT 'QUEUED',
-        retention_days INTEGER NOT NULL DEFAULT 30,
-        downloaded_at INTEGER NOT NULL,
-        expires_at INTEGER NOT NULL,
-        encryption_key TEXT,
-        error TEXT
-      )
-    ''');
-
-    // 8. Offline Homework Tasks (P3-S3)
-    await db.execute('''
-      CREATE TABLE IF NOT EXISTS offline_homework_tasks (
-        id TEXT PRIMARY KEY,
-        class_id TEXT NOT NULL,
-        title TEXT NOT NULL,
-        description TEXT NOT NULL,
-        due_date TEXT NOT NULL,
-        attachments TEXT NOT NULL DEFAULT '[]'
-      )
-    ''');
-
-    // 9. Offline Homework Submissions (P3-S3)
-    await db.execute('''
-      CREATE TABLE IF NOT EXISTS offline_homework_submissions (
-        id TEXT PRIMARY KEY,
-        homework_id TEXT NOT NULL,
-        student_id TEXT NOT NULL,
-        content TEXT,
-        attachments TEXT NOT NULL DEFAULT '[]',
-        submitted_at TEXT NOT NULL,
-        status TEXT NOT NULL DEFAULT 'PENDING_SYNC',
-        grade TEXT,
-        feedback TEXT
-      )
-    ''');
+  Future<void> _initDb() async {
+    await driftDb.ensureTables();
   }
 
   // ── UUID Helpers ────────────────────────────────────────────────────
@@ -197,45 +41,53 @@ class LocalDatabase {
     required String eventType,
     required Map<String, dynamic> payload,
   }) async {
-    final db = await database;
-    await db.insert('sync_outbox', {
-      'client_uuid': clientUuid,
-      'entity_type': entityType,
-      'entity_id': entityId,
-      'event_type': eventType,
-      'payload': jsonEncode(payload),
-      'created_at': DateTime.now().millisecondsSinceEpoch,
-      'status': 'PENDING',
-      'server_sequence': null,
-      'error_message': null,
-    }, conflictAlgorithm: ConflictAlgorithm.replace);
+    await _initDb();
+    await driftDb.customInsert(
+      'INSERT OR REPLACE INTO sync_outbox (client_uuid, entity_type, entity_id, event_type, payload, created_at, status, server_sequence, error_message) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      variables: [
+        Variable.withString(clientUuid),
+        Variable.withString(entityType),
+        Variable.withString(entityId),
+        Variable.withString(eventType),
+        Variable.withString(jsonEncode(payload)),
+        Variable.withInt(DateTime.now().millisecondsSinceEpoch),
+        Variable.withString('PENDING'),
+        const Variable<int>(null),
+        const Variable<String>(null),
+      ],
+    );
   }
 
   Future<List<Map<String, dynamic>>> getPendingOutboxEvents() async {
-    final db = await database;
-    return await db.query(
-      'sync_outbox',
-      where: 'status = ?',
-      whereArgs: ['PENDING'],
-      orderBy: 'created_at ASC',
-    );
+    await _initDb();
+    final rows = await driftDb
+        .customSelect(
+          "SELECT * FROM sync_outbox WHERE status = 'PENDING' ORDER BY created_at ASC",
+        )
+        .get();
+    return rows.map((r) => Map<String, dynamic>.from(r.data)).toList();
   }
 
   Future<int> getPendingOutboxCount() async {
-    final db = await database;
-    final res = await db.rawQuery(
-      "SELECT COUNT(*) as count FROM sync_outbox WHERE status = 'PENDING'",
-    );
-    return Sqflite.firstIntValue(res) ?? 0;
+    await _initDb();
+    final rows = await driftDb
+        .customSelect(
+          "SELECT COUNT(*) as count FROM sync_outbox WHERE status = 'PENDING'",
+        )
+        .get();
+    if (rows.isEmpty) return 0;
+    return (rows.first.data['count'] as num?)?.toInt() ?? 0;
   }
 
   Future<void> markOutboxEventSynced(String clientUuid, int? serverSeq) async {
-    final db = await database;
-    await db.update(
-      'sync_outbox',
-      {'status': 'SYNCED', 'server_sequence': serverSeq},
-      where: 'client_uuid = ?',
-      whereArgs: [clientUuid],
+    await _initDb();
+    await driftDb.customUpdate(
+      'UPDATE sync_outbox SET status = ?, server_sequence = ? WHERE client_uuid = ?',
+      variables: [
+        Variable.withString('SYNCED'),
+        Variable<int>(serverSeq),
+        Variable.withString(clientUuid),
+      ],
     );
   }
 
@@ -243,54 +95,56 @@ class LocalDatabase {
     String clientUuid,
     String errorMessage,
   ) async {
-    final db = await database;
-    await db.update(
-      'sync_outbox',
-      {'status': 'FAILED', 'error_message': errorMessage},
-      where: 'client_uuid = ?',
-      whereArgs: [clientUuid],
+    await _initDb();
+    await driftDb.customUpdate(
+      'UPDATE sync_outbox SET status = ?, error_message = ? WHERE client_uuid = ?',
+      variables: [
+        Variable.withString('FAILED'),
+        Variable.withString(errorMessage),
+        Variable.withString(clientUuid),
+      ],
     );
   }
 
   Future<int> getFailedOutboxCount() async {
-    final db = await database;
-    final res = await db.rawQuery(
-      "SELECT COUNT(*) as count FROM sync_outbox WHERE status = 'FAILED'",
-    );
-    return Sqflite.firstIntValue(res) ?? 0;
+    await _initDb();
+    final rows = await driftDb
+        .customSelect(
+          "SELECT COUNT(*) as count FROM sync_outbox WHERE status = 'FAILED'",
+        )
+        .get();
+    if (rows.isEmpty) return 0;
+    return (rows.first.data['count'] as num?)?.toInt() ?? 0;
   }
 
   Future<void> retryFailedOutboxEvents() async {
-    final db = await database;
-    await db.update(
-      'sync_outbox',
-      {'status': 'PENDING', 'error_message': null},
-      where: 'status = ?',
-      whereArgs: ['FAILED'],
+    await _initDb();
+    await driftDb.customUpdate(
+      "UPDATE sync_outbox SET status = 'PENDING', error_message = NULL WHERE status = 'FAILED'",
     );
   }
 
   // ── Sync Metadata ──────────────────────────────────────────────────
 
   Future<int> getLastSequence() async {
-    final db = await database;
-    final res = await db.query(
-      'sync_metadata',
-      where: 'key = ?',
-      whereArgs: ['last_sequence'],
-    );
-    if (res.isNotEmpty) {
-      return int.tryParse(res.first['value'] as String) ?? 0;
+    await _initDb();
+    final rows = await driftDb
+        .customSelect(
+          "SELECT value FROM sync_metadata WHERE key = 'last_sequence'",
+        )
+        .get();
+    if (rows.isNotEmpty) {
+      return int.tryParse(rows.first.data['value']?.toString() ?? '0') ?? 0;
     }
     return 0;
   }
 
   Future<void> setLastSequence(int seq) async {
-    final db = await database;
-    await db.insert('sync_metadata', {
-      'key': 'last_sequence',
-      'value': seq.toString(),
-    }, conflictAlgorithm: ConflictAlgorithm.replace);
+    await _initDb();
+    await driftDb.customInsert(
+      "INSERT OR REPLACE INTO sync_metadata (key, value) VALUES ('last_sequence', ?)",
+      variables: [Variable.withString(seq.toString())],
+    );
   }
 
   // ── Attendance Operations ──────────────────────────────────────────
@@ -304,20 +158,27 @@ class LocalDatabase {
     required String markedAt,
   }) async {
     final clientUuid = isUuid(id) ? id : toValidUuid(id, 'att');
-    final resolvedStudentId = isUuid(studentId) ? studentId : toValidUuid(studentId, 'student');
-    final resolvedClassId = isUuid(classId) ? classId : toValidUuid(classId, 'class');
+    final resolvedStudentId = isUuid(studentId)
+        ? studentId
+        : toValidUuid(studentId, 'student');
+    final resolvedClassId = isUuid(classId)
+        ? classId
+        : toValidUuid(classId, 'class');
     final attendanceEntityId = const Uuid().v4();
 
-    final db = await database;
-    await db.insert('offline_attendance', {
-      'id': id,
-      'student_id': studentId,
-      'class_id': classId,
-      'date': date,
-      'status': status,
-      'marked_at': markedAt,
-      'sync_status': 'PENDING',
-    }, conflictAlgorithm: ConflictAlgorithm.replace);
+    await _initDb();
+    await driftDb.customInsert(
+      'INSERT OR REPLACE INTO offline_attendance (id, student_id, class_id, date, status, marked_at, sync_status) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      variables: [
+        Variable.withString(id),
+        Variable.withString(studentId),
+        Variable.withString(classId),
+        Variable.withString(date),
+        Variable.withString(status),
+        Variable.withString(markedAt),
+        Variable.withString('PENDING'),
+      ],
+    );
 
     // Queue as a monotonic sync event (ADR-002) with guaranteed UUIDs
     await queueSyncEvent(
@@ -342,7 +203,7 @@ class LocalDatabase {
     Map<String, dynamic> payload, {
     String? entityId,
   }) async {
-    final db = await database;
+    await _initDb();
     final classId =
         (payload['class_id'] ?? payload['classId'])?.toString() ?? '';
     final studentId =
@@ -355,26 +216,32 @@ class LocalDatabase {
         (payload['marked_at'] ?? payload['markedAt'])?.toString() ??
         DateTime.now().toUtc().toIso8601String();
     final id =
-        payload['id']?.toString() ?? entityId ?? '${studentId}_${classId}_$date';
+        payload['id']?.toString() ??
+        entityId ??
+        '${studentId}_${classId}_$date';
 
-    await db.insert('offline_attendance', {
-      'id': id,
-      'student_id': studentId,
-      'class_id': classId,
-      'date': date,
-      'status': status,
-      'marked_at': markedAt,
-      'sync_status': 'SYNCED',
-    }, conflictAlgorithm: ConflictAlgorithm.replace);
+    await driftDb.customInsert(
+      'INSERT OR REPLACE INTO offline_attendance (id, student_id, class_id, date, status, marked_at, sync_status) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      variables: [
+        Variable.withString(id),
+        Variable.withString(studentId),
+        Variable.withString(classId),
+        Variable.withString(date),
+        Variable.withString(status),
+        Variable.withString(markedAt),
+        Variable.withString('SYNCED'),
+      ],
+    );
   }
 
   Future<List<Map<String, dynamic>>> getAttendanceRecords() async {
-    final db = await database;
-    return await db.query(
-      'offline_attendance',
-      orderBy: 'marked_at DESC',
-      limit: 50,
-    );
+    await _initDb();
+    final rows = await driftDb
+        .customSelect(
+          'SELECT * FROM offline_attendance ORDER BY marked_at DESC LIMIT 50',
+        )
+        .get();
+    return rows.map((r) => Map<String, dynamic>.from(r.data)).toList();
   }
 
   // ── Chat Operations ────────────────────────────────────────────────
@@ -383,7 +250,7 @@ class LocalDatabase {
     Map<String, dynamic> payload, {
     String? entityId,
   }) async {
-    final db = await database;
+    await _initDb();
     final id = payload['id']?.toString() ?? entityId ?? const Uuid().v4();
     final conversationId =
         (payload['conversation_id'] ??
@@ -402,25 +269,29 @@ class LocalDatabase {
         (payload['created_at'] ?? payload['createdAt'])?.toString() ??
         DateTime.now().toUtc().toIso8601String();
 
-    await db.insert('offline_chat_messages', {
-      'id': id,
-      'conversation_id': conversationId,
-      'sender_id': senderId,
-      'content': content,
-      'created_at': createdAt,
-    }, conflictAlgorithm: ConflictAlgorithm.replace);
+    await driftDb.customInsert(
+      'INSERT OR REPLACE INTO offline_chat_messages (id, conversation_id, sender_id, content, created_at) VALUES (?, ?, ?, ?, ?)',
+      variables: [
+        Variable.withString(id),
+        Variable.withString(conversationId),
+        Variable.withString(senderId),
+        Variable.withString(content),
+        Variable.withString(createdAt),
+      ],
+    );
   }
 
   Future<List<Map<String, dynamic>>> getChatMessages(
     String conversationId,
   ) async {
-    final db = await database;
-    return await db.query(
-      'offline_chat_messages',
-      where: 'conversation_id = ?',
-      whereArgs: [conversationId],
-      orderBy: 'created_at ASC',
-    );
+    await _initDb();
+    final rows = await driftDb
+        .customSelect(
+          'SELECT * FROM offline_chat_messages WHERE conversation_id = ? ORDER BY created_at ASC',
+          variables: [Variable.withString(conversationId)],
+        )
+        .get();
+    return rows.map((r) => Map<String, dynamic>.from(r.data)).toList();
   }
 
   // ── Disaster Readiness Pack ────────────────────────────────────────
@@ -429,88 +300,129 @@ class LocalDatabase {
     required List<dynamic> contacts,
     required List<dynamic> shelters,
   }) async {
-    final db = await database;
-    await db.transaction((txn) async {
-      await txn.delete('emergency_contacts');
+    await _initDb();
+    await driftDb.transaction(() async {
+      await driftDb.customStatement('DELETE FROM emergency_contacts;');
       for (final c in contacts) {
         if (c is Map) {
-          await txn.insert('emergency_contacts', {
-            'id':
-                c['id']?.toString() ??
-                c['phone']?.toString() ??
-                UniqueKey().toString(),
-            'name': c['name']?.toString() ?? 'Emergency Contact',
-            'role': c['role']?.toString() ?? 'Official',
-            'phone': c['phone']?.toString() ?? '',
-            'is_primary': c['isPrimary'] == true ? 1 : 0,
-          });
+          final id =
+              c['id']?.toString() ??
+              c['phone']?.toString() ??
+              UniqueKey().toString();
+          final name = c['name']?.toString() ?? 'Emergency Contact';
+          final role = c['role']?.toString() ?? 'Official';
+          final phone = c['phone']?.toString() ?? '';
+          final isPrimary = c['isPrimary'] == true ? 1 : 0;
+
+          await driftDb.customInsert(
+            'INSERT INTO emergency_contacts (id, name, role, phone, is_primary) VALUES (?, ?, ?, ?, ?)',
+            variables: [
+              Variable.withString(id),
+              Variable.withString(name),
+              Variable.withString(role),
+              Variable.withString(phone),
+              Variable.withInt(isPrimary),
+            ],
+          );
         }
       }
 
-      await txn.delete('emergency_shelters');
+      await driftDb.customStatement('DELETE FROM emergency_shelters;');
       for (final s in shelters) {
         if (s is Map) {
-          await txn.insert('emergency_shelters', {
-            'id': s['id']?.toString() ?? UniqueKey().toString(),
-            'name': s['name']?.toString() ?? 'Shelter',
-            'address': s['address']?.toString() ?? '',
-            'capacity': s['capacity'] is int ? s['capacity'] : null,
-            'gps_lat': s['gpsLat'] is num
-                ? (s['gpsLat'] as num).toDouble()
-                : null,
-            'gps_lng': s['gpsLng'] is num
-                ? (s['gpsLng'] as num).toDouble()
-                : null,
-            'notes': s['notes']?.toString(),
-          });
+          final id = s['id']?.toString() ?? UniqueKey().toString();
+          final name = s['name']?.toString() ?? 'Shelter';
+          final address = s['address']?.toString() ?? '';
+          final capacity = s['capacity'] is int ? s['capacity'] as int : null;
+          final gpsLat = s['gpsLat'] is num
+              ? (s['gpsLat'] as num).toDouble()
+              : null;
+          final gpsLng = s['gpsLng'] is num
+              ? (s['gpsLng'] as num).toDouble()
+              : null;
+          final notes = s['notes']?.toString();
+
+          await driftDb.customInsert(
+            'INSERT INTO emergency_shelters (id, name, address, capacity, gps_lat, gps_lng, notes) VALUES (?, ?, ?, ?, ?, ?, ?)',
+            variables: [
+              Variable.withString(id),
+              Variable.withString(name),
+              Variable.withString(address),
+              Variable<int>(capacity),
+              Variable<double>(gpsLat),
+              Variable<double>(gpsLng),
+              Variable<String>(notes),
+            ],
+          );
         }
       }
     });
   }
 
   Future<List<Map<String, dynamic>>> getEmergencyContacts() async {
-    final db = await database;
-    return await db.query(
-      'emergency_contacts',
-      orderBy: 'is_primary DESC, name ASC',
-    );
+    await _initDb();
+    final rows = await driftDb
+        .customSelect(
+          'SELECT * FROM emergency_contacts ORDER BY is_primary DESC, name ASC',
+        )
+        .get();
+    return rows.map((r) => Map<String, dynamic>.from(r.data)).toList();
   }
 
   Future<List<Map<String, dynamic>>> getEmergencyShelters() async {
-    final db = await database;
-    return await db.query('emergency_shelters', orderBy: 'name ASC');
+    await _initDb();
+    final rows = await driftDb
+        .customSelect('SELECT * FROM emergency_shelters ORDER BY name ASC')
+        .get();
+    return rows.map((r) => Map<String, dynamic>.from(r.data)).toList();
   }
 
-  // ── Snapshot Application ────────────────────────────────────────────
+  // ── Snapshot Application ────────────────────────────────────
 
   Future<void> applySnapshot(Map<String, dynamic> snapshot) async {
-    final db = await database;
+    await _initDb();
     if (snapshot['classes'] is List) {
-      await db.insert('sync_metadata', {
-        'key': 'cached_classes',
-        'value': jsonEncode(snapshot['classes']),
-      }, conflictAlgorithm: ConflictAlgorithm.replace);
+      await driftDb.customInsert(
+        "INSERT OR REPLACE INTO sync_metadata (key, value) VALUES ('cached_classes', ?)",
+        variables: [Variable.withString(jsonEncode(snapshot['classes']))],
+      );
     }
     if (snapshot['notices'] is List) {
-      await db.insert('sync_metadata', {
-        'key': 'cached_notices',
-        'value': jsonEncode(snapshot['notices']),
-      }, conflictAlgorithm: ConflictAlgorithm.replace);
+      await driftDb.customInsert(
+        "INSERT OR REPLACE INTO sync_metadata (key, value) VALUES ('cached_notices', ?)",
+        variables: [Variable.withString(jsonEncode(snapshot['notices']))],
+      );
     }
     if (snapshot['tenant'] is Map) {
-      await db.insert('sync_metadata', {
-        'key': 'cached_tenant',
-        'value': jsonEncode(snapshot['tenant']),
-      }, conflictAlgorithm: ConflictAlgorithm.replace);
+      await driftDb.customInsert(
+        "INSERT OR REPLACE INTO sync_metadata (key, value) VALUES ('cached_tenant', ?)",
+        variables: [Variable.withString(jsonEncode(snapshot['tenant']))],
+      );
     }
   }
 
   // ── Download Tasks Operations (ADR-001, P3-S6) ─────────────────────
 
   Future<void> saveDownloadTask(Map<String, dynamic> task) async {
-    final db = await database;
-    await db.insert('download_tasks', task,
-        conflictAlgorithm: ConflictAlgorithm.replace);
+    await _initDb();
+    await driftDb.customInsert(
+      'INSERT OR REPLACE INTO download_tasks (id, asset_id, title, remote_url, local_path, total_bytes, downloaded_bytes, status, retention_days, downloaded_at, expires_at, encryption_key, error) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      variables: [
+        Variable.withString(task['id'] as String),
+        Variable.withString((task['asset_id'] ?? task['id']) as String),
+        Variable.withString(task['title'] as String? ?? 'Lesson Video'),
+        Variable.withString(task['remote_url'] as String? ?? ''),
+        Variable.withString(task['local_path'] as String? ?? ''),
+        Variable.withInt((task['total_bytes'] as num?)?.toInt() ?? 0),
+        Variable.withInt((task['downloaded_bytes'] as num?)?.toInt() ?? 0),
+        Variable.withString(task['status'] as String? ?? 'QUEUED'),
+        Variable.withInt((task['retention_days'] as num?)?.toInt() ?? 30),
+        Variable.withInt((task['downloaded_at'] as num?)?.toInt() ?? 0),
+        Variable.withInt((task['expires_at'] as num?)?.toInt() ?? 0),
+        Variable<String>(task['encryption_key'] as String?),
+        Variable<String>(task['error'] as String?),
+      ],
+    );
   }
 
   Future<void> updateDownloadProgress({
@@ -518,15 +430,14 @@ class LocalDatabase {
     required int downloadedBytes,
     required int totalBytes,
   }) async {
-    final db = await database;
-    await db.update(
-      'download_tasks',
-      {
-        'downloaded_bytes': downloadedBytes,
-        'total_bytes': totalBytes,
-      },
-      where: 'id = ?',
-      whereArgs: [id],
+    await _initDb();
+    await driftDb.customUpdate(
+      'UPDATE download_tasks SET downloaded_bytes = ?, total_bytes = ? WHERE id = ?',
+      variables: [
+        Variable.withInt(downloadedBytes),
+        Variable.withInt(totalBytes),
+        Variable.withString(id),
+      ],
     );
   }
 
@@ -536,65 +447,98 @@ class LocalDatabase {
     String? error,
     String? localPath,
   }) async {
-    final db = await database;
-    final Map<String, dynamic> data = {'status': status};
-    if (error != null) data['error'] = error;
-    if (localPath != null) data['local_path'] = localPath;
-    await db.update(
-      'download_tasks',
-      data,
-      where: 'id = ?',
-      whereArgs: [id],
-    );
+    await _initDb();
+    if (error != null && localPath != null) {
+      await driftDb.customUpdate(
+        'UPDATE download_tasks SET status = ?, error = ?, local_path = ? WHERE id = ?',
+        variables: [
+          Variable.withString(status),
+          Variable.withString(error),
+          Variable.withString(localPath),
+          Variable.withString(id),
+        ],
+      );
+    } else if (error != null) {
+      await driftDb.customUpdate(
+        'UPDATE download_tasks SET status = ?, error = ? WHERE id = ?',
+        variables: [
+          Variable.withString(status),
+          Variable.withString(error),
+          Variable.withString(id),
+        ],
+      );
+    } else if (localPath != null) {
+      await driftDb.customUpdate(
+        'UPDATE download_tasks SET status = ?, local_path = ? WHERE id = ?',
+        variables: [
+          Variable.withString(status),
+          Variable.withString(localPath),
+          Variable.withString(id),
+        ],
+      );
+    } else {
+      await driftDb.customUpdate(
+        'UPDATE download_tasks SET status = ? WHERE id = ?',
+        variables: [Variable.withString(status), Variable.withString(id)],
+      );
+    }
   }
 
   Future<List<Map<String, dynamic>>> getDownloadTasks() async {
-    final db = await database;
-    return await db.query('download_tasks', orderBy: 'downloaded_at DESC');
+    await _initDb();
+    final rows = await driftDb
+        .customSelect(
+          'SELECT * FROM download_tasks ORDER BY downloaded_at DESC',
+        )
+        .get();
+    return rows.map((r) => Map<String, dynamic>.from(r.data)).toList();
   }
 
   Future<Map<String, dynamic>?> getDownloadTask(String id) async {
-    final db = await database;
-    final res = await db.query(
-      'download_tasks',
-      where: 'id = ?',
-      whereArgs: [id],
-      limit: 1,
-    );
-    return res.isNotEmpty ? res.first : null;
+    await _initDb();
+    final rows = await driftDb
+        .customSelect(
+          'SELECT * FROM download_tasks WHERE id = ? LIMIT 1',
+          variables: [Variable.withString(id)],
+        )
+        .get();
+    return rows.isNotEmpty ? Map<String, dynamic>.from(rows.first.data) : null;
   }
 
   Future<void> deleteDownloadTask(String id) async {
-    final db = await database;
-    await db.delete(
-      'download_tasks',
-      where: 'id = ?',
-      whereArgs: [id],
-    );
+    await _initDb();
+    await driftDb.customStatement('DELETE FROM download_tasks WHERE id = ?;', [
+      id,
+    ]);
   }
 
   Future<List<String>> purgeExpiredDownloads() async {
-    final db = await database;
+    await _initDb();
     final nowMs = DateTime.now().millisecondsSinceEpoch;
-    final expired = await db.query(
-      'download_tasks',
-      columns: ['id', 'local_path'],
-      where: 'expires_at < ? AND status = ?',
-      whereArgs: [nowMs, 'COMPLETED'],
-    );
+    final expiredRows = await driftDb
+        .customSelect(
+          'SELECT id, local_path FROM download_tasks WHERE expires_at < ? AND status = ?',
+          variables: [
+            Variable.withInt(nowMs),
+            Variable.withString('COMPLETED'),
+          ],
+        )
+        .get();
 
     final pathsToDelete = <String>[];
-    for (final row in expired) {
-      final p = row['local_path']?.toString();
+    for (final row in expiredRows) {
+      final p = row.data['local_path']?.toString();
       if (p != null && p.isNotEmpty) pathsToDelete.add(p);
     }
 
-    if (expired.isNotEmpty) {
-      await db.update(
-        'download_tasks',
-        {'status': 'EXPIRED'},
-        where: 'expires_at < ? AND status = ?',
-        whereArgs: [nowMs, 'COMPLETED'],
+    if (expiredRows.isNotEmpty) {
+      await driftDb.customUpdate(
+        'UPDATE download_tasks SET status = ? WHERE expires_at < ? AND status = ?',
+        variables: [
+          Variable.withString('EXPIRED'),
+          Variable.withInt(nowMs),
+          Variable.withString('COMPLETED'),
+        ],
       );
     }
     return pathsToDelete;
@@ -603,34 +547,52 @@ class LocalDatabase {
   // ── Homework Operations (P3-S3) ────────────────────────────────────
 
   Future<void> saveOfflineHomeworkTasks(List<dynamic> tasks) async {
-    final db = await database;
-    await db.transaction((txn) async {
+    await _initDb();
+    await driftDb.transaction(() async {
       for (final t in tasks) {
         if (t is Map) {
-          await txn.insert('offline_homework_tasks', {
-            'id': t['id']?.toString() ?? const Uuid().v4(),
-            'class_id': (t['class_id'] ?? t['classId'])?.toString() ?? '',
-            'title': t['title']?.toString() ?? 'Homework',
-            'description': t['description']?.toString() ?? '',
-            'due_date': (t['due_date'] ?? t['dueDate'])?.toString() ?? '',
-            'attachments': jsonEncode(t['attachments'] ?? []),
-          }, conflictAlgorithm: ConflictAlgorithm.replace);
+          final id = t['id']?.toString() ?? const Uuid().v4();
+          final classId = (t['class_id'] ?? t['classId'])?.toString() ?? '';
+          final title = t['title']?.toString() ?? 'Homework';
+          final description = t['description']?.toString() ?? '';
+          final dueDate = (t['due_date'] ?? t['dueDate'])?.toString() ?? '';
+          final attachments = jsonEncode(t['attachments'] ?? []);
+
+          await driftDb.customInsert(
+            'INSERT OR REPLACE INTO offline_homework_tasks (id, class_id, title, description, due_date, attachments) VALUES (?, ?, ?, ?, ?, ?)',
+            variables: [
+              Variable.withString(id),
+              Variable.withString(classId),
+              Variable.withString(title),
+              Variable.withString(description),
+              Variable.withString(dueDate),
+              Variable.withString(attachments),
+            ],
+          );
         }
       }
     });
   }
 
-  Future<List<Map<String, dynamic>>> getOfflineHomeworkTasks({String? classId}) async {
-    final db = await database;
+  Future<List<Map<String, dynamic>>> getOfflineHomeworkTasks({
+    String? classId,
+  }) async {
+    await _initDb();
     if (classId != null && classId.isNotEmpty) {
-      return await db.query(
-        'offline_homework_tasks',
-        where: 'class_id = ?',
-        whereArgs: [classId],
-        orderBy: 'due_date ASC',
-      );
+      final rows = await driftDb
+          .customSelect(
+            'SELECT * FROM offline_homework_tasks WHERE class_id = ? ORDER BY due_date ASC',
+            variables: [Variable.withString(classId)],
+          )
+          .get();
+      return rows.map((r) => Map<String, dynamic>.from(r.data)).toList();
     }
-    return await db.query('offline_homework_tasks', orderBy: 'due_date ASC');
+    final rows = await driftDb
+        .customSelect(
+          'SELECT * FROM offline_homework_tasks ORDER BY due_date ASC',
+        )
+        .get();
+    return rows.map((r) => Map<String, dynamic>.from(r.data)).toList();
   }
 
   Future<void> recordHomeworkSubmission({
@@ -642,17 +604,22 @@ class LocalDatabase {
   }) async {
     final subId = clientUuid ?? const Uuid().v4();
     final now = DateTime.now().toUtc().toIso8601String();
-    final db = await database;
+    await _initDb();
 
-    await db.insert('offline_homework_submissions', {
-      'id': subId,
-      'homework_id': homeworkId,
-      'student_id': studentId,
-      'content': content,
-      'attachments': jsonEncode(attachments ?? []),
-      'submitted_at': now,
-      'status': 'PENDING_SYNC',
-    }, conflictAlgorithm: ConflictAlgorithm.replace);
+    await driftDb.customInsert(
+      'INSERT OR REPLACE INTO offline_homework_submissions (id, homework_id, student_id, content, attachments, submitted_at, status, grade, feedback) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      variables: [
+        Variable.withString(subId),
+        Variable.withString(homeworkId),
+        Variable.withString(studentId),
+        Variable<String>(content),
+        Variable.withString(jsonEncode(attachments ?? [])),
+        Variable.withString(now),
+        Variable.withString('PENDING_SYNC'),
+        const Variable<String>(null),
+        const Variable<String>(null),
+      ],
+    );
 
     // Queue in sync outbox (ADR-002)
     await queueSyncEvent(
@@ -671,30 +638,41 @@ class LocalDatabase {
     );
   }
 
-  Future<List<Map<String, dynamic>>> getOfflineHomeworkSubmissions({String? homeworkId}) async {
-    final db = await database;
+  Future<List<Map<String, dynamic>>> getOfflineHomeworkSubmissions({
+    String? homeworkId,
+  }) async {
+    await _initDb();
     if (homeworkId != null) {
-      return await db.query(
-        'offline_homework_submissions',
-        where: 'homework_id = ?',
-        whereArgs: [homeworkId],
-      );
+      final rows = await driftDb
+          .customSelect(
+            'SELECT * FROM offline_homework_submissions WHERE homework_id = ?',
+            variables: [Variable.withString(homeworkId)],
+          )
+          .get();
+      return rows.map((r) => Map<String, dynamic>.from(r.data)).toList();
     }
-    return await db.query('offline_homework_submissions');
+    final rows = await driftDb
+        .customSelect('SELECT * FROM offline_homework_submissions')
+        .get();
+    return rows.map((r) => Map<String, dynamic>.from(r.data)).toList();
   }
 
   // ── Database Wipe (Logout & User/Tenant Switch) ──────────────────────
 
   Future<void> clearAll() async {
-    final db = await database;
-    await db.delete('sync_outbox');
-    await db.delete('sync_metadata');
-    await db.delete('emergency_contacts');
-    await db.delete('emergency_shelters');
-    await db.delete('offline_attendance');
-    await db.delete('offline_chat_messages');
-    await db.delete('download_tasks');
-    await db.delete('offline_homework_tasks');
-    await db.delete('offline_homework_submissions');
+    await _initDb();
+    await driftDb.transaction(() async {
+      await driftDb.customStatement('DELETE FROM sync_outbox;');
+      await driftDb.customStatement('DELETE FROM sync_metadata;');
+      await driftDb.customStatement('DELETE FROM emergency_contacts;');
+      await driftDb.customStatement('DELETE FROM emergency_shelters;');
+      await driftDb.customStatement('DELETE FROM offline_attendance;');
+      await driftDb.customStatement('DELETE FROM offline_chat_messages;');
+      await driftDb.customStatement('DELETE FROM download_tasks;');
+      await driftDb.customStatement('DELETE FROM offline_homework_tasks;');
+      await driftDb.customStatement(
+        'DELETE FROM offline_homework_submissions;',
+      );
+    });
   }
 }

@@ -1,9 +1,6 @@
 import 'dart:async';
-import 'dart:convert';
 import 'dart:io';
-import 'dart:math';
 import 'dart:typed_data';
-import 'package:crypto/crypto.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as p;
@@ -12,6 +9,8 @@ import '../api/api_client.dart';
 import '../config/app_config.dart';
 import '../database/encryption_key_storage.dart';
 import '../database/local_database.dart';
+import 'aes_ctr_cipher.dart';
+import 'decrypted_video_server.dart';
 
 enum DownloadStatus {
   queued,
@@ -117,6 +116,7 @@ class DownloadTask {
     DownloadStatus? status,
     String? localPath,
     String? error,
+    String? encryptionKey,
   }) {
     return DownloadTask(
       id: id,
@@ -130,13 +130,16 @@ class DownloadTask {
       retentionDays: retentionDays,
       downloadedAt: downloadedAt,
       expiresAt: expiresAt,
-      encryptionKey: encryptionKey,
+      encryptionKey: encryptionKey ?? this.encryptionKey,
       error: error ?? this.error,
     );
   }
 }
 
 class DownloadManager extends StateNotifier<Map<String, DownloadTask>> {
+  static DownloadManager? _instance;
+  static DownloadManager get instance => _instance ??= DownloadManager();
+
   final Dio _dio;
   final LocalDatabase _localDb;
   final AppConfig? _config;
@@ -209,17 +212,17 @@ class DownloadManager extends StateNotifier<Map<String, DownloadTask>> {
     final filename = '$assetId.enc.mp4';
     final targetPath = p.join(dir, filename);
 
-    // Generate cryptographic DEK (Data Encryption Key) per ADR-001
-    final configKey = _config?.encryptionKey ??
-        const String.fromEnvironment('ENCRYPTION_KEY', defaultValue: '');
-    final String dekBase64;
-    if (configKey.isNotEmpty) {
-      dekBase64 = configKey;
-    } else {
-      final random = Random.secure();
-      final dekBytes = List<int>.generate(32, (_) => random.nextInt(256));
-      dekBase64 = base64UrlEncode(dekBytes);
-    }
+    // Cryptographic Key Encapsulation (KEK / DEK):
+    // Generate fresh random 256-bit DEK & 128-bit IV, then encrypt with Master Key (ADR-001)
+    final masterKey = await EncryptionKeyStorage.getOrCreateKey(
+      configuredKey: _config?.encryptionKey,
+    );
+    final freshKeys = KeyEncapsulation.generateFreshKeys();
+    final wrappedKeyBase64 = KeyEncapsulation.wrapDek(
+      dekBytes: freshKeys.dek,
+      ivBytes: freshKeys.iv,
+      masterKeyBase64: masterKey,
+    );
 
     final nowMs = DateTime.now().millisecondsSinceEpoch;
     final expiresMs = nowMs + (retentionDays * 24 * 3600 * 1000);
@@ -236,7 +239,7 @@ class DownloadManager extends StateNotifier<Map<String, DownloadTask>> {
       retentionDays: retentionDays,
       downloadedAt: nowMs,
       expiresAt: expiresMs,
-      encryptionKey: dekBase64,
+      encryptionKey: wrappedKeyBase64,
     );
 
     await _localDb.saveDownloadTask(task.toDbMap());
@@ -259,16 +262,15 @@ class DownloadManager extends StateNotifier<Map<String, DownloadTask>> {
     final filename = customFileName ?? '$id.enc.mp4';
     final targetPath = p.join(dir, filename);
 
-    final configKey = _config?.encryptionKey ??
-        const String.fromEnvironment('ENCRYPTION_KEY', defaultValue: '');
-    final String dekBase64;
-    if (configKey.isNotEmpty) {
-      dekBase64 = configKey;
-    } else {
-      final random = Random.secure();
-      final dekBytes = List<int>.generate(32, (_) => random.nextInt(256));
-      dekBase64 = base64UrlEncode(dekBytes);
-    }
+    final masterKey = await EncryptionKeyStorage.getOrCreateKey(
+      configuredKey: _config?.encryptionKey,
+    );
+    final freshKeys = KeyEncapsulation.generateFreshKeys();
+    final wrappedKeyBase64 = KeyEncapsulation.wrapDek(
+      dekBytes: freshKeys.dek,
+      ivBytes: freshKeys.iv,
+      masterKeyBase64: masterKey,
+    );
 
     final nowMs = DateTime.now().millisecondsSinceEpoch;
     final expiresMs = nowMs + (retentionDays * 24 * 3600 * 1000);
@@ -285,7 +287,7 @@ class DownloadManager extends StateNotifier<Map<String, DownloadTask>> {
       retentionDays: retentionDays,
       downloadedAt: nowMs,
       expiresAt: expiresMs,
-      encryptionKey: dekBase64,
+      encryptionKey: wrappedKeyBase64,
     );
 
     await _localDb.saveDownloadTask(task.toDbMap());
@@ -339,7 +341,7 @@ class DownloadManager extends StateNotifier<Map<String, DownloadTask>> {
     }
   }
 
-  /// Executes download with HTTP Range header support and Chunked AES Encryption (ADR-001)
+  /// Executes download with HTTP Range header support and Chunked AES-256-CTR Encryption (ADR-001)
   Future<void> _executeDownload(DownloadTask task) async {
     final cancelToken = CancelToken();
     _cancelTokens[task.id] = cancelToken;
@@ -388,15 +390,18 @@ class DownloadManager extends StateNotifier<Map<String, DownloadTask>> {
 
       final sink = partFile.openWrite(mode: existingBytes > 0 ? FileMode.append : FileMode.write);
 
-      // Derive 256-bit encryption key bytes for streaming XOR cipher/AES keystream (ADR-001)
-      final fallbackKey = _config?.encryptionKey ??
-          const String.fromEnvironment('ENCRYPTION_KEY', defaultValue: '');
-      final keyToUse = (task.encryptionKey != null && task.encryptionKey!.isNotEmpty)
-          ? task.encryptionKey!
-          : (fallbackKey.isNotEmpty ? fallbackKey : await EncryptionKeyStorage.getOrCreateKey());
-      final keyBytes = utf8.encode(keyToUse);
-      final derivedKey = sha256.convert(keyBytes).bytes;
+      // Unwrap cryptographic per-file DEK and IV using hardware-backed Master Key (ADR-001)
+      final masterKey = await EncryptionKeyStorage.getOrCreateKey(
+        configuredKey: _config?.encryptionKey,
+      );
+      final keyPair = (task.encryptionKey != null && task.encryptionKey!.isNotEmpty)
+          ? KeyEncapsulation.unwrapDek(
+              wrappedDekBase64: task.encryptionKey!,
+              masterKeyBase64: masterKey,
+            )
+          : KeyEncapsulation.generateFreshKeys();
 
+      final cipher = AesCtrCipher(keyPair.dek, keyPair.iv);
       int currentReceived = existingBytes;
 
       await for (final chunk in responseBody.stream) {
@@ -406,13 +411,8 @@ class DownloadManager extends StateNotifier<Map<String, DownloadTask>> {
           return;
         }
 
-        // Apply 64KB chunk-wise encryption keystream transform (ADR-001)
-        final encryptedChunk = Uint8List(chunk.length);
-        for (int i = 0; i < chunk.length; i++) {
-          final streamPos = currentReceived + i;
-          final keyByte = derivedKey[(streamPos) % derivedKey.length];
-          encryptedChunk[i] = chunk[i] ^ keyByte;
-        }
+        // Apply true AES-256-CTR streaming cipher transform at byte offset (ADR-001)
+        final encryptedChunk = cipher.processBytes(Uint8List.fromList(chunk), currentReceived);
 
         sink.add(encryptedChunk);
         currentReceived += chunk.length;
@@ -479,6 +479,46 @@ class DownloadManager extends StateNotifier<Map<String, DownloadTask>> {
     }
   }
 
+  /// Starts an on-the-fly decrypted loopback streaming server for offline video playback (P3-S6)
+  Future<LocalDecryptedVideoServer?> startDecryptedPlaybackServer(String taskIdOrPath) async {
+    // Lookup by task ID or local path
+    DownloadTask? task = state[taskIdOrPath];
+    if (task == null) {
+      final dbRow = await _localDb.getDownloadTask(taskIdOrPath);
+      if (dbRow != null) {
+        task = DownloadTask.fromDbMap(dbRow);
+      } else {
+        // Try to match by path
+        final allTasks = await _localDb.getDownloadTasks();
+        for (final r in allTasks) {
+          if (r['local_path'] == taskIdOrPath) {
+            task = DownloadTask.fromDbMap(r);
+            break;
+          }
+        }
+      }
+    }
+
+    if (task == null || task.encryptionKey == null) return null;
+
+    final file = File(task.localPath);
+    if (!await file.exists()) return null;
+
+    final masterKey = await EncryptionKeyStorage.getOrCreateKey(
+      configuredKey: _config?.encryptionKey,
+    );
+    final keyPair = KeyEncapsulation.unwrapDek(
+      wrappedDekBase64: task.encryptionKey!,
+      masterKeyBase64: masterKey,
+    );
+
+    return await LocalDecryptedVideoServer.start(
+      file: file,
+      dek: keyPair.dek,
+      iv: keyPair.iv,
+    );
+  }
+
   /// Purges expired downloaded videos according to tenant plan retention window (ADR-001)
   Future<void> purgeExpired() async {
     try {
@@ -541,7 +581,6 @@ class DownloadManager extends StateNotifier<Map<String, DownloadTask>> {
 final downloadManagerProvider =
     StateNotifierProvider<DownloadManager, Map<String, DownloadTask>>(
   (ref) {
-    final config = ref.watch(appConfigProvider);
-    return DownloadManager(config: config);
+    return DownloadManager.instance;
   },
 );

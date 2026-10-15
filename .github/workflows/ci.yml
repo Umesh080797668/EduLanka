@@ -157,6 +157,13 @@ jobs:
           cd apps/mobile
           flutter test --concurrency=1
 
+      - name: Ensure google-services.json placeholder exists
+        run: |
+          mkdir -p apps/mobile/android/app
+          if [ ! -f apps/mobile/android/app/google-services.json ]; then
+            echo '{"project_info":{"project_number":"123456789","project_id":"edulanka-ci-placeholder"},"client":[{"client_info":{"mobilesdk_app_id":"1:123456789:android:placeholder","android_client_info":{"package_name":"lk.edulanka.edulanka_mobile"}}}]}' > apps/mobile/android/app/google-services.json
+          fi
+
       - name: Build Android APK
         run: |
           cd apps/mobile

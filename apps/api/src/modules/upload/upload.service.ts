@@ -63,6 +63,10 @@ export class UploadService {
             folder,
             allowed_formats: allowedFormats,
         };
+        if (folderType === 'videos') {
+            signParams.type = 'authenticated';
+            signParams.eager = 'sp_hd/m3u8';
+        }
         if (uploadPreset) {
             signParams.upload_preset = uploadPreset;
         }
@@ -81,6 +85,8 @@ export class UploadService {
             allowedFormats,
             uploadPreset: uploadPreset || null,
             maxFileSize: folderType === 'videos' ? 200 * 1024 * 1024 : 10 * 1024 * 1024,
+            type: folderType === 'videos' ? 'authenticated' : undefined,
+            eager: folderType === 'videos' ? 'sp_hd/m3u8' : undefined,
         };
     }
 

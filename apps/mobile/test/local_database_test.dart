@@ -88,5 +88,24 @@ void main() {
       await db.setLastSequence(105);
       expect(await db.getLastSequence(), 105);
     });
+
+    test('exposes active Drift SQLCipher layer with reactive stream updates (ADR-005)', () async {
+      final db = LocalDatabase.instance;
+      
+      final initial = await db.getPendingOutboxEvents();
+      expect(initial.isEmpty, true);
+
+      await db.queueSyncEvent(
+        clientUuid: 'stream-test-uuid',
+        entityType: 'attendance',
+        entityId: 'att-99',
+        eventType: 'CREATED',
+        payload: {'status': 'PRESENT'},
+      );
+
+      final updated = await db.driftDb.watchPendingOutbox().first;
+      expect(updated.length, 1);
+      expect(updated.first.read<String>('client_uuid'), 'stream-test-uuid');
+    });
   });
 }

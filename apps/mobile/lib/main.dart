@@ -7,6 +7,7 @@ import 'package:sentry_flutter/sentry_flutter.dart';
 
 import 'l10n/app_localizations.dart';
 import 'core/config/app_config.dart';
+import 'core/download/download_manager.dart';
 import 'core/navigation/app_router.dart';
 import 'core/notifications/push_notification_service.dart';
 
@@ -21,7 +22,14 @@ Future<void> main() async {
     debugPrint('Syncfusion enterprise license configured.');
   }
 
-  // 2. Firebase Background & Push Notification Initialization (ADR-003)
+  // 2. Offline Downloads Expiry Purge & Resumption (P3-S6, ADR-001)
+  try {
+    await DownloadManager.instance.init();
+  } catch (err) {
+    debugPrint('DownloadManager initialization notice: $err');
+  }
+
+  // 3. Firebase Background & Push Notification Initialization (ADR-003)
   try {
     if (config.firebaseApiKey != null && config.firebaseApiKey!.isNotEmpty) {
       await Firebase.initializeApp(

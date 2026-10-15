@@ -1,6 +1,8 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
+import '../../core/download/decrypted_video_server.dart';
+import '../../core/download/download_manager.dart';
 import '../tutorial/tutorial_engine.dart';
 
 class VideoPlayerScreen extends StatefulWidget {
@@ -21,6 +23,7 @@ class VideoPlayerScreen extends StatefulWidget {
 
 class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   VideoPlayerController? _controller;
+  LocalDecryptedVideoServer? _decryptionServer;
   bool _isInitialized = false;
   String? _errorMessage;
 
@@ -36,7 +39,20 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   Future<void> _initializePlayer() async {
     try {
       if (widget.localFilePath != null && File(widget.localFilePath!).existsSync()) {
-        _controller = VideoPlayerController.file(File(widget.localFilePath!));
+        final filePath = widget.localFilePath!;
+        if (filePath.endsWith('.enc.mp4')) {
+          // Encrypted offline video: start loopback on-the-fly decryption streaming server (P3-S6, ADR-001)
+          final server = await DownloadManager.instance.startDecryptedPlaybackServer(filePath);
+          if (server != null) {
+            _decryptionServer = server;
+            _controller = VideoPlayerController.networkUrl(Uri.parse(server.url));
+          } else {
+            // Fallback for mock or unencrypted files in test harnesses
+            _controller = VideoPlayerController.file(File(filePath));
+          }
+        } else {
+          _controller = VideoPlayerController.file(File(filePath));
+        }
       } else if (widget.videoUrl != null && widget.videoUrl!.isNotEmpty) {
         _controller = VideoPlayerController.networkUrl(Uri.parse(widget.videoUrl!));
       } else {
@@ -65,6 +81,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   @override
   void dispose() {
     _controller?.dispose();
+    _decryptionServer?.stop();
     super.dispose();
   }
 
