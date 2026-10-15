@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:math';
 import 'dart:typed_data';
+import 'package:crypto/crypto.dart' as crypto;
 import 'package:encrypt/encrypt.dart' as enc;
 import 'package:pointycastle/api.dart';
 import 'package:pointycastle/block/aes.dart';
@@ -55,6 +56,17 @@ class AesCtrCipher {
       }
     }
     return output;
+  }
+
+  /// Computes a SHA-256 integrity hash over bytes to detect tampering or corruption
+  static String computeSha256(Uint8List bytes) {
+    return crypto.sha256.convert(bytes).toString();
+  }
+
+  /// Validates ciphertext or asset bytes against expected SHA-256 digest
+  static bool verifyIntegrity(Uint8List bytes, String expectedSha256) {
+    final actual = computeSha256(bytes);
+    return actual.toLowerCase() == expectedSha256.trim().toLowerCase();
   }
 }
 

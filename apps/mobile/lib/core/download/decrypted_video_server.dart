@@ -1,20 +1,24 @@
 import 'dart:io';
 import 'package:flutter/foundation.dart';
+import 'package:uuid/uuid.dart';
 import 'aes_ctr_cipher.dart';
 
 /// Lightweight localhost loopback streaming server that decrypts AES-256-CTR video chunks
-/// on-the-fly with HTTP Range request support, avoiding unencrypted storage at rest (P3-S6, ADR-001)
+/// on-the-fly with HTTP Range request support and ephemeral per-session token authorization,
+/// avoiding unencrypted storage at rest and local port eavesdropping (P3-S6, ADR-001)
 class LocalDecryptedVideoServer {
   final HttpServer _server;
   final File _file;
   final Uint8List _dek;
   final Uint8List _iv;
+  final String sessionToken;
 
   LocalDecryptedVideoServer._({
     required HttpServer server,
     required File file,
     required Uint8List dek,
     required Uint8List iv,
+    required this.sessionToken,
   }) : _server = server,
        _file = file,
        _dek = dek,
@@ -22,25 +26,39 @@ class LocalDecryptedVideoServer {
     _listen();
   }
 
-  String get url => 'http://127.0.0.1:${_server.port}/video.mp4';
+  int get port => _server.port;
+  String get url => 'http://127.0.0.1:${_server.port}/$sessionToken/video.mp4';
 
   static Future<LocalDecryptedVideoServer> start({
     required File file,
     required Uint8List dek,
     required Uint8List iv,
+    String? sessionToken,
   }) async {
     final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    final token = sessionToken ?? const Uuid().v4();
     return LocalDecryptedVideoServer._(
       server: server,
       file: file,
       dek: dek,
       iv: iv,
+      sessionToken: token,
     );
   }
 
   void _listen() {
     _server.listen((HttpRequest request) async {
       try {
+        // Enforce per-session token authentication to prevent localhost eavesdropping
+        final expectedPath = '/$sessionToken/video.mp4';
+        if (request.uri.path != expectedPath) {
+          request.response.statusCode = HttpStatus.forbidden;
+          request.response.headers.set(HttpHeaders.contentTypeHeader, 'text/plain');
+          request.response.write('Forbidden: Invalid or missing session token');
+          await request.response.close();
+          return;
+        }
+
         if (!await _file.exists()) {
           request.response.statusCode = HttpStatus.notFound;
           await request.response.close();

@@ -133,7 +133,7 @@ The full vision spans roughly six independently hard products: a multi-tenant sc
   - Real-time and cached chat messaging.
 - Media Asset Hub via Cloudinary:
   - Online adaptive-bitrate HLS streaming across web and mobile.
-  - Offline video downloads: Resumable progressive MP4 (deliberate architectural scope decision replacing offline HLS to prevent inode exhaustion, FAT32 corruption, and multi-file resumption fragility on low-end hardware) with chunked AES-256-GCM Streaming AEAD (Tink-compatible with AAD last-segment truncation defense) decoded via custom Media3 ExoPlayer `DataSource` / `TextureRegistry` for seeking on 2GB RAM devices without in-memory decryption bottlenecks. Derived MP4 renditions tracked in tenant storage quota ledger.
+  - Offline video downloads: Resumable progressive MP4 (deliberate architectural scope decision replacing offline HLS to prevent inode exhaustion, FAT32 corruption, and multi-file resumption fragility on low-end hardware) with stream-aligned AES-256-CTR encryption and SHA-256 integrity verification, served on-the-fly via an authenticated localhost loopback streaming server with ephemeral per-session token authorization and HTTP 206 Range support, eliminating native Media3/ExoPlayer platform coupling while enabling smooth seeking on 2GB RAM devices without in-memory decryption bottlenecks. Derived MP4 renditions tracked in tenant storage quota ledger (ADR-001 rev. 2026-10-15).
 - Paper Hub: exam paper PDFs paired with official marking schemes for split-screen practice, available on web and mobile.
 - **Educational Blog & Academic Discourse Engine (Web ↔ Mobile Parity):**
   - **Three-Tier Scope Hierarchy:**

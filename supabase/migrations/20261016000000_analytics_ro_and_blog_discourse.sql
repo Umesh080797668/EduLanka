@@ -32,6 +32,9 @@ DROP POLICY IF EXISTS "analytics_ro_select_tenant_storage_ledgers" ON public.ten
 CREATE POLICY "analytics_ro_select_tenant_storage_ledgers" ON public.tenant_storage_ledgers
     FOR SELECT TO analytics_ro USING (true);
 
+-- Vetted Master Teacher flag for Platform-Wide Educational Blogs (P3-S11)
+ALTER TABLE public.teachers ADD COLUMN IF NOT EXISTS is_master_teacher BOOLEAN NOT NULL DEFAULT FALSE;
+
 
 -- 2. Educational Blogs Table (P3-S11)
 CREATE TABLE IF NOT EXISTS public.blogs (

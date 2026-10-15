@@ -198,6 +198,13 @@ void main() {
         final bytes2 = await res2.fold<List<int>>([], (p, e) => p..addAll(e));
         expect(bytes2, equals(plaintext.sublist(100, 200)));
 
+        // Test 3: Unauthorized request without session token is strictly rejected (HTTP 403 Forbidden)
+        final unauthReq = await client.getUrl(
+          Uri.parse('http://127.0.0.1:${server.port}/video.mp4'),
+        );
+        final unauthRes = await unauthReq.close();
+        expect(unauthRes.statusCode, HttpStatus.forbidden);
+
         client.close();
         await server.stop();
         await tempFile.delete();

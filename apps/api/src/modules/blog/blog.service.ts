@@ -265,6 +265,25 @@ export class BlogService {
             throw new ForbiddenException('Only teachers and administrators can author educational blogs');
         }
 
+        if (dto.scope === BlogScope.PLATFORM) {
+            if (caller.role === UserRole.TEACHER) {
+                // Check if teacher is vetted as master teacher
+                const { data: teacher } = await this.supabase.adminClient
+                    .from('teachers')
+                    .select('is_master_teacher')
+                    .eq('user_id', caller.sub)
+                    .eq('tenant_id', caller.tenantId)
+                    .eq('is_active', true)
+                    .maybeSingle();
+
+                if (!teacher?.is_master_teacher) {
+                    throw new ForbiddenException('Only vetted master teachers and Super Admins can publish platform-wide blogs');
+                }
+            } else if (caller.role !== UserRole.SUPER_ADMIN) {
+                throw new ForbiddenException('Only vetted master teachers and Super Admins can publish platform-wide blogs');
+            }
+        }
+
         if (dto.scope === BlogScope.CLASS) {
             if (!dto.classId) {
                 throw new BadRequestException('classId is required for class-scoped blogs');
@@ -331,8 +350,21 @@ export class BlogService {
             throw new NotFoundException(`Educational blog ${id} not found`);
         }
 
-        if (caller.role !== UserRole.SUPER_ADMIN && blog.author_id !== caller.sub && caller.role !== UserRole.SCHOOL_ADMIN) {
-            throw new ForbiddenException('You can only update blogs you authored');
+        if (caller.role !== UserRole.SUPER_ADMIN) {
+            if (caller.role === UserRole.SCHOOL_ADMIN) {
+                if (!blog.tenant_id || blog.tenant_id !== caller.tenantId || blog.scope === BlogScope.PLATFORM) {
+                    throw new ForbiddenException('School Admins can only update blogs belonging to their school');
+                }
+            } else if (caller.role === UserRole.TEACHER) {
+                if (blog.author_id !== caller.sub) {
+                    throw new ForbiddenException('You can only update blogs you authored');
+                }
+                if (blog.scope !== BlogScope.PLATFORM && blog.tenant_id !== caller.tenantId) {
+                    throw new ForbiddenException('Cannot update blogs from another school');
+                }
+            } else {
+                throw new ForbiddenException('You do not have permission to update this blog');
+            }
         }
 
         const updatePayload: Record<string, any> = {
@@ -373,7 +405,7 @@ export class BlogService {
 
         const { data: blog } = await this.supabase.adminClient
             .from('blogs')
-            .select('id, author_id, tenant_id')
+            .select('id, author_id, tenant_id, scope')
             .eq('id', id)
             .is('deleted_at', null)
             .maybeSingle();
@@ -382,8 +414,21 @@ export class BlogService {
             throw new NotFoundException(`Educational blog ${id} not found`);
         }
 
-        if (caller.role !== UserRole.SUPER_ADMIN && blog.author_id !== caller.sub && caller.role !== UserRole.SCHOOL_ADMIN) {
-            throw new ForbiddenException('You can only delete blogs you authored');
+        if (caller.role !== UserRole.SUPER_ADMIN) {
+            if (caller.role === UserRole.SCHOOL_ADMIN) {
+                if (!blog.tenant_id || blog.tenant_id !== caller.tenantId || blog.scope === BlogScope.PLATFORM) {
+                    throw new ForbiddenException('School Admins can only delete blogs belonging to their school');
+                }
+            } else if (caller.role === UserRole.TEACHER) {
+                if (blog.author_id !== caller.sub) {
+                    throw new ForbiddenException('You can only delete blogs you authored');
+                }
+                if (blog.scope !== BlogScope.PLATFORM && blog.tenant_id !== caller.tenantId) {
+                    throw new ForbiddenException('Cannot delete blogs from another school');
+                }
+            } else {
+                throw new ForbiddenException('You do not have permission to delete this blog');
+            }
         }
 
         await this.supabase.adminClient
@@ -481,6 +526,34 @@ export class BlogService {
             throw new ForbiddenException('Only teachers and administrators can moderate comments');
         }
 
+        const { data: comment, error: fetchErr } = await this.supabase.adminClient
+            .from('blog_comments')
+            .select('id, blog_id, author_id, tenant_id, is_pinned, is_hidden, blogs!inner(id, author_id, tenant_id, scope, class_id)')
+            .eq('id', commentId)
+            .is('deleted_at', null)
+            .maybeSingle();
+
+        if (fetchErr || !comment) {
+            throw new NotFoundException(`Blog comment ${commentId} not found`);
+        }
+
+        const blog = (comment as any).blogs;
+
+        if (caller.role !== UserRole.SUPER_ADMIN) {
+            const isBlogAuthor = blog.author_id === caller.sub;
+            const isSchoolAdminForTenant = caller.role === UserRole.SCHOOL_ADMIN && blog.tenant_id === caller.tenantId;
+
+            let isClassTeacher = false;
+            if (caller.role === UserRole.TEACHER && blog.scope === BlogScope.CLASS && blog.class_id && blog.tenant_id === caller.tenantId) {
+                const teacherClasses = await this.getTeacherClassIds(caller);
+                isClassTeacher = teacherClasses.includes(blog.class_id);
+            }
+
+            if (!isBlogAuthor && !isSchoolAdminForTenant && !isClassTeacher) {
+                throw new ForbiddenException('Only the authoring teacher and School Admins can moderate comments');
+            }
+        }
+
         const updatePayload: Record<string, any> = {
             updated_at: new Date().toISOString(),
         };
@@ -512,19 +585,33 @@ export class BlogService {
         assertUuid(caller.sub, 'userId');
         assertUuid(commentId, 'commentId');
 
-        const { data: comment } = await this.supabase.adminClient
+        const { data: comment, error: fetchErr } = await this.supabase.adminClient
             .from('blog_comments')
-            .select('id, blog_id, author_id')
+            .select('id, blog_id, author_id, tenant_id, blogs!inner(id, author_id, tenant_id, scope, class_id)')
             .eq('id', commentId)
             .is('deleted_at', null)
             .maybeSingle();
 
-        if (!comment) {
+        if (fetchErr || !comment) {
             throw new NotFoundException(`Comment ${commentId} not found`);
         }
 
-        if (caller.role !== UserRole.SUPER_ADMIN && comment.author_id !== caller.sub && caller.role !== UserRole.TEACHER && caller.role !== UserRole.SCHOOL_ADMIN) {
-            throw new ForbiddenException('You cannot delete this comment');
+        const blog = (comment as any).blogs;
+
+        if (caller.role !== UserRole.SUPER_ADMIN) {
+            const isCommentAuthor = comment.author_id === caller.sub;
+            const isBlogAuthor = blog.author_id === caller.sub;
+            const isSchoolAdminForTenant = caller.role === UserRole.SCHOOL_ADMIN && blog.tenant_id === caller.tenantId;
+
+            let isClassTeacher = false;
+            if (caller.role === UserRole.TEACHER && blog.scope === BlogScope.CLASS && blog.class_id && blog.tenant_id === caller.tenantId) {
+                const teacherClasses = await this.getTeacherClassIds(caller);
+                isClassTeacher = teacherClasses.includes(blog.class_id);
+            }
+
+            if (!isCommentAuthor && !isBlogAuthor && !isSchoolAdminForTenant && !isClassTeacher) {
+                throw new ForbiddenException('You do not have permission to delete this comment');
+            }
         }
 
         await this.supabase.adminClient
