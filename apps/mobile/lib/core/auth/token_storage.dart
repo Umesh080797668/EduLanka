@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:uuid/uuid.dart';
 
 class TokenStorage {
   static const _storage = FlutterSecureStorage(
@@ -12,6 +13,7 @@ class TokenStorage {
   static const _keyTenantId = 'edulanka_tenant_id';
   static const _keyUserRole = 'edulanka_user_role';
   static const _keyUserId = 'edulanka_user_id';
+  static const _keyDeviceId = 'edulanka_device_id';
 
   Future<void> saveTokens({
     required String accessToken,
@@ -35,8 +37,24 @@ class TokenStorage {
   Future<String?> getUserRole() => _storage.read(key: _keyUserRole);
   Future<String?> getUserId() => _storage.read(key: _keyUserId);
 
+  Future<String> getOrCreateDeviceId() async {
+    final existing = await _storage.read(key: _keyDeviceId);
+    if (existing != null && existing.isNotEmpty) {
+      return existing;
+    }
+    final newId = const Uuid().v4();
+    await _storage.write(key: _keyDeviceId, value: newId);
+    return newId;
+  }
+
+  Future<String?> getDeviceId() => _storage.read(key: _keyDeviceId);
+
   Future<void> clearAll() async {
+    final deviceId = await _storage.read(key: _keyDeviceId);
     await _storage.deleteAll();
+    if (deviceId != null) {
+      await _storage.write(key: _keyDeviceId, value: deviceId);
+    }
   }
 }
 

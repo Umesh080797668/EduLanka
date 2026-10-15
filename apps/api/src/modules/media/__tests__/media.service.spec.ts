@@ -199,12 +199,23 @@ describe('MediaService', () => {
     it('should initiate direct video uploads for Growth plan in processing status', async () => {
         const result = await service.createAsset(teacherGrowth, {
             title: 'Calculus Chapter 1',
-            cloudinaryPublicId: 'calc_01',
+            cloudinaryPublicId: 'edulanka/22222222-2222-2222-2222-222222222222/calc_01',
             cloudinarySecureUrl: 'https://res.cloudinary.com/demo/video/upload/calc.mp4',
             fileSizeBytes: 104857600,
         });
         expect(result.success).toBe(true);
         expect(result.asset.status).toBe('processing');
+    });
+
+    it('should reject direct video uploads when cloudinaryPublicId does not start with tenant prefix', async () => {
+        await expect(
+            service.createAsset(teacherGrowth, {
+                title: 'Malicious Upload',
+                cloudinaryPublicId: 'edulanka/other-tenant-id/calc_01',
+                cloudinarySecureUrl: 'https://res.cloudinary.com/demo/video/upload/calc.mp4',
+                fileSizeBytes: 104857600,
+            }),
+        ).rejects.toThrow(ForbiddenException);
     });
 
     it('should throw PayloadTooLargeException when storage quota is exceeded', async () => {
@@ -220,7 +231,7 @@ describe('MediaService', () => {
         await expect(
             service.createAsset(teacherGrowth, {
                 title: 'Calculus Chapter 2',
-                cloudinaryPublicId: 'calc_02',
+                cloudinaryPublicId: 'edulanka/22222222-2222-2222-2222-222222222222/calc_02',
                 cloudinarySecureUrl: 'https://res.cloudinary.com/demo/video/upload/calc2.mp4',
                 fileSizeBytes: 2000000000,
             }),

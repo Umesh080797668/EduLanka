@@ -9,6 +9,7 @@ import {
     Param,
     Body,
     Query,
+    Headers,
     UseGuards,
     HttpCode,
     HttpStatus,
@@ -49,18 +50,27 @@ export class MobileController {
     @Post('sync-events')
     @HttpCode(HttpStatus.CREATED)
     @ApiOperation({ summary: 'Ingest an offline sync event into monotonic event stream' })
-    appendSyncEvent(@Body() dto: AppendSyncEventDto, @CurrentUser() user: JwtPayload) {
-        return this.mobileService.appendSyncEvent(dto, user);
+    appendSyncEvent(
+        @Body() dto: AppendSyncEventDto,
+        @CurrentUser() user: JwtPayload,
+        @Headers('x-device-id') headerDeviceId?: string,
+        @Headers('x-device-token') headerDeviceToken?: string,
+    ) {
+        return this.mobileService.appendSyncEvent(dto, user, headerDeviceId || headerDeviceToken);
     }
 
     @Get('sync-events')
     @ApiOperation({ summary: 'Pull sync events for the tenant since given sequence' })
     @ApiQuery({ name: 'since', required: false, type: Number, description: 'Last acknowledged sequence number' })
     @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Maximum number of events to return (1-200)' })
+    @ApiQuery({ name: 'deviceId', required: false, type: String, description: 'Device identifier for targeting sync activity' })
     getSyncEvents(
         @Query('since') since: string | undefined,
         @Query('limit') limit: string | undefined,
+        @Query('deviceId') queryDeviceId: string | undefined,
         @CurrentUser() user: JwtPayload,
+        @Headers('x-device-id') headerDeviceId?: string,
+        @Headers('x-device-token') headerDeviceToken?: string,
     ) {
         const sinceSeq = since ? parseInt(since, 10) : 0;
         const pageLimit = limit ? parseInt(limit, 10) : 50;
@@ -68,13 +78,19 @@ export class MobileController {
             user,
             isNaN(sinceSeq) ? 0 : sinceSeq,
             isNaN(pageLimit) ? 50 : pageLimit,
+            headerDeviceId || headerDeviceToken || queryDeviceId,
         );
     }
 
     @Get('disaster-pack')
     @ApiOperation({ summary: 'Download offline emergency disaster pack bundle' })
-    getDisasterPack(@CurrentUser() user: JwtPayload) {
-        return this.mobileService.getDisasterPack(user);
+    getDisasterPack(
+        @CurrentUser() user: JwtPayload,
+        @Headers('x-device-id') headerDeviceId?: string,
+        @Headers('x-device-token') headerDeviceToken?: string,
+        @Query('deviceId') queryDeviceId?: string,
+    ) {
+        return this.mobileService.getDisasterPack(user, headerDeviceId || headerDeviceToken || queryDeviceId);
     }
 
     @Get('offline-license')
@@ -95,8 +111,13 @@ export class MobileController {
 
     @Get('snapshot')
     @ApiOperation({ summary: 'Re-hydrate state via full snapshot when client is beyond retention window' })
-    getSnapshot(@CurrentUser() user: JwtPayload) {
-        return this.mobileService.getSnapshot(user);
+    getSnapshot(
+        @CurrentUser() user: JwtPayload,
+        @Headers('x-device-id') headerDeviceId?: string,
+        @Headers('x-device-token') headerDeviceToken?: string,
+        @Query('deviceId') queryDeviceId?: string,
+    ) {
+        return this.mobileService.getSnapshot(user, headerDeviceId || headerDeviceToken || queryDeviceId);
     }
 
     @Post('test-disaster-push')

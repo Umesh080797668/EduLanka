@@ -3,12 +3,33 @@ import {
     Logger,
     NotFoundException,
     ForbiddenException,
+    BadRequestException,
     InternalServerErrorException,
 } from '@nestjs/common';
 import type { JwtPayload } from '@edu-lanka/shared-types';
 import { UserRole } from '@edu-lanka/shared-types';
 import { SupabaseService, assertUuid } from '../supabase/supabase.service';
 import type { CreatePaperDto, AttachMarkingSchemeDto } from './dto/create-paper.dto';
+
+export function isAllowedDocumentUrl(urlStr?: string): boolean {
+    if (!urlStr || typeof urlStr !== 'string') return false;
+    try {
+        const parsed = new URL(urlStr);
+        if (parsed.protocol !== 'https:') {
+            return false;
+        }
+        const host = parsed.hostname.toLowerCase();
+        return (
+            host === 'res.cloudinary.com' ||
+            host.endsWith('.cloudinary.com') ||
+            host.endsWith('.supabase.co') ||
+            host === 'localhost' ||
+            host === '127.0.0.1'
+        );
+    } catch {
+        return false;
+    }
+}
 
 @Injectable()
 export class PaperHubService {
@@ -113,6 +134,13 @@ export class PaperHubService {
         assertUuid(caller.tenantId, 'tenantId');
         assertUuid(caller.sub, 'userId');
 
+        if (!isAllowedDocumentUrl(dto.paperUrl)) {
+            throw new BadRequestException('paperUrl must be a secure HTTPS URL from an authorized host');
+        }
+        if (dto.markingSchemeUrl && !isAllowedDocumentUrl(dto.markingSchemeUrl)) {
+            throw new BadRequestException('markingSchemeUrl must be a secure HTTPS URL from an authorized host');
+        }
+
         const { data, error } = await this.supabase.adminClient
             .from('papers')
             .insert({
@@ -148,6 +176,19 @@ export class PaperHubService {
      */
     async bulkUploadNationalPapers(caller: JwtPayload, papers: CreatePaperDto[]) {
         assertUuid(caller.sub, 'userId');
+
+        if (!Array.isArray(papers) || papers.length === 0 || papers.length > 100) {
+            throw new BadRequestException('Bulk upload batch size must be between 1 and 100 papers');
+        }
+
+        for (const p of papers) {
+            if (!isAllowedDocumentUrl(p.paperUrl)) {
+                throw new BadRequestException(`Invalid paperUrl "${p.paperUrl}": must be a secure HTTPS URL from an authorized host`);
+            }
+            if (p.markingSchemeUrl && !isAllowedDocumentUrl(p.markingSchemeUrl)) {
+                throw new BadRequestException(`Invalid markingSchemeUrl "${p.markingSchemeUrl}": must be a secure HTTPS URL from an authorized host`);
+            }
+        }
 
         const rows = papers.map((p) => ({
             tenant_id: null, // National global hub
@@ -186,6 +227,10 @@ export class PaperHubService {
      */
     async attachMarkingScheme(caller: JwtPayload, paperId: string, dto: AttachMarkingSchemeDto) {
         assertUuid(paperId, 'paperId');
+
+        if (!isAllowedDocumentUrl(dto.markingSchemeUrl)) {
+            throw new BadRequestException('markingSchemeUrl must be a secure HTTPS URL from an authorized host');
+        }
 
         const { data: existingPaper, error: fetchError } = await this.supabase.adminClient
             .from('papers')

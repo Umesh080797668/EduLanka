@@ -300,6 +300,7 @@ export class UploadService {
                     mp4_url: mp4Rendition?.secure_url || payload.secure_url || undefined,
                     updated_at: new Date().toISOString(),
                 })
+                .eq('tenant_id', tenantId)
                 .eq('cloudinary_public_id', String(publicId));
 
             if (mediaErr) {

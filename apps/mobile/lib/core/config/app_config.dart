@@ -26,6 +26,7 @@ class AppConfig {
   final String? encryptionKey;
   final String? offlineLicenseKeyId;
   final String? offlineLicensePublicKey;
+  final String? syncfusionLicenseKey;
 
   const AppConfig({
     required this.environment,
@@ -41,6 +42,7 @@ class AppConfig {
     this.encryptionKey,
     this.offlineLicenseKeyId,
     this.offlineLicensePublicKey,
+    this.syncfusionLicenseKey,
   });
 
   factory AppConfig.fromEnvironment() {
@@ -91,6 +93,10 @@ class AppConfig {
     );
     const injectedLicensePublicKey = String.fromEnvironment(
       'OFFLINE_LICENSE_PUBLIC_KEY',
+      defaultValue: '',
+    );
+    const injectedSyncfusionLicense = String.fromEnvironment(
+      'SYNCFUSION_LICENSE_KEY',
       defaultValue: '',
     );
 
@@ -146,6 +152,7 @@ class AppConfig {
       encryptionKey: injectedEncryptionKey.isNotEmpty ? injectedEncryptionKey : null,
       offlineLicenseKeyId: injectedLicenseKeyId.isNotEmpty ? injectedLicenseKeyId : null,
       offlineLicensePublicKey: injectedLicensePublicKey.isNotEmpty ? injectedLicensePublicKey : null,
+      syncfusionLicenseKey: injectedSyncfusionLicense.isNotEmpty ? injectedSyncfusionLicense : null,
     );
   }
 }

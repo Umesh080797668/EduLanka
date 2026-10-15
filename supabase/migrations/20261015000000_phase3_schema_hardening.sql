@@ -42,14 +42,27 @@ BEGIN
     ) THEN
         ALTER TABLE public.homework_submissions DROP CONSTRAINT homework_submissions_client_uuid_key;
     END IF;
-END $$;
 
--- Convert client_uuid to UUID type if needed
-ALTER TABLE public.homework_submissions ALTER COLUMN client_uuid TYPE UUID USING client_uuid::uuid;
+    -- Convert client_uuid to UUID type safely only if not already of type uuid
+    IF EXISTS (
+        SELECT 1 
+        FROM information_schema.columns 
+        WHERE table_schema = 'public' 
+          AND table_name = 'homework_submissions' 
+          AND column_name = 'client_uuid' 
+          AND udt_name <> 'uuid'
+    ) THEN
+        ALTER TABLE public.homework_submissions ALTER COLUMN client_uuid TYPE UUID 
+            USING (
+                CASE 
+                    WHEN client_uuid IS NOT NULL AND client_uuid::text ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' 
+                    THEN (client_uuid::text)::uuid 
+                    ELSE NULL 
+                END
+            );
+    END IF;
 
--- Add tenant-scoped uniqueness
-DO $$
-BEGIN
+    -- Add tenant-scoped uniqueness if not already present
     IF NOT EXISTS (
         SELECT 1 FROM pg_constraint
         WHERE conname = 'uq_homework_submission_client_uuid'

@@ -96,7 +96,7 @@ export class MobileSyncService {
         return MobileSyncService.getSigningKeyPair().publicKey.export({ type: 'spki', format: 'pem' }).toString();
     }
 
-    async touchDeviceActivity(tenantId: string, userId: string, acknowledgedSequence?: number) {
+    async touchDeviceActivity(tenantId: string, userId: string, acknowledgedSequence?: number, deviceIdOrToken?: string) {
         try {
             const updatePayload: Record<string, any> = {
                 last_seen_at: new Date().toISOString(),
@@ -106,12 +106,39 @@ export class MobileSyncService {
                 updatePayload.last_synced_sequence = acknowledgedSequence;
             }
 
-            await this.supabase.adminClient
+            let query = this.supabase.adminClient
                 .from('device_tokens')
                 .update(updatePayload)
                 .eq('tenant_id', tenantId)
                 .eq('user_id', userId)
                 .eq('is_active', true);
+
+            if (deviceIdOrToken) {
+                if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(deviceIdOrToken)) {
+                    query = query.eq('id', deviceIdOrToken);
+                } else {
+                    query = query.eq('token', deviceIdOrToken);
+                }
+            } else {
+                // If device is not explicitly specified, touch only the most recently seen active device
+                // for this user so we never erroneously mark stale devices as synced
+                const { data: activeDevice } = await this.supabase.adminClient
+                    .from('device_tokens')
+                    .select('id')
+                    .eq('tenant_id', tenantId)
+                    .eq('user_id', userId)
+                    .eq('is_active', true)
+                    .order('last_seen_at', { ascending: false })
+                    .limit(1)
+                    .maybeSingle();
+
+                if (!activeDevice?.id) {
+                    return;
+                }
+                query = query.eq('id', activeDevice.id);
+            }
+
+            await query;
         } catch (err: any) {
             this.logger.warn(`Failed to update device activity timestamp: ${err?.message}`);
         }
@@ -136,7 +163,7 @@ export class MobileSyncService {
         return (ctRows ?? []).map((ct: any) => ct.class_id).filter(Boolean);
     }
 
-    async appendSyncEvent(dto: AppendSyncEventDto, caller: JwtPayload) {
+    async appendSyncEvent(dto: AppendSyncEventDto, caller: JwtPayload, deviceIdOrToken?: string) {
         assertUuid(caller.tenantId, 'tenantId');
         assertUuid(caller.sub, 'userId');
         assertUuid(dto.clientUuid, 'clientUuid');
@@ -375,7 +402,7 @@ export class MobileSyncService {
             }
         }
 
-        await this.touchDeviceActivity(caller.tenantId, caller.sub, data?.sequence ? Number(data.sequence) : undefined);
+        await this.touchDeviceActivity(caller.tenantId, caller.sub, data?.sequence ? Number(data.sequence) : undefined, deviceIdOrToken);
 
         return {
             success: true,
@@ -383,7 +410,7 @@ export class MobileSyncService {
         };
     }
 
-    async getSyncEvents(caller: JwtPayload, sinceSequence = 0, limit = 50) {
+    async getSyncEvents(caller: JwtPayload, sinceSequence = 0, limit = 50, deviceIdOrToken?: string) {
         assertUuid(caller.tenantId, 'tenantId');
         assertUuid(caller.sub, 'userId');
 
@@ -520,7 +547,7 @@ export class MobileSyncService {
 
         const latestSeq = pageRows.length > 0 ? Number(pageRows[pageRows.length - 1].sequence) : sinceSequence;
 
-        await this.touchDeviceActivity(caller.tenantId, caller.sub, latestSeq);
+        await this.touchDeviceActivity(caller.tenantId, caller.sub, latestSeq, deviceIdOrToken);
 
         return {
             tenantId: caller.tenantId,
@@ -603,7 +630,7 @@ export class MobileSyncService {
         };
     }
 
-    async getSnapshot(caller: JwtPayload) {
+    async getSnapshot(caller: JwtPayload, deviceIdOrToken?: string) {
         assertUuid(caller.tenantId, 'tenantId');
         assertUuid(caller.sub, 'userId');
 
@@ -648,7 +675,7 @@ export class MobileSyncService {
             .limit(20);
 
         const latestSequence = Number(counter?.last_sequence ?? 0);
-        await this.touchDeviceActivity(caller.tenantId, caller.sub, latestSequence);
+        await this.touchDeviceActivity(caller.tenantId, caller.sub, latestSequence, deviceIdOrToken);
 
         return {
             snapshotAt: new Date().toISOString(),

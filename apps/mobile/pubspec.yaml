@@ -33,6 +33,7 @@ dependencies:
   web_socket_channel: ^3.0.3
   video_player: ^2.11.1
   sentry_flutter: ^8.14.2
+  syncfusion_flutter_core: ^33.2.13
   syncfusion_flutter_pdfviewer: ^33.2.13
   firebase_core: ^4.15.0
   firebase_messaging: ^16.7.0
@@ -48,4 +49,17 @@ flutter:
 
   assets:
     - assets/tutorials/
+    - assets/fonts/
+
+  fonts:
+    - family: NotoSansSinhala
+      fonts:
+        - asset: assets/fonts/NotoSansSinhala-Regular.ttf
+        - asset: assets/fonts/NotoSansSinhala-Bold.ttf
+          weight: 700
+    - family: NotoSansTamil
+      fonts:
+        - asset: assets/fonts/NotoSansTamil-Regular.ttf
+        - asset: assets/fonts/NotoSansTamil-Bold.ttf
+          weight: 700
 

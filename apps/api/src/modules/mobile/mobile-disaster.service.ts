@@ -51,11 +51,11 @@ export class MobileDisasterService {
     }
 
     /**
-     * Touch device activity timestamp.
+     * Touch device activity timestamp for a specific device.
      */
-    private async touchDeviceActivity(tenantId: string, userId: string): Promise<void> {
+    private async touchDeviceActivity(tenantId: string, userId: string, deviceIdOrToken?: string): Promise<void> {
         try {
-            await this.supabase.adminClient
+            let query = this.supabase.adminClient
                 .from('device_tokens')
                 .update({
                     last_seen_at: new Date().toISOString(),
@@ -64,6 +64,33 @@ export class MobileDisasterService {
                 .eq('tenant_id', tenantId)
                 .eq('user_id', userId)
                 .eq('is_active', true);
+
+            if (deviceIdOrToken) {
+                if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(deviceIdOrToken)) {
+                    query = query.eq('id', deviceIdOrToken);
+                } else {
+                    query = query.eq('token', deviceIdOrToken);
+                }
+            } else {
+                // If device is not explicitly specified, touch only the most recently seen active device
+                // for this user so we never erroneously mark stale devices as synced
+                const { data: activeDevice } = await this.supabase.adminClient
+                    .from('device_tokens')
+                    .select('id')
+                    .eq('tenant_id', tenantId)
+                    .eq('user_id', userId)
+                    .eq('is_active', true)
+                    .order('last_seen_at', { ascending: false })
+                    .limit(1)
+                    .maybeSingle();
+
+                if (!activeDevice?.id) {
+                    return;
+                }
+                query = query.eq('id', activeDevice.id);
+            }
+
+            await query;
         } catch (err: any) {
             this.logger.warn(`Failed to update device activity timestamp: ${err?.message}`);
         }
@@ -73,7 +100,7 @@ export class MobileDisasterService {
      * Pre-bundles the offline emergency disaster pack with notices, school policies,
      * official emergency contacts, designated evacuation shelters, and homework tasks.
      */
-    async getDisasterPack(caller: JwtPayload) {
+    async getDisasterPack(caller: JwtPayload, deviceIdOrToken?: string) {
         assertUuid(caller.tenantId, 'tenantId');
         assertUuid(caller.sub, 'userId');
 
@@ -207,7 +234,7 @@ export class MobileDisasterService {
             expectedDuration = `${diffDays}_DAYS`;
         }
 
-        await this.touchDeviceActivity(caller.tenantId, caller.sub);
+        await this.touchDeviceActivity(caller.tenantId, caller.sub, deviceIdOrToken);
 
         return {
             status: 'DISASTER_PACK_READY',

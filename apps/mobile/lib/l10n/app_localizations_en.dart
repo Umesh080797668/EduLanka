@@ -61,4 +61,210 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get signOut => 'Sign Out';
+
+  @override
+  String get dashboard => 'Dashboard';
+
+  @override
+  String get announcements => 'Announcements';
+
+  @override
+  String get notifications => 'Notifications';
+
+  @override
+  String get settings => 'Settings';
+
+  @override
+  String get profile => 'Profile';
+
+  @override
+  String get profileDetails => 'Profile Details';
+
+  @override
+  String get switchLanguage => 'Switch Language';
+
+  @override
+  String get loginFailed => 'Sign In Failed';
+
+  @override
+  String get invalidCredentials =>
+      'The email or password entered is incorrect.';
+
+  @override
+  String get tenantNotFound => 'School domain could not be resolved.';
+
+  @override
+  String get loggingIn => 'Signing in...';
+
+  @override
+  String get welcomeBack => 'Welcome Back';
+
+  @override
+  String get attendanceHistory => 'Attendance History';
+
+  @override
+  String get present => 'Present';
+
+  @override
+  String get absent => 'Absent';
+
+  @override
+  String get late => 'Late';
+
+  @override
+  String get markPresent => 'Mark Present';
+
+  @override
+  String get markAbsent => 'Mark Absent';
+
+  @override
+  String get attendanceRecorded => 'Attendance recorded successfully.';
+
+  @override
+  String get offlineAttendanceQueued =>
+      'Offline attendance queued for synchronization.';
+
+  @override
+  String get downloadPaper => 'Download Past Paper';
+
+  @override
+  String get viewPaper => 'View Document';
+
+  @override
+  String get markingScheme => 'Marking Scheme';
+
+  @override
+  String get grade => 'Grade';
+
+  @override
+  String get subject => 'Subject';
+
+  @override
+  String get year => 'Year';
+
+  @override
+  String get term => 'Term';
+
+  @override
+  String get downloadingPaper => 'Downloading document...';
+
+  @override
+  String get downloadCompleted => 'Download completed.';
+
+  @override
+  String get noPapersFound => 'No past papers found for this selection.';
+
+  @override
+  String get offlineVideos => 'Downloaded Video Lessons';
+
+  @override
+  String get downloadVideo => 'Download Lesson for Offline';
+
+  @override
+  String get deleteVideo => 'Remove Video';
+
+  @override
+  String get videoDuration => 'Duration';
+
+  @override
+  String get storageUsed => 'Storage Used';
+
+  @override
+  String get playbackError => 'Unable to play video offline.';
+
+  @override
+  String get noVideosDownloaded => 'No offline lessons downloaded yet.';
+
+  @override
+  String get pendingHomework => 'Pending Homework';
+
+  @override
+  String get submittedHomework => 'Submitted Tasks';
+
+  @override
+  String get overdue => 'Overdue';
+
+  @override
+  String get submitTask => 'Submit Homework';
+
+  @override
+  String get submissionSuccess => 'Homework submitted successfully.';
+
+  @override
+  String get attachFile => 'Attach File';
+
+  @override
+  String get dueDate => 'Due Date';
+
+  @override
+  String get disasterAlertTitle => 'Emergency Disaster Notice';
+
+  @override
+  String get disasterClosureNotice =>
+      'School activities are temporarily suspended due to emergency.';
+
+  @override
+  String get hotlineNumbers => 'Emergency Hotlines';
+
+  @override
+  String get shelterDirections => 'Shelter Directions & Map';
+
+  @override
+  String get shelterCapacity => 'Shelter Capacity';
+
+  @override
+  String get callEmergency => 'Call Emergency Contact';
+
+  @override
+  String get disasterPackSynced =>
+      'Emergency disaster pack is fully synced offline.';
+
+  @override
+  String get offlineAlert =>
+      'You are currently offline. Changes will automatically sync when online.';
+
+  @override
+  String get connecting => 'Connecting to EduLanka...';
+
+  @override
+  String get syncing => 'Synchronizing data...';
+
+  @override
+  String get syncFailed => 'Synchronization could not be completed.';
+
+  @override
+  String get syncCompleted => 'Synchronization complete.';
+
+  @override
+  String get networkUnavailable => 'No network connection available.';
+
+  @override
+  String get ok => 'OK';
+
+  @override
+  String get cancel => 'Cancel';
+
+  @override
+  String get retry => 'Retry';
+
+  @override
+  String get delete => 'Delete';
+
+  @override
+  String get save => 'Save';
+
+  @override
+  String get close => 'Close';
+
+  @override
+  String get search => 'Search';
+
+  @override
+  String get refresh => 'Refresh';
+
+  @override
+  String get upgradeRequired => 'Application Upgrade Required';
+
+  @override
+  String get upgradeApp => 'Please update EduLanka Mobile to continue.';
 }

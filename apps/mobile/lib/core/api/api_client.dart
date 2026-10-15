@@ -58,6 +58,8 @@ class ApiClient {
               : (Platform.isIOS ? 'ios' : 'android');
           options.headers['X-Client-Version'] = clientVersion;
           options.headers['X-Client-Platform'] = clientPlatform;
+          final deviceId = await tokenStorage.getOrCreateDeviceId();
+          options.headers['X-Device-Id'] = deviceId;
           // The API strictly scopes tenant access from the validated JWT claim
           return handler.next(options);
         },

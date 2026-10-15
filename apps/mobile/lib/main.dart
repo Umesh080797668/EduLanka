@@ -14,7 +14,14 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   final config = AppConfig.fromEnvironment();
 
-  // 1. Firebase Background & Push Notification Initialization (ADR-003)
+  // 1. Syncfusion Licensing: Note that in Syncfusion Flutter v18.3.0+, runtime code
+  // key registration was removed by Syncfusion; commercial compliance is account-managed.
+  if (config.syncfusionLicenseKey != null &&
+      config.syncfusionLicenseKey!.isNotEmpty) {
+    debugPrint('Syncfusion enterprise license configured.');
+  }
+
+  // 2. Firebase Background & Push Notification Initialization (ADR-003)
   try {
     if (config.firebaseApiKey != null && config.firebaseApiKey!.isNotEmpty) {
       await Firebase.initializeApp(
@@ -33,12 +40,12 @@ Future<void> main() async {
     debugPrint('Firebase.initializeApp() notice: $err');
   }
 
-  // 2. Sentry Crash Reporting Initialization (P3-S10)
+  // 3. Sentry Crash Reporting Initialization (P3-S10) - tracesSampleRate tuned to 10%
   if (config.sentryDsn != null && config.sentryDsn!.isNotEmpty) {
     await SentryFlutter.init(
       (options) {
         options.dsn = config.sentryDsn;
-        options.tracesSampleRate = 1.0;
+        options.tracesSampleRate = 0.1;
       },
       appRunner: () => runApp(const ProviderScope(child: EduLankaMobileApp())),
     );

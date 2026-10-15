@@ -59,28 +59,28 @@ export class MobileService {
         return this.pushService.registerDeviceToken(dto, caller);
     }
 
-    touchDeviceActivity(tenantId: string, userId: string, acknowledgedSequence?: number) {
-        return this.syncService.touchDeviceActivity(tenantId, userId, acknowledgedSequence);
+    touchDeviceActivity(tenantId: string, userId: string, acknowledgedSequence?: number, deviceIdOrToken?: string) {
+        return this.syncService.touchDeviceActivity(tenantId, userId, acknowledgedSequence, deviceIdOrToken);
     }
 
-    appendSyncEvent(dto: AppendSyncEventDto, caller: JwtPayload) {
-        return this.syncService.appendSyncEvent(dto, caller);
+    appendSyncEvent(dto: AppendSyncEventDto, caller: JwtPayload, deviceIdOrToken?: string) {
+        return this.syncService.appendSyncEvent(dto, caller, deviceIdOrToken);
     }
 
-    getSyncEvents(caller: JwtPayload, sinceSequence = 0, limit = 50) {
-        return this.syncService.getSyncEvents(caller, sinceSequence, limit);
+    getSyncEvents(caller: JwtPayload, sinceSequence = 0, limit = 50, deviceIdOrToken?: string) {
+        return this.syncService.getSyncEvents(caller, sinceSequence, limit, deviceIdOrToken);
     }
 
     getOfflineLicense(caller: JwtPayload) {
         return this.syncService.getOfflineLicense(caller);
     }
 
-    getSnapshot(caller: JwtPayload) {
-        return this.syncService.getSnapshot(caller);
+    getSnapshot(caller: JwtPayload, deviceIdOrToken?: string) {
+        return this.syncService.getSnapshot(caller, deviceIdOrToken);
     }
 
-    getDisasterPack(caller: JwtPayload) {
-        return this.disasterService.getDisasterPack(caller);
+    getDisasterPack(caller: JwtPayload, deviceIdOrToken?: string) {
+        return this.disasterService.getDisasterPack(caller, deviceIdOrToken);
     }
 
     triggerDisasterPush(dto: TriggerDisasterPushDto, caller: JwtPayload) {

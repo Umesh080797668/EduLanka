@@ -51,7 +51,7 @@ The full vision spans roughly six independently hard products: a multi-tenant sc
 |---|---|---|
 | **Phase 1 — Foundation** | Core school management, auth, tenant model, static report cards | Can a single school run its daily admin on this? |
 | **Phase 2 — Communication** | Real-time chat, notices, Twilio SMS, Disaster Mode | Can the school communicate with parents reliably, even offline? |
-| **Phase 3 — Content & Mobile** | Flutter app, offline sync, video/resource hub, Paper Hub, Prisma ORM (Super Admin Analytics) | Can students/teachers use this without constant connectivity? |
+| **Phase 3 — Content & Mobile** | Flutter app, offline sync, video/resource hub, Paper Hub, Educational Blog & Discourse (Class/School/Platform), Prisma ORM | Can students/teachers use this without constant connectivity? |
 | **Phase 4 — Intelligence Foundations** | Meilisearch, Vector DB, Qwen Academic Assistant (RAG) | Can students get grounded, non-hallucinated AI tutoring? |
 | **Phase 5 — Predictive Layer** | Early Warning System, Exam Prediction, Smart Recommendations | Now that we have a year of real data, can we predict outcomes? |
 | **Phase 6 — Scale & Optimization** | Smart Timetabling, National Resource Marketplace, Ministry analytics | Can this run nationally across zones/provinces with MoE-level reporting? |
@@ -123,7 +123,7 @@ The full vision spans roughly six independently hard products: a multi-tenant sc
 **Goal:** Students and teachers can use EduLanka meaningfully both online and without constant connectivity — critical outside Colombo and during Disaster Mode.
 
 **Core Architecture & Cross-Platform Parity Principles:**
-- **Bidirectional Feature Parity (Web ↔ Mobile):** Every mobile feature exists in the web portal, and every web feature exists in the mobile application according to role. Teachers can mark attendance, review homework, and chat on both web and mobile; students can access the Resource Hub, Paper Hub, and Disaster Pack on both web and mobile.
+- **Bidirectional Feature Parity (Web ↔ Mobile):** Every mobile feature exists in the web portal, and every web feature exists in the mobile application according to role. Teachers can mark attendance, review homework, author educational blogs, and chat on both web and mobile; students can access the Resource Hub, Paper Hub, Disaster Pack, and participate in blog discussions (comments, reactions, threaded replies) on both web and mobile.
 - **Online-First Baseline & Transparent Fallback:** Offline capabilities represent a resilient progressive enhancement. All functions operate natively as direct online workflows (REST / WebSockets) when connected or on the web. On mobile devices with intermittent connectivity, Drift + SQLCipher caches state locally and the outbox sync engine reconciles writes automatically.
 
 **Scope:**
@@ -135,6 +135,23 @@ The full vision spans roughly six independently hard products: a multi-tenant sc
   - Online adaptive-bitrate HLS streaming across web and mobile.
   - Offline video downloads: Resumable progressive MP4 (deliberate architectural scope decision replacing offline HLS to prevent inode exhaustion, FAT32 corruption, and multi-file resumption fragility on low-end hardware) with chunked AES-256-GCM Streaming AEAD (Tink-compatible with AAD last-segment truncation defense) decoded via custom Media3 ExoPlayer `DataSource` / `TextureRegistry` for seeking on 2GB RAM devices without in-memory decryption bottlenecks. Derived MP4 renditions tracked in tenant storage quota ledger.
 - Paper Hub: exam paper PDFs paired with official marking schemes for split-screen practice, available on web and mobile.
+- **Educational Blog & Academic Discourse Engine (Web ↔ Mobile Parity):**
+  - **Three-Tier Scope Hierarchy:**
+    - *Class-Wide Blogs:* Scoped to a specific class (`class_id` foreign key with RLS matching enrolled students and assigned teachers). Authored by assigned class teachers for localized curriculum modules, homework walkthroughs, project discussions, and subject notes.
+    - *School-Wide Blogs:* Scoped to the entire school tenant (`tenant_id` RLS). Authored by any verified teacher in the institution, visible to all students, teachers, and school administrators for school-wide academic announcements, science exhibitions, and subject-circle writeups.
+    - *Platform-Wide Blogs:* Published across all school tenants on the EduLanka network (`tenant_id IS NULL` or `is_platform_wide = true`). Authored by vetted, accredited master teachers and Super Admins to disseminate national curriculum guidance, model exam answers, and innovative teaching methodologies across Sri Lanka.
+  - **Strict Authoring Authorization:** Top-level blog posts can **only** be composed, edited, and published by **Teachers** (and School/Super Admins). Students are strictly forbidden from creating top-level posts to maintain high academic quality, eliminate spam, and prevent bullying. Supports rich markdown formatting, embedded images, diagrams, and Cloudinary media attachments.
+  - **Multi-Level Engagement & Academic Discussions (Teachers & Students):**
+    - *Blog Post Reactions:* Both teachers and students can react to blog posts using standard academic reactions (e.g. Like, Helpful, Insightful, Heart).
+    - *Blog Post Comments:* Both teachers and students can post comments to ask questions, discuss core concepts, and share feedback.
+    - *Comment Reactions:* Both teachers and students can react directly to individual comments to highlight helpful explanations.
+    - *Threaded / Nested Comment Replies:* Both teachers and students can reply directly to any comment (`parent_comment_id` self-referential tree), enabling multi-tier structured academic discussions and peer tutoring.
+  - **Offline Reading & Outbox Synchronization (Phase 3 Monotonic Engine):**
+    - Blog posts, comments, reactions, and replies are cached offline on mobile via Drift + SQLCipher (`offline_blogs`, `offline_blog_comments`, `offline_blog_reactions`).
+    - Offline mutations: When offline, students and teachers can compose comments, add reactions, and reply to threads. Each mutation is queued with a persistent `client_uuid` in the local outbox and synced atomically via monotonic `sync_events` once internet connectivity is restored.
+  - **Moderation, Academic Integrity & Safety:**
+    - Authoring teachers and School Admins possess moderation controls to pin insightful answers, hide off-topic comments, and soft-delete abusive content.
+    - Full audit trails (`edited_at`, `deleted_at` tombstones) and profanity filtering on all comment and reply streams.
 - Sync Engine: Event-sourced push stream (`sync_events`), monotonic sequences bound to `tenant_sync_counters` row-locks, teacher `marked_at` attendance conflict resolution (clock-skew clamped), per-tenant `client_uuid` idempotency, and student data retention/purge rules.
 - **Disaster-Readiness Pack**: When a school's Phase 2 Disaster Mode is active, both web and mobile surface the emergency pack (contacts, shelter/relocation circulars, closure reason/duration, last 7 days of homework/resources). Mobile auto-caches it via background sync, app-open sync, and Phase 2 SMS backup.
 - Prisma ORM Pipeline: Background microservice for Super Admin aggregation queries, maintaining strict isolation from core RLS paths.
@@ -217,15 +234,15 @@ The full vision spans roughly six independently hard products: a multi-tenant sc
 
 | Module / Role | Phase 1–3 Capabilities | Phase 4–6 AI & Advanced Features |
 |---|---|---|
-| **Student Portal** | Access modules, class chats, offline video downloads, check grades, download papers. | AI Academic Assistant (Qwen RAG, Ph.4). Achievement Badges & Interactive Digital Report Cards (Ph.6). |
+| **Student Portal** | Access modules, class chats, offline video downloads, check grades, download papers, engage with class/school/platform blogs (comment, react, reply). | AI Academic Assistant (Qwen RAG, Ph.4). Achievement Badges & Interactive Digital Report Cards (Ph.6). |
 | **Parent Portal** | Track attendance, view report cards, receive SMS notices, chat with teachers. | Parent Engagement Score (Ph.5). |
-| **Teacher Portal** | Issue announcements, moderate chats, upload videos, track attendance, mark papers. | Early Warning System, Teacher Performance Analytics, Behaviour Analytics (Ph.5). |
+| **Teacher Portal** | Issue announcements, moderate chats, upload videos, track attendance, mark papers, author class/school/platform blogs, moderate discussions, reply to student queries. | Early Warning System, Teacher Performance Analytics, Behaviour Analytics (Ph.5). |
 | **School Admin** | Manage accounts, broadcast notices, audit chats, run SMS campaigns. | Smart Timetable Generator, School AI Insights (Ph.6). |
 | **Zonal Office Portal** | *(not active until Ph.6)* | Zone-level dashboards, local school audits, zone-level analytics (Ph.6). |
 | **Provincial Office Portal** | *(not active until Ph.6)* | Province-level roll-up of zonal dashboards (District ➔ Zone aggregation), provincial policy monitoring, cross-zone comparative analytics (Ph.6). |
 | **MoE Portal** | *(not active until Ph.6)* | National aggregate dashboards, universal emergency notices, MoE oversight (Ph.6). |
 | **System Admin Portal** | Provision schools, monitor CDN/SMS quotas, upload global tutorials/papers (Ph.1-3). | Manage Vector DB, audit AI models, monitor LLM costs and national scale (Ph.4-6). |
-| **Resource Hub** | School-internal repository for blogs, videos, links, exam papers with marking schemes. | National Resource Marketplace (Ph.6). |
+| **Resource Hub & Educational Blog** | School-internal and platform-wide repository for teacher-authored blogs, videos, links, exam papers with marking schemes. Student/teacher comments, reactions, and threaded replies. | National Resource Marketplace (Ph.6). |
 
 ## 6. Platform Architecture (Target State — Phase 6)
 
@@ -288,8 +305,8 @@ The diagram below represents the fully realized architecture; earlier phases imp
 | Tier | Base Platform Fee (Monthly) | Active Student Fee | Hard Resource Quotas & Caps | What It Unlocks | Phase |
 |---|---|---|---|---|---|
 | **Community** (Free) | LKR 0 | LKR 0 | Hard cap of 75 active students (lowered from 100 to align with paid tiers); 500 MB shared storage | Enrollment, class assignment, grade entry, static PDF report cards, in-app/web notices only (no SMS) | 1 |
-| **Starter** | LKR 1,500 | LKR 20 / student | Uncapped students; 2 GB storage; 3 Twilio SMS/student/month included | Everything in Community, plus: full real-time chat (class groups, DMs), targeted notice scoping, Disaster Mode, offline mobile sync (7-day retention), embedded video links | 2 / 3 (partial) |
-| **Growth** | LKR 3,000 | LKR 40 / student | Uncapped students; 15 GB storage; 50,000 AI tokens/student/month | Everything in Starter, plus: unlimited offline Flutter SQLite sync, direct video hosting/streaming with encrypted downloads, Paper Hub, AI Academic Assistant (Qwen RAG tutoring) | 3 / 4 |
+| **Starter** | LKR 1,500 | LKR 20 / student | Uncapped students; 2 GB storage; 3 Twilio SMS/student/month included | Everything in Community, plus: full real-time chat (class groups, DMs), targeted notice scoping, Disaster Mode, offline mobile sync (7-day retention), class & school-wide educational blogs with comment/reaction discourse, embedded video links | 2 / 3 (partial) |
+| **Growth** | LKR 3,000 | LKR 40 / student | Uncapped students; 15 GB storage; 50,000 AI tokens/student/month | Everything in Starter, plus: unlimited offline Flutter SQLite sync, direct video hosting/streaming with encrypted downloads, Paper Hub, platform-wide educational blogs & nationwide discourse, AI Academic Assistant (Qwen RAG tutoring) | 3 / 4 |
 | **Institutional** | LKR 5,000 | LKR 60 / student | Uncapped students; 50 GB storage; 100,000 AI tokens/student/month | Everything in Growth, plus: Early Warning System, Exam Prediction, Teacher Performance Analytics, Smart Timetable Generator, publishing to the National Resource Marketplace, Zonal/Provincial/MoE hierarchical reporting where applicable | 5 / 6 |
 
 **Example:** An 80-student school on Starter pays `LKR 1,500 + (80 × LKR 20) = LKR 3,100/month`. The cost is a direct, legible function of the school's size instead of the old flat-rate-plus-minimum-spend penalty.

@@ -35,6 +35,29 @@ export function isAllowedEmbedUrl(urlStr?: string): boolean {
     }
 }
 
+export function isAllowedMediaUrl(urlStr?: string, isEmbed = false): boolean {
+    if (!urlStr || typeof urlStr !== 'string') return false;
+    try {
+        const parsed = new URL(urlStr);
+        if (parsed.protocol !== 'https:') {
+            return false;
+        }
+        const host = parsed.hostname.toLowerCase();
+        if (isEmbed) {
+            return isAllowedEmbedUrl(urlStr);
+        }
+        return (
+            host === 'res.cloudinary.com' ||
+            host.endsWith('.cloudinary.com') ||
+            host.endsWith('.supabase.co') ||
+            host === 'localhost' ||
+            host === '127.0.0.1'
+        );
+    } catch {
+        return false;
+    }
+}
+
 @Injectable()
 export class MediaService {
     private readonly logger = new Logger(MediaService.name);
@@ -263,9 +286,31 @@ export class MediaService {
             throw new BadRequestException('Invalid embed URL: must be a valid YouTube, Vimeo, or Google Drive link');
         }
 
+        if (dto.cloudinarySecureUrl && !isAllowedMediaUrl(dto.cloudinarySecureUrl, isExternalEmbed)) {
+            throw new BadRequestException('cloudinarySecureUrl must be a secure HTTPS URL from an authorized host');
+        }
+        if (dto.mp4Url && !isAllowedMediaUrl(dto.mp4Url, false)) {
+            throw new BadRequestException('mp4Url must be a secure HTTPS URL from an authorized host');
+        }
+        if (dto.hlsUrl && !isAllowedMediaUrl(dto.hlsUrl, false)) {
+            throw new BadRequestException('hlsUrl must be a secure HTTPS URL from an authorized host');
+        }
+
         if (!isExternalEmbed) {
             if (!dto.cloudinaryPublicId || dto.cloudinaryPublicId.startsWith('embed_')) {
                 throw new BadRequestException('A valid cloudinaryPublicId is required for direct video hosting');
+            }
+
+            // Cross-tenant verification: Ensure public ID starts with the caller's tenant prefix
+            const tenantPrefix1 = `edulanka/${caller.tenantId}/`;
+            const tenantPrefix2 = `${caller.tenantId}/`;
+            if (
+                !dto.cloudinaryPublicId.startsWith(tenantPrefix1) &&
+                !dto.cloudinaryPublicId.startsWith(tenantPrefix2)
+            ) {
+                throw new ForbiddenException(
+                    `Unauthorized resource: cloudinaryPublicId must start with your tenant directory prefix (${tenantPrefix1})`,
+                );
             }
 
             // Check storage quota from public.tenant_storage_usage before initiating direct upload

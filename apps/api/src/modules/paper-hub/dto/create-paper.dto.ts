@@ -1,4 +1,4 @@
-import { IsString, IsNotEmpty, IsOptional, IsInt, IsIn, Min, Max, IsArray, ValidateNested, ArrayMinSize } from 'class-validator';
+import { IsString, IsNotEmpty, IsOptional, IsInt, IsIn, Min, Max, IsArray, ValidateNested, ArrayMinSize, ArrayMaxSize, Matches } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class CreatePaperDto {
@@ -34,6 +34,7 @@ export class CreatePaperDto {
 
     @IsString()
     @IsNotEmpty()
+    @Matches(/^https:\/\//i, { message: 'paperUrl must be a secure HTTPS URL' })
     paperUrl!: string;
 
     @IsString()
@@ -42,6 +43,7 @@ export class CreatePaperDto {
 
     @IsString()
     @IsOptional()
+    @Matches(/^https:\/\//i, { message: 'markingSchemeUrl must be a secure HTTPS URL' })
     markingSchemeUrl?: string;
 }
 
@@ -52,12 +54,14 @@ export class AttachMarkingSchemeDto {
 
     @IsString()
     @IsNotEmpty()
+    @Matches(/^https:\/\//i, { message: 'markingSchemeUrl must be a secure HTTPS URL' })
     markingSchemeUrl!: string;
 }
 
 export class BulkUploadPapersDto {
     @IsArray()
     @ArrayMinSize(1)
+    @ArrayMaxSize(100)
     @ValidateNested({ each: true })
     @Type(() => CreatePaperDto)
     papers!: CreatePaperDto[];

@@ -207,6 +207,408 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Sign Out'**
   String get signOut;
+
+  /// No description provided for @dashboard.
+  ///
+  /// In en, this message translates to:
+  /// **'Dashboard'**
+  String get dashboard;
+
+  /// No description provided for @announcements.
+  ///
+  /// In en, this message translates to:
+  /// **'Announcements'**
+  String get announcements;
+
+  /// No description provided for @notifications.
+  ///
+  /// In en, this message translates to:
+  /// **'Notifications'**
+  String get notifications;
+
+  /// No description provided for @settings.
+  ///
+  /// In en, this message translates to:
+  /// **'Settings'**
+  String get settings;
+
+  /// No description provided for @profile.
+  ///
+  /// In en, this message translates to:
+  /// **'Profile'**
+  String get profile;
+
+  /// No description provided for @profileDetails.
+  ///
+  /// In en, this message translates to:
+  /// **'Profile Details'**
+  String get profileDetails;
+
+  /// No description provided for @switchLanguage.
+  ///
+  /// In en, this message translates to:
+  /// **'Switch Language'**
+  String get switchLanguage;
+
+  /// No description provided for @loginFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign In Failed'**
+  String get loginFailed;
+
+  /// No description provided for @invalidCredentials.
+  ///
+  /// In en, this message translates to:
+  /// **'The email or password entered is incorrect.'**
+  String get invalidCredentials;
+
+  /// No description provided for @tenantNotFound.
+  ///
+  /// In en, this message translates to:
+  /// **'School domain could not be resolved.'**
+  String get tenantNotFound;
+
+  /// No description provided for @loggingIn.
+  ///
+  /// In en, this message translates to:
+  /// **'Signing in...'**
+  String get loggingIn;
+
+  /// No description provided for @welcomeBack.
+  ///
+  /// In en, this message translates to:
+  /// **'Welcome Back'**
+  String get welcomeBack;
+
+  /// No description provided for @attendanceHistory.
+  ///
+  /// In en, this message translates to:
+  /// **'Attendance History'**
+  String get attendanceHistory;
+
+  /// No description provided for @present.
+  ///
+  /// In en, this message translates to:
+  /// **'Present'**
+  String get present;
+
+  /// No description provided for @absent.
+  ///
+  /// In en, this message translates to:
+  /// **'Absent'**
+  String get absent;
+
+  /// No description provided for @late.
+  ///
+  /// In en, this message translates to:
+  /// **'Late'**
+  String get late;
+
+  /// No description provided for @markPresent.
+  ///
+  /// In en, this message translates to:
+  /// **'Mark Present'**
+  String get markPresent;
+
+  /// No description provided for @markAbsent.
+  ///
+  /// In en, this message translates to:
+  /// **'Mark Absent'**
+  String get markAbsent;
+
+  /// No description provided for @attendanceRecorded.
+  ///
+  /// In en, this message translates to:
+  /// **'Attendance recorded successfully.'**
+  String get attendanceRecorded;
+
+  /// No description provided for @offlineAttendanceQueued.
+  ///
+  /// In en, this message translates to:
+  /// **'Offline attendance queued for synchronization.'**
+  String get offlineAttendanceQueued;
+
+  /// No description provided for @downloadPaper.
+  ///
+  /// In en, this message translates to:
+  /// **'Download Past Paper'**
+  String get downloadPaper;
+
+  /// No description provided for @viewPaper.
+  ///
+  /// In en, this message translates to:
+  /// **'View Document'**
+  String get viewPaper;
+
+  /// No description provided for @markingScheme.
+  ///
+  /// In en, this message translates to:
+  /// **'Marking Scheme'**
+  String get markingScheme;
+
+  /// No description provided for @grade.
+  ///
+  /// In en, this message translates to:
+  /// **'Grade'**
+  String get grade;
+
+  /// No description provided for @subject.
+  ///
+  /// In en, this message translates to:
+  /// **'Subject'**
+  String get subject;
+
+  /// No description provided for @year.
+  ///
+  /// In en, this message translates to:
+  /// **'Year'**
+  String get year;
+
+  /// No description provided for @term.
+  ///
+  /// In en, this message translates to:
+  /// **'Term'**
+  String get term;
+
+  /// No description provided for @downloadingPaper.
+  ///
+  /// In en, this message translates to:
+  /// **'Downloading document...'**
+  String get downloadingPaper;
+
+  /// No description provided for @downloadCompleted.
+  ///
+  /// In en, this message translates to:
+  /// **'Download completed.'**
+  String get downloadCompleted;
+
+  /// No description provided for @noPapersFound.
+  ///
+  /// In en, this message translates to:
+  /// **'No past papers found for this selection.'**
+  String get noPapersFound;
+
+  /// No description provided for @offlineVideos.
+  ///
+  /// In en, this message translates to:
+  /// **'Downloaded Video Lessons'**
+  String get offlineVideos;
+
+  /// No description provided for @downloadVideo.
+  ///
+  /// In en, this message translates to:
+  /// **'Download Lesson for Offline'**
+  String get downloadVideo;
+
+  /// No description provided for @deleteVideo.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove Video'**
+  String get deleteVideo;
+
+  /// No description provided for @videoDuration.
+  ///
+  /// In en, this message translates to:
+  /// **'Duration'**
+  String get videoDuration;
+
+  /// No description provided for @storageUsed.
+  ///
+  /// In en, this message translates to:
+  /// **'Storage Used'**
+  String get storageUsed;
+
+  /// No description provided for @playbackError.
+  ///
+  /// In en, this message translates to:
+  /// **'Unable to play video offline.'**
+  String get playbackError;
+
+  /// No description provided for @noVideosDownloaded.
+  ///
+  /// In en, this message translates to:
+  /// **'No offline lessons downloaded yet.'**
+  String get noVideosDownloaded;
+
+  /// No description provided for @pendingHomework.
+  ///
+  /// In en, this message translates to:
+  /// **'Pending Homework'**
+  String get pendingHomework;
+
+  /// No description provided for @submittedHomework.
+  ///
+  /// In en, this message translates to:
+  /// **'Submitted Tasks'**
+  String get submittedHomework;
+
+  /// No description provided for @overdue.
+  ///
+  /// In en, this message translates to:
+  /// **'Overdue'**
+  String get overdue;
+
+  /// No description provided for @submitTask.
+  ///
+  /// In en, this message translates to:
+  /// **'Submit Homework'**
+  String get submitTask;
+
+  /// No description provided for @submissionSuccess.
+  ///
+  /// In en, this message translates to:
+  /// **'Homework submitted successfully.'**
+  String get submissionSuccess;
+
+  /// No description provided for @attachFile.
+  ///
+  /// In en, this message translates to:
+  /// **'Attach File'**
+  String get attachFile;
+
+  /// No description provided for @dueDate.
+  ///
+  /// In en, this message translates to:
+  /// **'Due Date'**
+  String get dueDate;
+
+  /// No description provided for @disasterAlertTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Emergency Disaster Notice'**
+  String get disasterAlertTitle;
+
+  /// No description provided for @disasterClosureNotice.
+  ///
+  /// In en, this message translates to:
+  /// **'School activities are temporarily suspended due to emergency.'**
+  String get disasterClosureNotice;
+
+  /// No description provided for @hotlineNumbers.
+  ///
+  /// In en, this message translates to:
+  /// **'Emergency Hotlines'**
+  String get hotlineNumbers;
+
+  /// No description provided for @shelterDirections.
+  ///
+  /// In en, this message translates to:
+  /// **'Shelter Directions & Map'**
+  String get shelterDirections;
+
+  /// No description provided for @shelterCapacity.
+  ///
+  /// In en, this message translates to:
+  /// **'Shelter Capacity'**
+  String get shelterCapacity;
+
+  /// No description provided for @callEmergency.
+  ///
+  /// In en, this message translates to:
+  /// **'Call Emergency Contact'**
+  String get callEmergency;
+
+  /// No description provided for @disasterPackSynced.
+  ///
+  /// In en, this message translates to:
+  /// **'Emergency disaster pack is fully synced offline.'**
+  String get disasterPackSynced;
+
+  /// No description provided for @offlineAlert.
+  ///
+  /// In en, this message translates to:
+  /// **'You are currently offline. Changes will automatically sync when online.'**
+  String get offlineAlert;
+
+  /// No description provided for @connecting.
+  ///
+  /// In en, this message translates to:
+  /// **'Connecting to EduLanka...'**
+  String get connecting;
+
+  /// No description provided for @syncing.
+  ///
+  /// In en, this message translates to:
+  /// **'Synchronizing data...'**
+  String get syncing;
+
+  /// No description provided for @syncFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Synchronization could not be completed.'**
+  String get syncFailed;
+
+  /// No description provided for @syncCompleted.
+  ///
+  /// In en, this message translates to:
+  /// **'Synchronization complete.'**
+  String get syncCompleted;
+
+  /// No description provided for @networkUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'No network connection available.'**
+  String get networkUnavailable;
+
+  /// No description provided for @ok.
+  ///
+  /// In en, this message translates to:
+  /// **'OK'**
+  String get ok;
+
+  /// No description provided for @cancel.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel'**
+  String get cancel;
+
+  /// No description provided for @retry.
+  ///
+  /// In en, this message translates to:
+  /// **'Retry'**
+  String get retry;
+
+  /// No description provided for @delete.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete'**
+  String get delete;
+
+  /// No description provided for @save.
+  ///
+  /// In en, this message translates to:
+  /// **'Save'**
+  String get save;
+
+  /// No description provided for @close.
+  ///
+  /// In en, this message translates to:
+  /// **'Close'**
+  String get close;
+
+  /// No description provided for @search.
+  ///
+  /// In en, this message translates to:
+  /// **'Search'**
+  String get search;
+
+  /// No description provided for @refresh.
+  ///
+  /// In en, this message translates to:
+  /// **'Refresh'**
+  String get refresh;
+
+  /// No description provided for @upgradeRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'Application Upgrade Required'**
+  String get upgradeRequired;
+
+  /// No description provided for @upgradeApp.
+  ///
+  /// In en, this message translates to:
+  /// **'Please update EduLanka Mobile to continue.'**
+  String get upgradeApp;
 }
 
 class _AppLocalizationsDelegate

@@ -483,4 +483,73 @@ describe('MobileService', () => {
         expect(result.enqueuedRecipientsCount).toBe(1);
         expect((result as any).tokens).toBeUndefined();
     });
+
+    describe('touchDeviceActivity scoping', () => {
+        it('should target specific device by UUID when device ID is provided', async () => {
+            const deviceId = 'a1b2c3d4-e5f6-7890-abcd-ef1234567890';
+            const eqCalls: any[] = [];
+            mockAdminClient.from.mockImplementation((_table: string) => {
+                const builder: any = {
+                    update: jest.fn().mockReturnThis(),
+                    eq: jest.fn().mockImplementation((col: string, val: any) => {
+                        eqCalls.push([col, val]);
+                        return builder;
+                    }),
+                    then: (resolve: any) => resolve({ data: null, error: null }),
+                };
+                return builder;
+            });
+
+            await service.touchDeviceActivity(caller.tenantId, caller.sub, 42, deviceId);
+
+            expect(eqCalls).toContainEqual(['tenant_id', caller.tenantId]);
+            expect(eqCalls).toContainEqual(['user_id', caller.sub]);
+            expect(eqCalls).toContainEqual(['is_active', true]);
+            expect(eqCalls).toContainEqual(['id', deviceId]);
+        });
+
+        it('should target specific device by token when non-UUID token is provided', async () => {
+            const token = 'fcm_token_abcdef123456';
+            const eqCalls: any[] = [];
+            mockAdminClient.from.mockImplementation((_table: string) => {
+                const builder: any = {
+                    update: jest.fn().mockReturnThis(),
+                    eq: jest.fn().mockImplementation((col: string, val: any) => {
+                        eqCalls.push([col, val]);
+                        return builder;
+                    }),
+                    then: (resolve: any) => resolve({ data: null, error: null }),
+                };
+                return builder;
+            });
+
+            await service.touchDeviceActivity(caller.tenantId, caller.sub, 42, token);
+
+            expect(eqCalls).toContainEqual(['token', token]);
+        });
+
+        it('should fallback to strictly the single latest seen active device if device ID is omitted', async () => {
+            const latestDeviceId = 'latest-dev-1111-2222-3333-444455556666';
+            const eqCalls: any[] = [];
+            mockAdminClient.from.mockImplementation((_table: string) => {
+                const builder: any = {
+                    select: jest.fn().mockReturnThis(),
+                    order: jest.fn().mockReturnThis(),
+                    limit: jest.fn().mockReturnThis(),
+                    maybeSingle: jest.fn().mockResolvedValue({ data: { id: latestDeviceId }, error: null }),
+                    update: jest.fn().mockReturnThis(),
+                    eq: jest.fn().mockImplementation((col: string, val: any) => {
+                        eqCalls.push([col, val]);
+                        return builder;
+                    }),
+                    then: (resolve: any) => resolve({ data: null, error: null }),
+                };
+                return builder;
+            });
+
+            await service.touchDeviceActivity(caller.tenantId, caller.sub, 42);
+
+            expect(eqCalls).toContainEqual(['id', latestDeviceId]);
+        });
+    });
 });
