@@ -58,12 +58,13 @@ export class AttendanceService {
     }
 
     /**
-     * Retrieves attendance roster and recorded statuses for a class on a given date.
+     * Retrieves attendance roster and recorded statuses for a class on a given date and period.
      */
-    async getAttendance(caller: JwtPayload, classId: string, queryDate?: string) {
+    async getAttendance(caller: JwtPayload, classId: string, queryDate?: string, queryPeriod: number = 1) {
         await this.assertClassAccess(caller, classId);
 
         const date = queryDate || new Date().toISOString().slice(0, 10);
+        const period = queryPeriod ?? 1;
         const client = this.supabase.adminClient;
 
         // Fetch class info
@@ -92,17 +93,18 @@ export class AttendanceService {
             throw new InternalServerErrorException('Failed to retrieve student roster');
         }
 
-        // Fetch recorded attendance for this date
+        // Fetch recorded attendance for this date and period
         const { data: attendanceRecords, error: attErr } = await client
             .from('attendance')
-            .select('id, student_id, status, marked_at, marked_by')
+            .select('id, student_id, status, period, marked_at, marked_by')
             .eq('tenant_id', caller.tenantId)
             .eq('class_id', classId)
             .eq('date', date)
+            .eq('period', period)
             .is('deleted_at', null);
 
         if (attErr) {
-            this.logger.error(`Failed to fetch attendance for class ${classId} on ${date}: ${attErr.message}`);
+            this.logger.error(`Failed to fetch attendance for class ${classId} on ${date} (period ${period}): ${attErr.message}`);
             throw new InternalServerErrorException('Failed to retrieve attendance records');
         }
 
@@ -134,6 +136,7 @@ export class AttendanceService {
                 fullName: user.full_name,
                 email: user.email,
                 status,
+                period,
                 markedAt: record?.marked_at ?? null,
                 markedBy: record?.marked_by ?? null,
             };
@@ -146,6 +149,7 @@ export class AttendanceService {
         return {
             class: classData,
             date,
+            period,
             summary: {
                 totalStudents,
                 totalMarked,
@@ -171,13 +175,44 @@ export class AttendanceService {
         }
 
         const client = this.supabase.adminClient;
+        const period = dto.period ?? 1;
+
+        // Verify that all students in dto.records are enrolled in dto.classId
+        const { data: enrolledStudents, error: studErr } = await client
+            .from('students')
+            .select('id, user_id')
+            .eq('tenant_id', caller.tenantId)
+            .eq('class_id', dto.classId)
+            .is('deleted_at', null);
+
+        if (studErr) {
+            this.logger.error(`Failed to verify enrolled students for class ${dto.classId}: ${studErr.message}`);
+            throw new InternalServerErrorException('Failed to verify class enrollment');
+        }
+
+        // Map both user_id and student record id to user_id
+        const userMap = new Map<string, string>();
+        for (const s of enrolledStudents ?? []) {
+            if (s.user_id) userMap.set(s.user_id, s.user_id);
+            if (s.id && s.user_id) userMap.set(s.id, s.user_id);
+        }
+
+        const unassignedStudents = dto.records.filter((r) => !userMap.has(r.studentId));
+        if (unassignedStudents.length > 0) {
+            const invalidIds = unassignedStudents.map((r) => r.studentId).join(', ');
+            throw new BadRequestException(
+                `One or more students are not enrolled in class ${dto.classId}: ${invalidIds}`,
+            );
+        }
+
         const nowIso = new Date().toISOString();
 
         const rows = dto.records.map((r) => ({
             tenant_id: caller.tenantId,
             class_id: dto.classId,
-            student_id: r.studentId,
+            student_id: userMap.get(r.studentId) ?? r.studentId,
             date: dto.date,
+            period,
             status: r.status,
             marked_at: nowIso,
             marked_by: caller.sub,
@@ -186,7 +221,7 @@ export class AttendanceService {
 
         const { data, error } = await client
             .from('attendance')
-            .upsert(rows, { onConflict: 'tenant_id,class_id,student_id,date' })
+            .upsert(rows, { onConflict: 'tenant_id,class_id,student_id,date,period' })
             .select();
 
         if (error) {
@@ -194,26 +229,30 @@ export class AttendanceService {
             throw new InternalServerErrorException('Failed to save attendance roll call');
         }
 
-        // Emit sync events so offline mobile devices receive updated attendance
-        for (const row of (data ?? [])) {
-            try {
-                await client.rpc('append_sync_event', {
-                    p_tenant_id: caller.tenantId,
-                    p_entity_type: 'attendance',
-                    p_entity_id: row.id,
-                    p_event_type: 'CREATED',
-                    p_payload: row,
-                    p_client_uuid: randomUUID(),
-                });
-            } catch (err: any) {
-                this.logger.warn(`Failed to emit attendance sync event: ${err?.message}`);
+        // Emit sync events concurrently so offline mobile devices receive updated attendance
+        const syncPromises = (data ?? []).map(async (row: any) => {
+            const { error: syncErr } = await client.rpc('append_sync_event', {
+                p_tenant_id: caller.tenantId,
+                p_entity_type: 'attendance',
+                p_entity_id: row.id,
+                p_event_type: 'CREATED',
+                p_payload: {
+                    ...row,
+                    period: row.period ?? period,
+                },
+                p_client_uuid: randomUUID(),
+            });
+            if (syncErr) {
+                this.logger.warn(`Failed to emit attendance sync event for row ${row.id}: ${syncErr.message}`);
             }
-        }
+        });
+        await Promise.allSettled(syncPromises);
 
         return {
             success: true,
             savedCount: data?.length || 0,
             date: dto.date,
+            period,
             classId: dto.classId,
         };
     }

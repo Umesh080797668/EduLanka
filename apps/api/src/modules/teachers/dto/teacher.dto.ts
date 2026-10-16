@@ -88,4 +88,8 @@ export class UpdateTeacherDto {
     @IsDateString()
     @IsOptional()
     hireDate?: string;
+
+    @ApiPropertyOptional({ description: 'Vetted Master Teacher status for platform-wide blogs' })
+    @IsOptional()
+    isMasterTeacher?: boolean;
 }

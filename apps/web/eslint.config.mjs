@@ -17,6 +17,8 @@ export default [
     ...tseslint.configs.recommended,
     {
         rules: {
+            'react-hooks/set-state-in-effect': 'warn',
+            'react-hooks/purity': 'warn',
             '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
             '@typescript-eslint/no-explicit-any': 'warn',
             'no-console': ['warn', { allow: ['warn', 'error'] }],

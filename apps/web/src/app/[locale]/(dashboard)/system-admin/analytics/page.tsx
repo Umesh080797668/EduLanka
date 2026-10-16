@@ -241,8 +241,8 @@ export default function PlatformAnalyticsPage() {
         <button
           onClick={() => setActiveTab('students')}
           className={`pb-3 transition-colors ${activeTab === 'students'
-              ? 'border-b-2 border-primary text-primary font-semibold'
-              : 'text-muted-foreground hover:text-foreground'
+            ? 'border-b-2 border-primary text-primary font-semibold'
+            : 'text-muted-foreground hover:text-foreground'
             }`}
         >
           Active Students ({activeStudents.length})
@@ -250,8 +250,8 @@ export default function PlatformAnalyticsPage() {
         <button
           onClick={() => setActiveTab('billing')}
           className={`pb-3 transition-colors ${activeTab === 'billing'
-              ? 'border-b-2 border-primary text-primary font-semibold'
-              : 'text-muted-foreground hover:text-foreground'
+            ? 'border-b-2 border-primary text-primary font-semibold'
+            : 'text-muted-foreground hover:text-foreground'
             }`}
         >
           Billing Snapshots ({snapshots.length})
@@ -259,8 +259,8 @@ export default function PlatformAnalyticsPage() {
         <button
           onClick={() => setActiveTab('downloads')}
           className={`pb-3 transition-colors ${activeTab === 'downloads'
-              ? 'border-b-2 border-primary text-primary font-semibold'
-              : 'text-muted-foreground hover:text-foreground'
+            ? 'border-b-2 border-primary text-primary font-semibold'
+            : 'text-muted-foreground hover:text-foreground'
             }`}
         >
           Media Downloads ({mediaDownloads.length})
@@ -268,8 +268,8 @@ export default function PlatformAnalyticsPage() {
         <button
           onClick={() => setActiveTab('sms')}
           className={`pb-3 transition-colors ${activeTab === 'sms'
-              ? 'border-b-2 border-primary text-primary font-semibold'
-              : 'text-muted-foreground hover:text-foreground'
+            ? 'border-b-2 border-primary text-primary font-semibold'
+            : 'text-muted-foreground hover:text-foreground'
             }`}
         >
           SMS Usage ({smsUsage.length})
@@ -277,8 +277,8 @@ export default function PlatformAnalyticsPage() {
         <button
           onClick={() => setActiveTab('sync')}
           className={`pb-3 transition-colors ${activeTab === 'sync'
-              ? 'border-b-2 border-primary text-primary font-semibold'
-              : 'text-muted-foreground hover:text-foreground'
+            ? 'border-b-2 border-primary text-primary font-semibold'
+            : 'text-muted-foreground hover:text-foreground'
             }`}
         >
           Device Sync Lag ({syncHealth.length})
@@ -393,7 +393,7 @@ export default function PlatformAnalyticsPage() {
                   {snapshots.length === 0 && (
                     <tr>
                       <td colSpan={7} className="py-8 text-center text-muted-foreground">
-                        No billing snapshot exists for {selectedMonth}. Click "Compute Snapshots" to calculate.
+                        No billing snapshot exists for {selectedMonth}. Click &quot;Compute Snapshots&quot; to calculate.
                       </td>
                     </tr>
                   )}

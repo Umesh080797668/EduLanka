@@ -105,7 +105,7 @@ export default function EmergencyReadinessPage() {
             setContacts(Array.isArray(contactsRes) ? contactsRes : []);
             setShelters(Array.isArray(sheltersRes) ? sheltersRes : []);
             setPackPreview(previewRes);
-        } catch (err: any) {
+        } catch {
             toast.error('Failed to load emergency readiness data');
         } finally {
             setIsLoading(false);
@@ -270,7 +270,7 @@ export default function EmergencyReadinessPage() {
                             </h1>
                         </div>
                         <p className="mt-1 text-sm text-neutral-500 dark:text-neutral-400">
-                            Configure school emergency contacts and local evacuation shelters bundled into students' offline disaster packs.
+                            Configure school emergency contacts and local evacuation shelters bundled into students&apos; offline disaster packs.
                         </p>
                     </div>
 

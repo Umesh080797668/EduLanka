@@ -117,4 +117,23 @@ describe('TeachersService', () => {
       expect(mockSupabaseService.adminClient.auth.admin.deleteUser).toHaveBeenCalledWith('auth-id');
     });
   });
+
+  describe('setMasterTeacher', () => {
+    const adminCaller = { sub: 'admin-id', role: UserRole.SCHOOL_ADMIN, tenantId: 'tenant-1' } as any;
+
+    it('should toggle is_master_teacher flag for a teacher', async () => {
+      mockDb.maybeSingle.mockResolvedValueOnce({
+        data: { id: 'teacher-1', is_master_teacher: false },
+        error: null,
+      });
+      mockDb.single.mockResolvedValueOnce({
+        data: { id: 'teacher-1', is_master_teacher: true },
+        error: null,
+      });
+
+      const res = await service.setMasterTeacher('teacher-1', true, adminCaller);
+      expect(res.is_master_teacher).toBe(true);
+      expect(mockDb.update).toHaveBeenCalledWith({ is_master_teacher: true });
+    });
+  });
 });

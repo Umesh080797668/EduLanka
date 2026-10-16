@@ -46,6 +46,9 @@ class EncryptionKeyStorage {
       _cachedKey = key;
       return key;
     } catch (_) {
+      if (kReleaseMode) {
+        rethrow;
+      }
       // Fallback for test/headless runner environments where native secure storage mock is absent
       if (_cachedKey == null) {
         final random = Random.secure();

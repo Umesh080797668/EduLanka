@@ -104,6 +104,60 @@ function normalizeVariants(text: string): string[] {
 }
 
 /**
+ * Legitimate names, literary references, and common educational words that might
+ * otherwise trigger over-eager prefix or substring matching (the Scunthorpe problem).
+ */
+const ALLOWED_WORDS = new Set([
+    'dickens',
+    'fagin',
+    'pissarro',
+    'scunthorpe',
+    'penistone',
+    'cockburn',
+    'association',
+    'assessment',
+    'assign',
+    'assigned',
+    'assignment',
+    'assist',
+    'assistant',
+    'assistance',
+    'class',
+    'classes',
+    'classic',
+    'classical',
+    'pass',
+    'passage',
+    'compass',
+    'compassion',
+]);
+
+const ENGLISH_PROFANITY_ROOTS = new Set([
+    'asshole',
+    'bastard',
+    'bitch',
+    'bullshit',
+    'cunt',
+    'dick',
+    'douche',
+    'fag',
+    'faggot',
+    'fuck',
+    'motherfuck',
+    'nigger',
+    'nigga',
+    'piss',
+    'pussy',
+    'shit',
+    'slut',
+    'twat',
+    'whore',
+]);
+
+/** Regex pattern for valid grammatical suffixes on English vulgarities */
+const ENGLISH_INFLECTIONS = /^(s|es|ed|ing|er|ers|y|ies|head|heads|off)?$/i;
+
+/**
  * Checks whether the given text contains any prohibited profanity or offensive terms.
  */
 export function containsProfanity(text?: string | null): boolean {
@@ -119,16 +173,36 @@ export function containsProfanity(text?: string | null): boolean {
             // Check collapsed version: e.g. "fuuuuck" -> "fuck"
             const collapsed = rawToken.replace(/(.)\1{2,}/g, '$1');
 
+            if (ALLOWED_WORDS.has(rawToken) || ALLOWED_WORDS.has(collapsed)) {
+                continue;
+            }
+
             for (const root of PROFANITY_ROOTS) {
-                // If token exactly matches or begins with root (to catch inflections like හුත්තක්, bitchy, asshole)
+                // If token exactly matches
                 if (rawToken === root || collapsed === root) {
                     return true;
                 }
 
-                // Prefix match for Sinhala/Tamil and English stems
-                if (root.length >= 2) {
-                    if (rawToken.startsWith(root) || collapsed.startsWith(root)) {
-                        return true;
+                // If root is English, check bounded inflections rather than arbitrary prefix matching
+                if (ENGLISH_PROFANITY_ROOTS.has(root)) {
+                    if (rawToken.startsWith(root)) {
+                        const remainder = rawToken.slice(root.length);
+                        if (ENGLISH_INFLECTIONS.test(remainder)) {
+                            return true;
+                        }
+                    }
+                    if (collapsed.startsWith(root)) {
+                        const remainder = collapsed.slice(root.length);
+                        if (ENGLISH_INFLECTIONS.test(remainder)) {
+                            return true;
+                        }
+                    }
+                } else {
+                    // Indic / phonetic scripts: prefix match to catch Sinhala/Tamil inflectional morphology
+                    if (root.length >= 2) {
+                        if (rawToken.startsWith(root) || collapsed.startsWith(root)) {
+                            return true;
+                        }
                     }
                 }
             }

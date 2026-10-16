@@ -33,17 +33,32 @@ class AesCtrCipher {
     return result;
   }
 
+  Uint8List _computeCounter(int blockIndex) {
+    final counterInt = _ivInt + BigInt.from(blockIndex);
+    return _bigIntToBytes(counterInt);
+  }
+
+  static void _incrementCounter(Uint8List counter) {
+    for (int i = 15; i >= 0; i--) {
+      counter[i] = (counter[i] + 1) & 0xff;
+      if (counter[i] != 0) break;
+    }
+  }
+
   /// Processes bytes at a specific stream byte offset for CTR keystream alignment
   Uint8List processBytes(Uint8List input, int streamOffset) {
     final output = Uint8List(input.length);
     int currentOffset = streamOffset;
     final keystreamBlock = Uint8List(16);
+    final counterBytes = _computeCounter(streamOffset ~/ 16);
 
     int i = 0;
+    bool isFirstBlock = true;
     while (i < input.length) {
-      final blockIndex = BigInt.from(currentOffset ~/ 16);
-      final counterInt = _ivInt + blockIndex;
-      final counterBytes = _bigIntToBytes(counterInt);
+      if (!isFirstBlock) {
+        _incrementCounter(counterBytes);
+      }
+      isFirstBlock = false;
 
       _engine.processBlock(counterBytes, 0, keystreamBlock, 0);
 
@@ -112,15 +127,8 @@ class KeyEncapsulation {
     final masterBytes = _normalizeMasterKey(masterKeyBase64);
     final key = enc.Key(masterBytes);
 
-    if (combined.length < 32) {
-      // Legacy fallback for raw base64 DEKs without IV
-      final rawBytes = combined;
-      final dek = Uint8List(32);
-      for (int i = 0; i < 32 && i < rawBytes.length; i++) {
-        dek[i] = rawBytes[i];
-      }
-      final iv = Uint8List(16);
-      return (dek: dek, iv: iv);
+    if (combined.length < 32 || (combined.length - 16) % 16 != 0) {
+      throw const FormatException('Invalid wrapped DEK payload');
     }
 
     final kekIvBytes = combined.sublist(0, 16);
@@ -131,6 +139,12 @@ class KeyEncapsulation {
       enc.Encrypted(cipherBytes),
       iv: enc.IV(kekIvBytes),
     );
+
+    if (decrypted.length < 48) {
+      throw const FormatException(
+        'Invalid wrapped DEK payload: decrypted length insufficient',
+      );
+    }
 
     final dek = Uint8List.fromList(decrypted.sublist(0, 32));
     final iv = Uint8List.fromList(decrypted.sublist(32, 48));

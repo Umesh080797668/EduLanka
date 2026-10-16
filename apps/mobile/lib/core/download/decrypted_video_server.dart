@@ -53,7 +53,10 @@ class LocalDecryptedVideoServer {
         final expectedPath = '/$sessionToken/video.mp4';
         if (request.uri.path != expectedPath) {
           request.response.statusCode = HttpStatus.forbidden;
-          request.response.headers.set(HttpHeaders.contentTypeHeader, 'text/plain');
+          request.response.headers.set(
+            HttpHeaders.contentTypeHeader,
+            'text/plain',
+          );
           request.response.write('Forbidden: Invalid or missing session token');
           await request.response.close();
           return;
@@ -72,13 +75,39 @@ class LocalDecryptedVideoServer {
         int end = fileLength - 1;
 
         if (rangeHeader != null && rangeHeader.startsWith('bytes=')) {
-          final parts = rangeHeader.substring(6).split('-');
-          start = int.tryParse(parts[0]) ?? 0;
-          if (parts.length > 1 && parts[1].isNotEmpty) {
-            final parsedEnd = int.tryParse(parts[1]);
-            if (parsedEnd != null && parsedEnd < fileLength) {
-              end = parsedEnd;
+          final rangeSpec = rangeHeader.substring(6).trim();
+          if (rangeSpec.startsWith('-')) {
+            // Suffix byte range: bytes=-N
+            final suffixLength = int.tryParse(rangeSpec.substring(1)) ?? 0;
+            start = suffixLength > fileLength ? 0 : fileLength - suffixLength;
+            end = fileLength - 1;
+          } else {
+            final parts = rangeSpec.split('-');
+            start = int.tryParse(parts[0]) ?? 0;
+            if (parts.length > 1 && parts[1].isNotEmpty) {
+              final parsedEnd = int.tryParse(parts[1]);
+              if (parsedEnd != null) {
+                end = parsedEnd;
+              }
             }
+          }
+
+          if (fileLength == 0 ||
+              start < 0 ||
+              start >= fileLength ||
+              start > end) {
+            request.response.statusCode =
+                HttpStatus.requestedRangeNotSatisfiable;
+            request.response.headers.set(
+              HttpHeaders.contentRangeHeader,
+              'bytes */$fileLength',
+            );
+            await request.response.close();
+            return;
+          }
+
+          if (end >= fileLength) {
+            end = fileLength - 1;
           }
         }
 
@@ -122,6 +151,7 @@ class LocalDecryptedVideoServer {
 
           final decryptedChunk = cipher.processBytes(chunk, currentOffset);
           request.response.add(decryptedChunk);
+          await request.response.flush();
 
           currentOffset += chunk.length;
           bytesRemaining -= chunk.length;

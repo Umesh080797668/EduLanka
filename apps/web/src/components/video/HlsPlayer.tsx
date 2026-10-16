@@ -15,7 +15,7 @@ interface HlsPlayerProps {
 export function HlsPlayer({ hlsUrl, mp4Url, poster, autoPlay = true }: HlsPlayerProps) {
     const videoRef = useRef<HTMLVideoElement | null>(null);
     const containerRef = useRef<HTMLDivElement | null>(null);
-    const [hlsInstance, setHlsInstance] = useState<Hls | null>(null);
+    const hlsRef = useRef<Hls | null>(null);
     const [levels, setLevels] = useState<{ id: number; height: number; bitrate: number }[]>([]);
     const [currentLevel, setCurrentLevel] = useState<number>(-1); // -1 is auto
     const [isLoading, setIsLoading] = useState(true);
@@ -30,15 +30,14 @@ export function HlsPlayer({ hlsUrl, mp4Url, poster, autoPlay = true }: HlsPlayer
         setIsLoading(true);
         setError(null);
 
-        let hls: Hls | null = null;
-
         // If HLS URL is provided and Hls.js is supported in browser
         if (hlsUrl && Hls.isSupported()) {
-            hls = new Hls({
+            const hls = new Hls({
                 enableWorker: true,
                 lowLatencyMode: true,
                 backBufferLength: 90,
             });
+            hlsRef.current = hls;
 
             hls.loadSource(hlsUrl);
             hls.attachMedia(video);
@@ -66,33 +65,31 @@ export function HlsPlayer({ hlsUrl, mp4Url, poster, autoPlay = true }: HlsPlayer
                 if (data.fatal) {
                     switch (data.type) {
                         case Hls.ErrorTypes.NETWORK_ERROR:
-                            hls?.startLoad();
+                            hls.startLoad();
                             break;
                         case Hls.ErrorTypes.MEDIA_ERROR:
-                            hls?.recoverMediaError();
+                            hls.recoverMediaError();
                             break;
                         default:
                             setError('Unable to load video stream');
-                            hls?.destroy();
+                            hls.destroy();
                             break;
                     }
                 }
             });
-
-            setHlsInstance(hls);
         } else if (video.canPlayType('application/vnd.apple.mpegurl') && hlsUrl) {
             // Native HLS support (Safari iOS / macOS)
             video.src = hlsUrl;
             video.addEventListener('loadedmetadata', () => {
                 setIsLoading(false);
-                if (autoPlay) video.play().catch(() => {});
+                if (autoPlay) video.play().catch(() => { });
             });
         } else if (mp4Url) {
             // Direct MP4 fallback
             video.src = mp4Url;
             video.addEventListener('loadedmetadata', () => {
                 setIsLoading(false);
-                if (autoPlay) video.play().catch(() => {});
+                if (autoPlay) video.play().catch(() => { });
             });
         } else {
             setError('No compatible video stream format found');
@@ -100,15 +97,16 @@ export function HlsPlayer({ hlsUrl, mp4Url, poster, autoPlay = true }: HlsPlayer
         }
 
         return () => {
-            if (hls) {
-                hls.destroy();
+            if (hlsRef.current) {
+                hlsRef.current.destroy();
+                hlsRef.current = null;
             }
         };
     }, [hlsUrl, mp4Url, autoPlay, streamSource]);
 
     const handleLevelChange = (levelIndex: number) => {
-        if (!hlsInstance) return;
-        hlsInstance.currentLevel = levelIndex;
+        if (!hlsRef.current) return;
+        hlsRef.current.currentLevel = levelIndex;
         setCurrentLevel(levelIndex);
     };
 

@@ -6,6 +6,9 @@ describe('ProfanityFilter', () => {
         it('returns false for clean educational text', () => {
             expect(containsProfanity('This is a great lesson on mathematics')).toBe(false);
             expect(containsProfanity('Assessment criteria for Grade 11 Science')).toBe(false);
+            expect(containsProfanity('Charles Dickens wrote Great Expectations')).toBe(false);
+            expect(containsProfanity('Fagin is a character from Oliver Twist')).toBe(false);
+            expect(containsProfanity('Camille Pissarro was a Danish-French Impressionist painter')).toBe(false);
             expect(containsProfanity('මෙය විශිෂ්ට පාඩමකි')).toBe(false);
             expect(containsProfanity('இது ஒரு சிறந்த பாடம்')).toBe(false);
             expect(containsProfanity('')).toBe(false);

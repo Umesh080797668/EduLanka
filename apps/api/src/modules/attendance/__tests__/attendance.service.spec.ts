@@ -10,6 +10,7 @@ describe('AttendanceService', () => {
     let service: AttendanceService;
     let mockSupabase: any;
     let mockAdminClient: any;
+    let mockUpsert: any;
 
     const tenantUuid = '11111111-1111-1111-1111-111111111111';
     const teacherUuid = '22222222-2222-2222-2222-222222222222';
@@ -39,6 +40,23 @@ describe('AttendanceService', () => {
     };
 
     beforeEach(async () => {
+        mockUpsert = jest.fn().mockReturnValue({
+            select: jest.fn().mockResolvedValue({
+                data: [
+                    {
+                        id: 'att-1',
+                        tenant_id: tenantUuid,
+                        class_id: classUuid,
+                        student_id: studentUserUuid,
+                        date: '2026-10-15',
+                        period: 1,
+                        status: 'PRESENT',
+                    },
+                ],
+                error: null,
+            }),
+        });
+
         mockAdminClient = {
             from: jest.fn().mockImplementation((table: string) => {
                 if (table === 'teachers') {
@@ -70,7 +88,7 @@ describe('AttendanceService', () => {
                     };
                 }
                 if (table === 'students') {
-                    return {
+                    const chain: any = {
                         select: jest.fn().mockReturnThis(),
                         eq: jest.fn().mockReturnThis(),
                         is: jest.fn().mockReturnThis(),
@@ -89,7 +107,18 @@ describe('AttendanceService', () => {
                             ],
                             error: null,
                         }),
+                        then: (resolve: any) => resolve({
+                            data: [
+                                {
+                                    id: 'student-rec-1',
+                                    user_id: studentUserUuid,
+                                    admission_number: 'ADM-001',
+                                },
+                            ],
+                            error: null,
+                        }),
                     };
+                    return chain;
                 }
                 if (table === 'attendance') {
                     return {
@@ -97,27 +126,14 @@ describe('AttendanceService', () => {
                         eq: jest.fn().mockReturnThis(),
                         is: jest.fn().mockReturnThis(),
                         order: jest.fn().mockReturnThis(),
-                        upsert: jest.fn().mockReturnValue({
-                            select: jest.fn().mockResolvedValue({
-                                data: [
-                                    {
-                                        id: 'att-1',
-                                        tenant_id: tenantUuid,
-                                        class_id: classUuid,
-                                        student_id: studentUserUuid,
-                                        date: '2026-10-15',
-                                        status: 'PRESENT',
-                                    },
-                                ],
-                                error: null,
-                            }),
-                        }),
+                        upsert: mockUpsert,
                         then: (resolve: any) => resolve({
                             data: [
                                 {
                                     id: 'att-1',
                                     student_id: studentUserUuid,
                                     status: 'PRESENT',
+                                    period: 1,
                                     marked_at: '2026-10-15T08:00:00Z',
                                     marked_by: teacherUuid,
                                 },
@@ -157,6 +173,14 @@ describe('AttendanceService', () => {
             expect(result.students[0].status).toBe('PRESENT');
             expect(result.summary.present).toBe(1);
             expect(result.summary.attendanceRate).toBe(100);
+            expect(result.period).toBe(1);
+        });
+
+        it('allows querying attendance by specific period', async () => {
+            const result = await service.getAttendance(teacherCaller, classUuid, '2026-10-15', 2);
+            expect(result).toBeDefined();
+            expect(result.period).toBe(2);
+            expect(result.students[0].period).toBe(2);
         });
 
         it('rejects teacher from accessing attendance for unassigned class', async () => {
@@ -189,10 +213,44 @@ describe('AttendanceService', () => {
 
             expect(result.success).toBe(true);
             expect(result.savedCount).toBe(1);
+            expect(result.period).toBe(1);
             expect(mockAdminClient.rpc).toHaveBeenCalledWith('append_sync_event', expect.objectContaining({
                 p_entity_type: 'attendance',
                 p_tenant_id: tenantUuid,
             }));
+        });
+
+        it('records attendance for specific period (period 2) without overwriting', async () => {
+            const result = await service.recordAttendance(teacherCaller, {
+                classId: classUuid,
+                date: '2026-10-15',
+                period: 2,
+                records: [{ studentId: studentUserUuid, status: 'LATE' }],
+            });
+
+            expect(result.success).toBe(true);
+            expect(result.period).toBe(2);
+            expect(mockUpsert).toHaveBeenCalledWith(
+                expect.arrayContaining([
+                    expect.objectContaining({
+                        period: 2,
+                        status: 'LATE',
+                    }),
+                ]),
+                expect.objectContaining({ onConflict: 'tenant_id,class_id,student_id,date,period' }),
+            );
+        });
+
+        it('rejects recording attendance for students not enrolled in the class', async () => {
+            const unenrolledStudentUuid = '88888888-8888-8888-8888-888888888888';
+            await expect(
+                service.recordAttendance(teacherCaller, {
+                    classId: classUuid,
+                    date: '2026-10-15',
+                    period: 1,
+                    records: [{ studentId: unenrolledStudentUuid, status: 'PRESENT' }],
+                }),
+            ).rejects.toThrow(BadRequestException);
         });
 
         it('rejects teacher from recording attendance for unassigned class', async () => {

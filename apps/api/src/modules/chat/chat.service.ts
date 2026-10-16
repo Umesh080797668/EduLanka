@@ -168,7 +168,22 @@ export class ChatService {
 
         // ADR-002: Append to sync stream so offline mobile devices receive message on catch-up sync
         try {
-            await this.supabaseService.adminClient.rpc('append_sync_event', {
+            const { data: conv } = await client
+                .from('chat_conversations')
+                .select('class_id, type')
+                .eq('id', conversationId)
+                .maybeSingle();
+
+            const { data: participants } = await client
+                .from('chat_participants')
+                .select('user_id')
+                .eq('conversation_id', conversationId);
+
+            const participantIds: string[] = (participants ?? []).map((p: any) => p.user_id);
+            const otherParticipants = participantIds.filter((uid: string) => uid !== senderId);
+            const recipientId = otherParticipants.length === 1 ? otherParticipants[0] : null;
+
+            const { error: rpcErr } = await this.supabaseService.adminClient.rpc('append_sync_event', {
                 p_tenant_id: tenantId,
                 p_entity_type: 'chat_message',
                 p_entity_id: data.id,
@@ -177,11 +192,18 @@ export class ChatService {
                     id: data.id,
                     conversation_id: data.conversation_id,
                     sender_id: data.sender_id,
+                    recipient_id: recipientId,
+                    recipient_ids: otherParticipants,
+                    participant_ids: participantIds,
+                    class_id: conv?.class_id ?? null,
                     content: data.content,
                     created_at: data.created_at,
                 },
                 p_client_uuid: randomUUID(),
             });
+            if (rpcErr) {
+                this.logger.warn(`Failed to append chat sync event: ${rpcErr.message}`);
+            }
         } catch (syncErr: any) {
             this.logger.warn(`Failed to append chat sync event: ${syncErr?.message}`);
         }

@@ -26,12 +26,12 @@ export class AttendanceController {
     constructor(private readonly attendanceService: AttendanceService) { }
 
     @Get()
-    @ApiOperation({ summary: 'Get class attendance roster and status for a specific date' })
+    @ApiOperation({ summary: 'Get class attendance roster and status for a specific date and period' })
     getAttendance(
         @CurrentUser() user: JwtPayload,
         @Query() query: GetAttendanceQueryDto,
     ) {
-        return this.attendanceService.getAttendance(user, query.classId, query.date);
+        return this.attendanceService.getAttendance(user, query.classId, query.date, query.period ?? 1);
     }
 
     @Post()

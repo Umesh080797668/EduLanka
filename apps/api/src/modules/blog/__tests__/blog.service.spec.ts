@@ -173,7 +173,7 @@ describe('BlogService', () => {
                         is: jest.fn().mockReturnThis(),
                         update: jest.fn().mockReturnThis(),
                         maybeSingle: jest.fn().mockResolvedValue({
-                            data: { id: blogUuid, tenant_id: tenantUuid },
+                            data: { id: blogUuid, tenant_id: tenantUuid, scope: BlogScope.SCHOOL },
                         }),
                     };
                 }
@@ -560,8 +560,14 @@ describe('BlogService', () => {
                 }
                 if (table === 'blogs') {
                     return {
-                        update: jest.fn().mockReturnThis(),
+                        select: jest.fn().mockReturnThis(),
                         eq: jest.fn().mockReturnThis(),
+                        is: jest.fn().mockReturnThis(),
+                        update: jest.fn().mockReturnThis(),
+                        maybeSingle: jest.fn().mockResolvedValue({
+                            data: { id: blogUuid, tenant_id: tenantUuid, scope: BlogScope.SCHOOL },
+                            error: null,
+                        }),
                     };
                 }
                 return { select: jest.fn().mockReturnThis() };

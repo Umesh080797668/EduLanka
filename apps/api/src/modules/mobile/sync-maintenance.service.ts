@@ -12,7 +12,7 @@ export class SyncMaintenanceService implements OnApplicationBootstrap, OnModuleD
     constructor(
         private readonly supabase: SupabaseService,
         @Optional() @InjectQueue('fcm-push') private readonly pushQueue?: Queue,
-    ) {}
+    ) { }
 
     async onApplicationBootstrap() {
         if (!this.pushQueue) {
@@ -59,13 +59,15 @@ export class SyncMaintenanceService implements OnApplicationBootstrap, OnModuleD
         if (this.fallbackTimer) return;
         // Run once a day (24 hours) as in-process backup when queue is absent
         const TWENTY_FOUR_HOURS = 24 * 60 * 60 * 1000;
-        this.fallbackTimer = setInterval(async () => {
-            try {
-                this.logger.log('Executing in-process fallback 90-day retention purge...');
-                await this.executeRetentionPurge();
-            } catch (err: any) {
-                this.logger.error(`[CRITICAL_MAINTENANCE_ALERT] In-process fallback purge failed: ${err.message}`);
-            }
+        this.fallbackTimer = setInterval(() => {
+            void (async () => {
+                try {
+                    this.logger.log('Executing in-process fallback 90-day retention purge...');
+                    await this.executeRetentionPurge();
+                } catch (err: any) {
+                    this.logger.error(`[CRITICAL_MAINTENANCE_ALERT] In-process fallback purge failed: ${err?.message || err}`);
+                }
+            })();
         }, TWENTY_FOUR_HOURS);
         this.fallbackTimer.unref();
     }

@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
 import 'package:path/path.dart' as p;
@@ -249,14 +250,22 @@ class AppDriftDatabase extends GeneratedDatabase {
           return NativeDatabase(
             file,
             setup: (rawDb) {
-              try {
-                rawDb.execute('PRAGMA key = $formattedKey;');
-                rawDb.execute('PRAGMA cipher_memory_security = ON;');
-                rawDb.execute('PRAGMA busy_timeout = 30000;');
-              } catch (_) {}
+              rawDb.execute('PRAGMA key = $formattedKey;');
+              rawDb.execute('PRAGMA cipher_memory_security = ON;');
+              rawDb.execute('PRAGMA busy_timeout = 30000;');
+              final cipherVersion = rawDb.select('PRAGMA cipher_version;');
+              if (cipherVersion.isEmpty ||
+                  cipherVersion.first.values.isEmpty ||
+                  cipherVersion.first.values.first == null ||
+                  cipherVersion.first.values.first.toString().isEmpty) {
+                throw StateError('SQLCipher is required but PRAGMA cipher_version returned empty');
+              }
             },
           );
         } catch (_) {
+          if (kReleaseMode) {
+            rethrow;
+          }
           final tempDir = Directory.systemTemp;
           final file = File(p.join(tempDir.path, 'edulanka_encrypted.db'));
           return NativeDatabase(

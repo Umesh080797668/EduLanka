@@ -5,6 +5,15 @@ import { ThrottlerGuard } from '@nestjs/throttler';
 
 import { ChatGateway } from './chat.gateway';
 import { ChatService } from './chat.service';
+import {
+    StartDirectConversationDto,
+    CreateGroupConversationDto,
+    SendMessageDto,
+    SendConversationMessageDto,
+    PinMessageDto,
+    MuteParticipantDto,
+    RemoveParticipantDto,
+} from './dto/chat.dto';
 
 /**
  * Handshake tickets are deliberately short-lived: they exist only to survive the
@@ -110,7 +119,7 @@ export class ChatController {
 
     /** Opens the existing one-to-one thread, or starts it on first contact. */
     @Post('conversations/direct')
-    async startDirect(@Req() req: any, @Body() body: { userId: string }) {
+    async startDirect(@Req() req: any, @Body() body: StartDirectConversationDto) {
         return this.chatService.startDirectConversation(
             req.user.tenantId,
             this.callerId(req),
@@ -121,7 +130,7 @@ export class ChatController {
 
     /** Staff-only: an ad-hoc group thread with a hand-picked roster. */
     @Post('conversations/group')
-    async createGroup(@Req() req: any, @Body() body: { name: string; memberIds: string[] }) {
+    async createGroup(@Req() req: any, @Body() body: CreateGroupConversationDto) {
         return this.chatService.createGroupConversation(
             req.user.tenantId,
             this.callerId(req),
@@ -132,7 +141,7 @@ export class ChatController {
     }
 
     @Post('messages')
-    async sendMessage(@Req() req: any, @Body() body: { conversationId: string, content: string }) {
+    async sendMessage(@Req() req: any, @Body() body: SendMessageDto) {
         const tenantId = req.user.tenantId;
         const callerRole = req.user.role;
         const saved = await this.chatService.saveMessage(tenantId, body.conversationId, this.callerId(req), body.content, callerRole);
@@ -147,7 +156,7 @@ export class ChatController {
     async sendConversationMessage(
         @Req() req: any,
         @Param('id', ParseUUIDPipe) conversationId: string,
-        @Body() body: { content: string },
+        @Body() body: SendConversationMessageDto,
     ) {
         const tenantId = req.user.tenantId;
         const callerRole = req.user.role;
@@ -157,21 +166,21 @@ export class ChatController {
     }
 
     @Post('messages/:id/pin')
-    async pinMessage(@Req() req: any, @Param('id', ParseUUIDPipe) messageId: string, @Body() body: { messageId?: string, isPinned: boolean }) {
+    async pinMessage(@Req() req: any, @Param('id', ParseUUIDPipe) messageId: string, @Body() body: PinMessageDto) {
         const tenantId = req.user.tenantId;
         const role = req.user.role;
         return this.chatService.pinMessage(tenantId, body.messageId ?? messageId, body.isPinned, role);
     }
 
     @Post('participants/mute')
-    async muteParticipant(@Req() req: any, @Body() body: { conversationId: string, participantUserId: string, durationMinutes: number }) {
+    async muteParticipant(@Req() req: any, @Body() body: MuteParticipantDto) {
         const tenantId = req.user.tenantId;
         const role = req.user.role;
         return this.chatService.muteParticipant(tenantId, body.conversationId, body.participantUserId, body.durationMinutes, role);
     }
 
     @Post('participants/remove')
-    async removeParticipant(@Req() req: any, @Body() body: { conversationId: string, participantUserId: string }) {
+    async removeParticipant(@Req() req: any, @Body() body: RemoveParticipantDto) {
         const tenantId = req.user.tenantId;
         const role = req.user.role;
         const res = await this.chatService.removeParticipant(tenantId, body.conversationId, body.participantUserId, role);

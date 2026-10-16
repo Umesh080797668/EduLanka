@@ -53,6 +53,17 @@ export class TeachersController {
         return this.teachersService.update(id, dto, user);
     }
 
+    @Patch(':id/master-teacher')
+    @Roles(UserRole.SCHOOL_ADMIN, UserRole.SUPER_ADMIN)
+    @ApiOperation({ summary: 'Toggle or set master teacher status for nationwide blog authoring' })
+    toggleMasterTeacher(
+        @Param('id', ParseUUIDPipe) id: string,
+        @Body() body: { isMasterTeacher?: boolean },
+        @CurrentUser() user: JwtPayload,
+    ) {
+        return this.teachersService.setMasterTeacher(id, body.isMasterTeacher, user);
+    }
+
     @Get(':id/classes')
     @ApiOperation({ summary: 'Get all classes assigned to a teacher' })
     getClasses(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: JwtPayload) {

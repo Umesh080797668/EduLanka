@@ -10,6 +10,7 @@ import {
     ConflictException,
     GoneException,
     InternalServerErrorException,
+    NotFoundException
 } from '@nestjs/common';
 
 import { SupabaseService, assertUuid } from '../supabase/supabase.service';
@@ -250,13 +251,66 @@ export class MobileSyncService {
                 break;
 
             case 'chat_message': {
-                const senderId = dto.payload?.sender_id ?? dto.payload?.senderId;
-                if (!senderId || (senderId !== sub && role !== UserRole.SUPER_ADMIN)) {
-                    throw new ForbiddenException('Chat message sender_id is required and must match authenticated caller');
+                const conversationId = dto.payload?.conversation_id ?? dto.payload?.conversationId;
+                if (!conversationId) {
+                    throw new BadRequestException('conversation_id is required for chat message sync events');
                 }
-                if (role === UserRole.STUDENT && !dto.payload?.class_id && !dto.payload?.recipient_id && !dto.payload?.recipientId) {
-                    throw new ForbiddenException('Student chat messages must target a specific class or recipient');
+                assertUuid(conversationId, 'conversation_id');
+
+                const clientSender = dto.payload?.sender_id ?? dto.payload?.senderId;
+                if (clientSender && clientSender !== sub && role !== UserRole.SUPER_ADMIN) {
+                    throw new ForbiddenException('Chat message sender_id must match authenticated caller');
                 }
+                const senderId = role === UserRole.SUPER_ADMIN && clientSender ? clientSender : sub;
+
+                // Verify conversation exists and belongs to the caller's tenant
+                const { data: conv, error: convErr } = await this.supabase.adminClient
+                    .from('chat_conversations')
+                    .select('id, tenant_id, class_id, type')
+                    .eq('id', conversationId)
+                    .eq('tenant_id', caller.tenantId)
+                    .maybeSingle();
+
+                if (convErr || !conv) {
+                    throw new NotFoundException('Conversation not found in your school');
+                }
+
+                // Verify caller is an active participant in this conversation
+                if (role !== UserRole.SUPER_ADMIN && role !== UserRole.SCHOOL_ADMIN) {
+                    const { data: participant } = await this.supabase.adminClient
+                        .from('chat_participants')
+                        .select('id, muted_until')
+                        .eq('conversation_id', conversationId)
+                        .eq('user_id', sub)
+                        .maybeSingle();
+
+                    if (!participant) {
+                        throw new ForbiddenException('You are not an enrolled participant in this conversation');
+                    }
+                    if (participant.muted_until && new Date(participant.muted_until).getTime() > Date.now()) {
+                        throw new ForbiddenException('You are muted in this conversation');
+                    }
+                }
+
+                // Query participants to enrich payload with class_id, participant_ids, recipient_ids
+                const { data: participants } = await this.supabase.adminClient
+                    .from('chat_participants')
+                    .select('user_id')
+                    .eq('conversation_id', conversationId);
+
+                const participantIds: string[] = (participants ?? []).map((p: any) => p.user_id);
+                const otherParticipants = participantIds.filter((uid: string) => uid !== senderId);
+                const recipientId = otherParticipants.length === 1 ? otherParticipants[0] : (dto.payload?.recipient_id ?? dto.payload?.recipientId ?? null);
+
+                dto.payload = {
+                    ...dto.payload,
+                    conversation_id: conversationId,
+                    sender_id: senderId,
+                    class_id: conv.class_id ?? dto.payload?.class_id ?? dto.payload?.classId ?? null,
+                    participant_ids: participantIds,
+                    recipient_ids: otherParticipants,
+                    recipient_id: recipientId,
+                };
                 break;
             }
 
@@ -325,6 +379,7 @@ export class MobileSyncService {
             const classId = dto.payload.class_id ?? dto.payload.classId;
             const studentId = dto.payload.student_id ?? dto.payload.studentId ?? dto.entityId;
             const date = dto.payload.date;
+            const period = Number(dto.payload.period ?? 1);
             const status = dto.payload.status ?? 'PRESENT';
             const clientMarkedAt = dto.payload.marked_at ?? dto.payload.markedAt ?? new Date().toISOString();
 
@@ -352,6 +407,7 @@ export class MobileSyncService {
                     .eq('class_id', classId)
                     .eq('student_id', resolvedStudentUserId)
                     .eq('date', date)
+                    .eq('period', period)
                     .maybeSingle();
 
                 if (existingAtt) {
@@ -364,8 +420,9 @@ export class MobileSyncService {
                             class_id: classId,
                             student_id: resolvedStudentUserId,
                             conflict_date: date,
-                            client_state: { status, marked_at: clampedMarkedAt },
-                            server_state: { status: existingAtt.status, marked_at: existingAtt.marked_at },
+                            period,
+                            client_state: { status, marked_at: clampedMarkedAt, period },
+                            server_state: { status: existingAtt.status, marked_at: existingAtt.marked_at, period: existingAtt.period ?? 1 },
                             resolution: clientWins ? 'CLIENT_WINS' : 'SERVER_WINS',
                             resolved_by: caller.sub,
                         });
@@ -379,6 +436,7 @@ export class MobileSyncService {
                             .from('attendance')
                             .update({
                                 status,
+                                period,
                                 marked_at: clampedMarkedAt,
                                 marked_by: caller.sub,
                                 updated_at: new Date().toISOString(),
@@ -395,6 +453,7 @@ export class MobileSyncService {
                         class_id: classId,
                         student_id: resolvedStudentUserId,
                         date,
+                        period,
                         status,
                         marked_at: clampedMarkedAt,
                         marked_by: caller.sub,
@@ -427,28 +486,43 @@ export class MobileSyncService {
             const messageId = dto.entityId || dto.clientUuid;
 
             if (conversationId && senderId && content) {
-                const messageRow: Record<string, any> = {
-                    id: messageId,
-                    tenant_id: caller.tenantId,
-                    conversation_id: conversationId,
-                    sender_id: senderId,
-                    content: content,
-                    created_at: dto.payload.created_at ?? new Date().toISOString(),
-                };
-
-                const { error: chatInsertErr } = await client
+                // Verify whether a chat message with this ID already exists to prevent overwriting
+                const { data: existingMsg } = await client
                     .from('chat_messages')
-                    .upsert(messageRow, { onConflict: 'id' });
+                    .select('id')
+                    .eq('id', messageId)
+                    .maybeSingle();
 
-                if (chatInsertErr) {
-                    this.logger.error(`Failed to persist offline chat message: ${chatInsertErr.message}`);
-                } else {
+                if (existingMsg) {
+                    this.logger.warn(`Chat message with id ${messageId} already exists; ignoring insert to prevent overwrite`);
                     const eventId = data?.id ?? preExistingEvent?.id;
                     if (eventId) {
-                        await client
-                            .from('sync_events')
-                            .update({ applied: true })
-                            .eq('id', eventId);
+                        await client.from('sync_events').update({ applied: true }).eq('id', eventId);
+                    }
+                } else {
+                    const messageRow: Record<string, any> = {
+                        id: messageId,
+                        tenant_id: caller.tenantId,
+                        conversation_id: conversationId,
+                        sender_id: senderId,
+                        content: content,
+                        created_at: dto.payload.created_at ?? new Date().toISOString(),
+                    };
+
+                    const { error: chatInsertErr } = await client
+                        .from('chat_messages')
+                        .insert(messageRow);
+
+                    if (chatInsertErr) {
+                        this.logger.error(`Failed to persist offline chat message: ${chatInsertErr.message}`);
+                    } else {
+                        const eventId = data?.id ?? preExistingEvent?.id;
+                        if (eventId) {
+                            await client
+                                .from('sync_events')
+                                .update({ applied: true })
+                                .eq('id', eventId);
+                        }
                     }
                 }
             }
@@ -584,6 +658,16 @@ export class MobileSyncService {
             teacherClassIds = await this.getTeacherClassIds(caller);
         }
 
+        let myConversationIds = new Set<string>();
+        const hasChatEvents = pageRows.some((e: any) => e.entity_type === 'chat_message');
+        if (hasChatEvents) {
+            const { data: myParticipantRows } = await client
+                .from('chat_participants')
+                .select('conversation_id')
+                .eq('user_id', caller.sub);
+            myConversationIds = new Set((myParticipantRows ?? []).map((p: any) => p.conversation_id));
+        }
+
         const filteredEvents = pageRows.filter((event: any) => {
             if (caller.role === UserRole.SUPER_ADMIN || caller.role === UserRole.SCHOOL_ADMIN) {
                 return true;
@@ -610,13 +694,27 @@ export class MobileSyncService {
                     const sender = event.payload?.sender_id ?? event.payload?.senderId;
                     const recipient = event.payload?.recipient_id ?? event.payload?.recipientId;
                     const classId = event.payload?.class_id ?? event.payload?.classId;
-                    return sender === caller.sub || recipient === caller.sub || (classId && teacherClassIds.includes(classId));
+                    const convId = event.payload?.conversation_id ?? event.payload?.conversationId;
+                    const participantIds = event.payload?.participant_ids ?? event.payload?.recipient_ids ?? [];
+
+                    return (
+                        sender === caller.sub ||
+                        recipient === caller.sub ||
+                        (Array.isArray(participantIds) && participantIds.includes(caller.sub)) ||
+                        (convId && myConversationIds.has(convId)) ||
+                        (classId && teacherClassIds.includes(classId))
+                    );
                 }
                 if (event.entity_type === 'blog_post' || event.entity_type === 'blog_comment' || event.entity_type === 'blog_reaction') {
+                    if (event.payload?.is_hidden && event.payload?.author_id !== caller.sub) {
+                        return false;
+                    }
                     const scope = event.payload?.scope;
-                    if (!scope || scope === 'PLATFORM' || scope === 'SCHOOL') return true;
-                    const classId = event.payload?.class_id ?? event.payload?.classId;
-                    return !classId || teacherClassIds.includes(classId);
+                    if (scope === 'CLASS') {
+                        const classId = event.payload?.class_id ?? event.payload?.classId;
+                        return !!classId && teacherClassIds.includes(classId);
+                    }
+                    return !scope || scope === 'PLATFORM' || scope === 'SCHOOL';
                 }
                 return false;
             }
@@ -634,17 +732,27 @@ export class MobileSyncService {
                     const sender = event.payload?.sender_id ?? event.payload?.senderId;
                     const recipient = event.payload?.recipient_id ?? event.payload?.recipientId;
                     const classId = event.payload?.class_id ?? event.payload?.classId;
+                    const convId = event.payload?.conversation_id ?? event.payload?.conversationId;
+                    const participantIds = event.payload?.participant_ids ?? event.payload?.recipient_ids ?? [];
+
                     return (
                         sender === caller.sub ||
                         recipient === caller.sub ||
+                        (Array.isArray(participantIds) && participantIds.includes(caller.sub)) ||
+                        (convId && myConversationIds.has(convId)) ||
                         (classId && studentClassId && classId === studentClassId)
                     );
                 }
                 if (event.entity_type === 'blog_post' || event.entity_type === 'blog_comment' || event.entity_type === 'blog_reaction') {
+                    if (event.payload?.is_hidden && event.payload?.author_id !== caller.sub) {
+                        return false;
+                    }
                     const scope = event.payload?.scope;
-                    if (!scope || scope === 'PLATFORM' || scope === 'SCHOOL') return true;
-                    const classId = event.payload?.class_id ?? event.payload?.classId;
-                    return !classId || (studentClassId && classId === studentClassId);
+                    if (scope === 'CLASS') {
+                        const classId = event.payload?.class_id ?? event.payload?.classId;
+                        return !!classId && !!studentClassId && classId === studentClassId;
+                    }
+                    return !scope || scope === 'PLATFORM' || scope === 'SCHOOL';
                 }
                 return false;
             }

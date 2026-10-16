@@ -552,4 +552,120 @@ describe('MobileService', () => {
             expect(eqCalls).toContainEqual(['id', latestDeviceId]);
         });
     });
+
+    describe('chat sync security & catch-up delivery', () => {
+        it('should reject offline chat event when sender_id attempts to spoof another user', async () => {
+            const studentCaller: JwtPayload = {
+                ...caller,
+                sub: '11111111-1111-1111-1111-111111111111',
+                role: UserRole.STUDENT,
+            };
+
+            await expect(
+                service.appendSyncEvent(
+                    {
+                        entityType: 'chat_message',
+                        entityId: '33333333-3333-3333-3333-333333333333',
+                        eventType: 'CREATED',
+                        clientUuid: '91c85e7c-7907-4915-ae70-4d5b7f3a843c',
+                        payload: {
+                            conversation_id: '44444444-4444-4444-4444-444444444444',
+                            sender_id: '22222222-2222-2222-2222-222222222222', // spoofed sender
+                            content: 'I am someone else',
+                        },
+                    },
+                    studentCaller,
+                ),
+            ).rejects.toThrow(ForbiddenException);
+        });
+
+        it('should reject offline chat event when caller is not an enrolled participant', async () => {
+            const convId = '44444444-4444-4444-4444-444444444444';
+            const studentCaller: JwtPayload = {
+                ...caller,
+                sub: '11111111-1111-1111-1111-111111111111',
+                role: UserRole.STUDENT,
+            };
+
+            mockAdminClient.from.mockImplementation((table: string) => {
+                const builder: any = {
+                    select: jest.fn().mockReturnThis(),
+                    eq: jest.fn().mockReturnThis(),
+                    maybeSingle: jest.fn().mockImplementation(() => {
+                        if (table === 'chat_conversations') {
+                            return Promise.resolve({ data: { id: convId, tenant_id: caller.tenantId }, error: null });
+                        }
+                        if (table === 'chat_participants') {
+                            // User is NOT a participant
+                            return Promise.resolve({ data: null, error: null });
+                        }
+                        return Promise.resolve({ data: null, error: null });
+                    }),
+                };
+                return builder;
+            });
+
+            await expect(
+                service.appendSyncEvent(
+                    {
+                        entityType: 'chat_message',
+                        entityId: '33333333-3333-3333-3333-333333333333',
+                        eventType: 'CREATED',
+                        clientUuid: '91c85e7c-7907-4915-ae70-4d5b7f3a843c',
+                        payload: {
+                            conversation_id: convId,
+                            content: 'Intruder message',
+                        },
+                    },
+                    studentCaller,
+                ),
+            ).rejects.toThrow(ForbiddenException);
+        });
+
+        it('should deliver chat messages from other participants to offline caller on catch-up sync', async () => {
+            const convId = '44444444-4444-4444-4444-444444444444';
+            const otherSenderId = '99999999-9999-9999-9999-999999999999';
+
+            mockAdminClient.from.mockImplementation((table: string) => {
+                const builder: any = {
+                    select: jest.fn().mockReturnThis(),
+                    eq: jest.fn().mockReturnThis(),
+                    gt: jest.fn().mockReturnThis(),
+                    order: jest.fn().mockReturnThis(),
+                    limit: jest.fn().mockReturnThis(),
+                    maybeSingle: jest.fn().mockResolvedValue({ data: null, error: null }),
+                    then: (resolve: any) => {
+                        if (table === 'sync_events') {
+                            return resolve({
+                                data: [
+                                    {
+                                        id: 'ev-1',
+                                        sequence: 1,
+                                        entity_type: 'chat_message',
+                                        payload: {
+                                            conversation_id: convId,
+                                            sender_id: otherSenderId, // sent by someone else!
+                                            content: 'Hello participant!',
+                                        },
+                                    },
+                                ],
+                                error: null,
+                            });
+                        }
+                        if (table === 'chat_participants') {
+                            // Caller is enrolled in convId
+                            return resolve({ data: [{ conversation_id: convId }], error: null });
+                        }
+                        return resolve({ data: [], error: null });
+                    },
+                };
+                return builder;
+            });
+
+            const res = await service.getSyncEvents(caller, 0, 50);
+            expect(res.events).toHaveLength(1);
+            expect(res.events[0].payload.sender_id).toBe(otherSenderId);
+            expect(res.events[0].payload.content).toBe('Hello participant!');
+        });
+    });
 });

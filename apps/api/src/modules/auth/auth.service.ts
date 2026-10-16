@@ -121,7 +121,7 @@ export class AuthService {
             tenantId: tenantData.id,
             userId: userData.id as string,
             role: userData.role as UserRole,
-            tenantPlan: (tenantData.plan as any) || 'COMMUNITY',
+            tenantPlan: (tenantData.plan) || 'COMMUNITY',
             tenantSlug: tenantData.slug,
         };
     }
@@ -672,7 +672,7 @@ export class AuthService {
             .eq('id', dto.tenantId)
             .maybeSingle();
 
-        const tenantPlan = (tenantInfo?.plan as any) || 'COMMUNITY';
+        const tenantPlan = (tenantInfo?.plan) || 'COMMUNITY';
         const tenantSlug = tenantInfo?.slug;
 
         const tokens = await this.issueTokenPair({
@@ -874,7 +874,7 @@ export class AuthService {
                 .eq('id', payload.tenantId)
                 .maybeSingle();
             if (tData) {
-                tenantPlan = tData.plan as any;
+                tenantPlan = tData.plan;
                 tenantSlug = tData.slug;
             }
         }

@@ -50,7 +50,7 @@ export class PaperHubService {
                 .select('plan')
                 .eq('id', caller.tenantId)
                 .maybeSingle();
-            plan = tenant?.plan as any;
+            plan = tenant?.plan;
         }
 
         const isGrowthOrAbove = plan === 'GROWTH' || plan === 'INSTITUTIONAL';

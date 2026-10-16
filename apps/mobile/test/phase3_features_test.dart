@@ -147,6 +147,15 @@ void main() {
 
         expect(restored.dek, equals(freshKeys.dek));
         expect(restored.iv, equals(freshKeys.iv));
+
+        // Malformed / truncated wrapped key is strictly rejected without zero-IV fallback
+        expect(
+          () => KeyEncapsulation.unwrapDek(
+            wrappedDekBase64: base64UrlEncode([1, 2, 3, 4]),
+            masterKeyBase64: masterKey,
+          ),
+          throwsA(isA<FormatException>()),
+        );
       },
     );
 
@@ -198,7 +207,29 @@ void main() {
         final bytes2 = await res2.fold<List<int>>([], (p, e) => p..addAll(e));
         expect(bytes2, equals(plaintext.sublist(100, 200)));
 
-        // Test 3: Unauthorized request without session token is strictly rejected (HTTP 403 Forbidden)
+        // Test 3: Suffix byte range request (bytes=-200)
+        final req3 = await client.getUrl(Uri.parse(server.url));
+        req3.headers.set(HttpHeaders.rangeHeader, 'bytes=-200');
+        final res3 = await req3.close();
+        expect(res3.statusCode, HttpStatus.partialContent);
+        expect(
+          res3.headers.value(HttpHeaders.contentRangeHeader),
+          'bytes 824-1023/1024',
+        );
+        final bytes3 = await res3.fold<List<int>>([], (p, e) => p..addAll(e));
+        expect(bytes3, equals(plaintext.sublist(824, 1024)));
+
+        // Test 4: Out-of-bounds byte range request returns 416 Range Not Satisfiable
+        final req4 = await client.getUrl(Uri.parse(server.url));
+        req4.headers.set(HttpHeaders.rangeHeader, 'bytes=2000-3000');
+        final res4 = await req4.close();
+        expect(res4.statusCode, HttpStatus.requestedRangeNotSatisfiable);
+        expect(
+          res4.headers.value(HttpHeaders.contentRangeHeader),
+          'bytes */1024',
+        );
+
+        // Test 5: Unauthorized request without session token is strictly rejected (HTTP 403 Forbidden)
         final unauthReq = await client.getUrl(
           Uri.parse('http://127.0.0.1:${server.port}/video.mp4'),
         );
