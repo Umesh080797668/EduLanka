@@ -177,7 +177,6 @@ export class TeachersService {
             .update({
                 ...(dto.subjectAreas && { subject_areas: dto.subjectAreas }),
                 ...(dto.hireDate && { hire_date: dto.hireDate }),
-                ...(dto.isMasterTeacher !== undefined && { is_master_teacher: dto.isMasterTeacher }),
             })
             .eq('id', id)
             .select('*')
@@ -189,9 +188,11 @@ export class TeachersService {
     }
 
     async setMasterTeacher(id: string, isMasterTeacher: boolean | undefined, caller: JwtPayload) {
-        this.guardAdmin(caller);
+        if (caller.role !== UserRole.SUPER_ADMIN) {
+            throw new ForbiddenException('Only platform Super Admins can certify master teachers');
+        }
         const tenantId = caller.tenantId;
-        const db = this.supabase.getTenantClient(tenantId);
+        const db = tenantId ? this.supabase.getTenantClient(tenantId) : this.supabase.adminClient;
 
         const { data: teacherRow } = await db
             .from('teachers')

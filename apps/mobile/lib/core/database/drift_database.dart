@@ -253,12 +253,34 @@ class AppDriftDatabase extends GeneratedDatabase {
               rawDb.execute('PRAGMA key = $formattedKey;');
               rawDb.execute('PRAGMA cipher_memory_security = ON;');
               rawDb.execute('PRAGMA busy_timeout = 30000;');
-              final cipherVersion = rawDb.select('PRAGMA cipher_version;');
-              if (cipherVersion.isEmpty ||
-                  cipherVersion.first.values.isEmpty ||
-                  cipherVersion.first.values.first == null ||
-                  cipherVersion.first.values.first.toString().isEmpty) {
-                throw StateError('SQLCipher is required but PRAGMA cipher_version returned empty');
+
+              bool encryptionActive = false;
+              try {
+                final cipherCheck = rawDb.select('PRAGMA cipher;');
+                if (cipherCheck.isNotEmpty &&
+                    cipherCheck.first.values.isNotEmpty &&
+                    cipherCheck.first.values.first != null &&
+                    cipherCheck.first.values.first.toString().isNotEmpty) {
+                  encryptionActive = true;
+                }
+              } catch (_) {}
+
+              if (!encryptionActive) {
+                try {
+                  final versionCheck = rawDb.select('PRAGMA cipher_version;');
+                  if (versionCheck.isNotEmpty &&
+                      versionCheck.first.values.isNotEmpty &&
+                      versionCheck.first.values.first != null &&
+                      versionCheck.first.values.first.toString().isNotEmpty) {
+                    encryptionActive = true;
+                  }
+                } catch (_) {}
+              }
+
+              if (!encryptionActive) {
+                throw StateError(
+                  'Database encryption is required but neither SQLite3MultipleCiphers (PRAGMA cipher) nor SQLCipher (PRAGMA cipher_version) is active',
+                );
               }
             },
           );

@@ -119,9 +119,17 @@ describe('TeachersService', () => {
   });
 
   describe('setMasterTeacher', () => {
-    const adminCaller = { sub: 'admin-id', role: UserRole.SCHOOL_ADMIN, tenantId: 'tenant-1' } as any;
+    const schoolAdminCaller = { sub: 'admin-id', role: UserRole.SCHOOL_ADMIN, tenantId: 'tenant-1' } as any;
+    const superAdminCaller = { sub: 'super-admin-id', role: UserRole.SUPER_ADMIN, tenantId: 'tenant-1' } as any;
 
-    it('should toggle is_master_teacher flag for a teacher', async () => {
+    it('should throw ForbiddenException if caller is not SUPER_ADMIN', async () => {
+      await expect(service.setMasterTeacher('teacher-1', true, schoolAdminCaller))
+        .rejects.toThrow(ForbiddenException);
+      await expect(service.setMasterTeacher('teacher-1', true, schoolAdminCaller))
+        .rejects.toThrow('Only platform Super Admins can certify master teachers');
+    });
+
+    it('should toggle is_master_teacher flag for a teacher when caller is SUPER_ADMIN', async () => {
       mockDb.maybeSingle.mockResolvedValueOnce({
         data: { id: 'teacher-1', is_master_teacher: false },
         error: null,
@@ -131,7 +139,7 @@ describe('TeachersService', () => {
         error: null,
       });
 
-      const res = await service.setMasterTeacher('teacher-1', true, adminCaller);
+      const res = await service.setMasterTeacher('teacher-1', true, superAdminCaller);
       expect(res.is_master_teacher).toBe(true);
       expect(mockDb.update).toHaveBeenCalledWith({ is_master_teacher: true });
     });

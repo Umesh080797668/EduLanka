@@ -199,7 +199,7 @@ export class BlogService {
 
     /**
      * Lists educational blogs with 3-tier scoping (Class, School, Platform).
-     * Pushes tenant filtering and pagination down to SQL, omitting heavy markdown body.
+     * Pushes tenant & class filtering down to SQL and loops to guarantee full pages.
      */
     async listBlogs(
         caller: JwtPayload,
@@ -225,63 +225,88 @@ export class BlogService {
             studentClass = await this.getStudentClassId(caller);
         }
 
+        // Fast-path: if CLASS scope requested but user has no assigned/enrolled class
+        if (options.scope === BlogScope.CLASS) {
+            if (caller.role === UserRole.PARENT) return [];
+            if (caller.role === UserRole.STUDENT) {
+                if (!studentClass || (options.classId && options.classId !== studentClass)) return [];
+            }
+            if (caller.role === UserRole.TEACHER) {
+                if (teacherClasses.length === 0) return [];
+                if (options.classId && !teacherClasses.includes(options.classId)) return [];
+            }
+        }
+
         const client = this.supabase.adminClient;
-        // Do not fetch full content_markdown in list view to avoid memory bloat
-        let query = client
-            .from('blogs')
-            .select('id, tenant_id, class_id, scope, author_id, author_name, author_role, title, cover_image_url, tags, is_published, is_pinned, likes_count, comments_count, created_at, updated_at, classes(id, name, grade)')
-            .is('deleted_at', null)
-            .eq('is_published', true)
-            .order('is_pinned', { ascending: false })
-            .order('created_at', { ascending: false });
+        const targetLimit = Math.min(Math.max(1, options.limit || 50), 100);
+        const userOffset = Math.max(0, options.offset || 0);
 
-        if (caller.role !== UserRole.SUPER_ADMIN) {
-            if (options.scope === BlogScope.PLATFORM) {
-                query = query.eq('scope', BlogScope.PLATFORM);
-            } else if (options.scope === BlogScope.SCHOOL) {
-                query = query.eq('tenant_id', caller.tenantId).eq('scope', BlogScope.SCHOOL);
-            } else if (options.scope === BlogScope.CLASS) {
-                query = query.eq('tenant_id', caller.tenantId).eq('scope', BlogScope.CLASS);
-                if (options.classId) {
-                    query = query.eq('class_id', options.classId);
-                }
-            } else {
-                // Multi-scope: tenant blogs + platform blogs (if plan allows)
-                if (isGrowth) {
-                    query = query.or(`tenant_id.eq.${caller.tenantId},scope.eq.PLATFORM`);
+        // Helper to build base query
+        const buildBaseQuery = () => {
+            let q = client
+                .from('blogs')
+                .select('id, tenant_id, class_id, scope, author_id, author_name, author_role, title, cover_image_url, tags, is_published, is_pinned, likes_count, comments_count, created_at, updated_at, classes(id, name, grade)')
+                .is('deleted_at', null)
+                .eq('is_published', true)
+                .order('is_pinned', { ascending: false })
+                .order('created_at', { ascending: false });
+
+            if (caller.role !== UserRole.SUPER_ADMIN) {
+                if (options.scope === BlogScope.PLATFORM) {
+                    q = q.eq('scope', BlogScope.PLATFORM);
+                } else if (options.scope === BlogScope.SCHOOL) {
+                    q = q.eq('tenant_id', caller.tenantId).eq('scope', BlogScope.SCHOOL);
+                } else if (options.scope === BlogScope.CLASS) {
+                    q = q.eq('tenant_id', caller.tenantId).eq('scope', BlogScope.CLASS);
+                    if (caller.role === UserRole.STUDENT) {
+                        q = q.eq('class_id', studentClass);
+                    } else if (caller.role === UserRole.TEACHER) {
+                        if (options.classId) {
+                            q = q.eq('class_id', options.classId);
+                        } else if (teacherClasses.length === 1) {
+                            q = q.eq('class_id', teacherClasses[0]);
+                        } else {
+                            q = q.in('class_id', teacherClasses);
+                        }
+                    } else if (options.classId) {
+                        q = q.eq('class_id', options.classId);
+                    }
                 } else {
-                    query = query.eq('tenant_id', caller.tenantId);
+                    // Multi-scope: tenant blogs + platform blogs (if plan allows)
+                    if (isGrowth) {
+                        q = q.or(`tenant_id.eq.${caller.tenantId},scope.eq.PLATFORM`);
+                    } else {
+                        q = q.eq('tenant_id', caller.tenantId);
+                    }
+
+                    // Push exclusion of CLASS blogs if user has no class access
+                    if (caller.role === UserRole.PARENT) {
+                        q = q.neq('scope', BlogScope.CLASS);
+                    } else if (caller.role === UserRole.STUDENT && !studentClass) {
+                        q = q.neq('scope', BlogScope.CLASS);
+                    } else if (caller.role === UserRole.TEACHER && teacherClasses.length === 0) {
+                        q = q.neq('scope', BlogScope.CLASS);
+                    }
+                }
+            } else if (options.scope) {
+                q = q.eq('scope', options.scope);
+                if (options.classId) {
+                    q = q.eq('class_id', options.classId);
                 }
             }
-        } else if (options.scope) {
-            query = query.eq('scope', options.scope);
-            if (options.classId) {
-                query = query.eq('class_id', options.classId);
+
+            if (options.tag) {
+                q = q.contains('tags', [options.tag]);
             }
-        }
 
-        if (options.tag) {
-            query = query.contains('tags', [options.tag]);
-        }
+            if (options.search) {
+                q = q.ilike('title', `%${options.search}%`);
+            }
 
-        if (options.search) {
-            query = query.ilike('title', `%${options.search}%`);
-        }
+            return q;
+        };
 
-        const limit = Math.min(Math.max(1, options.limit || 50), 100);
-        const offset = Math.max(0, options.offset || 0);
-        query = query.range(offset, offset + limit - 1);
-
-        const { data, error } = await query;
-        if (error) {
-            this.logger.error(`Failed to list blogs: ${error.message}`);
-            return [];
-        }
-
-        const rows = data ?? [];
-
-        // Final in-memory role-class filtering
-        const filtered = rows.filter((b: any) => {
+        const isAllowedBlog = (b: any): boolean => {
             if (caller.role === UserRole.SUPER_ADMIN) return true;
             if (b.scope === BlogScope.PLATFORM) return isGrowth;
             if (b.tenant_id !== caller.tenantId) return false;
@@ -289,19 +314,51 @@ export class BlogService {
             if (b.scope === BlogScope.CLASS) {
                 if (caller.role === UserRole.SCHOOL_ADMIN) return true;
                 if (caller.role === UserRole.TEACHER) {
-                    return b.class_id && teacherClasses.includes(b.class_id);
+                    return !!b.class_id && teacherClasses.includes(b.class_id);
                 }
                 if (caller.role === UserRole.STUDENT) {
-                    return b.class_id && studentClass === b.class_id;
+                    return !!b.class_id && studentClass === b.class_id;
                 }
                 return false;
             }
             return false;
-        });
+        };
 
-        // Attach user's reaction if any
-        if (filtered.length > 0) {
-            const blogIds = filtered.map((b: any) => b.id);
+        const filteredBlogs: any[] = [];
+        let skippedCount = 0;
+        let dbOffset = 0;
+        const batchSize = Math.max(targetLimit * 2, 50);
+
+        while (filteredBlogs.length < targetLimit) {
+            const pageQuery = buildBaseQuery().range(dbOffset, dbOffset + batchSize - 1);
+            const { data, error } = await pageQuery;
+            if (error) {
+                this.logger.error(`Failed to list blogs: ${error.message}`);
+                break;
+            }
+            if (!data || data.length === 0) {
+                break;
+            }
+
+            for (const b of data) {
+                if (isAllowedBlog(b)) {
+                    if (skippedCount < userOffset) {
+                        skippedCount++;
+                    } else {
+                        filteredBlogs.push(b);
+                        if (filteredBlogs.length === targetLimit) break;
+                    }
+                }
+            }
+
+            if (data.length < batchSize) {
+                break;
+            }
+            dbOffset += batchSize;
+        }
+
+        if (filteredBlogs.length > 0) {
+            const blogIds = filteredBlogs.map((b: any) => b.id);
             const { data: reactions } = await client
                 .from('blog_reactions')
                 .select('blog_id, reaction_type')
@@ -309,13 +366,13 @@ export class BlogService {
                 .in('blog_id', blogIds);
 
             const reactionMap = new Map((reactions ?? []).map((r: any) => [r.blog_id, r.reaction_type]));
-            return filtered.map((b: any) => ({
+            return filteredBlogs.map((b: any) => ({
                 ...b,
                 myReaction: reactionMap.get(b.id) ?? null,
             }));
         }
 
-        return filtered;
+        return filteredBlogs;
     }
 
     /**
@@ -411,31 +468,14 @@ export class BlogService {
         assertCleanContent(dto.title, 'Blog title');
         assertCleanContent(dto.contentMarkdown, 'Blog content');
 
-        if (caller.role !== UserRole.TEACHER && caller.role !== UserRole.SCHOOL_ADMIN && caller.role !== UserRole.SUPER_ADMIN) {
-            throw new ForbiddenException('Only teachers and administrators can author educational blogs');
+        if (caller.role !== UserRole.TEACHER) {
+            throw new ForbiddenException('Only teachers can author educational blogs. Administrators may only manage blogs.');
         }
 
         if (dto.scope === BlogScope.PLATFORM) {
             const isGrowth = await this.isCallerGrowthOrAbove(caller);
             if (!isGrowth) {
                 throw new ForbiddenException('Platform-wide educational blogs require a Growth or Institutional plan');
-            }
-
-            if (caller.role === UserRole.TEACHER) {
-                // Check if teacher is vetted as master teacher
-                const { data: teacher } = await this.supabase.adminClient
-                    .from('teachers')
-                    .select('is_master_teacher')
-                    .eq('user_id', caller.sub)
-                    .eq('tenant_id', caller.tenantId)
-                    .eq('is_active', true)
-                    .maybeSingle();
-
-                if (!teacher?.is_master_teacher) {
-                    throw new ForbiddenException('Only vetted master teachers and Super Admins can publish platform-wide blogs');
-                }
-            } else if (caller.role !== UserRole.SUPER_ADMIN) {
-                throw new ForbiddenException('Only vetted master teachers and Super Admins can publish platform-wide blogs');
             }
         }
 
@@ -697,25 +737,6 @@ export class BlogService {
             throw new BadRequestException('Failed to post comment');
         }
 
-        // Atomically increment comments_count on blog
-        const { error: incErr } = await this.supabase.adminClient.rpc('increment_blog_comments_count', {
-            p_blog_id: blogId,
-            p_delta: 1,
-        });
-
-        if (incErr) {
-            const { count } = await this.supabase.adminClient
-                .from('blog_comments')
-                .select('*', { count: 'exact', head: true })
-                .eq('blog_id', blogId)
-                .is('deleted_at', null);
-
-            await this.supabase.adminClient
-                .from('blogs')
-                .update({ comments_count: count ?? 1 })
-                .eq('id', blogId);
-        }
-
         const isPlatform = blog.scope === BlogScope.PLATFORM;
         await this.emitSyncEvent(
             caller.tenantId,
@@ -849,25 +870,6 @@ export class BlogService {
             .from('blog_comments')
             .update({ deleted_at: new Date().toISOString() })
             .eq('id', commentId);
-
-        // Atomically decrement comment count on blog
-        const { error: decErr } = await this.supabase.adminClient.rpc('increment_blog_comments_count', {
-            p_blog_id: comment.blog_id,
-            p_delta: -1,
-        });
-
-        if (decErr) {
-            const { count } = await this.supabase.adminClient
-                .from('blog_comments')
-                .select('*', { count: 'exact', head: true })
-                .eq('blog_id', comment.blog_id)
-                .is('deleted_at', null);
-
-            await this.supabase.adminClient
-                .from('blogs')
-                .update({ comments_count: count ?? 0 })
-                .eq('id', comment.blog_id);
-        }
 
         const isPlatform = blog?.scope === BlogScope.PLATFORM;
         await this.emitSyncEvent(

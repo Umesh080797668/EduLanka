@@ -327,8 +327,14 @@ export class MobileSyncService {
                 break;
 
             case 'blog_post':
-                if (role !== UserRole.TEACHER && role !== UserRole.SCHOOL_ADMIN && role !== UserRole.SUPER_ADMIN) {
-                    throw new ForbiddenException('Only teachers and administrators can append educational blog sync events');
+                if (dto.eventType === 'CREATED') {
+                    if (role !== UserRole.TEACHER) {
+                        throw new ForbiddenException('Only teachers can author educational blogs');
+                    }
+                } else {
+                    if (role !== UserRole.TEACHER && role !== UserRole.SCHOOL_ADMIN && role !== UserRole.SUPER_ADMIN) {
+                        throw new ForbiddenException('Only teachers and administrators can manage educational blog sync events');
+                    }
                 }
                 assertCleanContent(dto.payload?.title, 'Blog title');
                 assertCleanContent(dto.payload?.content_markdown ?? dto.payload?.contentMarkdown, 'Blog content');
@@ -706,7 +712,7 @@ export class MobileSyncService {
                     );
                 }
                 if (event.entity_type === 'blog_post' || event.entity_type === 'blog_comment' || event.entity_type === 'blog_reaction') {
-                    if (event.payload?.is_hidden && event.payload?.author_id !== caller.sub) {
+                    if (event.entity_type !== 'blog_comment' && event.payload?.is_hidden && event.payload?.author_id !== caller.sub) {
                         return false;
                     }
                     const scope = event.payload?.scope;
@@ -744,7 +750,7 @@ export class MobileSyncService {
                     );
                 }
                 if (event.entity_type === 'blog_post' || event.entity_type === 'blog_comment' || event.entity_type === 'blog_reaction') {
-                    if (event.payload?.is_hidden && event.payload?.author_id !== caller.sub) {
+                    if (event.entity_type !== 'blog_comment' && event.payload?.is_hidden && event.payload?.author_id !== caller.sub) {
                         return false;
                     }
                     const scope = event.payload?.scope;
@@ -764,6 +770,24 @@ export class MobileSyncService {
             return false;
         });
 
+        const sanitizedEvents = filteredEvents.map((event: any) => {
+            if (event.entity_type === 'blog_comment' && event.payload?.is_hidden) {
+                const isAdmin = caller.role === UserRole.SCHOOL_ADMIN || caller.role === UserRole.SUPER_ADMIN;
+                const isAuthor = event.payload?.author_id === caller.sub;
+                if (!isAdmin && !isAuthor) {
+                    return {
+                        ...event,
+                        payload: {
+                            ...event.payload,
+                            is_hidden: true,
+                            content: '[Comment hidden by moderator]',
+                        },
+                    };
+                }
+            }
+            return event;
+        });
+
         const latestSeq = pageRows.length > 0 ? Number(pageRows[pageRows.length - 1].sequence) : sinceSequence;
 
         await this.touchDeviceActivity(caller.tenantId, caller.sub, latestSeq, deviceIdOrToken);
@@ -773,8 +797,8 @@ export class MobileSyncService {
             sinceSequence,
             latestSequence: latestSeq,
             hasMore,
-            count: filteredEvents.length,
-            events: filteredEvents,
+            count: sanitizedEvents.length,
+            events: sanitizedEvents,
         };
     }
 

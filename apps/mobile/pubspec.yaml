@@ -64,3 +64,9 @@ flutter:
         - asset: assets/fonts/NotoSansTamil-Bold.ttf
           weight: 700
 
+hooks:
+  user_defines:
+    sqlite3:
+      source: sqlite3mc
+
+

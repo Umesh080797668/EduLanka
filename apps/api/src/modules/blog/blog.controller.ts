@@ -13,7 +13,10 @@ import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import type { JwtPayload } from '@edu-lanka/shared-types';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { TenantGuard } from '../../common/guards/tenant.guard';
+import { RolesGuard } from '../../common/guards/roles.guard';
+import { Roles } from '../../common/decorators/roles.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { UserRole } from '@edu-lanka/shared-types';
 import { BlogService } from './blog.service';
 import { CreateBlogDto, BlogScope } from './dto/create-blog.dto';
 import { UpdateBlogDto } from './dto/update-blog.dto';
@@ -23,7 +26,7 @@ import { ModerateCommentDto } from './dto/moderate-comment.dto';
 
 @ApiTags('Educational Blogs & Academic Discourse')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard, TenantGuard)
+@UseGuards(JwtAuthGuard, TenantGuard, RolesGuard)
 @Controller('blogs')
 export class BlogController {
     constructor(private readonly blogService: BlogService) { }
@@ -47,7 +50,8 @@ export class BlogController {
     }
 
     @Post()
-    @ApiOperation({ summary: 'Compose a new educational blog post (Teachers/Admins only)' })
+    @Roles(UserRole.TEACHER)
+    @ApiOperation({ summary: 'Compose a new educational blog post (Teachers only)' })
     createBlog(@CurrentUser() user: JwtPayload, @Body() dto: CreateBlogDto) {
         return this.blogService.createBlog(dto, user);
     }

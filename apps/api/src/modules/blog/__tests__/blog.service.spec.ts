@@ -283,49 +283,41 @@ describe('BlogService', () => {
             ).rejects.toThrow(PayloadTooLargeException);
         });
 
-        it('should reject unvetted teacher from creating platform-wide blog', async () => {
-            mockSupabase.adminClient.from.mockImplementation((table: string) => {
-                if (table === 'teachers') {
-                    return {
-                        select: jest.fn().mockReturnThis(),
-                        eq: jest.fn().mockReturnThis(),
-                        maybeSingle: jest.fn().mockResolvedValue({
-                            data: { is_master_teacher: false },
-                        }),
-                    };
-                }
-                return { select: jest.fn().mockReturnThis() };
-            });
+        it('should reject school admin and super admin from creating blogs', async () => {
+            const adminCaller: JwtPayload = { ...teacherCaller, role: UserRole.SCHOOL_ADMIN };
+            const superAdminCaller: JwtPayload = { ...teacherCaller, role: UserRole.SUPER_ADMIN };
 
             await expect(
                 service.createBlog(
                     {
-                        title: 'National Curriculum Guide',
-                        contentMarkdown: 'Physics guide',
+                        title: 'Admin Blog Attempt',
+                        contentMarkdown: 'Admin content',
+                        scope: BlogScope.SCHOOL,
+                    },
+                    adminCaller,
+                ),
+            ).rejects.toThrow(ForbiddenException);
+
+            await expect(
+                service.createBlog(
+                    {
+                        title: 'Super Admin Blog Attempt',
+                        contentMarkdown: 'Super Admin content',
                         scope: BlogScope.PLATFORM,
                     },
-                    teacherCaller,
+                    superAdminCaller,
                 ),
             ).rejects.toThrow(ForbiddenException);
         });
 
-        it('should allow vetted master teacher to create platform-wide blog', async () => {
+        it('should allow teacher with supported plan to create platform-wide blog without admin vetting', async () => {
             mockSupabase.adminClient.from.mockImplementation((table: string) => {
-                if (table === 'teachers') {
-                    return {
-                        select: jest.fn().mockReturnThis(),
-                        eq: jest.fn().mockReturnThis(),
-                        maybeSingle: jest.fn().mockResolvedValue({
-                            data: { is_master_teacher: true },
-                        }),
-                    };
-                }
                 if (table === 'users') {
                     return {
                         select: jest.fn().mockReturnThis(),
                         eq: jest.fn().mockReturnThis(),
                         maybeSingle: jest.fn().mockResolvedValue({
-                            data: { full_name: 'Master Teacher Perera' },
+                            data: { full_name: 'Teacher Perera' },
                         }),
                     };
                 }
