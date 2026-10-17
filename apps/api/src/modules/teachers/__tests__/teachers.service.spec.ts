@@ -15,8 +15,8 @@ describe('TeachersService', () => {
   let mockDb: any;
 
   beforeEach(async () => {
-        jest.spyOn(Logger.prototype, 'error').mockImplementation(() => {});
-        jest.spyOn(Logger.prototype, 'debug').mockImplementation(() => {});
+    jest.spyOn(Logger.prototype, 'error').mockImplementation(() => { });
+    jest.spyOn(Logger.prototype, 'debug').mockImplementation(() => { });
     mockDb = {
       from: jest.fn().mockReturnThis(),
       insert: jest.fn().mockReturnThis(),
@@ -56,7 +56,7 @@ describe('TeachersService', () => {
   });
 
   afterEach(() => {
-        jest.restoreAllMocks();
+    jest.restoreAllMocks();
     jest.clearAllMocks();
   });
 
@@ -115,33 +115,6 @@ describe('TeachersService', () => {
 
       await expect(service.create(validDto, adminCaller)).rejects.toThrow(ConflictException);
       expect(mockSupabaseService.adminClient.auth.admin.deleteUser).toHaveBeenCalledWith('auth-id');
-    });
-  });
-
-  describe('setMasterTeacher', () => {
-    const schoolAdminCaller = { sub: 'admin-id', role: UserRole.SCHOOL_ADMIN, tenantId: 'tenant-1' } as any;
-    const superAdminCaller = { sub: 'super-admin-id', role: UserRole.SUPER_ADMIN, tenantId: 'tenant-1' } as any;
-
-    it('should throw ForbiddenException if caller is not SUPER_ADMIN', async () => {
-      await expect(service.setMasterTeacher('teacher-1', true, schoolAdminCaller))
-        .rejects.toThrow(ForbiddenException);
-      await expect(service.setMasterTeacher('teacher-1', true, schoolAdminCaller))
-        .rejects.toThrow('Only platform Super Admins can certify master teachers');
-    });
-
-    it('should toggle is_master_teacher flag for a teacher when caller is SUPER_ADMIN', async () => {
-      mockDb.maybeSingle.mockResolvedValueOnce({
-        data: { id: 'teacher-1', is_master_teacher: false },
-        error: null,
-      });
-      mockDb.single.mockResolvedValueOnce({
-        data: { id: 'teacher-1', is_master_teacher: true },
-        error: null,
-      });
-
-      const res = await service.setMasterTeacher('teacher-1', true, superAdminCaller);
-      expect(res.is_master_teacher).toBe(true);
-      expect(mockDb.update).toHaveBeenCalledWith({ is_master_teacher: true });
     });
   });
 });

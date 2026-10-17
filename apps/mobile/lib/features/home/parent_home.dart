@@ -5,6 +5,8 @@ import '../../core/auth/auth_state.dart';
 import '../../core/database/local_database.dart';
 import '../../core/sync/sync_service.dart';
 import '../disaster/disaster_pack_dialog.dart';
+import '../../l10n/app_localizations.dart';
+import '../../core/localization/locale_provider.dart';
 
 class ParentHomeScreen extends ConsumerStatefulWidget {
   const ParentHomeScreen({super.key});
@@ -60,10 +62,11 @@ class _ParentHomeScreenState extends ConsumerState<ParentHomeScreen> {
   @override
   Widget build(BuildContext context) {
     final authState = ref.watch(authProvider);
+    final l10n = AppLocalizations.of(context);
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Parent Dashboard'),
+        title: Text(l10n?.dashboard ?? 'Parent Dashboard'),
         backgroundColor: const Color(0xFF6366F1),
         foregroundColor: Colors.white,
         actions: [
@@ -73,7 +76,7 @@ class _ParentHomeScreenState extends ConsumerState<ParentHomeScreen> {
             onPressed: () => context.push('/chat'),
           ),
           IconButton(
-            tooltip: 'Sync with School',
+            tooltip: l10n?.syncChanges ?? 'Sync with School',
             icon: _isSyncing
                 ? const SizedBox(
                     width: 20,
@@ -86,8 +89,9 @@ class _ParentHomeScreenState extends ConsumerState<ParentHomeScreen> {
                 : const Icon(Icons.sync_rounded),
             onPressed: _isSyncing ? null : _handleSync,
           ),
+          const LanguageSelectorButton(),
           IconButton(
-            tooltip: 'Sign Out',
+            tooltip: l10n?.signOut ?? 'Sign Out',
             icon: const Icon(Icons.logout_rounded),
             onPressed: () => showLogoutConfirmation(context, ref),
           ),
@@ -165,14 +169,14 @@ class _ParentHomeScreenState extends ConsumerState<ParentHomeScreen> {
             children: [
               _buildCard(
                 icon: Icons.shield_rounded,
-                title: 'Disaster Alerts',
+                title: l10n?.disasterReadiness ?? 'Disaster Alerts',
                 subtitle: 'Offline Emergency Pack',
                 color: const Color(0xFFEF4444),
                 onTap: () => DisasterPackSheet.show(context),
               ),
               _buildCard(
                 icon: Icons.calendar_month_rounded,
-                title: 'Attendance Report',
+                title: l10n?.attendanceHistory ?? 'Attendance Report',
                 subtitle: 'Daily Roll-Call Status',
                 color: const Color(0xFF10B981),
                 onTap: () {
@@ -185,7 +189,7 @@ class _ParentHomeScreenState extends ConsumerState<ParentHomeScreen> {
               ),
               _buildCard(
                 icon: Icons.assignment_turned_in_outlined,
-                title: 'Child Homework',
+                title: l10n?.homeworkTasks ?? 'Child Homework',
                 subtitle: 'Track Tasks & Grades',
                 color: const Color(0xFFF59E0B),
                 onTap: () => context.push('/homework'),

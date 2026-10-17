@@ -31,6 +31,7 @@ import { Field, Input, Select, Textarea } from '@/components/ui/Form';
 import { PageHeader, EmptyState } from '@/components/ui/Layout';
 import { Dialog } from '@/components/ui/Dialog';
 import { Spinner } from '@/components/ui/Spinner';
+import { TutorialProvider } from '@/components/TutorialProvider';
 
 type BlogScope = 'SCHOOL' | 'CLASS' | 'PLATFORM';
 type AcademicReaction = 'LIKE' | 'HELPFUL' | 'INSIGHTFUL' | 'HEART';
@@ -381,521 +382,533 @@ export default function BlogsPage() {
     };
 
     return (
-        <div className="space-y-6">
-            <PageHeader
-                title="Academic Blogs & Discourse"
-                description="Pedagogical insights, subject-matter discourse, and scholarly inquiry across the EduLanka network."
-                actions={
-                    isTeacherOrAdmin ? (
-                        <Button
-                            variant="primary"
-                            leadingIcon={<Plus className="w-4 h-4" />}
-                            onClick={() => setComposerOpen(true)}
-                            id="btn-author-article"
-                        >
-                            Author Article
-                        </Button>
-                    ) : undefined
-                }
-            />
-
-            {/* Scope Tabs */}
-            <div className="flex border-b border-slate-800">
-                <button
-                    onClick={() => setScope('SCHOOL')}
-                    className={`flex items-center gap-2 px-5 py-3 text-sm font-medium border-b-2 transition-colors ${scope === 'SCHOOL'
-                            ? 'border-sky-500 text-sky-400 bg-sky-500/5'
-                            : 'border-transparent text-slate-400 hover:text-slate-200'
-                        }`}
-                    id="tab-scope-school"
-                >
-                    <School className="w-4 h-4" />
-                    School-Wide
-                </button>
-                <button
-                    onClick={() => setScope('CLASS')}
-                    className={`flex items-center gap-2 px-5 py-3 text-sm font-medium border-b-2 transition-colors ${scope === 'CLASS'
-                            ? 'border-sky-500 text-sky-400 bg-sky-500/5'
-                            : 'border-transparent text-slate-400 hover:text-slate-200'
-                        }`}
-                    id="tab-scope-class"
-                >
-                    <GraduationCap className="w-4 h-4" />
-                    Classroom
-                </button>
-                <button
-                    onClick={() => setScope('PLATFORM')}
-                    className={`flex items-center gap-2 px-5 py-3 text-sm font-medium border-b-2 transition-colors ${scope === 'PLATFORM'
-                            ? 'border-sky-500 text-sky-400 bg-sky-500/5'
-                            : 'border-transparent text-slate-400 hover:text-slate-200'
-                        }`}
-                    id="tab-scope-platform"
-                >
-                    <Globe className="w-4 h-4" />
-                    National Platform
-                </button>
-            </div>
-
-            {/* Blog Grid */}
-            {loading ? (
-                <div className="flex justify-center items-center py-20">
-                    <Spinner size="lg" />
-                </div>
-            ) : blogs.length === 0 ? (
-                <EmptyState
-                    icon={<Newspaper className="w-12 h-12 text-slate-500" />}
-                    title={`No ${scope.toLowerCase()} articles published yet`}
-                    description="Be the first to share an educational article, lesson review, or academic insight."
-                    action={
+        <TutorialProvider role={(role as any) || 'TEACHER'} screenId="blogs">
+            <div className="space-y-6">
+                <PageHeader
+                    title="Academic Blogs & Discourse"
+                    description="Pedagogical insights, subject-matter discourse, and scholarly inquiry across the EduLanka network."
+                    actions={
                         isTeacherOrAdmin ? (
                             <Button
-                                variant="outline"
+                                variant="primary"
                                 leadingIcon={<Plus className="w-4 h-4" />}
                                 onClick={() => setComposerOpen(true)}
+                                id="btn-author-article"
                             >
-                                Compose First Article
+                                Author Article
                             </Button>
                         ) : undefined
                     }
                 />
-            ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {blogs.map((blog) => (
-                        <motion.div
-                            key={blog.id}
-                            initial={{ opacity: 0, y: 12 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ duration: 0.2 }}
-                        >
-                            <Card
-                                className={`h-full flex flex-col overflow-hidden transition-all duration-200 hover:border-sky-500/50 hover:shadow-lg hover:shadow-sky-500/5 ${blog.is_pinned ? 'border-amber-500/40 bg-amber-950/5' : ''
-                                    }`}
+
+                {/* Scope Tabs */}
+                <div className="flex border-b border-slate-800">
+                    <button
+                        onClick={() => setScope('SCHOOL')}
+                        className={`flex items-center gap-2 px-5 py-3 text-sm font-medium border-b-2 transition-colors ${scope === 'SCHOOL'
+                            ? 'border-sky-500 text-sky-400 bg-sky-500/5'
+                            : 'border-transparent text-slate-400 hover:text-slate-200'
+                            }`}
+                        id="tab-scope-school"
+                    >
+                        <School className="w-4 h-4" />
+                        School-Wide
+                    </button>
+                    <button
+                        onClick={() => setScope('CLASS')}
+                        className={`flex items-center gap-2 px-5 py-3 text-sm font-medium border-b-2 transition-colors ${scope === 'CLASS'
+                            ? 'border-sky-500 text-sky-400 bg-sky-500/5'
+                            : 'border-transparent text-slate-400 hover:text-slate-200'
+                            }`}
+                        id="tab-scope-class"
+                    >
+                        <GraduationCap className="w-4 h-4" />
+                        Classroom
+                    </button>
+                    <button
+                        onClick={() => setScope('PLATFORM')}
+                        className={`flex items-center gap-2 px-5 py-3 text-sm font-medium border-b-2 transition-colors ${scope === 'PLATFORM'
+                            ? 'border-sky-500 text-sky-400 bg-sky-500/5'
+                            : 'border-transparent text-slate-400 hover:text-slate-200'
+                            }`}
+                        id="tab-scope-platform"
+                    >
+                        <Globe className="w-4 h-4" />
+                        National Platform
+                    </button>
+                </div>
+
+                {/* Blog Grid */}
+                {loading ? (
+                    <div className="flex justify-center items-center py-20">
+                        <Spinner size="lg" />
+                    </div>
+                ) : blogs.length === 0 ? (
+                    <EmptyState
+                        icon={<Newspaper className="w-12 h-12 text-slate-500" />}
+                        title={`No ${scope.toLowerCase()} articles published yet`}
+                        description="Be the first to share an educational article, lesson review, or academic insight."
+                        action={
+                            isTeacherOrAdmin ? (
+                                <Button
+                                    variant="outline"
+                                    leadingIcon={<Plus className="w-4 h-4" />}
+                                    onClick={() => setComposerOpen(true)}
+                                >
+                                    Compose First Article
+                                </Button>
+                            ) : undefined
+                        }
+                    />
+                ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {blogs.map((blog) => (
+                            <motion.div
+                                key={blog.id}
+                                initial={{ opacity: 0, y: 12 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                transition={{ duration: 0.2 }}
                             >
-                                {blog.cover_image_url && (
-                                    <div className="h-44 w-full overflow-hidden bg-slate-900 relative">
-                                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                                        <img
-                                            src={blog.cover_image_url}
-                                            alt={blog.title}
-                                            className="w-full h-full object-cover transition-transform duration-300 hover:scale-105"
-                                        />
-                                    </div>
-                                )}
-                                <CardContent className="p-5 flex-1 flex flex-col justify-between">
-                                    <div className="space-y-3">
-                                        <div className="flex items-center justify-between gap-2">
-                                            <Badge
-                                                tone={
-                                                    blog.scope === 'PLATFORM'
-                                                        ? 'info'
-                                                        : blog.scope === 'CLASS'
-                                                            ? 'success'
-                                                            : 'neutral'
-                                                }
-                                                size="sm"
-                                            >
-                                                {blog.scope === 'PLATFORM'
-                                                    ? 'National'
-                                                    : blog.scope === 'CLASS'
-                                                        ? 'Class'
-                                                        : 'School'}
-                                            </Badge>
-                                            {blog.is_pinned && (
-                                                <span className="flex items-center gap-1 text-xs font-semibold text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">
-                                                    <Pin className="w-3 h-3" /> Pinned
-                                                </span>
-                                            )}
+                                <Card
+                                    className={`h-full flex flex-col overflow-hidden transition-all duration-200 hover:border-sky-500/50 hover:shadow-lg hover:shadow-sky-500/5 ${blog.is_pinned ? 'border-amber-500/40 bg-amber-950/5' : ''
+                                        }`}
+                                >
+                                    {blog.cover_image_url && (
+                                        <div className="h-44 w-full overflow-hidden bg-slate-900 relative">
+                                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                                            <img
+                                                src={blog.cover_image_url}
+                                                alt={blog.title}
+                                                className="w-full h-full object-cover transition-transform duration-300 hover:scale-105"
+                                            />
                                         </div>
-
-                                        <h3
-                                            onClick={() => openBlogDetail(blog)}
-                                            className="text-lg font-bold text-white hover:text-sky-400 cursor-pointer transition-colors line-clamp-2"
-                                        >
-                                            {blog.title}
-                                        </h3>
-
-                                        <p className="text-xs text-slate-400 line-clamp-3 leading-relaxed">
-                                            {blog.content_markdown.replace(/[#*`_>]/g, '')}
-                                        </p>
-
-                                        {blog.tags && blog.tags.length > 0 && (
-                                            <div className="flex flex-wrap gap-1.5 pt-1">
-                                                {blog.tags.slice(0, 3).map((tag, i) => (
-                                                    <span
-                                                        key={i}
-                                                        className="text-[11px] font-medium text-slate-400 bg-slate-800/80 px-2 py-0.5 rounded-full"
-                                                    >
-                                                        #{tag}
-                                                    </span>
-                                                ))}
-                                                {blog.tags.length > 3 && (
-                                                    <span className="text-[11px] text-slate-500 py-0.5">
-                                                        +{blog.tags.length - 3}
+                                    )}
+                                    <CardContent className="p-5 flex-1 flex flex-col justify-between">
+                                        <div className="space-y-3">
+                                            <div className="flex items-center justify-between gap-2">
+                                                <Badge
+                                                    tone={
+                                                        blog.scope === 'PLATFORM'
+                                                            ? 'info'
+                                                            : blog.scope === 'CLASS'
+                                                                ? 'success'
+                                                                : 'neutral'
+                                                    }
+                                                    size="sm"
+                                                >
+                                                    {blog.scope === 'PLATFORM'
+                                                        ? 'National'
+                                                        : blog.scope === 'CLASS'
+                                                            ? 'Class'
+                                                            : 'School'}
+                                                </Badge>
+                                                {blog.is_pinned && (
+                                                    <span className="flex items-center gap-1 text-xs font-semibold text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">
+                                                        <Pin className="w-3 h-3" /> Pinned
                                                     </span>
                                                 )}
                                             </div>
-                                        )}
-                                    </div>
 
-                                    <div className="pt-5 mt-4 border-t border-slate-800/80 flex items-center justify-between text-xs text-slate-400">
-                                        <div className="flex items-center gap-2">
-                                            <div className="w-6 h-6 rounded-full bg-sky-600/30 text-sky-300 font-bold flex items-center justify-center text-[10px]">
-                                                {blog.author_name ? blog.author_name[0].toUpperCase() : 'E'}
-                                            </div>
-                                            <span className="truncate max-w-[100px]">{blog.author_name || 'Educator'}</span>
-                                        </div>
-
-                                        <div className="flex items-center gap-3">
-                                            <span className="flex items-center gap-1 text-sky-400 font-medium">
-                                                <ThumbsUp className="w-3.5 h-3.5" />
-                                                {blog.likes_count}
-                                            </span>
-                                            <span className="flex items-center gap-1 text-emerald-400 font-medium">
-                                                <MessageSquare className="w-3.5 h-3.5" />
-                                                {blog.comments_count}
-                                            </span>
-                                            <Button
-                                                size="xs"
-                                                variant="ghost"
+                                            <h3
                                                 onClick={() => openBlogDetail(blog)}
-                                                className="text-xs text-sky-400 hover:text-sky-300 hover:bg-sky-500/10 h-7 px-2"
+                                                className="text-lg font-bold text-white hover:text-sky-400 cursor-pointer transition-colors line-clamp-2"
                                             >
-                                                Read
-                                            </Button>
-                                        </div>
-                                    </div>
-                                </CardContent>
-                            </Card>
-                        </motion.div>
-                    ))}
-                </div>
-            )}
+                                                {blog.title}
+                                            </h3>
 
-            {/* Read & Discourse Modal */}
-            <Dialog
-                open={!!selectedBlog}
-                onClose={() => {
-                    setSelectedBlog(null);
-                    setReplyingTo(null);
-                    setNewComment('');
-                }}
-                title={selectedBlog?.title || 'Academic Article'}
-                size="xl"
-            >
-                {selectedBlog && (
-                    <div className="space-y-6 max-h-[75vh] overflow-y-auto pr-2">
-                        {/* Cover image */}
-                        {selectedBlog.cover_image_url && (
-                            <div className="w-full h-56 rounded-lg overflow-hidden bg-slate-900 border border-slate-800">
-                                {/* eslint-disable-next-line @next/next/no-img-element */}
-                                <img
-                                    src={selectedBlog.cover_image_url}
-                                    alt={selectedBlog.title}
-                                    className="w-full h-full object-cover"
-                                />
-                            </div>
-                        )}
+                                            <p className="text-xs text-slate-400 line-clamp-3 leading-relaxed">
+                                                {blog.content_markdown.replace(/[#*`_>]/g, '')}
+                                            </p>
 
-                        {/* Metadata Header */}
-                        <div className="flex flex-wrap items-center justify-between gap-3 pb-4 border-b border-slate-800">
-                            <div className="flex items-center gap-3">
-                                <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-sky-600 to-indigo-600 text-white font-bold flex items-center justify-center text-sm shadow-md">
-                                    {selectedBlog.author_name ? selectedBlog.author_name[0].toUpperCase() : 'E'}
-                                </div>
-                                <div>
-                                    <div className="flex items-center gap-2">
-                                        <span className="font-semibold text-white text-sm">
-                                            {selectedBlog.author_name || 'Educator'}
-                                        </span>
-                                        <Badge variant="outline" tone="neutral" size="sm">
-                                            {selectedBlog.author_role || 'TEACHER'}
-                                        </Badge>
-                                    </div>
-                                    <span className="text-xs text-slate-400 flex items-center gap-1 mt-0.5">
-                                        <Calendar className="w-3 h-3" />
-                                        {new Date(selectedBlog.created_at).toLocaleDateString(undefined, {
-                                            year: 'numeric',
-                                            month: 'short',
-                                            day: 'numeric',
-                                        })}
-                                    </span>
-                                </div>
-                            </div>
-
-                            <div className="flex items-center gap-2">
-                                <Badge
-                                    tone={
-                                        selectedBlog.scope === 'PLATFORM'
-                                            ? 'info'
-                                            : selectedBlog.scope === 'CLASS'
-                                                ? 'success'
-                                                : 'neutral'
-                                    }
-                                >
-                                    {selectedBlog.scope}
-                                </Badge>
-                                {selectedBlog.is_pinned && (
-                                    <Badge tone="warning">
-                                        <Pin className="w-3 h-3 mr-1" /> Pinned
-                                    </Badge>
-                                )}
-                            </div>
-                        </div>
-
-                        {/* Article Content */}
-                        <div className="py-2">
-                            {renderMarkdown(selectedBlog.content_markdown)}
-                        </div>
-
-                        {/* Academic Reactions Bar */}
-                        <div className="p-4 rounded-xl bg-slate-900/90 border border-slate-800 flex flex-wrap items-center justify-between gap-3">
-                            <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
-                                Scholarly Reactions
-                            </span>
-                            <div className="flex flex-wrap items-center gap-2">
-                                {(['LIKE', 'HELPFUL', 'INSIGHTFUL', 'HEART'] as AcademicReaction[]).map((type) => {
-                                    const cfg = REACTION_CONFIG[type];
-                                    const Icon = cfg.icon;
-                                    const isSelected = selectedBlog.myReaction === type;
-
-                                    return (
-                                        <button
-                                            key={type}
-                                            onClick={() => handleReaction(type)}
-                                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all ${isSelected
-                                                    ? cfg.bg + ' shadow-sm'
-                                                    : 'bg-slate-800/60 border-slate-700/60 text-slate-300 hover:bg-slate-800 hover:text-white'
-                                                }`}
-                                        >
-                                            <Icon className={`w-3.5 h-3.5 ${isSelected ? cfg.color : ''}`} />
-                                            <span>{cfg.label}</span>
-                                        </button>
-                                    );
-                                })}
-                            </div>
-                        </div>
-
-                        {/* Discourse & Threaded Comments */}
-                        <div className="space-y-4 pt-4 border-t border-slate-800">
-                            <div className="flex items-center justify-between">
-                                <h4 className="text-base font-bold text-white flex items-center gap-2">
-                                    <MessageSquare className="w-4 h-4 text-sky-400" />
-                                    Academic Discourse ({selectedBlog.comments?.length || 0})
-                                </h4>
-                            </div>
-
-                            {/* Comment Composer */}
-                            <form onSubmit={handlePostComment} className="space-y-2">
-                                {replyingTo && (
-                                    <div className="flex items-center justify-between bg-sky-950/40 border border-sky-800/50 px-3 py-1.5 rounded text-xs text-sky-300">
-                                        <span>
-                                            Replying to <strong>{replyingTo.author_name}</strong>
-                                        </span>
-                                        <button
-                                            type="button"
-                                            onClick={() => setReplyingTo(null)}
-                                            className="text-slate-400 hover:text-white"
-                                        >
-                                            <X className="w-3.5 h-3.5" />
-                                        </button>
-                                    </div>
-                                )}
-                                <div className="flex gap-2">
-                                    <Textarea
-                                        value={newComment}
-                                        onChange={(e) => setNewComment(e.target.value)}
-                                        placeholder={
-                                            replyingTo
-                                                ? `Write an academic reply to ${replyingTo.author_name}...`
-                                                : 'Contribute scholarly analysis, questions, or perspectives...'
-                                        }
-                                        rows={2}
-                                        className="text-xs md:text-sm"
-                                    />
-                                </div>
-                                <div className="flex justify-end">
-                                    <Button
-                                        type="submit"
-                                        size="sm"
-                                        variant="primary"
-                                        loading={submittingComment}
-                                        leadingIcon={<Send className="w-3.5 h-3.5" />}
-                                    >
-                                        Post Contribution
-                                    </Button>
-                                </div>
-                            </form>
-
-                            {/* Threaded Comments List */}
-                            {loadingDetail ? (
-                                <div className="flex justify-center py-6">
-                                    <Spinner size="md" />
-                                </div>
-                            ) : !selectedBlog.comments || selectedBlog.comments.length === 0 ? (
-                                <p className="text-center text-xs text-slate-500 py-6">
-                                    No discourse entries yet. Start the academic dialogue above.
-                                </p>
-                            ) : (
-                                <div className="space-y-3 pt-2">
-                                    {selectedBlog.comments.map((comment) => (
-                                        <div
-                                            key={comment.id}
-                                            className={`p-3.5 rounded-lg border text-xs md:text-sm space-y-2 ${comment.is_pinned
-                                                    ? 'bg-amber-950/20 border-amber-600/30'
-                                                    : 'bg-slate-900/60 border-slate-800'
-                                                } ${comment.is_hidden ? 'opacity-50' : ''}`}
-                                        >
-                                            <div className="flex items-center justify-between">
-                                                <div className="flex items-center gap-2">
-                                                    <span className="font-semibold text-white">
-                                                        {comment.author_name}
-                                                    </span>
-                                                    <Badge variant="outline" tone="neutral" size="sm">
-                                                        {comment.author_role}
-                                                    </Badge>
-                                                    {comment.is_pinned && (
-                                                        <span className="text-[10px] text-amber-400 font-bold bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20">
-                                                            PINNED
-                                                        </span>
-                                                    )}
-                                                    {comment.is_hidden && (
-                                                        <span className="text-[10px] text-rose-400 font-bold bg-rose-500/10 px-1.5 py-0.5 rounded border border-rose-500/20">
-                                                            HIDDEN
-                                                        </span>
-                                                    )}
-                                                </div>
-
-                                                <div className="flex items-center gap-2 text-slate-400">
-                                                    <span className="text-[11px]">
-                                                        {new Date(comment.created_at).toLocaleTimeString([], {
-                                                            hour: '2-digit',
-                                                            minute: '2-digit',
-                                                        })}
-                                                    </span>
-                                                    {isTeacherOrAdmin && (
-                                                        <div className="flex items-center gap-1 pl-2 border-l border-slate-700">
-                                                            <button
-                                                                onClick={() =>
-                                                                    handleModerateComment(comment.id, {
-                                                                        isPinned: !comment.is_pinned,
-                                                                    })
-                                                                }
-                                                                title={comment.is_pinned ? 'Unpin' : 'Pin'}
-                                                                className="p-1 hover:text-amber-400 text-slate-400"
-                                                            >
-                                                                <Pin className="w-3.5 h-3.5" />
-                                                            </button>
-                                                            <button
-                                                                onClick={() =>
-                                                                    handleModerateComment(comment.id, {
-                                                                        isHidden: !comment.is_hidden,
-                                                                    })
-                                                                }
-                                                                title={comment.is_hidden ? 'Restore' : 'Hide'}
-                                                                className="p-1 hover:text-rose-400 text-slate-400"
-                                                            >
-                                                                <EyeOff className="w-3.5 h-3.5" />
-                                                            </button>
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            </div>
-
-                                            <p className="text-slate-300 leading-relaxed">{comment.content}</p>
-
-                                            <div className="flex items-center justify-end pt-1">
-                                                <button
-                                                    onClick={() => setReplyingTo(comment)}
-                                                    className="text-xs text-sky-400 hover:text-sky-300 font-medium"
-                                                >
-                                                    Reply
-                                                </button>
-                                            </div>
-
-                                            {/* Nested replies */}
-                                            {comment.replies && comment.replies.length > 0 && (
-                                                <div className="pl-4 border-l-2 border-slate-800 space-y-2 mt-2 pt-2">
-                                                    {comment.replies.map((reply) => (
-                                                        <div
-                                                            key={reply.id}
-                                                            className={`p-2.5 rounded bg-slate-950/60 border border-slate-800/80 text-xs space-y-1 ${reply.is_hidden ? 'opacity-50' : ''
-                                                                }`}
+                                            {blog.tags && blog.tags.length > 0 && (
+                                                <div className="flex flex-wrap gap-1.5 pt-1">
+                                                    {blog.tags.slice(0, 3).map((tag, i) => (
+                                                        <span
+                                                            key={i}
+                                                            className="text-[11px] font-medium text-slate-400 bg-slate-800/80 px-2 py-0.5 rounded-full"
                                                         >
-                                                            <div className="flex items-center justify-between">
-                                                                <div className="flex items-center gap-2">
-                                                                    <span className="font-semibold text-slate-200">
-                                                                        {reply.author_name}
-                                                                    </span>
-                                                                    <Badge variant="outline" tone="neutral" size="sm">
-                                                                        {reply.author_role}
-                                                                    </Badge>
-                                                                </div>
-                                                                <span className="text-[10px] text-slate-500">
-                                                                    {new Date(reply.created_at).toLocaleTimeString([], {
-                                                                        hour: '2-digit',
-                                                                        minute: '2-digit',
-                                                                    })}
-                                                                </span>
-                                                            </div>
-                                                            <p className="text-slate-300">{reply.content}</p>
-                                                        </div>
+                                                            #{tag}
+                                                        </span>
                                                     ))}
+                                                    {blog.tags.length > 3 && (
+                                                        <span className="text-[11px] text-slate-500 py-0.5">
+                                                            +{blog.tags.length - 3}
+                                                        </span>
+                                                    )}
                                                 </div>
                                             )}
                                         </div>
-                                    ))}
-                                </div>
-                            )}
-                        </div>
+
+                                        <div className="pt-5 mt-4 border-t border-slate-800/80 flex items-center justify-between text-xs text-slate-400">
+                                            <div className="flex items-center gap-2">
+                                                <div className="w-6 h-6 rounded-full bg-sky-600/30 text-sky-300 font-bold flex items-center justify-center text-[10px]">
+                                                    {blog.author_name ? blog.author_name[0].toUpperCase() : 'E'}
+                                                </div>
+                                                <span className="truncate max-w-[100px]">{blog.author_name || 'Educator'}</span>
+                                            </div>
+
+                                            <div className="flex items-center gap-3">
+                                                <span className="flex items-center gap-1 text-sky-400 font-medium">
+                                                    <ThumbsUp className="w-3.5 h-3.5" />
+                                                    {blog.likes_count}
+                                                </span>
+                                                <span className="flex items-center gap-1 text-emerald-400 font-medium">
+                                                    <MessageSquare className="w-3.5 h-3.5" />
+                                                    {blog.comments_count}
+                                                </span>
+                                                <Button
+                                                    size="xs"
+                                                    variant="ghost"
+                                                    onClick={() => openBlogDetail(blog)}
+                                                    className="text-xs text-sky-400 hover:text-sky-300 hover:bg-sky-500/10 h-7 px-2"
+                                                >
+                                                    Read
+                                                </Button>
+                                            </div>
+                                        </div>
+                                    </CardContent>
+                                </Card>
+                            </motion.div>
+                        ))}
                     </div>
                 )}
-            </Dialog>
 
-            {/* Author / Article Composer Modal */}
-            <Dialog
-                open={composerOpen}
-                onClose={() => setComposerOpen(false)}
-                title="Author Academic Article"
-                size="lg"
-            >
-                <form onSubmit={handleCreateArticle} className="space-y-4">
-                    <Field label="Article Title" required>
-                        <Input
-                            value={composeTitle}
-                            onChange={(e) => setComposeTitle(e.target.value)}
-                            placeholder="e.g., Deconstructing Thermodynamics in Advanced Level Physics"
-                            required
-                        />
-                    </Field>
+                {/* Read & Discourse Modal */}
+                <Dialog
+                    open={!!selectedBlog}
+                    onClose={() => {
+                        setSelectedBlog(null);
+                        setReplyingTo(null);
+                        setNewComment('');
+                    }}
+                    title={selectedBlog?.title || 'Academic Article'}
+                    size="xl"
+                >
+                    {selectedBlog && (
+                        <div className="space-y-6 max-h-[75vh] overflow-y-auto pr-2">
+                            {/* Cover image */}
+                            {selectedBlog.cover_image_url && (
+                                <div className="w-full h-56 rounded-lg overflow-hidden bg-slate-900 border border-slate-800">
+                                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                                    <img
+                                        src={selectedBlog.cover_image_url}
+                                        alt={selectedBlog.title}
+                                        className="w-full h-full object-cover"
+                                    />
+                                </div>
+                            )}
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <Field label="Scope" required>
-                            <Select
-                                value={composeScope}
-                                onChange={(e) => setComposeScope(e.target.value as BlogScope)}
-                            >
-                                <option value="SCHOOL">School-Wide</option>
-                                <option value="CLASS">Classroom Specific</option>
-                                <option value="PLATFORM">National Platform</option>
-                            </Select>
+                            {/* Metadata Header */}
+                            <div className="flex flex-wrap items-center justify-between gap-3 pb-4 border-b border-slate-800">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-sky-600 to-indigo-600 text-white font-bold flex items-center justify-center text-sm shadow-md">
+                                        {selectedBlog.author_name ? selectedBlog.author_name[0].toUpperCase() : 'E'}
+                                    </div>
+                                    <div>
+                                        <div className="flex items-center gap-2">
+                                            <span className="font-semibold text-white text-sm">
+                                                {selectedBlog.author_name || 'Educator'}
+                                            </span>
+                                            <Badge variant="outline" tone="neutral" size="sm">
+                                                {selectedBlog.author_role || 'TEACHER'}
+                                            </Badge>
+                                        </div>
+                                        <span className="text-xs text-slate-400 flex items-center gap-1 mt-0.5">
+                                            <Calendar className="w-3 h-3" />
+                                            {new Date(selectedBlog.created_at).toLocaleDateString(undefined, {
+                                                year: 'numeric',
+                                                month: 'short',
+                                                day: 'numeric',
+                                            })}
+                                        </span>
+                                    </div>
+                                </div>
+
+                                <div className="flex items-center gap-2">
+                                    <Badge
+                                        tone={
+                                            selectedBlog.scope === 'PLATFORM'
+                                                ? 'info'
+                                                : selectedBlog.scope === 'CLASS'
+                                                    ? 'success'
+                                                    : 'neutral'
+                                        }
+                                    >
+                                        {selectedBlog.scope}
+                                    </Badge>
+                                    {selectedBlog.is_pinned && (
+                                        <Badge tone="warning">
+                                            <Pin className="w-3 h-3 mr-1" /> Pinned
+                                        </Badge>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Article Content */}
+                            <div className="py-2">
+                                {renderMarkdown(selectedBlog.content_markdown)}
+                            </div>
+
+                            {/* Academic Reactions Bar */}
+                            <div className="p-4 rounded-xl bg-slate-900/90 border border-slate-800 flex flex-wrap items-center justify-between gap-3">
+                                <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                                    Scholarly Reactions
+                                </span>
+                                <div className="flex flex-wrap items-center gap-2">
+                                    {(['LIKE', 'HELPFUL', 'INSIGHTFUL', 'HEART'] as AcademicReaction[]).map((type) => {
+                                        const cfg = REACTION_CONFIG[type];
+                                        const Icon = cfg.icon;
+                                        const isSelected = selectedBlog.myReaction === type;
+
+                                        return (
+                                            <button
+                                                key={type}
+                                                onClick={() => handleReaction(type)}
+                                                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all ${isSelected
+                                                    ? cfg.bg + ' shadow-sm'
+                                                    : 'bg-slate-800/60 border-slate-700/60 text-slate-300 hover:bg-slate-800 hover:text-white'
+                                                    }`}
+                                            >
+                                                <Icon className={`w-3.5 h-3.5 ${isSelected ? cfg.color : ''}`} />
+                                                <span>{cfg.label}</span>
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+
+                            {/* Discourse & Threaded Comments */}
+                            <div className="space-y-4 pt-4 border-t border-slate-800">
+                                <div className="flex items-center justify-between">
+                                    <h4 className="text-base font-bold text-white flex items-center gap-2">
+                                        <MessageSquare className="w-4 h-4 text-sky-400" />
+                                        Academic Discourse ({selectedBlog.comments?.length || 0})
+                                    </h4>
+                                </div>
+
+                                {/* Comment Composer */}
+                                <form onSubmit={handlePostComment} className="space-y-2">
+                                    {replyingTo && (
+                                        <div className="flex items-center justify-between bg-sky-950/40 border border-sky-800/50 px-3 py-1.5 rounded text-xs text-sky-300">
+                                            <span>
+                                                Replying to <strong>{replyingTo.author_name}</strong>
+                                            </span>
+                                            <button
+                                                type="button"
+                                                onClick={() => setReplyingTo(null)}
+                                                className="text-slate-400 hover:text-white"
+                                            >
+                                                <X className="w-3.5 h-3.5" />
+                                            </button>
+                                        </div>
+                                    )}
+                                    <div className="flex gap-2">
+                                        <Textarea
+                                            value={newComment}
+                                            onChange={(e) => setNewComment(e.target.value)}
+                                            placeholder={
+                                                replyingTo
+                                                    ? `Write an academic reply to ${replyingTo.author_name}...`
+                                                    : 'Contribute scholarly analysis, questions, or perspectives...'
+                                            }
+                                            rows={2}
+                                            className="text-xs md:text-sm"
+                                        />
+                                    </div>
+                                    <div className="flex justify-end">
+                                        <Button
+                                            type="submit"
+                                            size="sm"
+                                            variant="primary"
+                                            loading={submittingComment}
+                                            leadingIcon={<Send className="w-3.5 h-3.5" />}
+                                        >
+                                            Post Contribution
+                                        </Button>
+                                    </div>
+                                </form>
+
+                                {/* Threaded Comments List */}
+                                {loadingDetail ? (
+                                    <div className="flex justify-center py-6">
+                                        <Spinner size="md" />
+                                    </div>
+                                ) : !selectedBlog.comments || selectedBlog.comments.length === 0 ? (
+                                    <p className="text-center text-xs text-slate-500 py-6">
+                                        No discourse entries yet. Start the academic dialogue above.
+                                    </p>
+                                ) : (
+                                    <div className="space-y-3 pt-2">
+                                        {selectedBlog.comments.map((comment) => (
+                                            <div
+                                                key={comment.id}
+                                                className={`p-3.5 rounded-lg border text-xs md:text-sm space-y-2 ${comment.is_pinned
+                                                    ? 'bg-amber-950/20 border-amber-600/30'
+                                                    : 'bg-slate-900/60 border-slate-800'
+                                                    } ${comment.is_hidden ? 'opacity-50' : ''}`}
+                                            >
+                                                <div className="flex items-center justify-between">
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="font-semibold text-white">
+                                                            {comment.author_name}
+                                                        </span>
+                                                        <Badge variant="outline" tone="neutral" size="sm">
+                                                            {comment.author_role}
+                                                        </Badge>
+                                                        {comment.is_pinned && (
+                                                            <span className="text-[10px] text-amber-400 font-bold bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20">
+                                                                PINNED
+                                                            </span>
+                                                        )}
+                                                        {comment.is_hidden && (
+                                                            <span className="text-[10px] text-rose-400 font-bold bg-rose-500/10 px-1.5 py-0.5 rounded border border-rose-500/20">
+                                                                HIDDEN
+                                                            </span>
+                                                        )}
+                                                    </div>
+
+                                                    <div className="flex items-center gap-2 text-slate-400">
+                                                        <span className="text-[11px]">
+                                                            {new Date(comment.created_at).toLocaleTimeString([], {
+                                                                hour: '2-digit',
+                                                                minute: '2-digit',
+                                                            })}
+                                                        </span>
+                                                        {isTeacherOrAdmin && (
+                                                            <div className="flex items-center gap-1 pl-2 border-l border-slate-700">
+                                                                <button
+                                                                    onClick={() =>
+                                                                        handleModerateComment(comment.id, {
+                                                                            isPinned: !comment.is_pinned,
+                                                                        })
+                                                                    }
+                                                                    title={comment.is_pinned ? 'Unpin' : 'Pin'}
+                                                                    className="p-1 hover:text-amber-400 text-slate-400"
+                                                                >
+                                                                    <Pin className="w-3.5 h-3.5" />
+                                                                </button>
+                                                                <button
+                                                                    onClick={() =>
+                                                                        handleModerateComment(comment.id, {
+                                                                            isHidden: !comment.is_hidden,
+                                                                        })
+                                                                    }
+                                                                    title={comment.is_hidden ? 'Restore' : 'Hide'}
+                                                                    className="p-1 hover:text-rose-400 text-slate-400"
+                                                                >
+                                                                    <EyeOff className="w-3.5 h-3.5" />
+                                                                </button>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                </div>
+
+                                                <p className="text-slate-300 leading-relaxed">{comment.content}</p>
+
+                                                <div className="flex items-center justify-end pt-1">
+                                                    <button
+                                                        onClick={() => setReplyingTo(comment)}
+                                                        className="text-xs text-sky-400 hover:text-sky-300 font-medium"
+                                                    >
+                                                        Reply
+                                                    </button>
+                                                </div>
+
+                                                {/* Nested replies */}
+                                                {comment.replies && comment.replies.length > 0 && (
+                                                    <div className="pl-4 border-l-2 border-slate-800 space-y-2 mt-2 pt-2">
+                                                        {comment.replies.map((reply) => (
+                                                            <div
+                                                                key={reply.id}
+                                                                className={`p-2.5 rounded bg-slate-950/60 border border-slate-800/80 text-xs space-y-1 ${reply.is_hidden ? 'opacity-50' : ''
+                                                                    }`}
+                                                            >
+                                                                <div className="flex items-center justify-between">
+                                                                    <div className="flex items-center gap-2">
+                                                                        <span className="font-semibold text-slate-200">
+                                                                            {reply.author_name}
+                                                                        </span>
+                                                                        <Badge variant="outline" tone="neutral" size="sm">
+                                                                            {reply.author_role}
+                                                                        </Badge>
+                                                                    </div>
+                                                                    <span className="text-[10px] text-slate-500">
+                                                                        {new Date(reply.created_at).toLocaleTimeString([], {
+                                                                            hour: '2-digit',
+                                                                            minute: '2-digit',
+                                                                        })}
+                                                                    </span>
+                                                                </div>
+                                                                <p className="text-slate-300">{reply.content}</p>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    )}
+                </Dialog>
+
+                {/* Author / Article Composer Modal */}
+                <Dialog
+                    open={composerOpen}
+                    onClose={() => setComposerOpen(false)}
+                    title="Author Academic Article"
+                    size="lg"
+                >
+                    <form onSubmit={handleCreateArticle} className="space-y-4">
+                        <Field label="Article Title" required>
+                            <Input
+                                value={composeTitle}
+                                onChange={(e) => setComposeTitle(e.target.value)}
+                                placeholder="e.g., Deconstructing Thermodynamics in Advanced Level Physics"
+                                required
+                            />
                         </Field>
 
-                        {composeScope === 'CLASS' ? (
-                            <Field label="Target Class" required>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <Field label="Scope" required>
                                 <Select
-                                    value={composeClassId}
-                                    onChange={(e) => setComposeClassId(e.target.value)}
-                                    required
+                                    value={composeScope}
+                                    onChange={(e) => setComposeScope(e.target.value as BlogScope)}
                                 >
-                                    <option value="">Select a class...</option>
-                                    {classes.map((c) => (
-                                        <option key={c.id} value={c.id}>
-                                            {c.name} {c.grade ? `(Grade ${c.grade})` : ''}
-                                        </option>
-                                    ))}
+                                    <option value="SCHOOL">School-Wide</option>
+                                    <option value="CLASS">Classroom Specific</option>
+                                    <option value="PLATFORM">National Platform</option>
                                 </Select>
                             </Field>
-                        ) : (
+
+                            {composeScope === 'CLASS' ? (
+                                <Field label="Target Class" required>
+                                    <Select
+                                        value={composeClassId}
+                                        onChange={(e) => setComposeClassId(e.target.value)}
+                                        required
+                                    >
+                                        <option value="">Select a class...</option>
+                                        {classes.map((c) => (
+                                            <option key={c.id} value={c.id}>
+                                                {c.name} {c.grade ? `(Grade ${c.grade})` : ''}
+                                            </option>
+                                        ))}
+                                    </Select>
+                                </Field>
+                            ) : (
+                                <Field label="Cover Image URL (Optional)">
+                                    <Input
+                                        value={composeCoverUrl}
+                                        onChange={(e) => setComposeCoverUrl(e.target.value)}
+                                        placeholder="https://images.unsplash.com/..."
+                                    />
+                                </Field>
+                            )}
+                        </div>
+
+                        {composeScope === 'CLASS' && (
                             <Field label="Cover Image URL (Optional)">
                                 <Input
                                     value={composeCoverUrl}
@@ -904,56 +917,46 @@ export default function BlogsPage() {
                                 />
                             </Field>
                         )}
-                    </div>
 
-                    {composeScope === 'CLASS' && (
-                        <Field label="Cover Image URL (Optional)">
+                        <Field label="Tags (Comma separated)">
                             <Input
-                                value={composeCoverUrl}
-                                onChange={(e) => setComposeCoverUrl(e.target.value)}
-                                placeholder="https://images.unsplash.com/..."
+                                value={composeTags}
+                                onChange={(e) => setComposeTags(e.target.value)}
+                                placeholder="e.g., Physics, ALevel, ExamPrep, Mechanics"
                             />
                         </Field>
-                    )}
 
-                    <Field label="Tags (Comma separated)">
-                        <Input
-                            value={composeTags}
-                            onChange={(e) => setComposeTags(e.target.value)}
-                            placeholder="e.g., Physics, ALevel, ExamPrep, Mechanics"
-                        />
-                    </Field>
+                        <Field label="Article Content (Markdown Supported)" required>
+                            <Textarea
+                                value={composeContent}
+                                onChange={(e) => setComposeContent(e.target.value)}
+                                placeholder="Write your scholarly article using markdown headers (##), bullet points, and code quotes..."
+                                rows={8}
+                                required
+                            />
+                        </Field>
 
-                    <Field label="Article Content (Markdown Supported)" required>
-                        <Textarea
-                            value={composeContent}
-                            onChange={(e) => setComposeContent(e.target.value)}
-                            placeholder="Write your scholarly article using markdown headers (##), bullet points, and code quotes..."
-                            rows={8}
-                            required
-                        />
-                    </Field>
-
-                    <div className="flex justify-end gap-3 pt-3 border-t border-slate-800">
-                        <Button
-                            type="button"
-                            variant="outline"
-                            onClick={() => setComposerOpen(false)}
-                            disabled={submittingArticle}
-                        >
-                            Cancel
-                        </Button>
-                        <Button
-                            type="submit"
-                            variant="primary"
-                            loading={submittingArticle}
-                            leadingIcon={<BookOpen className="w-4 h-4" />}
-                        >
-                            Publish Article
-                        </Button>
-                    </div>
-                </form>
-            </Dialog>
-        </div>
+                        <div className="flex justify-end gap-3 pt-3 border-t border-slate-800">
+                            <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() => setComposerOpen(false)}
+                                disabled={submittingArticle}
+                            >
+                                Cancel
+                            </Button>
+                            <Button
+                                type="submit"
+                                variant="primary"
+                                loading={submittingArticle}
+                                leadingIcon={<BookOpen className="w-4 h-4" />}
+                            >
+                                Publish Article
+                            </Button>
+                        </div>
+                    </form>
+                </Dialog>
+            </div>
+        </TutorialProvider>
     );
 }

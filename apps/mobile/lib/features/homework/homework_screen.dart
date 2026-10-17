@@ -4,7 +4,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 import '../../core/api/api_client.dart';
 import '../../core/auth/auth_state.dart';
+import 'package:file_picker/file_picker.dart';
 import '../../core/database/local_database.dart';
+import '../tutorial/tutorial_engine.dart';
 
 class HomeworkScreen extends ConsumerStatefulWidget {
   const HomeworkScreen({super.key});
@@ -21,6 +23,9 @@ class _HomeworkScreenState extends ConsumerState<HomeworkScreen> {
   void initState() {
     super.initState();
     _loadHomeworkTasks();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      TutorialEngine.showTourIfUnseen(context, 'phase3_offline_homework');
+    });
   }
 
   Future<void> _loadHomeworkTasks() async {
@@ -167,10 +172,47 @@ class _HomeworkScreenState extends ConsumerState<HomeworkScreen> {
                 Row(
                   children: [
                     Expanded(
+                      child: OutlinedButton.icon(
+                        icon: const Icon(Icons.attach_file, size: 18),
+                        label: const Text('Browse Device Files'),
+                        onPressed: () async {
+                          final result = await FilePicker.platform.pickFiles(
+                            allowMultiple: true,
+                            type: FileType.any,
+                          );
+                          if (result != null && result.files.isNotEmpty) {
+                            setDialogState(() {
+                              for (final f in result.files) {
+                                attachments.add({
+                                  'name': f.name,
+                                  'url': f.path ?? f.name,
+                                  'size': f.size,
+                                  'type':
+                                      f.extension != null &&
+                                          [
+                                            'jpg',
+                                            'jpeg',
+                                            'png',
+                                          ].contains(f.extension!.toLowerCase())
+                                      ? 'image'
+                                      : 'document',
+                                });
+                              }
+                            });
+                          }
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                Row(
+                  children: [
+                    Expanded(
                       child: TextField(
                         controller: attachmentController,
                         decoration: const InputDecoration(
-                          hintText: 'e.g. Worksheet.pdf or Link',
+                          hintText: 'Or enter Worksheet URL / Link',
                           isDense: true,
                           border: OutlineInputBorder(),
                         ),
@@ -182,7 +224,7 @@ class _HomeworkScreenState extends ConsumerState<HomeworkScreen> {
                         Icons.add_circle,
                         color: Color(0xFF0D9488),
                       ),
-                      tooltip: 'Add Attachment',
+                      tooltip: 'Add Link',
                       onPressed: () {
                         final val = attachmentController.text.trim();
                         if (val.isNotEmpty) {
@@ -319,10 +361,53 @@ class _HomeworkScreenState extends ConsumerState<HomeworkScreen> {
                 Row(
                   children: [
                     Expanded(
+                      child: ElevatedButton.icon(
+                        icon: const Icon(Icons.upload_file, size: 18),
+                        label: const Text('Pick Solution Files / Photos'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFFEFF6FF),
+                          foregroundColor: const Color(0xFF1E40AF),
+                          elevation: 0,
+                        ),
+                        onPressed: () async {
+                          final result = await FilePicker.platform.pickFiles(
+                            allowMultiple: true,
+                            type: FileType.any,
+                          );
+                          if (result != null && result.files.isNotEmpty) {
+                            setDialogState(() {
+                              for (final f in result.files) {
+                                solutionAttachments.add({
+                                  'name': f.name,
+                                  'url': f.path ?? f.name,
+                                  'path': f.path,
+                                  'size': f.size,
+                                  'type':
+                                      f.extension != null &&
+                                          [
+                                            'jpg',
+                                            'jpeg',
+                                            'png',
+                                          ].contains(f.extension!.toLowerCase())
+                                      ? 'image'
+                                      : 'document',
+                                });
+                              }
+                            });
+                          }
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                Row(
+                  children: [
+                    Expanded(
                       child: TextField(
                         controller: attachmentController,
                         decoration: const InputDecoration(
-                          hintText: 'File name / photo link',
+                          hintText: 'Or paste file / document link',
                           isDense: true,
                           border: OutlineInputBorder(),
                         ),
@@ -334,7 +419,7 @@ class _HomeworkScreenState extends ConsumerState<HomeworkScreen> {
                         Icons.add_circle,
                         color: Color(0xFF1E40AF),
                       ),
-                      tooltip: 'Attach File',
+                      tooltip: 'Add Link',
                       onPressed: () {
                         final val = attachmentController.text.trim();
                         if (val.isNotEmpty) {

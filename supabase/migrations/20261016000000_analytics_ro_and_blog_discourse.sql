@@ -39,7 +39,7 @@ ALTER TABLE public.teachers ADD COLUMN IF NOT EXISTS is_master_teacher BOOLEAN N
 -- 2. Educational Blogs Table (P3-S11)
 CREATE TABLE IF NOT EXISTS public.blogs (
     id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    tenant_id           UUID REFERENCES public.tenants(id) ON DELETE CASCADE, -- NULL for PLATFORM scope
+    tenant_id           UUID REFERENCES public.tenants(id) ON DELETE CASCADE, -- Stores author's school tenant_id (scope controls visibility)
     class_id            UUID REFERENCES public.classes(id) ON DELETE SET NULL, -- NULL for SCHOOL/PLATFORM scope
     scope               TEXT NOT NULL CHECK (scope IN ('CLASS', 'SCHOOL', 'PLATFORM')),
     author_id           UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,

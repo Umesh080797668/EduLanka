@@ -23,6 +23,8 @@ import { UpdateBlogDto } from './dto/update-blog.dto';
 import { CreateCommentDto } from './dto/create-comment.dto';
 import { ReactionDto } from './dto/reaction.dto';
 import { ModerateCommentDto } from './dto/moderate-comment.dto';
+import { ReportBlogDto } from './dto/report-blog.dto';
+import { TakedownBlogDto } from './dto/takedown-blog.dto';
 
 @ApiTags('Educational Blogs & Academic Discourse')
 @ApiBearerAuth()
@@ -101,13 +103,24 @@ export class BlogController {
         return this.blogService.deleteComment(commentId, user);
     }
 
-    @Post(':id/reactions')
-    @ApiOperation({ summary: 'Toggle an academic reaction on a blog post or comment' })
-    toggleReaction(
+    @Post(':id/report')
+    @ApiOperation({ summary: 'Report an educational blog post for review' })
+    reportBlog(
         @CurrentUser() user: JwtPayload,
         @Param('id') id: string,
-        @Body() dto: ReactionDto,
+        @Body() dto: ReportBlogDto,
     ) {
-        return this.blogService.toggleReaction(id, dto, user);
+        return this.blogService.reportBlog(id, dto, user);
+    }
+
+    @Patch(':id/takedown')
+    @Roles(UserRole.SCHOOL_ADMIN, UserRole.SUPER_ADMIN)
+    @ApiOperation({ summary: 'Administrative takedown of an educational blog post (School Admin / Super Admin)' })
+    takedownBlog(
+        @CurrentUser() user: JwtPayload,
+        @Param('id') id: string,
+        @Body() dto: TakedownBlogDto,
+    ) {
+        return this.blogService.takedownBlog(id, dto, user);
     }
 }

@@ -5,6 +5,8 @@ import '../../core/auth/auth_state.dart';
 import '../../core/sync/sync_service.dart';
 import '../disaster/disaster_pack_dialog.dart';
 import '../tutorial/tutorial_engine.dart';
+import '../../l10n/app_localizations.dart';
+import '../../core/localization/locale_provider.dart';
 
 class AdminHomeScreen extends ConsumerStatefulWidget {
   const AdminHomeScreen({super.key});
@@ -119,25 +121,30 @@ class _AdminHomeScreenState extends ConsumerState<AdminHomeScreen> {
   Widget build(BuildContext context) {
     final authState = ref.watch(authProvider);
     final role = authState.role ?? 'SCHOOL_ADMIN';
+    final l10n = AppLocalizations.of(context);
 
     return Scaffold(
       backgroundColor: const Color(0xFF0F172A),
       appBar: AppBar(
         backgroundColor: const Color(0xFF1E293B),
         elevation: 0,
-        title: const Text(
-          'Administration Hub',
-          style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
+        title: Text(
+          l10n?.dashboard ?? 'Administration Hub',
+          style: const TextStyle(
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+          ),
         ),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh, color: Colors.white),
-            tooltip: 'Refresh Metrics',
+            tooltip: l10n?.refresh ?? 'Refresh Metrics',
             onPressed: _loadSyncHealth,
           ),
+          const LanguageSelectorButton(),
           IconButton(
             icon: const Icon(Icons.logout, color: Colors.white),
-            tooltip: 'Sign Out',
+            tooltip: l10n?.signOut ?? 'Sign Out',
             onPressed: () => showLogoutConfirmation(context, ref),
           ),
         ],
@@ -228,7 +235,9 @@ class _AdminHomeScreenState extends ConsumerState<AdminHomeScreen> {
                 decoration: BoxDecoration(
                   color: const Color(0xFF1E293B),
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.redAccent.withValues(alpha: 0.4)),
+                  border: Border.all(
+                    color: Colors.redAccent.withValues(alpha: 0.4),
+                  ),
                 ),
                 child: Row(
                   children: [
@@ -351,9 +360,9 @@ class _AdminHomeScreenState extends ConsumerState<AdminHomeScreen> {
                   backgroundColor: Color(0xFFECFDF5),
                   child: Icon(Icons.emergency_share, color: Color(0xFF10B981)),
                 ),
-                title: const Text(
-                  'View Disaster Pack Bundle',
-                  style: TextStyle(
+                title: Text(
+                  l10n?.disasterReadiness ?? 'View Disaster Pack Bundle',
+                  style: const TextStyle(
                     color: Colors.white,
                     fontWeight: FontWeight.w600,
                   ),

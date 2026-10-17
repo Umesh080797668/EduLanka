@@ -1,18 +1,14 @@
 import 'package:flutter/material.dart';
 import '../../core/database/local_database.dart';
+import 'disaster_pack_screen.dart';
 
 class DisasterPackSheet extends StatefulWidget {
   const DisasterPackSheet({super.key});
 
   static Future<void> show(BuildContext context) {
-    return showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (context) => const DisasterPackSheet(),
-    );
+    return Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (_) => const DisasterPackScreen()));
   }
 
   @override

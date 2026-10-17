@@ -1,0 +1,39 @@
+{
+  "tourId": "phase3_managing_downloads",
+  "version": 1,
+  "title": {
+    "en": "Offline Downloads & Video Storage",
+    "si": "නොබැඳි බාගැනීම් සහ වීඩියෝ ගබඩාව",
+    "ta": "ஆஃப்லைன் பதிவிறக்கங்கள் & வீடியோ சேமிப்பு"
+  },
+  "steps": [
+    {
+      "stepId": "encrypted_downloads",
+      "target": "downloaded_assets_list",
+      "title": {
+        "en": "AES-256 Encrypted Offline Media",
+        "si": "ආරක්ෂිත නොබැඳි මාධ්‍ය",
+        "ta": "குறியாக்கம் செய்யப்பட்ட ஆஃப்லைன் மீடியா"
+      },
+      "description": {
+        "en": "Downloaded videos and lesson materials are encrypted locally and playable without internet.",
+        "si": "බාගත කළ සියලුම වීඩියෝ සහ පාඩම් සටහන් අන්තර්ජාලය නොමැතිව නැරඹිය හැක.",
+        "ta": "பதிவிறக்கம் செய்யப்பட்ட வீடியோக்கள் இணையம் இன்றியும் பாதுகாப்பாக இயங்கக்கூடியவை."
+      }
+    },
+    {
+      "stepId": "storage_retention",
+      "target": "retention_policy_indicator",
+      "title": {
+        "en": "Plan Retention & Storage Management",
+        "si": "ගබඩා කාල සීමාව කළමනාකරණය",
+        "ta": "சேமிப்பக மேலாண்மை & காலக்கெடு"
+      },
+      "description": {
+        "en": "Manage device storage and view plan retention limits. Expired media is cleaned automatically to save space.",
+        "si": "දුරකථනයේ ඉඩ කළමනාකරණය කරගන්න. කල් ඉකුත් වූ ද්‍රව්‍ය ස්වයංක්‍රීයව ඉවත් කෙරේ.",
+        "ta": "சாதன சேமிப்பகத்தை நிர்வகிக்கவும். காலாவதியான கோப்புகள் தானாக அழிக்கப்பட்டு சேமிப்பகம் மீட்கப்படும்."
+      }
+    }
+  ]
+}

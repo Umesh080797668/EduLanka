@@ -1,8 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { IsString, MinLength, IsOptional } from 'class-validator';
 
-import { IsUuidString } from '../../../common/decorators/is-uuid-string.decorator';
-
 export class LoginDto {
     /** Identifier (Email, Phone, Admission No) */
     @ApiProperty({ example: 'admin@school.edu.lk' })
@@ -22,9 +20,9 @@ export class LoginDto {
     @MinLength(8)
     password!: string;
 
-    /** School Tenant ID (required if admission number is shared across schools) */
-    @ApiPropertyOptional({ example: '45f9722b-eda0-453f-88d2-2c9ad06ec169' })
+    /** School Tenant ID or School Slug (e.g. 'dev-school' or UUID) */
+    @ApiPropertyOptional({ example: 'dev-school' })
     @IsOptional()
-    @IsUuidString()
+    @IsString()
     tenantId?: string;
 }

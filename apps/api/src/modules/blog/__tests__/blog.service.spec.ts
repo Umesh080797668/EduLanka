@@ -35,6 +35,31 @@ describe('BlogService', () => {
         tenantPlan: 'GROWTH',
     };
 
+    const createMockChain = (resolvedValue: any = { data: null, error: null }) => {
+        const chain: any = {};
+        chain.select = jest.fn().mockReturnValue(chain);
+        chain.insert = jest.fn().mockReturnValue(chain);
+        chain.update = jest.fn().mockReturnValue(chain);
+        chain.delete = jest.fn().mockReturnValue(chain);
+        chain.eq = jest.fn().mockReturnValue(chain);
+        chain.neq = jest.fn().mockReturnValue(chain);
+        chain.gt = jest.fn().mockReturnValue(chain);
+        chain.gte = jest.fn().mockReturnValue(chain);
+        chain.lt = jest.fn().mockReturnValue(chain);
+        chain.lte = jest.fn().mockReturnValue(chain);
+        chain.is = jest.fn().mockReturnValue(chain);
+        chain.in = jest.fn().mockReturnValue(chain);
+        chain.contains = jest.fn().mockReturnValue(chain);
+        chain.ilike = jest.fn().mockReturnValue(chain);
+        chain.order = jest.fn().mockReturnValue(chain);
+        chain.range = jest.fn().mockReturnValue(chain);
+        chain.limit = jest.fn().mockReturnValue(chain);
+        chain.single = jest.fn().mockResolvedValue(resolvedValue);
+        chain.maybeSingle = jest.fn().mockResolvedValue(resolvedValue);
+        chain.then = (resolve: any) => resolve(resolvedValue);
+        return chain;
+    };
+
     beforeEach(async () => {
         mockSupabase = {
             adminClient: {
@@ -102,43 +127,30 @@ describe('BlogService', () => {
         it('should allow teacher to author class blog for assigned class', async () => {
             mockSupabase.adminClient.from.mockImplementation((table: string) => {
                 if (table === 'teachers') {
-                    return {
-                        select: jest.fn().mockReturnThis(),
-                        eq: jest.fn().mockReturnThis(),
-                        maybeSingle: jest.fn().mockResolvedValue({ data: { id: 'teacher-rec-1' } }),
-                    };
+                    return createMockChain({ data: { id: 'teacher-rec-1' }, error: null });
                 }
                 if (table === 'class_teachers') {
-                    const chain: any = {};
-                    chain.select = jest.fn().mockReturnValue(chain);
-                    chain.eq = jest.fn().mockImplementation(() => chain);
-                    chain.then = (resolve: any) => resolve({ data: [{ class_id: classUuid }] });
-                    return chain;
+                    return createMockChain({ data: [{ class_id: classUuid }], error: null });
                 }
                 if (table === 'users') {
-                    return {
-                        select: jest.fn().mockReturnThis(),
-                        eq: jest.fn().mockReturnThis(),
-                        maybeSingle: jest.fn().mockResolvedValue({ data: { full_name: 'Kamal Perera' } }),
-                    };
+                    return createMockChain({ data: { full_name: 'Kamal Perera' }, error: null });
+                }
+                if (table === 'tenants') {
+                    return createMockChain({ data: { name: 'Royal College', plan: 'GROWTH' }, error: null });
                 }
                 if (table === 'blogs') {
-                    return {
-                        insert: jest.fn().mockReturnThis(),
-                        select: jest.fn().mockReturnThis(),
-                        single: jest.fn().mockResolvedValue({
-                            data: {
-                                id: blogUuid,
-                                title: 'Grade 10 Quadratic Equations',
-                                scope: 'CLASS',
-                                class_id: classUuid,
-                                author_id: teacherUuid,
-                            },
-                            error: null,
-                        }),
-                    };
+                    return createMockChain({
+                        data: {
+                            id: blogUuid,
+                            title: 'Grade 10 Quadratic Equations',
+                            scope: 'CLASS',
+                            class_id: classUuid,
+                            author_id: teacherUuid,
+                        },
+                        error: null,
+                    });
                 }
-                return { select: jest.fn().mockReturnThis() };
+                return createMockChain();
             });
 
             const blog = await service.createBlog(
@@ -312,31 +324,31 @@ describe('BlogService', () => {
 
         it('should allow teacher with supported plan to create platform-wide blog without admin vetting', async () => {
             mockSupabase.adminClient.from.mockImplementation((table: string) => {
+                if (table === 'tenants') {
+                    return createMockChain({
+                        data: { plan: 'GROWTH', name: 'Royal College' },
+                        error: null,
+                    });
+                }
                 if (table === 'users') {
-                    return {
-                        select: jest.fn().mockReturnThis(),
-                        eq: jest.fn().mockReturnThis(),
-                        maybeSingle: jest.fn().mockResolvedValue({
-                            data: { full_name: 'Teacher Perera' },
-                        }),
-                    };
+                    return createMockChain({
+                        data: { full_name: 'Teacher Perera' },
+                        error: null,
+                    });
                 }
                 if (table === 'blogs') {
-                    return {
-                        insert: jest.fn().mockReturnThis(),
-                        select: jest.fn().mockReturnThis(),
-                        single: jest.fn().mockResolvedValue({
-                            data: {
-                                id: blogUuid,
-                                title: 'National Curriculum Guide',
-                                scope: 'PLATFORM',
-                                author_id: teacherUuid,
-                            },
-                            error: null,
-                        }),
-                    };
+                    return createMockChain({
+                        data: {
+                            id: blogUuid,
+                            title: 'National Curriculum Guide',
+                            scope: 'PLATFORM',
+                            author_id: teacherUuid,
+                        },
+                        error: null,
+                        count: 0,
+                    });
                 }
-                return { select: jest.fn().mockReturnThis() };
+                return createMockChain();
             });
 
             const blog = await service.createBlog(
@@ -363,22 +375,17 @@ describe('BlogService', () => {
 
             mockSupabase.adminClient.from.mockImplementation((table: string) => {
                 if (table === 'blogs') {
-                    return {
-                        select: jest.fn().mockReturnThis(),
-                        eq: jest.fn().mockReturnThis(),
-                        is: jest.fn().mockReturnThis(),
-                        maybeSingle: jest.fn().mockResolvedValue({
-                            data: {
-                                id: blogUuid,
-                                tenant_id: 'other-school-uuid',
-                                author_id: 'other-teacher',
-                                scope: 'SCHOOL',
-                            },
-                            error: null,
-                        }),
-                    };
+                    return createMockChain({
+                        data: {
+                            id: blogUuid,
+                            tenant_id: 'other-school-uuid',
+                            author_id: 'other-teacher',
+                            scope: 'SCHOOL',
+                        },
+                        error: null,
+                    });
                 }
-                return { select: jest.fn().mockReturnThis() };
+                return createMockChain();
             });
 
             await expect(
@@ -386,7 +393,7 @@ describe('BlogService', () => {
             ).rejects.toThrow(ForbiddenException);
         });
 
-        it('should reject school admin from updating platform-wide blog', async () => {
+        it('should reject school admin from updating platform-wide blog from another school', async () => {
             const adminCaller: JwtPayload = {
                 sub: '77777777-7777-7777-7777-777777777777',
                 tenantId: tenantUuid,
@@ -396,27 +403,50 @@ describe('BlogService', () => {
 
             mockSupabase.adminClient.from.mockImplementation((table: string) => {
                 if (table === 'blogs') {
-                    return {
-                        select: jest.fn().mockReturnThis(),
-                        eq: jest.fn().mockReturnThis(),
-                        is: jest.fn().mockReturnThis(),
-                        maybeSingle: jest.fn().mockResolvedValue({
-                            data: {
-                                id: blogUuid,
-                                tenant_id: null,
-                                author_id: 'master-teacher',
-                                scope: 'PLATFORM',
-                            },
-                            error: null,
-                        }),
-                    };
+                    return createMockChain({
+                        data: {
+                            id: blogUuid,
+                            tenant_id: 'other-school-uuid',
+                            author_id: 'other-teacher',
+                            scope: 'PLATFORM',
+                        },
+                        error: null,
+                    });
                 }
-                return { select: jest.fn().mockReturnThis() };
+                return createMockChain();
             });
 
             await expect(
                 service.updateBlog(blogUuid, { title: 'Hacked Platform Title' }, adminCaller),
             ).rejects.toThrow(ForbiddenException);
+        });
+
+        it('should allow school admin to unpublish their school teacher platform-wide blog', async () => {
+            const adminCaller: JwtPayload = {
+                sub: '77777777-7777-7777-7777-777777777777',
+                tenantId: tenantUuid,
+                email: 'admin@school1.lk',
+                role: UserRole.SCHOOL_ADMIN,
+            };
+
+            mockSupabase.adminClient.from.mockImplementation((table: string) => {
+                if (table === 'blogs') {
+                    return createMockChain({
+                        data: {
+                            id: blogUuid,
+                            tenant_id: tenantUuid,
+                            author_id: teacherUuid,
+                            scope: 'PLATFORM',
+                            is_published: false,
+                        },
+                        error: null,
+                    });
+                }
+                return createMockChain();
+            });
+
+            const res = await service.updateBlog(blogUuid, { isPublished: false }, adminCaller);
+            expect(res.is_published).toBe(false);
         });
     });
 

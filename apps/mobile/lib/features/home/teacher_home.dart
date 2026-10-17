@@ -7,6 +7,9 @@ import '../../core/auth/auth_state.dart';
 import '../../core/database/local_database.dart';
 import '../../core/sync/sync_service.dart';
 import '../disaster/disaster_pack_dialog.dart';
+import '../tutorial/tutorial_engine.dart';
+import '../../l10n/app_localizations.dart';
+import '../../core/localization/locale_provider.dart';
 
 class TeacherHomeScreen extends ConsumerStatefulWidget {
   const TeacherHomeScreen({super.key});
@@ -27,6 +30,9 @@ class _TeacherHomeScreenState extends ConsumerState<TeacherHomeScreen> {
     _refreshSyncState();
     // Start background sync listener
     ref.read(syncServiceProvider).startAutoSync();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      TutorialEngine.showTourIfUnseen(context, 'phase3_offline_attendance');
+    });
   }
 
   Future<void> _refreshSyncState() async {
@@ -482,9 +488,11 @@ class _TeacherHomeScreenState extends ConsumerState<TeacherHomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Teacher Portal'),
+        title: Text(l10n?.dashboard ?? 'Teacher Portal'),
         backgroundColor: const Color(0xFF0D9488),
         foregroundColor: Colors.white,
         actions: [
@@ -494,7 +502,7 @@ class _TeacherHomeScreenState extends ConsumerState<TeacherHomeScreen> {
             onPressed: () => context.push('/chat'),
           ),
           IconButton(
-            tooltip: 'Sync Outbox',
+            tooltip: l10n?.syncChanges ?? 'Sync Outbox',
             icon: _isSyncing
                 ? const SizedBox(
                     width: 20,
@@ -511,8 +519,9 @@ class _TeacherHomeScreenState extends ConsumerState<TeacherHomeScreen> {
                   ),
             onPressed: _isSyncing ? null : _handleSync,
           ),
+          const LanguageSelectorButton(),
           IconButton(
-            tooltip: 'Sign Out',
+            tooltip: l10n?.signOut ?? 'Sign Out',
             icon: const Icon(Icons.logout_rounded),
             onPressed: () => showLogoutConfirmation(context, ref),
           ),
@@ -630,21 +639,21 @@ class _TeacherHomeScreenState extends ConsumerState<TeacherHomeScreen> {
             children: [
               _buildCard(
                 icon: Icons.checklist_rounded,
-                title: 'Mark Attendance',
+                title: l10n?.markAttendance ?? 'Mark Attendance',
                 subtitle: 'Period & Daily Roll-Call',
                 color: const Color(0xFF0D9488),
                 onTap: _openMarkAttendanceDialog,
               ),
               _buildCard(
                 icon: Icons.emergency_rounded,
-                title: 'Emergency Contacts',
+                title: l10n?.emergencyContacts ?? 'Emergency Contacts',
                 subtitle: 'Offline Disaster Pack',
                 color: const Color(0xFFEF4444),
                 onTap: () => DisasterPackSheet.show(context),
               ),
               _buildCard(
                 icon: Icons.edit_calendar_rounded,
-                title: 'Assign Homework',
+                title: l10n?.homeworkTasks ?? 'Assign Homework',
                 subtitle: 'Offline Task Queue',
                 color: const Color(0xFF3B82F6),
                 onTap: () => context.push('/homework'),

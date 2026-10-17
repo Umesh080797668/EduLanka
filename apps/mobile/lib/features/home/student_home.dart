@@ -6,6 +6,8 @@ import '../../core/database/local_database.dart';
 import '../../core/sync/sync_service.dart';
 import '../disaster/disaster_pack_dialog.dart';
 import '../tutorial/tutorial_engine.dart';
+import '../../l10n/app_localizations.dart';
+import '../../core/localization/locale_provider.dart';
 
 class StudentHomeScreen extends ConsumerStatefulWidget {
   const StudentHomeScreen({super.key});
@@ -67,10 +69,11 @@ class _StudentHomeScreenState extends ConsumerState<StudentHomeScreen> {
   @override
   Widget build(BuildContext context) {
     final authState = ref.watch(authProvider);
+    final l10n = AppLocalizations.of(context);
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Student Learning Hub'),
+        title: Text(l10n?.dashboard ?? 'Student Learning Hub'),
         backgroundColor: const Color(0xFF1E40AF),
         foregroundColor: Colors.white,
         actions: [
@@ -86,7 +89,7 @@ class _StudentHomeScreenState extends ConsumerState<StudentHomeScreen> {
                 TutorialEngine.showTour(context, 'onboarding_tour'),
           ),
           IconButton(
-            tooltip: 'Sync Changes',
+            tooltip: l10n?.syncChanges ?? 'Sync Changes',
             icon: _isSyncing
                 ? const SizedBox(
                     width: 20,
@@ -99,8 +102,9 @@ class _StudentHomeScreenState extends ConsumerState<StudentHomeScreen> {
                 : const Icon(Icons.sync_rounded),
             onPressed: _isSyncing ? null : _handleSync,
           ),
+          const LanguageSelectorButton(),
           IconButton(
-            tooltip: 'Sign Out',
+            tooltip: l10n?.signOut ?? 'Sign Out',
             icon: const Icon(Icons.logout_rounded),
             onPressed: () => showLogoutConfirmation(context, ref),
           ),
@@ -182,14 +186,14 @@ class _StudentHomeScreenState extends ConsumerState<StudentHomeScreen> {
             children: [
               _buildFeatureCard(
                 icon: Icons.emergency_share_rounded,
-                title: 'Disaster Readiness',
+                title: l10n?.disasterReadiness ?? 'Disaster Readiness',
                 subtitle: 'Emergency Shelters & Contacts',
                 color: const Color(0xFFEF4444),
                 onTap: () => DisasterPackSheet.show(context),
               ),
               _buildFeatureCard(
                 icon: Icons.video_collection_rounded,
-                title: 'Video Lessons',
+                title: l10n?.videoLessons ?? 'Video Lessons',
                 subtitle: 'Offline Curriculum Playback',
                 color: const Color(0xFF3B82F6),
                 onTap: () {
@@ -205,7 +209,7 @@ class _StudentHomeScreenState extends ConsumerState<StudentHomeScreen> {
               ),
               _buildFeatureCard(
                 icon: Icons.assignment_outlined,
-                title: 'Past Paper Hub',
+                title: l10n?.pastPaperHub ?? 'Past Paper Hub',
                 subtitle: 'Paired Marking Schemes',
                 color: const Color(0xFF10B981),
                 onTap: () {
@@ -223,7 +227,7 @@ class _StudentHomeScreenState extends ConsumerState<StudentHomeScreen> {
               ),
               _buildFeatureCard(
                 icon: Icons.assignment_turned_in_outlined,
-                title: 'Homework Tasks',
+                title: l10n?.homeworkTasks ?? 'Homework Tasks',
                 subtitle: 'Submit Offline',
                 color: const Color(0xFFF59E0B),
                 onTap: () => context.push('/homework'),

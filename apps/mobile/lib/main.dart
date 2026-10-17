@@ -11,6 +11,7 @@ import 'core/config/app_config.dart';
 import 'core/download/download_manager.dart';
 import 'core/navigation/app_router.dart';
 import 'core/notifications/push_notification_service.dart';
+import 'core/localization/locale_provider.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -92,11 +93,13 @@ class _EduLankaMobileAppState extends ConsumerState<EduLankaMobileApp> {
     });
 
     final router = ref.watch(routerProvider);
+    final activeLocale = ref.watch(localeProvider);
 
     return MaterialApp.router(
       title: 'EduLanka Mobile',
       debugShowCheckedModeBanner: false,
       routerConfig: router,
+      locale: activeLocale,
       theme: ThemeData(
         useMaterial3: true,
         colorScheme: ColorScheme.fromSeed(

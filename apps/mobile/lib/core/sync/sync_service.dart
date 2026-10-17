@@ -281,7 +281,8 @@ class SyncService {
   Future<void> fetchDisasterPack({bool force = false}) async {
     if (!force &&
         _lastDisasterPackFetch != null &&
-        DateTime.now().difference(_lastDisasterPackFetch!) < const Duration(hours: 1)) {
+        DateTime.now().difference(_lastDisasterPackFetch!) <
+            const Duration(hours: 1)) {
       return;
     }
 
@@ -316,6 +317,10 @@ class SyncService {
       final pulled = await pullSyncEvents();
       await fetchDisasterPack(force: forceDisasterPack);
 
+      // Prune expired offline cache records and downloads according to plan retention days (S3)
+      await localDb.pruneExpiredCache(30);
+      await DownloadManager.instance.purgeExpired();
+
       return SyncResult(
         pushedCount: pushed,
         pulledCount: pulled,
@@ -346,7 +351,8 @@ final syncServiceProvider = Provider<SyncService>((ref) {
     apiClient: apiClient,
     localDb: LocalDatabase.instance,
     onEntitlementRevoked: (payload) async {
-      final assetId = payload['asset_id'] ?? payload['lesson_id'] ?? payload['id'];
+      final assetId =
+          payload['asset_id'] ?? payload['lesson_id'] ?? payload['id'];
       if (assetId != null && assetId.toString().isNotEmpty) {
         await DownloadManager.instance.deleteDownloadedFile(assetId.toString());
       } else {

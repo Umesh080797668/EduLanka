@@ -17,6 +17,8 @@ import type { UpdateBlogDto } from './dto/update-blog.dto';
 import type { CreateCommentDto } from './dto/create-comment.dto';
 import type { ReactionDto } from './dto/reaction.dto';
 import type { ModerateCommentDto } from './dto/moderate-comment.dto';
+import type { ReportBlogDto } from './dto/report-blog.dto';
+import type { TakedownBlogDto } from './dto/takedown-blog.dto';
 
 @Injectable()
 export class BlogService {
@@ -40,6 +42,20 @@ export class BlogService {
             }
         }
         return plan === 'GROWTH' || plan === 'INSTITUTIONAL';
+    }
+
+    private async isTenantGrowthOrAbove(tenantId: string): Promise<boolean> {
+        try {
+            const { data: tenant } = await this.supabase.adminClient
+                .from('tenants')
+                .select('plan, status')
+                .eq('id', tenantId)
+                .maybeSingle();
+            const plan = tenant?.plan;
+            return (plan === 'GROWTH' || plan === 'INSTITUTIONAL') && tenant?.status !== 'SUSPENDED';
+        } catch {
+            return false;
+        }
     }
 
     private async getTeacherClassIds(caller: JwtPayload): Promise<string[]> {
@@ -148,16 +164,44 @@ export class BlogService {
      * Enforces tenant boundary, platform plan gating, and class-level privacy.
      */
     private async assertCanViewBlog(
-        blog: { id: string; tenant_id: string | null; scope: BlogScope | string; class_id?: string | null },
+        blog: { id: string; tenant_id: string | null; scope: BlogScope | string; class_id?: string | null; author_id?: string; is_taken_down?: boolean },
         caller: JwtPayload,
     ): Promise<void> {
         if (caller.role === UserRole.SUPER_ADMIN) return;
+
+        if (blog.is_taken_down) {
+            const isSchoolAdminForBlog = caller.role === UserRole.SCHOOL_ADMIN && blog.tenant_id === caller.tenantId;
+            if (!isSchoolAdminForBlog) {
+                throw new NotFoundException(`Educational blog ${blog.id} not found`);
+            }
+        }
 
         if (blog.scope === BlogScope.PLATFORM) {
             const isGrowth = await this.isCallerGrowthOrAbove(caller);
             if (!isGrowth) {
                 throw new ForbiddenException('Platform-wide educational blogs require a Growth or Institutional plan');
             }
+
+            // Check if author's school dropped below Growth
+            if (blog.tenant_id) {
+                const authorSchoolGrowth = await this.isTenantGrowthOrAbove(blog.tenant_id);
+                if (!authorSchoolGrowth) {
+                    throw new NotFoundException(`Educational blog ${blog.id} is unavailable (author institution is no longer on an active Growth/Institutional plan)`);
+                }
+            }
+
+            // Check if author account was deactivated
+            if (blog.author_id) {
+                const { data: authorUser } = await this.supabase.adminClient
+                    .from('users')
+                    .select('is_active')
+                    .eq('id', blog.author_id)
+                    .maybeSingle();
+                if (authorUser && authorUser.is_active === false) {
+                    throw new NotFoundException(`Educational blog ${blog.id} is unavailable (author account is deactivated)`);
+                }
+            }
+
             return;
         }
 
@@ -245,9 +289,10 @@ export class BlogService {
         const buildBaseQuery = () => {
             let q = client
                 .from('blogs')
-                .select('id, tenant_id, class_id, scope, author_id, author_name, author_role, title, cover_image_url, tags, is_published, is_pinned, likes_count, comments_count, created_at, updated_at, classes(id, name, grade)')
+                .select('id, tenant_id, school_name, class_id, scope, author_id, author_name, author_role, title, cover_image_url, tags, is_published, is_pinned, is_flagged, is_taken_down, likes_count, comments_count, created_at, updated_at, classes(id, name, grade)')
                 .is('deleted_at', null)
                 .eq('is_published', true)
+                .eq('is_taken_down', false)
                 .order('is_pinned', { ascending: false })
                 .order('created_at', { ascending: false });
 
@@ -307,6 +352,7 @@ export class BlogService {
         };
 
         const isAllowedBlog = (b: any): boolean => {
+            if (b.is_taken_down) return false;
             if (caller.role === UserRole.SUPER_ADMIN) return true;
             if (b.scope === BlogScope.PLATFORM) return isGrowth;
             if (b.tenant_id !== caller.tenantId) return false;
@@ -328,8 +374,11 @@ export class BlogService {
         let skippedCount = 0;
         let dbOffset = 0;
         const batchSize = Math.max(targetLimit * 2, 50);
+        const MAX_ITERATIONS = 10;
+        let iteration = 0;
 
-        while (filteredBlogs.length < targetLimit) {
+        while (filteredBlogs.length < targetLimit && iteration < MAX_ITERATIONS) {
+            iteration++;
             const pageQuery = buildBaseQuery().range(dbOffset, dbOffset + batchSize - 1);
             const { data, error } = await pageQuery;
             if (error) {
@@ -340,7 +389,44 @@ export class BlogService {
                 break;
             }
 
+            // Collect platform blogs author IDs & tenant IDs in this batch to check active & plan status
+            const platformBlogs = data.filter((b: any) => b.scope === BlogScope.PLATFORM);
+            const authorIds = [...new Set(platformBlogs.map((b: any) => b.author_id))];
+            const tenantIds = [...new Set(platformBlogs.map((b: any) => b.tenant_id).filter(Boolean))];
+
+            let activeAuthorSet = new Set<string>();
+            let growthTenantSet = new Set<string>();
+
+            if (authorIds.length > 0) {
+                const { data: users } = await client
+                    .from('users')
+                    .select('id, is_active')
+                    .in('id', authorIds);
+                activeAuthorSet = new Set((users ?? []).filter((u: any) => u.is_active !== false).map((u: any) => u.id));
+            }
+
+            if (tenantIds.length > 0) {
+                const { data: tenants } = await client
+                    .from('tenants')
+                    .select('id, plan, status')
+                    .in('id', tenantIds);
+                growthTenantSet = new Set(
+                    (tenants ?? [])
+                        .filter((t: any) => (t.plan === 'GROWTH' || t.plan === 'INSTITUTIONAL') && t.status !== 'SUSPENDED')
+                        .map((t: any) => t.id),
+                );
+            }
+
             for (const b of data) {
+                if (b.scope === BlogScope.PLATFORM) {
+                    if (authorIds.length > 0 && !activeAuthorSet.has(b.author_id)) {
+                        continue;
+                    }
+                    if (b.tenant_id && !growthTenantSet.has(b.tenant_id)) {
+                        continue;
+                    }
+                }
+
                 if (isAllowedBlog(b)) {
                     if (skippedCount < userOffset) {
                         skippedCount++;
@@ -477,6 +563,22 @@ export class BlogService {
             if (!isGrowth) {
                 throw new ForbiddenException('Platform-wide educational blogs require a Growth or Institutional plan');
             }
+
+            // Daily post cap per teacher: max 3 platform blogs per day (UTC)
+            const startOfDay = new Date();
+            startOfDay.setUTCHours(0, 0, 0, 0);
+
+            const { count: dailyCount } = await this.supabase.adminClient
+                .from('blogs')
+                .select('*', { count: 'exact', head: true })
+                .eq('author_id', caller.sub)
+                .eq('scope', BlogScope.PLATFORM)
+                .gte('created_at', startOfDay.toISOString())
+                .is('deleted_at', null);
+
+            if ((dailyCount ?? 0) >= 3) {
+                throw new BadRequestException('Daily platform blog publishing limit reached (maximum 3 posts per day)');
+            }
         }
 
         if (dto.scope === BlogScope.CLASS) {
@@ -506,13 +608,23 @@ export class BlogService {
             }
         }
 
+        let schoolName: string | null = null;
+        if (caller.tenantId) {
+            const { data: tenant } = await this.supabase.adminClient
+                .from('tenants')
+                .select('name')
+                .eq('id', caller.tenantId)
+                .maybeSingle();
+            schoolName = tenant?.name ?? null;
+        }
+
         const authorName = await this.getUserDisplayName(caller.sub);
-        const tenantId = dto.scope === BlogScope.PLATFORM ? null : caller.tenantId;
 
         const { data, error } = await this.supabase.adminClient
             .from('blogs')
             .insert({
-                tenant_id: tenantId,
+                tenant_id: caller.tenantId, // Always store author's school on every blog!
+                school_name: schoolName,
                 class_id: dto.scope === BlogScope.CLASS ? dto.classId : null,
                 scope: dto.scope,
                 author_id: caller.sub,
@@ -569,14 +681,14 @@ export class BlogService {
 
         if (caller.role !== UserRole.SUPER_ADMIN) {
             if (caller.role === UserRole.SCHOOL_ADMIN) {
-                if (!blog.tenant_id || blog.tenant_id !== caller.tenantId || blog.scope === BlogScope.PLATFORM) {
+                if (!blog.tenant_id || blog.tenant_id !== caller.tenantId) {
                     throw new ForbiddenException('School Admins can only update blogs belonging to their school');
                 }
             } else if (caller.role === UserRole.TEACHER) {
                 if (blog.author_id !== caller.sub) {
                     throw new ForbiddenException('You can only update blogs you authored');
                 }
-                if (blog.scope !== BlogScope.PLATFORM && blog.tenant_id !== caller.tenantId) {
+                if (blog.tenant_id !== caller.tenantId) {
                     throw new ForbiddenException('Cannot update blogs from another school');
                 }
             } else {
@@ -647,14 +759,14 @@ export class BlogService {
 
         if (caller.role !== UserRole.SUPER_ADMIN) {
             if (caller.role === UserRole.SCHOOL_ADMIN) {
-                if (!blog.tenant_id || blog.tenant_id !== caller.tenantId || blog.scope === BlogScope.PLATFORM) {
+                if (!blog.tenant_id || blog.tenant_id !== caller.tenantId) {
                     throw new ForbiddenException('School Admins can only delete blogs belonging to their school');
                 }
             } else if (caller.role === UserRole.TEACHER) {
                 if (blog.author_id !== caller.sub) {
                     throw new ForbiddenException('You can only delete blogs you authored');
                 }
-                if (blog.scope !== BlogScope.PLATFORM && blog.tenant_id !== caller.tenantId) {
+                if (blog.tenant_id !== caller.tenantId) {
                     throw new ForbiddenException('Cannot delete blogs from another school');
                 }
             } else {
@@ -983,5 +1095,97 @@ export class BlogService {
             await client.from('blogs').update({ likes_count: count ?? 0 }).eq('id', blogId);
             return count ?? 0;
         }
+    }
+
+    /**
+     * Reports an educational blog post for review.
+     */
+    async reportBlog(id: string, dto: ReportBlogDto, caller: JwtPayload) {
+        assertUuid(caller.tenantId, 'tenantId');
+        assertUuid(caller.sub, 'userId');
+        assertUuid(id, 'id');
+
+        const client = this.supabase.adminClient;
+        const { data: blog, error: fetchErr } = await client
+            .from('blogs')
+            .select('id, tenant_id, report_count')
+            .eq('id', id)
+            .is('deleted_at', null)
+            .maybeSingle();
+
+        if (fetchErr || !blog) {
+            throw new NotFoundException(`Educational blog ${id} not found`);
+        }
+
+        // Insert report record
+        await client.from('blog_reports').insert({
+            blog_id: id,
+            reporter_id: caller.sub,
+            tenant_id: caller.tenantId,
+            reason: dto.reason,
+        });
+
+        // Increment report count on blog
+        const newReportCount = (blog.report_count ?? 0) + 1;
+        const isFlagged = newReportCount >= 3;
+
+        await client
+            .from('blogs')
+            .update({
+                report_count: newReportCount,
+                is_flagged: isFlagged,
+            })
+            .eq('id', id);
+
+        return { success: true, message: 'Blog reported for review' };
+    }
+
+    /**
+     * Takedown an educational blog post (School Admin for their school, Super Admin globally).
+     */
+    async takedownBlog(id: string, dto: TakedownBlogDto, caller: JwtPayload) {
+        assertUuid(caller.tenantId, 'tenantId');
+        assertUuid(caller.sub, 'userId');
+        assertUuid(id, 'id');
+
+        const client = this.supabase.adminClient;
+        const { data: blog, error: fetchErr } = await client
+            .from('blogs')
+            .select('id, tenant_id, scope')
+            .eq('id', id)
+            .is('deleted_at', null)
+            .maybeSingle();
+
+        if (fetchErr || !blog) {
+            throw new NotFoundException(`Educational blog ${id} not found`);
+        }
+
+        if (caller.role !== UserRole.SUPER_ADMIN) {
+            if (caller.role !== UserRole.SCHOOL_ADMIN || blog.tenant_id !== caller.tenantId) {
+                throw new ForbiddenException('Only the author school administrator or Super Admin can take down this blog');
+            }
+        }
+
+        const { data, error } = await client
+            .from('blogs')
+            .update({
+                is_taken_down: true,
+                is_published: false,
+                taken_down_reason: dto.reason,
+                taken_down_by: caller.sub,
+                updated_at: new Date().toISOString(),
+            })
+            .eq('id', id)
+            .select()
+            .single();
+
+        if (error || !data) {
+            throw new BadRequestException('Failed to take down blog post');
+        }
+
+        const isPlatform = blog.scope === BlogScope.PLATFORM;
+        await this.emitSyncEvent(caller.tenantId, 'blog_post', id, 'DELETED', { id, is_taken_down: true }, isPlatform);
+
+        return { success: true, message: 'Blog post has been taken down', data };
     }
 }

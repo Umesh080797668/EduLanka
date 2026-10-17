@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/api/api_client.dart';
 import '../../core/auth/auth_state.dart';
+import '../../l10n/app_localizations.dart';
+import '../../core/localization/locale_provider.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -34,9 +36,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     final identifier = _emailController.text.trim();
     final password = _passwordController.text;
     final tenant = _tenantController.text.trim();
+    final apiClient = ref.read(apiClientProvider);
 
     try {
-      final apiClient = ref.read(apiClientProvider);
       await ref
           .read(authProvider.notifier)
           .login(
@@ -51,7 +53,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           'Authentication failed. Please check your network and credentials.';
       final resData = dioErr.response?.data;
       if (resData is Map) {
-        if (resData['message'] is String) {
+        if (resData['error'] is Map && resData['error']['message'] != null) {
+          final errMsg = resData['error']['message'];
+          msg = errMsg is List ? errMsg.join(', ') : errMsg.toString();
+        } else if (resData['error'] is String) {
+          msg = resData['error'] as String;
+        } else if (resData['message'] is String) {
           msg = resData['message'] as String;
         } else if (resData['message'] is List) {
           msg = (resData['message'] as List).join(', ');
@@ -59,7 +66,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       } else if (dioErr.type == DioExceptionType.connectionError ||
           dioErr.type == DioExceptionType.connectionTimeout) {
         msg =
-            'Cannot connect to server. Please verify your internet connection.';
+            'Cannot connect to server (${apiClient.baseUrl}). Please verify your internet connection.';
+      } else if (dioErr.response?.statusCode == 401) {
+        msg =
+            'Invalid credentials. Please verify your identifier and password.';
+      } else if (dioErr.response?.statusCode == 404) {
+        msg = 'School or service not found on server (${apiClient.baseUrl}).';
       }
 
       if (mounted) {
@@ -92,8 +104,18 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        actions: const [
+          LanguageSelectorButton(color: Color(0xFF1E40AF)),
+          SizedBox(width: 8),
+        ],
+      ),
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
@@ -110,19 +132,23 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     color: Color(0xFF1E40AF),
                   ),
                   const SizedBox(height: 16),
-                  const Text(
-                    'EduLanka Mobile',
+                  Text(
+                    l10n?.appTitle ?? 'EduLanka Mobile',
                     textAlign: TextAlign.center,
-                    style: TextStyle(
+                    style: const TextStyle(
                       fontSize: 26,
                       fontWeight: FontWeight.bold,
                       color: Color(0xFF0F172A),
                     ),
                   ),
-                  const Text(
-                    'Offline-First School Learning Platform',
+                  Text(
+                    l10n?.appSubtitle ??
+                        'Offline-First School Learning Platform',
                     textAlign: TextAlign.center,
-                    style: TextStyle(fontSize: 14, color: Color(0xFF64748B)),
+                    style: const TextStyle(
+                      fontSize: 14,
+                      color: Color(0xFF64748B),
+                    ),
                   ),
                   const SizedBox(height: 32),
 
@@ -161,7 +187,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   TextFormField(
                     controller: _tenantController,
                     decoration: InputDecoration(
-                      labelText: 'School ID / Tenant (Optional)',
+                      labelText:
+                          l10n?.schoolDomain ?? 'School Domain / Tenant Slug',
                       hintText: 'e.g. ananda-college',
                       prefixIcon: const Icon(Icons.domain_rounded),
                       filled: true,
@@ -184,7 +211,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       return null;
                     },
                     decoration: InputDecoration(
-                      labelText: 'Email, Phone, or ID',
+                      labelText: l10n?.emailOrPhone ?? 'Email, Phone, or ID',
                       hintText: 'user@school.lk or 0771234567',
                       prefixIcon: const Icon(Icons.person_outline),
                       filled: true,
@@ -207,7 +234,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       return null;
                     },
                     decoration: InputDecoration(
-                      labelText: 'Password',
+                      labelText: l10n?.password ?? 'Password',
                       prefixIcon: const Icon(Icons.lock_outline),
                       suffixIcon: IconButton(
                         icon: Icon(
@@ -249,9 +276,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                               color: Colors.white,
                             ),
                           )
-                        : const Text(
-                            'Sign In to EduLanka',
-                            style: TextStyle(
+                        : Text(
+                            l10n?.signIn ?? 'Sign In to EduLanka',
+                            style: const TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.bold,
                             ),

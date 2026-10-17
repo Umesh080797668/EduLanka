@@ -1,13 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <network-security-config>
-    <!-- Base Configuration: Strict HTTPS enforcement (no cleartext traffic allowed) -->
-    <base-config cleartextTrafficPermitted="false">
+    <!-- Base Configuration: Allow cleartext traffic for local development and HTTPS for production -->
+    <base-config cleartextTrafficPermitted="true">
         <trust-anchors>
             <certificates src="system" />
         </trust-anchors>
     </base-config>
 
-    <!-- Local Development: Allow loopback cleartext traffic only for Android emulator & local testing -->
+    <!-- Local Development: Allow loopback and local network cleartext traffic -->
     <domain-config cleartextTrafficPermitted="true">
         <domain includeSubdomains="true">10.0.2.2</domain>
         <domain includeSubdomains="true">localhost</domain>

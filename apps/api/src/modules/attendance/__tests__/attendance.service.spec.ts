@@ -125,6 +125,7 @@ describe('AttendanceService', () => {
                         select: jest.fn().mockReturnThis(),
                         eq: jest.fn().mockReturnThis(),
                         is: jest.fn().mockReturnThis(),
+                        in: jest.fn().mockReturnThis(),
                         order: jest.fn().mockReturnThis(),
                         upsert: mockUpsert,
                         then: (resolve: any) => resolve({
@@ -142,9 +143,16 @@ describe('AttendanceService', () => {
                         }),
                     };
                 }
+                if (table === 'attendance_conflicts_log') {
+                    return {
+                        insert: jest.fn().mockResolvedValue({ data: null, error: null }),
+                    };
+                }
                 return {
                     select: jest.fn().mockReturnThis(),
                     eq: jest.fn().mockReturnThis(),
+                    in: jest.fn().mockReturnThis(),
+                    insert: jest.fn().mockResolvedValue({ data: null, error: null }),
                 };
             }),
             rpc: jest.fn().mockResolvedValue({ data: null, error: null }),
@@ -271,6 +279,83 @@ describe('AttendanceService', () => {
                     records: [],
                 }),
             ).rejects.toThrow(BadRequestException);
+        });
+
+        it('logs conflict to attendance_conflicts_log when updating attendance with conflicting status', async () => {
+            const conflictInsert = jest.fn().mockResolvedValue({ data: null, error: null });
+            mockAdminClient.from.mockImplementation((table: string) => {
+                if (table === 'teachers') {
+                    return {
+                        select: jest.fn().mockReturnThis(),
+                        eq: jest.fn().mockReturnThis(),
+                        maybeSingle: jest.fn().mockResolvedValue({
+                            data: { id: 'teacher-rec-1' },
+                            error: null,
+                        }),
+                    };
+                }
+                if (table === 'class_teachers') {
+                    return {
+                        select: jest.fn().mockReturnThis(),
+                        eq: jest.fn().mockReturnThis(),
+                        then: (resolve: any) => resolve({ data: [{ class_id: classUuid }], error: null }),
+                    };
+                }
+                if (table === 'students') {
+                    return {
+                        select: jest.fn().mockReturnThis(),
+                        eq: jest.fn().mockReturnThis(),
+                        is: jest.fn().mockReturnThis(),
+                        then: (resolve: any) => resolve({
+                            data: [{ id: 'student-rec-1', user_id: studentUserUuid }],
+                            error: null,
+                        }),
+                    };
+                }
+                if (table === 'attendance') {
+                    return {
+                        select: jest.fn().mockReturnThis(),
+                        eq: jest.fn().mockReturnThis(),
+                        in: jest.fn().mockReturnThis(),
+                        upsert: mockUpsert,
+                        then: (resolve: any) => resolve({
+                            data: [
+                                {
+                                    id: 'att-1',
+                                    student_id: studentUserUuid,
+                                    status: 'PRESENT',
+                                    period: 1,
+                                    marked_at: '2026-10-15T08:00:00Z',
+                                },
+                            ],
+                            error: null,
+                        }),
+                    };
+                }
+                if (table === 'attendance_conflicts_log') {
+                    return { insert: conflictInsert };
+                }
+                return { select: jest.fn().mockReturnThis() };
+            });
+
+            await service.recordAttendance(teacherCaller, {
+                classId: classUuid,
+                date: '2026-10-15',
+                period: 1,
+                records: [{ studentId: studentUserUuid, status: 'ABSENT' }],
+            });
+
+            expect(conflictInsert).toHaveBeenCalledWith(
+                expect.arrayContaining([
+                    expect.objectContaining({
+                        conflict_date: '2026-10-15',
+                        student_id: studentUserUuid,
+                        client_state: expect.objectContaining({ status: 'ABSENT' }),
+                        server_state: expect.objectContaining({ status: 'PRESENT' }),
+                        resolution: 'CLIENT_WINS',
+                    }),
+                ]),
+            );
         });
     });
 });

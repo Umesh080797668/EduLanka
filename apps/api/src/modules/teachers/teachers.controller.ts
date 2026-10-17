@@ -12,7 +12,7 @@ import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { TenantGuard } from '../../common/guards/tenant.guard';
 
-import { CreateTeacherDto, UpdateTeacherDto, SetMasterTeacherDto } from './dto/teacher.dto';
+import { CreateTeacherDto, UpdateTeacherDto } from './dto/teacher.dto';
 import { TeachersService } from './teachers.service';
 
 @ApiTags('teachers')
@@ -51,17 +51,6 @@ export class TeachersController {
         @CurrentUser() user: JwtPayload,
     ) {
         return this.teachersService.update(id, dto, user);
-    }
-
-    @Patch(':id/master-teacher')
-    @Roles(UserRole.SUPER_ADMIN)
-    @ApiOperation({ summary: 'Toggle or set master teacher status for nationwide blog authoring (Super Admin only)' })
-    toggleMasterTeacher(
-        @Param('id', ParseUUIDPipe) id: string,
-        @Body() dto: SetMasterTeacherDto,
-        @CurrentUser() user: JwtPayload,
-    ) {
-        return this.teachersService.setMasterTeacher(id, dto.isMasterTeacher, user);
     }
 
     @Get(':id/classes')

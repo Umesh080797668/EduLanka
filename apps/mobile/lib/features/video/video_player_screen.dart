@@ -32,20 +32,28 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     super.initState();
     _initializePlayer();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      TutorialEngine.showTourIfUnseen(context, 'phase3_video_tour');
+      if (widget.localFilePath != null) {
+        TutorialEngine.showTourIfUnseen(context, 'phase3_managing_downloads');
+      } else {
+        TutorialEngine.showTourIfUnseen(context, 'phase3_video_tour');
+      }
     });
   }
 
   Future<void> _initializePlayer() async {
     try {
-      if (widget.localFilePath != null && File(widget.localFilePath!).existsSync()) {
+      if (widget.localFilePath != null &&
+          File(widget.localFilePath!).existsSync()) {
         final filePath = widget.localFilePath!;
         if (filePath.endsWith('.enc.mp4')) {
           // Encrypted offline video: start loopback on-the-fly decryption streaming server (P3-S6, ADR-001)
-          final server = await DownloadManager.instance.startDecryptedPlaybackServer(filePath);
+          final server = await DownloadManager.instance
+              .startDecryptedPlaybackServer(filePath);
           if (server != null) {
             _decryptionServer = server;
-            _controller = VideoPlayerController.networkUrl(Uri.parse(server.url));
+            _controller = VideoPlayerController.networkUrl(
+              Uri.parse(server.url),
+            );
           } else {
             // Fallback for mock or unencrypted files in test harnesses
             _controller = VideoPlayerController.file(File(filePath));
@@ -54,7 +62,9 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
           _controller = VideoPlayerController.file(File(filePath));
         }
       } else if (widget.videoUrl != null && widget.videoUrl!.isNotEmpty) {
-        _controller = VideoPlayerController.networkUrl(Uri.parse(widget.videoUrl!));
+        _controller = VideoPlayerController.networkUrl(
+          Uri.parse(widget.videoUrl!),
+        );
       } else {
         setState(() {
           _errorMessage = 'No video source provided';
@@ -102,72 +112,76 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                 textAlign: TextAlign.center,
               )
             : _isInitialized && _controller != null
-                ? Column(
+            ? Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  AspectRatio(
+                    aspectRatio: _controller!.value.aspectRatio,
+                    child: Stack(
+                      alignment: Alignment.bottomCenter,
+                      children: [
+                        VideoPlayer(_controller!),
+                        VideoProgressIndicator(
+                          _controller!,
+                          allowScrubbing: true,
+                          colors: const VideoProgressColors(
+                            playedColor: Color(0xFF1E40AF),
+                            bufferedColor: Colors.white24,
+                            backgroundColor: Colors.white10,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      AspectRatio(
-                        aspectRatio: _controller!.value.aspectRatio,
-                        child: Stack(
-                          alignment: Alignment.bottomCenter,
-                          children: [
-                            VideoPlayer(_controller!),
-                            VideoProgressIndicator(
-                              _controller!,
-                              allowScrubbing: true,
-                              colors: const VideoProgressColors(
-                                playedColor: Color(0xFF1E40AF),
-                                bufferedColor: Colors.white24,
-                                backgroundColor: Colors.white10,
-                              ),
-                            ),
-                          ],
-                        ),
+                      IconButton(
+                        iconSize: 32,
+                        color: Colors.white,
+                        icon: const Icon(Icons.replay_10_rounded),
+                        onPressed: () {
+                          final pos = _controller!.value.position;
+                          _controller!.seekTo(
+                            pos - const Duration(seconds: 10),
+                          );
+                        },
                       ),
-                      const SizedBox(height: 20),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          IconButton(
-                            iconSize: 32,
-                            color: Colors.white,
-                            icon: const Icon(Icons.replay_10_rounded),
-                            onPressed: () {
-                              final pos = _controller!.value.position;
-                              _controller!.seekTo(pos - const Duration(seconds: 10));
-                            },
-                          ),
-                          const SizedBox(width: 16),
-                          IconButton(
-                            iconSize: 48,
-                            color: Colors.white,
-                            icon: Icon(
-                              _controller!.value.isPlaying
-                                  ? Icons.pause_circle_filled_rounded
-                                  : Icons.play_circle_fill_rounded,
-                            ),
-                            onPressed: () {
-                              setState(() {
-                                _controller!.value.isPlaying
-                                    ? _controller!.pause()
-                                    : _controller!.play();
-                              });
-                            },
-                          ),
-                          const SizedBox(width: 16),
-                          IconButton(
-                            iconSize: 32,
-                            color: Colors.white,
-                            icon: const Icon(Icons.forward_10_rounded),
-                            onPressed: () {
-                              final pos = _controller!.value.position;
-                              _controller!.seekTo(pos + const Duration(seconds: 10));
-                            },
-                          ),
-                        ],
+                      const SizedBox(width: 16),
+                      IconButton(
+                        iconSize: 48,
+                        color: Colors.white,
+                        icon: Icon(
+                          _controller!.value.isPlaying
+                              ? Icons.pause_circle_filled_rounded
+                              : Icons.play_circle_fill_rounded,
+                        ),
+                        onPressed: () {
+                          setState(() {
+                            _controller!.value.isPlaying
+                                ? _controller!.pause()
+                                : _controller!.play();
+                          });
+                        },
+                      ),
+                      const SizedBox(width: 16),
+                      IconButton(
+                        iconSize: 32,
+                        color: Colors.white,
+                        icon: const Icon(Icons.forward_10_rounded),
+                        onPressed: () {
+                          final pos = _controller!.value.position;
+                          _controller!.seekTo(
+                            pos + const Duration(seconds: 10),
+                          );
+                        },
                       ),
                     ],
-                  )
-                : const CircularProgressIndicator(color: Colors.white),
+                  ),
+                ],
+              )
+            : const CircularProgressIndicator(color: Colors.white),
       ),
     );
   }

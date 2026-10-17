@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/api/api_client.dart';
 import '../../core/auth/auth_state.dart';
 import '../../core/database/local_database.dart';
+import '../tutorial/tutorial_engine.dart';
 
 class BlogListScreen extends ConsumerStatefulWidget {
   const BlogListScreen({super.key});
@@ -31,6 +32,9 @@ class _BlogListScreenState extends ConsumerState<BlogListScreen>
       }
     });
     _loadBlogs();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      TutorialEngine.showTourIfUnseen(context, 'phase3_blogs');
+    });
   }
 
   @override

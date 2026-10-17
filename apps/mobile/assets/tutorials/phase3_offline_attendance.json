@@ -1,0 +1,53 @@
+{
+  "tourId": "phase3_offline_attendance",
+  "version": 1,
+  "title": {
+    "en": "Offline Roll-Call Attendance",
+    "si": "නොබැඳි පැමිණීමේ ලේඛනය",
+    "ta": "ஆஃப்லைன் வருகைப் பதிவு"
+  },
+  "steps": [
+    {
+      "stepId": "attendance_roster",
+      "target": "attendance_roster_card",
+      "title": {
+        "en": "Class Roster",
+        "si": "පන්ති නාම ලේඛනය",
+        "ta": "வகுப்பு மாணவர் பட்டியல்"
+      },
+      "description": {
+        "en": "Mark student presence, absence, or late arrival completely offline without internet connectivity.",
+        "si": "අන්තර්ජාල පහසුකම් නොමැතිව වුවද සිසුන්ගේ පැමිණීම, නොපැමිණීම හෝ ප්‍රමාදවීම සටහන් කරන්න.",
+        "ta": "இணைய இணைப்பு இன்றியும் மாணவர்களின் வருகை, வரவின்மை அல்லது தாமதத்தைப் பதிவுசெய்யலாம்."
+      }
+    },
+    {
+      "stepId": "period_selection",
+      "target": "period_selector",
+      "title": {
+        "en": "Period Tracking",
+        "si": "කාලච්ඡේද තෝරාගැනීම",
+        "ta": "பாடவேளை தேர்வு"
+      },
+      "description": {
+        "en": "Select the current class period (1–8) for period-level attendance tracking.",
+        "si": "කාලච්ඡේද මට්ටමේ පැමිණීම සටහන් කිරීම සඳහා අදාළ කාලච්ඡේදය (1–8) තෝරන්න.",
+        "ta": "பாடவேளை வாரியான வருகைப் பதிவிற்குரிய தற்போதைய பாடவேளையை (1–8) தேர்ந்தெடுக்கவும்."
+      }
+    },
+    {
+      "stepId": "offline_sync_outbox",
+      "target": "attendance_save_button",
+      "title": {
+        "en": "Automatic Outbox Sync",
+        "si": "ස්වයංක්‍රීය සමමුහුර්තකරණය",
+        "ta": "தானியங்கி ஒத்திசைவு"
+      },
+      "description": {
+        "en": "Attendance is saved securely to SQLite and automatically synced when cellular signal returns.",
+        "si": "පැමිණීමේ සටහන් ඔබගේ දුරකථනයේ සුරැකෙන අතර සම්බන්ධතාවය ලැබුණු වහාම පාසල් සේවාදායකය හා සමමුහුර්ත වේ.",
+        "ta": "வருகைப் பதிவுகள் சாதனத்தில் சேமிக்கப்பட்டு இணைப்பு கிடைத்தவுடன் பள்ளி சேவையகத்திற்கு தானாகப் பதிவேற்றப்படும்."
+      }
+    }
+  ]
+}

@@ -187,34 +187,6 @@ export class TeachersService {
         return data;
     }
 
-    async setMasterTeacher(id: string, isMasterTeacher: boolean | undefined, caller: JwtPayload) {
-        if (caller.role !== UserRole.SUPER_ADMIN) {
-            throw new ForbiddenException('Only platform Super Admins can certify master teachers');
-        }
-        const tenantId = caller.tenantId;
-        const db = tenantId ? this.supabase.getTenantClient(tenantId) : this.supabase.adminClient;
-
-        const { data: teacherRow } = await db
-            .from('teachers')
-            .select('id, is_master_teacher')
-            .eq('id', id)
-            .maybeSingle();
-
-        if (!teacherRow) throw new NotFoundException(`Teacher ${id} not found`);
-
-        const newStatus = isMasterTeacher !== undefined ? isMasterTeacher : !teacherRow.is_master_teacher;
-
-        const { data, error } = await db
-            .from('teachers')
-            .update({ is_master_teacher: newStatus })
-            .eq('id', id)
-            .select('*')
-            .single();
-
-        if (error || !data) throw new InternalServerErrorException('Failed to toggle master teacher status');
-        return data;
-    }
-
     async getClasses(id: string, caller: JwtPayload) {
         const tenantId = caller.tenantId;
         // Verify teacher exists and belongs to the caller's tenant

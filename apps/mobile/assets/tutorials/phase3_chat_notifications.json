@@ -1,0 +1,39 @@
+{
+  "tourId": "phase3_chat_notifications",
+  "version": 1,
+  "title": {
+    "en": "School Chat & Push Notifications",
+    "si": "පාසල් පණිවුඩ සහ දැනුම්දීම්",
+    "ta": "பள்ளி அரட்டை & அறிவிப்புகள்"
+  },
+  "steps": [
+    {
+      "stepId": "chat_conversations",
+      "target": "chat_conversations_list",
+      "title": {
+        "en": "Multi-Tenant Classroom Chat",
+        "si": "පන්ති කාමර පණිවුඩ හුවමාරුව",
+        "ta": "வகுப்பறை அரட்டை"
+      },
+      "description": {
+        "en": "Secure real-time communication between teachers, parents, and students with end-to-end tenant isolation.",
+        "si": "ගුරුවරුන්, දෙමාපියන් සහ සිසුන් අතර ආරක්ෂිත පණිවුඩ හුවමාරුව.",
+        "ta": "ஆசிரியர்கள், பெற்றோர்கள் மற்றும் மாணவர்களுக்கு இடையிலான பாதுகாப்பான உடனடி தகவல் பரிமாற்றம்."
+      }
+    },
+    {
+      "stepId": "urgent_notices",
+      "target": "notice_broadcast_tab",
+      "title": {
+        "en": "High-Priority Notices",
+        "si": "හදිසි නිවේදන",
+        "ta": "முக்கிய அறிவிப்புகள்"
+      },
+      "description": {
+        "en": "Receive instant push alerts for emergency school closures, exam dates, and disaster warnings.",
+        "si": "හදිසි පාසල් නිවාඩු, විභාග දින සහ ආපදා අනතුරු ඇඟවීම් ක්ෂණිකව ලබා ගන්න.",
+        "ta": "அவசரகால பள்ளி விடுமுறைகள், தேர்வு தேதிகள் மற்றும் பேரிடர் எச்சரிக்கைகளை உடனடியாகப் பெறுங்கள்."
+      }
+    }
+  ]
+}

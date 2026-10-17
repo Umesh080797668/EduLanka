@@ -1,0 +1,39 @@
+{
+  "tourId": "phase3_offline_homework",
+  "version": 1,
+  "title": {
+    "en": "Offline Homework & Submissions",
+    "si": "නොබැඳි ගෙදර වැඩ සහ ඉදිරිපත් කිරීම්",
+    "ta": "ஆஃப்லைன் வீட்டுப்பாடம் & சமர்ப்பித்தல்"
+  },
+  "steps": [
+    {
+      "stepId": "view_assignments",
+      "target": "homework_task_list",
+      "title": {
+        "en": "Assigned Homework",
+        "si": "නියමිත ගෙදර වැඩ",
+        "ta": "ஒதுக்கப்பட்ட வீட்டுப்பாடம்"
+      },
+      "description": {
+        "en": "Browse all class homework tasks, descriptions, and teacher attachments cached offline.",
+        "si": "නොබැඳිව සුරකින ලද සියලුම ගෙදර වැඩ, උපදෙස් සහ අමුණා ඇති ලිපිගොනු පරීක්ෂා කරන්න.",
+        "ta": "ஆஃப்லைனில் சேமிக்கப்பட்ட அனைத்து வீட்டுப்பாடப் பணிகள் மற்றும் இணைப்புகளைப் பார்க்கலாம்."
+      }
+    },
+    {
+      "stepId": "offline_submission",
+      "target": "submit_homework_btn",
+      "title": {
+        "en": "Submit Offline Solutions",
+        "si": "නොබැඳිව පිළිතුරු යොමු කිරීම",
+        "ta": "ஆஃப்லைனில் விடை சமர்ப்பித்தல்"
+      },
+      "description": {
+        "en": "Attach photos or documents of your completed homework. It will queue and upload automatically when online.",
+        "si": "ඔබගේ පිළිතුරු ඡායාරූප හෝ ලිපිගොනු අමුණන්න. අන්තර්ජාලය ලැබුණු විට ඒවා ස්වයංක්‍රීයව ඉදිරිපත් වේ.",
+        "ta": "விடைகளின் புகைப்படங்கள் அல்லது கோப்புகளை இணைக்கவும். இணையம் கிடைத்ததும் அவை தானாக சமர்ப்பிக்கப்படும்."
+      }
+    }
+  ]
+}

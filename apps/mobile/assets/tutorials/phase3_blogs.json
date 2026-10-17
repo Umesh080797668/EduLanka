@@ -1,0 +1,39 @@
+{
+  "tourId": "phase3_blogs",
+  "version": 1,
+  "title": {
+    "en": "Educational Blogs & Nationwide Discourse",
+    "si": "අධ්‍යාපනික බ්ලොග් සහ ජාතික සංවාදය",
+    "ta": "கல்வி வலைப்பதிவுகள் & விவாதங்கள்"
+  },
+  "steps": [
+    {
+      "stepId": "blog_feed",
+      "target": "blog_feed_list",
+      "title": {
+        "en": "Curriculum Insights & Articles",
+        "si": "විෂය නිර්දේශ ලිපි සහ සටහන්",
+        "ta": "பாடத்திட்ட கட்டுரைகள்"
+      },
+      "description": {
+        "en": "Read articles authored by qualified school teachers across class, school, and platform scopes.",
+        "si": "ගුරුවරුන් විසින් සම්පාදිත පන්ති, පාසල් සහ ජාතික මට්ටමේ අධ්‍යාපනික ලිපි කියවන්න.",
+        "ta": "ஆசிரியர்களால் எழுதப்பட்ட வகுப்பு, பள்ளி மற்றும் தேசிய அளவிலான கல்விசார் கட்டுரைகளை வாசிக்கலாம்."
+      }
+    },
+    {
+      "stepId": "blog_discourse",
+      "target": "blog_comments_section",
+      "title": {
+        "en": "Threaded Comments & Reactions",
+        "si": "අදහස් දැක්වීම සහ ප්‍රතිචාර",
+        "ta": "கருத்துகள் & எதிர்வினைகள்"
+      },
+      "description": {
+        "en": "Participate in academic discussions with nested replies and emoji reactions, moderated by school staff.",
+        "si": "ගුරුවරුන්ගේ අධීක්ෂණය යටතේ අධ්‍යාපනික සාකච්ඡාවලට සහභාගී වී අදහස් හුවමාරු කරගන්න.",
+        "ta": "ஆசிரியர்களின் நெறிப்படுத்தலின் கீழ் கல்விசார் விவாதங்களில் பங்கேற்று கருத்துகளைப் பகிரலாம்."
+      }
+    }
+  ]
+}

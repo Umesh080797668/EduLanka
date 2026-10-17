@@ -219,6 +219,52 @@ export class AttendanceService {
             updated_at: nowIso,
         }));
 
+        // Check for conflicts with existing attendance records before upserting (ADR-002)
+        const studentUserIds = rows.map((r) => r.student_id);
+        const { data: existingRecords } = await client
+            .from('attendance')
+            .select('id, student_id, status, marked_at, period')
+            .eq('tenant_id', caller.tenantId)
+            .eq('class_id', dto.classId)
+            .eq('date', dto.date)
+            .eq('period', period)
+            .in('student_id', studentUserIds);
+
+        const existingMap = new Map<string, any>(
+            (existingRecords ?? []).map((r: any) => [r.student_id, r]),
+        );
+
+        const conflictLogs = [];
+        for (const r of rows) {
+            const existing = existingMap.get(r.student_id);
+            if (existing && existing.status !== r.status) {
+                conflictLogs.push({
+                    tenant_id: caller.tenantId,
+                    class_id: dto.classId,
+                    student_id: r.student_id,
+                    conflict_date: dto.date,
+                    period,
+                    client_state: { status: r.status, marked_at: r.marked_at, period },
+                    server_state: {
+                        status: existing.status,
+                        marked_at: existing.marked_at,
+                        period: existing.period ?? period,
+                    },
+                    resolution: 'CLIENT_WINS',
+                    resolved_by: caller.sub,
+                });
+            }
+        }
+
+        if (conflictLogs.length > 0) {
+            const { error: logErr } = await client
+                .from('attendance_conflicts_log')
+                .insert(conflictLogs);
+            if (logErr) {
+                this.logger.warn(`Failed to log REST attendance conflicts: ${logErr.message}`);
+            }
+        }
+
         const { data, error } = await client
             .from('attendance')
             .upsert(rows, { onConflict: 'tenant_id,class_id,student_id,date,period' })

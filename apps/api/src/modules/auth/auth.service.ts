@@ -19,6 +19,7 @@ import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 
 import type { AppConfiguration } from '../../config/configuration';
+import { UUID_HEX_REGEX } from '../../common/decorators/is-uuid-string.decorator';
 import { RedisService } from '../redis/redis.service';
 import { SupabaseService } from '../supabase/supabase.service';
 
@@ -256,6 +257,20 @@ export class AuthService {
             throw new BadRequestException('Identifier and password are required');
         }
 
+        let resolvedTenantId = tenantId?.trim();
+        if (resolvedTenantId && !UUID_HEX_REGEX.test(resolvedTenantId)) {
+            const { data: tenantBySlug } = await this.supabaseService.adminClient
+                .from('tenants')
+                .select('id')
+                .eq('slug', resolvedTenantId)
+                .maybeSingle();
+            if (tenantBySlug?.id) {
+                resolvedTenantId = tenantBySlug.id;
+            } else {
+                throw new NotFoundException(`School '${resolvedTenantId}' could not be resolved`);
+            }
+        }
+
         // Identifier brute-force protection: max 5 failed attempts per minute
         const normalizedId = identifier.toLowerCase().trim();
         const rateLimitKey = `edulanka:ratelimit:login:${normalizedId}`;
@@ -292,14 +307,14 @@ export class AuthService {
                 .select('email, phone_number, tenant_id')
                 .eq('phone_number', identifier);
 
-            if (tenantId) {
-                phoneQuery = phoneQuery.eq('tenant_id', tenantId);
+            if (resolvedTenantId) {
+                phoneQuery = phoneQuery.eq('tenant_id', resolvedTenantId);
             }
 
             const { data: phoneMatches } = await phoneQuery;
 
             if (phoneMatches && phoneMatches.length > 0) {
-                if (phoneMatches.length > 1 && !tenantId) {
+                if (phoneMatches.length > 1 && !resolvedTenantId) {
                     // Check password against each candidate first to prevent school enumeration
                     const validMatches: { match: any; authData: any }[] = [];
                     for (const candidate of phoneMatches) {
@@ -361,14 +376,14 @@ export class AuthService {
                     .select('tenant_id, users!inner(email, phone_number)')
                     .eq('admission_no', identifier);
 
-                if (tenantId) {
-                    studentQuery = studentQuery.eq('tenant_id', tenantId);
+                if (resolvedTenantId) {
+                    studentQuery = studentQuery.eq('tenant_id', resolvedTenantId);
                 }
 
                 const { data: studentMatches } = await studentQuery;
 
                 if (studentMatches && studentMatches.length > 0) {
-                    if (studentMatches.length > 1 && !tenantId) {
+                    if (studentMatches.length > 1 && !resolvedTenantId) {
                         // Check password against each candidate first to prevent school enumeration
                         const validMatches: { match: any; authData: any }[] = [];
                         for (const candidate of studentMatches) {
@@ -484,7 +499,7 @@ export class AuthService {
             throw new UnauthorizedException('User is not associated with any tenant');
         }
 
-        if (tenantId && userTenantId !== tenantId) {
+        if (resolvedTenantId && userTenantId !== resolvedTenantId) {
             throw new UnauthorizedException('User credentials do not belong to the selected school');
         }
 

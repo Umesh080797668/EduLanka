@@ -10,7 +10,6 @@ import {
     IsArray,
     IsEnum,
     IsDateString,
-    IsBoolean,
     ArrayMaxSize,
     Matches,
 } from 'class-validator';
@@ -89,10 +88,4 @@ export class UpdateTeacherDto {
     @IsDateString()
     @IsOptional()
     hireDate?: string;
-}
-
-export class SetMasterTeacherDto {
-    @ApiProperty({ description: 'Vetted Master Teacher status for platform-wide blog publishing', example: true })
-    @IsBoolean()
-    isMasterTeacher!: boolean;
 }

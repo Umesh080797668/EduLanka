@@ -1,0 +1,39 @@
+{
+  "tourId": "phase3_sync_badge",
+  "version": 1,
+  "title": {
+    "en": "Sync Status & Offline Outbox",
+    "si": "සමමුහුර්ත තත්ත්වය සහ පිටත ලිපිගොනු",
+    "ta": "ஒத்திசைவு நிலை & ஆஃப்லைன் அவுட்பாக்ஸ்"
+  },
+  "steps": [
+    {
+      "stepId": "sync_indicator",
+      "target": "sync_status_badge",
+      "title": {
+        "en": "Real-Time Sync Badge",
+        "si": "සමමුහුර්ත තත්ත්ව ලාංඡනය",
+        "ta": "நேரலை ஒத்திசைவு பேட்ஜ்"
+      },
+      "description": {
+        "en": "Green indicates fully synced with server. Amber shows pending offline mutations waiting for connectivity.",
+        "si": "කොළ පැහැයෙන් සියල්ල යාවත්කාලීන බවත්, තැඹිලි පැහැයෙන් නොබැඳි සටහන් සේවාදායකයට යැවීමට ඇති බවත් පෙන්වයි.",
+        "ta": "பச்சை நிறம் முழுமையான ஒத்திசைவையும், ஆரஞ்சு நிறம் இணையத்திற்காகக் காத்திருக்கும் பதிவுகளையும் குறிக்கும்."
+      }
+    },
+    {
+      "stepId": "manual_sync",
+      "target": "manual_sync_button",
+      "title": {
+        "en": "Manual Sync Trigger",
+        "si": "අතින් සමමුහුර්ත කිරීම",
+        "ta": "கைமுறை ஒத்திசைவு"
+      },
+      "description": {
+        "en": "Tap at any time to instantly flush outbox events and pull the newest curriculum updates.",
+        "si": "නවතම පාසල් තොරතුරු ලබා ගැනීමට සහ ඔබගේ සටහන් යැවීමට ඕනෑම වේලාවක මෙම බොත්තම ඔබන්න.",
+        "ta": "அவுட்பாக்ஸ் பதிவுகளை உடனே பதிவேற்றி புதிய பாடவிவரங்களைப் பெற எந்நேரமும் இந்த பொத்தானைத் தட்டலாம்."
+      }
+    }
+  ]
+}

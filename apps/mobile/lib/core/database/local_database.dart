@@ -544,6 +544,69 @@ class LocalDatabase {
     return pathsToDelete;
   }
 
+  /// Prunes offline SQLite cache records older than the plan's retention period (P3-S3).
+  /// Pending unsynced mutations are strictly protected from deletion.
+  Future<int> pruneExpiredCache(int retentionDays) async {
+    if (retentionDays <= 0) return 0;
+    await _initDb();
+
+    final cutoff = DateTime.now().subtract(Duration(days: retentionDays));
+    final cutoffIso = cutoff.toIso8601String();
+    final cutoffMs = cutoff.millisecondsSinceEpoch;
+
+    int totalPruned = 0;
+
+    // 1. Synced outbox mutations older than retention
+    final prunedOutbox = await driftDb.customUpdate(
+      "DELETE FROM sync_outbox WHERE status = 'SYNCED' AND created_at < ?",
+      variables: [Variable.withInt(cutoffMs)],
+    );
+    totalPruned += prunedOutbox;
+
+    // 2. Synced offline attendance records older than retention
+    final prunedAtt = await driftDb.customUpdate(
+      "DELETE FROM offline_attendance WHERE sync_status = 'SYNCED' AND marked_at < ?",
+      variables: [Variable.withString(cutoffIso)],
+    );
+    totalPruned += prunedAtt;
+
+    // 3. Offline chat messages older than retention
+    final prunedChat = await driftDb.customUpdate(
+      "DELETE FROM offline_chat_messages WHERE created_at < ?",
+      variables: [Variable.withString(cutoffIso)],
+    );
+    totalPruned += prunedChat;
+
+    // 4. Synced homework submissions older than retention
+    final prunedSub = await driftDb.customUpdate(
+      "DELETE FROM offline_homework_submissions WHERE status != 'PENDING_SYNC' AND submitted_at < ?",
+      variables: [Variable.withString(cutoffIso)],
+    );
+    totalPruned += prunedSub;
+
+    // 5. Offline blog comments older than retention
+    final prunedComments = await driftDb.customUpdate(
+      "DELETE FROM offline_blog_comments WHERE created_at < ?",
+      variables: [Variable.withString(cutoffIso)],
+    );
+    totalPruned += prunedComments;
+
+    // 6. Non-pinned offline blogs older than retention
+    final prunedBlogs = await driftDb.customUpdate(
+      "DELETE FROM offline_blogs WHERE is_pinned = 0 AND updated_at < ?",
+      variables: [Variable.withString(cutoffIso)],
+    );
+    totalPruned += prunedBlogs;
+
+    if (kDebugMode && totalPruned > 0) {
+      debugPrint(
+        '[LocalDatabase] Pruned $totalPruned expired cached records (retention: $retentionDays days).',
+      );
+    }
+
+    return totalPruned;
+  }
+
   // ── Homework Operations (P3-S3) ────────────────────────────────────
 
   Future<void> saveOfflineHomeworkTasks(List<dynamic> tasks) async {

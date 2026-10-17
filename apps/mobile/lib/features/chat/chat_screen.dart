@@ -6,6 +6,7 @@ import '../../core/api/api_client.dart';
 import '../../core/auth/auth_state.dart';
 import '../../core/database/local_database.dart';
 import '../../core/realtime/websocket_service.dart';
+import '../tutorial/tutorial_engine.dart';
 
 class ChatScreen extends ConsumerStatefulWidget {
   final String conversationId;
@@ -31,6 +32,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   void initState() {
     super.initState();
     _initChat();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      TutorialEngine.showTourIfUnseen(context, 'phase3_chat_notifications');
+    });
   }
 
   Future<void> _initChat() async {
@@ -90,10 +94,13 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                     (m['sender_id'] == msgMap['sender_id'] &&
                         m['content'] == msgMap['content'] &&
                         (DateTime.tryParse(m['created_at']?.toString() ?? '')
-                                    ?.difference(DateTime.tryParse(
-                                          msgMap['created_at']?.toString() ?? '',
-                                        ) ??
-                                        DateTime.now())
+                                    ?.difference(
+                                      DateTime.tryParse(
+                                            msgMap['created_at']?.toString() ??
+                                                '',
+                                          ) ??
+                                          DateTime.now(),
+                                    )
                                     .inSeconds
                                     .abs() ??
                                 99) <
@@ -159,7 +166,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     } else {
       try {
         final apiClient = ref.read(apiClientProvider);
-        final sent = await apiClient.sendChatMessage(widget.conversationId, text);
+        final sent = await apiClient.sendChatMessage(
+          widget.conversationId,
+          text,
+        );
         if (sent.isNotEmpty && mounted) {
           setState(() {
             final idx = _messages.indexWhere((m) => m['id'] == messageId);

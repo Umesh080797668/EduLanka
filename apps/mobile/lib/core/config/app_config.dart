@@ -119,15 +119,18 @@ class AppConfig {
       env = Environment.development;
     }
 
-    // Determine API Base URL
+    // Determine API Base URL strictly from injected configuration
     final String apiBaseUrl;
     if (injectedApiUrl.isNotEmpty) {
       apiBaseUrl = injectedApiUrl;
-    } else if (env.isProduction) {
-      // In production, fallback to production API gateway domain
-      apiBaseUrl = 'https://api.edulanka.lk/v1';
+    } else if (kReleaseMode || env.isProduction) {
+      throw StateError(
+        'SECURITY EXCEPTION: API_BASE_URL must be injected via build configuration '
+        '(--dart-define-from-file=config.json or --dart-define=API_BASE_URL=...). '
+        'Hardcoding production endpoints in source code is prohibited.',
+      );
     } else {
-      // Local development default (Android emulator host loopback)
+      // Safe local development loopback for emulator and testing harnesses only
       apiBaseUrl = 'http://10.0.2.2:8081/api/v1';
     }
 

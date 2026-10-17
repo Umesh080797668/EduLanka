@@ -1,0 +1,27 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "EduLanka Mobile (Release)",
+            "request": "launch",
+            "type": "dart",
+            "cwd": "apps/mobile",
+            "program": "apps/mobile/lib/main.dart",
+            "flutterMode": "release",
+            "args": [
+                "--dart-define-from-file=config.json"
+            ]
+        },
+        {
+            "name": "EduLanka Mobile (Debug)",
+            "request": "launch",
+            "type": "dart",
+            "cwd": "apps/mobile",
+            "program": "apps/mobile/lib/main.dart",
+            "flutterMode": "debug",
+            "args": [
+                "--dart-define-from-file=config.json"
+            ]
+        }
+    ]
+}
