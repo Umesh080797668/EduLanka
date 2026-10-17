@@ -20,7 +20,7 @@
         "clean": "turbo run clean && rm -rf node_modules",
         "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md,css}\" --ignore-path .gitignore",
         "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,md,css}\" --ignore-path .gitignore",
-        "mobile:run": "cd apps/mobile && flutter run -d R58N20TLGEL --release --dart-define-from-file=config.json",
+        "mobile:run": "cd apps/mobile && flutter run ${DEVICE:+-d \"$DEVICE\"} --release --dart-define-from-file=config.json",
         "mobile:build": "cd apps/mobile && flutter build apk --release --dart-define-from-file=config.json"
     },
     "devDependencies": {

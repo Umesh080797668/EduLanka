@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsString, MinLength, IsOptional } from 'class-validator';
+import { IsString, MinLength, IsOptional, MaxLength, Matches } from 'class-validator';
 
 export class LoginDto {
     /** Identifier (Email, Phone, Admission No) */
@@ -15,14 +15,16 @@ export class LoginDto {
     email?: string;
 
     /** Password — min 8 characters */
-    @ApiProperty({ example: 'SecurePass123!' })
+    @ApiProperty({ example: 'Example123!' })
     @IsString()
     @MinLength(8)
     password!: string;
 
-    /** School Tenant ID or School Slug (e.g. 'dev-school' or UUID) */
+    /** School Tenant ID or School Slug (e.g. 'dev-school' or UUID, max 100 chars) */
     @ApiPropertyOptional({ example: 'dev-school' })
     @IsOptional()
     @IsString()
+    @MaxLength(100)
+    @Matches(/^[a-zA-Z0-9_-]+$/, { message: 'tenantId must only contain alphanumeric characters, underscores, or hyphens' })
     tenantId?: string;
 }

@@ -2,12 +2,14 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:syncfusion_flutter_pdfviewer/pdfviewer.dart';
 import '../tutorial/tutorial_engine.dart';
+import '../../l10n/app_localizations.dart';
 
 class PaperViewerScreen extends StatefulWidget {
   final String title;
   final String? paperUrl;
   final String? localFilePath;
   final String? markingSchemeUrl;
+  final String? localMarkingSchemePath;
 
   const PaperViewerScreen({
     super.key,
@@ -15,6 +17,7 @@ class PaperViewerScreen extends StatefulWidget {
     this.paperUrl,
     this.localFilePath,
     this.markingSchemeUrl,
+    this.localMarkingSchemePath,
   });
 
   @override
@@ -28,31 +31,48 @@ class _PaperViewerScreenState extends State<PaperViewerScreen> {
   @override
   void initState() {
     super.initState();
-    _isSplitMode =
-        widget.markingSchemeUrl != null && widget.markingSchemeUrl!.isNotEmpty;
+    final hasScheme =
+        (widget.localMarkingSchemePath != null &&
+            File(widget.localMarkingSchemePath!).existsSync()) ||
+        (widget.markingSchemeUrl != null &&
+            widget.markingSchemeUrl!.isNotEmpty);
+    _isSplitMode = hasScheme;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       TutorialEngine.showTourIfUnseen(context, 'phase3_paper_hub');
     });
   }
 
   Widget _buildPaperView() {
+    final l10n = AppLocalizations.of(context);
     if (widget.localFilePath != null &&
         File(widget.localFilePath!).existsSync()) {
       return SfPdfViewer.file(File(widget.localFilePath!));
     } else if (widget.paperUrl != null && widget.paperUrl!.isNotEmpty) {
       return SfPdfViewer.network(widget.paperUrl!);
     }
-    return const Center(
-      child: Text('Question paper document unavailable or not downloaded.'),
+    return Center(
+      child: Text(
+        l10n?.paperUnavailable ??
+            'Question paper document unavailable or not downloaded.',
+      ),
     );
   }
 
   Widget _buildSchemeView() {
-    if (widget.markingSchemeUrl != null &&
+    final l10n = AppLocalizations.of(context);
+    if (widget.localMarkingSchemePath != null &&
+        File(widget.localMarkingSchemePath!).existsSync()) {
+      return SfPdfViewer.file(File(widget.localMarkingSchemePath!));
+    } else if (widget.markingSchemeUrl != null &&
         widget.markingSchemeUrl!.isNotEmpty) {
       return SfPdfViewer.network(widget.markingSchemeUrl!);
     }
-    return const Center(child: Text('Official marking scheme unavailable.'));
+    return Center(
+      child: Text(
+        l10n?.markingSchemeUnavailable ??
+            'Official marking scheme unavailable or not downloaded.',
+      ),
+    );
   }
 
   Widget _buildPaneHeader({
@@ -93,7 +113,10 @@ class _PaperViewerScreenState extends State<PaperViewerScreen> {
   @override
   Widget build(BuildContext context) {
     final hasScheme =
-        widget.markingSchemeUrl != null && widget.markingSchemeUrl!.isNotEmpty;
+        (widget.localMarkingSchemePath != null &&
+            File(widget.localMarkingSchemePath!).existsSync()) ||
+        (widget.markingSchemeUrl != null &&
+            widget.markingSchemeUrl!.isNotEmpty);
 
     return Scaffold(
       appBar: AppBar(

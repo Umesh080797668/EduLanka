@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
@@ -6,6 +7,7 @@ import '../../core/api/api_client.dart';
 import '../../core/auth/auth_state.dart';
 import 'package:file_picker/file_picker.dart';
 import '../../core/database/local_database.dart';
+import '../../l10n/app_localizations.dart';
 import '../tutorial/tutorial_engine.dart';
 
 class HomeworkScreen extends ConsumerStatefulWidget {
@@ -61,6 +63,7 @@ class _HomeworkScreenState extends ConsumerState<HomeworkScreen> {
     final List<Map<String, dynamic>> attachments = [];
     DateTime selectedDate = DateTime.now().add(const Duration(days: 3));
 
+    bool isUploading = false;
     List<Map<String, dynamic>> classesList = [
       {
         'id': 'a1111111-1111-1111-1111-111111111111',
@@ -92,230 +95,286 @@ class _HomeworkScreenState extends ConsumerState<HomeworkScreen> {
     await showDialog(
       context: context,
       builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setDialogState) => AlertDialog(
-          title: const Row(
-            children: [
-              Icon(Icons.edit_note_rounded, color: Color(0xFF0D9488)),
-              SizedBox(width: 8),
-              Text('Assign New Homework'),
-            ],
-          ),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
+        builder: (ctx, setDialogState) {
+          final l10n = AppLocalizations.of(ctx);
+          return AlertDialog(
+            title: Row(
               children: [
-                TextField(
-                  controller: titleController,
-                  decoration: const InputDecoration(
-                    labelText: 'Homework Title',
+                const Icon(Icons.edit_note_rounded, color: Color(0xFF0D9488)),
+                const SizedBox(width: 8),
+                Text(l10n?.assignHomework ?? 'Assign New Homework'),
+              ],
+            ),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  TextField(
+                    controller: titleController,
+                    decoration: const InputDecoration(
+                      labelText: 'Homework Title',
+                    ),
                   ),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: descController,
-                  maxLines: 3,
-                  decoration: const InputDecoration(
-                    labelText: 'Instructions / Problems',
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: descController,
+                    maxLines: 3,
+                    decoration: const InputDecoration(
+                      labelText: 'Instructions / Problems',
+                    ),
                   ),
-                ),
-                const SizedBox(height: 12),
-                DropdownButtonFormField<String>(
-                  initialValue: selectedClassId,
-                  decoration: const InputDecoration(
-                    labelText: 'Target Class',
-                    border: OutlineInputBorder(),
-                  ),
-                  items: classesList.map((c) {
-                    return DropdownMenuItem<String>(
-                      value: c['id'] as String,
-                      child: Text(c['name'] as String),
-                    );
-                  }).toList(),
-                  onChanged: (val) {
-                    if (val != null) {
-                      setDialogState(() => selectedClassId = val);
-                    }
-                  },
-                ),
-                const SizedBox(height: 16),
-                ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  leading: const Icon(
-                    Icons.calendar_today_rounded,
-                    color: Color(0xFF0D9488),
-                  ),
-                  title: Text(
-                    'Due: ${selectedDate.year}-${selectedDate.month.toString().padLeft(2, '0')}-${selectedDate.day.toString().padLeft(2, '0')}',
-                  ),
-                  trailing: TextButton(
-                    onPressed: () async {
-                      final picked = await showDatePicker(
-                        context: ctx,
-                        initialDate: selectedDate,
-                        firstDate: DateTime.now(),
-                        lastDate: DateTime.now().add(const Duration(days: 90)),
+                  const SizedBox(height: 12),
+                  DropdownButtonFormField<String>(
+                    initialValue: selectedClassId,
+                    decoration: const InputDecoration(
+                      labelText: 'Target Class',
+                      border: OutlineInputBorder(),
+                    ),
+                    items: classesList.map((c) {
+                      return DropdownMenuItem<String>(
+                        value: c['id'] as String,
+                        child: Text(c['name'] as String),
                       );
-                      if (picked != null) {
-                        setDialogState(() => selectedDate = picked);
+                    }).toList(),
+                    onChanged: (val) {
+                      if (val != null) {
+                        setDialogState(() => selectedClassId = val);
                       }
                     },
-                    child: const Text('Change'),
                   ),
-                ),
-                const SizedBox(height: 12),
-                const Text(
-                  'Attachments / Learning Materials',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                ),
-                const SizedBox(height: 6),
-                Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        icon: const Icon(Icons.attach_file, size: 18),
-                        label: const Text('Browse Device Files'),
-                        onPressed: () async {
-                          final result = await FilePicker.platform.pickFiles(
-                            allowMultiple: true,
-                            type: FileType.any,
-                          );
-                          if (result != null && result.files.isNotEmpty) {
+                  const SizedBox(height: 16),
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: const Icon(
+                      Icons.calendar_today_rounded,
+                      color: Color(0xFF0D9488),
+                    ),
+                    title: Text(
+                      'Due: ${selectedDate.year}-${selectedDate.month.toString().padLeft(2, '0')}-${selectedDate.day.toString().padLeft(2, '0')}',
+                    ),
+                    trailing: TextButton(
+                      onPressed: () async {
+                        final picked = await showDatePicker(
+                          context: ctx,
+                          initialDate: selectedDate,
+                          firstDate: DateTime.now(),
+                          lastDate: DateTime.now().add(
+                            const Duration(days: 90),
+                          ),
+                        );
+                        if (picked != null) {
+                          setDialogState(() => selectedDate = picked);
+                        }
+                      },
+                      child: const Text('Change'),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  const Text(
+                    'Attachments / Learning Materials',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                  ),
+                  const SizedBox(height: 6),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          icon: isUploading
+                              ? const SizedBox(
+                                  width: 16,
+                                  height: 16,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              : const Icon(Icons.attach_file, size: 18),
+                          label: Text(
+                            isUploading
+                                ? 'Uploading to cloud...'
+                                : 'Browse Device Files',
+                          ),
+                          onPressed: isUploading
+                              ? null
+                              : () async {
+                                  final result = await FilePicker.platform
+                                      .pickFiles(
+                                        allowMultiple: true,
+                                        type: FileType.any,
+                                      );
+                                  if (result != null &&
+                                      result.files.isNotEmpty) {
+                                    setDialogState(() => isUploading = true);
+                                    final apiClient = ref.read(
+                                      apiClientProvider,
+                                    );
+                                    for (final f in result.files) {
+                                      String attachmentUrl = f.name;
+                                      if (f.path != null &&
+                                          File(f.path!).existsSync()) {
+                                        try {
+                                          attachmentUrl = await apiClient
+                                              .uploadAttachment(
+                                                filePath: f.path!,
+                                                fileName: f.name,
+                                              );
+                                        } catch (e) {
+                                          if (ctx.mounted) {
+                                            ScaffoldMessenger.of(
+                                              ctx,
+                                            ).showSnackBar(
+                                              SnackBar(
+                                                content: Text(
+                                                  'Failed to upload ${f.name}: $e',
+                                                ),
+                                              ),
+                                            );
+                                          }
+                                          continue;
+                                        }
+                                      }
+                                      attachments.add({
+                                        'name': f.name,
+                                        'url': attachmentUrl,
+                                        'size': f.size,
+                                        'type':
+                                            f.extension != null &&
+                                                ['jpg', 'jpeg', 'png'].contains(
+                                                  f.extension!.toLowerCase(),
+                                                )
+                                            ? 'image'
+                                            : 'document',
+                                      });
+                                    }
+                                    setDialogState(() => isUploading = false);
+                                  }
+                                },
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: attachmentController,
+                          decoration: const InputDecoration(
+                            hintText: 'Or enter Worksheet URL / Link',
+                            isDense: true,
+                            border: OutlineInputBorder(),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      IconButton(
+                        icon: const Icon(
+                          Icons.add_circle,
+                          color: Color(0xFF0D9488),
+                        ),
+                        tooltip: 'Add Link',
+                        onPressed: () {
+                          final val = attachmentController.text.trim();
+                          if (val.isNotEmpty) {
                             setDialogState(() {
-                              for (final f in result.files) {
-                                attachments.add({
-                                  'name': f.name,
-                                  'url': f.path ?? f.name,
-                                  'size': f.size,
-                                  'type':
-                                      f.extension != null &&
-                                          [
-                                            'jpg',
-                                            'jpeg',
-                                            'png',
-                                          ].contains(f.extension!.toLowerCase())
-                                      ? 'image'
-                                      : 'document',
-                                });
-                              }
+                              attachments.add({
+                                'name': val,
+                                'url': val,
+                                'type': val.endsWith('.pdf') ? 'pdf' : 'doc',
+                              });
+                              attachmentController.clear();
                             });
                           }
                         },
                       ),
+                    ],
+                  ),
+                  if (attachments.isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 6,
+                      children: attachments.asMap().entries.map((entry) {
+                        final idx = entry.key;
+                        final att = entry.value;
+                        return Chip(
+                          avatar: const Icon(Icons.attach_file, size: 16),
+                          label: Text(att['name']?.toString() ?? 'File'),
+                          onDeleted: () {
+                            setDialogState(() => attachments.removeAt(idx));
+                          },
+                        );
+                      }).toList(),
                     ),
                   ],
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(ctx).pop(),
+                child: Text(l10n?.cancel ?? 'Cancel'),
+              ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF0D9488),
+                  foregroundColor: Colors.white,
                 ),
-                const SizedBox(height: 6),
-                Row(
-                  children: [
-                    Expanded(
-                      child: TextField(
-                        controller: attachmentController,
-                        decoration: const InputDecoration(
-                          hintText: 'Or enter Worksheet URL / Link',
-                          isDense: true,
-                          border: OutlineInputBorder(),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    IconButton(
-                      icon: const Icon(
-                        Icons.add_circle,
-                        color: Color(0xFF0D9488),
-                      ),
-                      tooltip: 'Add Link',
-                      onPressed: () {
-                        final val = attachmentController.text.trim();
-                        if (val.isNotEmpty) {
-                          setDialogState(() {
-                            attachments.add({
-                              'name': val,
-                              'url': val,
-                              'type': val.endsWith('.pdf') ? 'pdf' : 'doc',
-                            });
-                            attachmentController.clear();
+                onPressed: isUploading
+                    ? null
+                    : () async {
+                        final title = titleController.text.trim();
+                        final desc = descController.text.trim();
+                        if (title.isEmpty) return;
+
+                        final apiClient = ref.read(apiClientProvider);
+                        try {
+                          await apiClient.createHomeworkTask({
+                            'classId': selectedClassId,
+                            'title': title,
+                            'description': desc,
+                            'dueDate': selectedDate.toUtc().toIso8601String(),
+                            'attachments': attachments,
                           });
+                          if (ctx.mounted) Navigator.of(ctx).pop();
+                          await _loadHomeworkTasks();
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text(
+                                  'Homework assigned and published.',
+                                ),
+                                backgroundColor: Color(0xFF10B981),
+                              ),
+                            );
+                          }
+                        } catch (e) {
+                          // Fallback: save offline
+                          await LocalDatabase.instance.saveOfflineHomeworkTasks(
+                            [
+                              {
+                                'id': const Uuid().v4(),
+                                'classId': selectedClassId,
+                                'title': title,
+                                'description': desc,
+                                'dueDate': selectedDate
+                                    .toUtc()
+                                    .toIso8601String(),
+                                'attachments': attachments,
+                              },
+                            ],
+                          );
+                          if (ctx.mounted) Navigator.of(ctx).pop();
+                          await _loadHomeworkTasks();
                         }
                       },
-                    ),
-                  ],
+                child: Text(
+                  isUploading ? 'Uploading...' : (l10n?.publish ?? 'Publish'),
                 ),
-                if (attachments.isNotEmpty) ...[
-                  const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 6,
-                    runSpacing: 6,
-                    children: attachments.asMap().entries.map((entry) {
-                      final idx = entry.key;
-                      final att = entry.value;
-                      return Chip(
-                        avatar: const Icon(Icons.attach_file, size: 16),
-                        label: Text(att['name']?.toString() ?? 'File'),
-                        onDeleted: () {
-                          setDialogState(() => attachments.removeAt(idx));
-                        },
-                      );
-                    }).toList(),
-                  ),
-                ],
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(ctx).pop(),
-              child: const Text('Cancel'),
-            ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF0D9488),
-                foregroundColor: Colors.white,
               ),
-              onPressed: () async {
-                final title = titleController.text.trim();
-                final desc = descController.text.trim();
-                if (title.isEmpty) return;
-
-                final apiClient = ref.read(apiClientProvider);
-                try {
-                  await apiClient.createHomeworkTask({
-                    'classId': selectedClassId,
-                    'title': title,
-                    'description': desc,
-                    'dueDate': selectedDate.toUtc().toIso8601String(),
-                    'attachments': attachments,
-                  });
-                  if (ctx.mounted) Navigator.of(ctx).pop();
-                  await _loadHomeworkTasks();
-                  if (mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Homework assigned and published.'),
-                        backgroundColor: Color(0xFF10B981),
-                      ),
-                    );
-                  }
-                } catch (e) {
-                  // Fallback: save offline
-                  await LocalDatabase.instance.saveOfflineHomeworkTasks([
-                    {
-                      'id': const Uuid().v4(),
-                      'classId': selectedClassId,
-                      'title': title,
-                      'description': desc,
-                      'dueDate': selectedDate.toUtc().toIso8601String(),
-                      'attachments': attachments,
-                    },
-                  ]);
-                  if (ctx.mounted) Navigator.of(ctx).pop();
-                  await _loadHomeworkTasks();
-                }
-              },
-              child: const Text('Publish'),
-            ),
-          ],
-        ),
+            ],
+          );
+        },
       ),
     );
   }
@@ -324,206 +383,261 @@ class _HomeworkScreenState extends ConsumerState<HomeworkScreen> {
     final contentController = TextEditingController();
     final attachmentController = TextEditingController();
     final List<Map<String, dynamic>> solutionAttachments = [];
+    bool isUploading = false;
 
     await showDialog(
       context: context,
       builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setDialogState) => AlertDialog(
-          title: Text('Submit: ${task['title']}'),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  task['description']?.toString() ?? '',
-                  style: const TextStyle(
-                    color: Color(0xFF64748B),
-                    fontSize: 13,
+        builder: (ctx, setDialogState) {
+          final l10n = AppLocalizations.of(ctx);
+          return AlertDialog(
+            title: Text('${l10n?.submit ?? 'Submit'}: ${task['title']}'),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    task['description']?.toString() ?? '',
+                    style: const TextStyle(
+                      color: Color(0xFF64748B),
+                      fontSize: 13,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 16),
-                TextField(
-                  controller: contentController,
-                  maxLines: 3,
-                  decoration: const InputDecoration(
-                    labelText: 'Your Solution / Answer',
-                    border: OutlineInputBorder(),
-                    hintText: 'Type your completed homework text...',
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: contentController,
+                    maxLines: 3,
+                    decoration: const InputDecoration(
+                      labelText: 'Your Solution / Answer',
+                      border: OutlineInputBorder(),
+                      hintText: 'Type your completed homework text...',
+                    ),
                   ),
-                ),
-                const SizedBox(height: 16),
-                const Text(
-                  'Attach Solution Files / Photos',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                ),
-                const SizedBox(height: 6),
-                Row(
-                  children: [
-                    Expanded(
-                      child: ElevatedButton.icon(
-                        icon: const Icon(Icons.upload_file, size: 18),
-                        label: const Text('Pick Solution Files / Photos'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFFEFF6FF),
-                          foregroundColor: const Color(0xFF1E40AF),
-                          elevation: 0,
+                  const SizedBox(height: 16),
+                  const Text(
+                    'Attach Solution Files / Photos',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                  ),
+                  const SizedBox(height: 6),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          icon: isUploading
+                              ? const SizedBox(
+                                  width: 16,
+                                  height: 16,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              : const Icon(Icons.upload_file, size: 18),
+                          label: Text(
+                            isUploading
+                                ? 'Uploading to cloud...'
+                                : 'Pick Solution Files / Photos',
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFFEFF6FF),
+                            foregroundColor: const Color(0xFF1E40AF),
+                            elevation: 0,
+                          ),
+                          onPressed: isUploading
+                              ? null
+                              : () async {
+                                  final result = await FilePicker.platform
+                                      .pickFiles(
+                                        allowMultiple: true,
+                                        type: FileType.any,
+                                      );
+                                  if (result != null &&
+                                      result.files.isNotEmpty) {
+                                    setDialogState(() => isUploading = true);
+                                    final apiClient = ref.read(
+                                      apiClientProvider,
+                                    );
+                                    for (final f in result.files) {
+                                      String attachmentUrl = f.name;
+                                      if (f.path != null &&
+                                          File(f.path!).existsSync()) {
+                                        try {
+                                          attachmentUrl = await apiClient
+                                              .uploadAttachment(
+                                                filePath: f.path!,
+                                                fileName: f.name,
+                                              );
+                                        } catch (e) {
+                                          if (ctx.mounted) {
+                                            ScaffoldMessenger.of(
+                                              ctx,
+                                            ).showSnackBar(
+                                              SnackBar(
+                                                content: Text(
+                                                  'Failed to upload ${f.name}: $e',
+                                                ),
+                                              ),
+                                            );
+                                          }
+                                          continue;
+                                        }
+                                      }
+                                      solutionAttachments.add({
+                                        'name': f.name,
+                                        'url': attachmentUrl,
+                                        'path': f.path,
+                                        'size': f.size,
+                                        'type':
+                                            f.extension != null &&
+                                                ['jpg', 'jpeg', 'png'].contains(
+                                                  f.extension!.toLowerCase(),
+                                                )
+                                            ? 'image'
+                                            : 'document',
+                                      });
+                                    }
+                                    setDialogState(() => isUploading = false);
+                                  }
+                                },
                         ),
-                        onPressed: () async {
-                          final result = await FilePicker.platform.pickFiles(
-                            allowMultiple: true,
-                            type: FileType.any,
-                          );
-                          if (result != null && result.files.isNotEmpty) {
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: attachmentController,
+                          decoration: const InputDecoration(
+                            hintText: 'Or paste file / document link',
+                            isDense: true,
+                            border: OutlineInputBorder(),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      IconButton(
+                        icon: const Icon(
+                          Icons.add_circle,
+                          color: Color(0xFF1E40AF),
+                        ),
+                        tooltip: 'Add Link',
+                        onPressed: () {
+                          final val = attachmentController.text.trim();
+                          if (val.isNotEmpty) {
                             setDialogState(() {
-                              for (final f in result.files) {
-                                solutionAttachments.add({
-                                  'name': f.name,
-                                  'url': f.path ?? f.name,
-                                  'path': f.path,
-                                  'size': f.size,
-                                  'type':
-                                      f.extension != null &&
-                                          [
-                                            'jpg',
-                                            'jpeg',
-                                            'png',
-                                          ].contains(f.extension!.toLowerCase())
-                                      ? 'image'
-                                      : 'document',
-                                });
-                              }
+                              solutionAttachments.add({
+                                'name': val,
+                                'url': val,
+                                'type':
+                                    val.endsWith('.jpg') || val.endsWith('.png')
+                                    ? 'image'
+                                    : 'file',
+                              });
+                              attachmentController.clear();
                             });
                           }
                         },
                       ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 6),
-                Row(
-                  children: [
-                    Expanded(
-                      child: TextField(
-                        controller: attachmentController,
-                        decoration: const InputDecoration(
-                          hintText: 'Or paste file / document link',
-                          isDense: true,
-                          border: OutlineInputBorder(),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    IconButton(
-                      icon: const Icon(
-                        Icons.add_circle,
-                        color: Color(0xFF1E40AF),
-                      ),
-                      tooltip: 'Add Link',
-                      onPressed: () {
-                        final val = attachmentController.text.trim();
-                        if (val.isNotEmpty) {
-                          setDialogState(() {
-                            solutionAttachments.add({
-                              'name': val,
-                              'url': val,
-                              'type':
-                                  val.endsWith('.jpg') || val.endsWith('.png')
-                                  ? 'image'
-                                  : 'file',
-                            });
-                            attachmentController.clear();
-                          });
-                        }
-                      },
-                    ),
-                  ],
-                ),
-                if (solutionAttachments.isNotEmpty) ...[
-                  const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 6,
-                    runSpacing: 6,
-                    children: solutionAttachments.asMap().entries.map((entry) {
-                      final idx = entry.key;
-                      final att = entry.value;
-                      return Chip(
-                        avatar: const Icon(Icons.attach_file, size: 16),
-                        label: Text(att['name']?.toString() ?? 'File'),
-                        onDeleted: () {
-                          setDialogState(
-                            () => solutionAttachments.removeAt(idx),
-                          );
-                        },
-                      );
-                    }).toList(),
+                    ],
                   ),
+                  if (solutionAttachments.isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 6,
+                      children: solutionAttachments.asMap().entries.map((
+                        entry,
+                      ) {
+                        final idx = entry.key;
+                        final att = entry.value;
+                        return Chip(
+                          avatar: const Icon(Icons.attach_file, size: 16),
+                          label: Text(att['name']?.toString() ?? 'File'),
+                          onDeleted: () {
+                            setDialogState(
+                              () => solutionAttachments.removeAt(idx),
+                            );
+                          },
+                        );
+                      }).toList(),
+                    ),
+                  ],
                 ],
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(ctx).pop(),
-              child: const Text('Cancel'),
-            ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF1E40AF),
-                foregroundColor: Colors.white,
               ),
-              onPressed: () async {
-                final content = contentController.text.trim();
-                if (content.isEmpty && solutionAttachments.isEmpty) return;
-
-                final auth = ref.read(authProvider);
-                final taskId = task['id']?.toString() ?? '';
-                final studentId = auth.userId ?? '';
-                final clientUuid = const Uuid().v4();
-
-                try {
-                  final apiClient = ref.read(apiClientProvider);
-                  await apiClient.submitHomework(taskId, {
-                    'content': content,
-                    'attachments': solutionAttachments,
-                    'clientUuid': clientUuid,
-                  });
-                  if (ctx.mounted) Navigator.of(ctx).pop();
-                  if (mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Homework submitted successfully!'),
-                        backgroundColor: Color(0xFF10B981),
-                      ),
-                    );
-                  }
-                } catch (_) {
-                  // Queue into offline SQLite outbox (ADR-002)
-                  await LocalDatabase.instance.recordHomeworkSubmission(
-                    homeworkId: taskId,
-                    studentId: studentId,
-                    content: content,
-                    attachments: solutionAttachments,
-                    clientUuid: clientUuid,
-                  );
-                  if (ctx.mounted) Navigator.of(ctx).pop();
-                  if (mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text(
-                          'Homework queued in offline outbox. Will sync when online.',
-                        ),
-                        backgroundColor: Color(0xFFF59E0B),
-                      ),
-                    );
-                  }
-                }
-                await _loadHomeworkTasks();
-              },
-              child: const Text('Submit'),
             ),
-          ],
-        ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(ctx).pop(),
+                child: Text(l10n?.cancel ?? 'Cancel'),
+              ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF1E40AF),
+                  foregroundColor: Colors.white,
+                ),
+                onPressed: isUploading
+                    ? null
+                    : () async {
+                        final content = contentController.text.trim();
+                        if (content.isEmpty && solutionAttachments.isEmpty) {
+                          return;
+                        }
+
+                        final auth = ref.read(authProvider);
+                        final taskId = task['id']?.toString() ?? '';
+                        final studentId = auth.userId ?? '';
+                        final clientUuid = const Uuid().v4();
+
+                        try {
+                          final apiClient = ref.read(apiClientProvider);
+                          await apiClient.submitHomework(taskId, {
+                            'content': content,
+                            'attachments': solutionAttachments,
+                            'clientUuid': clientUuid,
+                          });
+                          if (ctx.mounted) Navigator.of(ctx).pop();
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text(
+                                  'Homework submitted successfully!',
+                                ),
+                                backgroundColor: Color(0xFF10B981),
+                              ),
+                            );
+                          }
+                        } catch (_) {
+                          // Queue into offline SQLite outbox (ADR-002)
+                          await LocalDatabase.instance.recordHomeworkSubmission(
+                            homeworkId: taskId,
+                            studentId: studentId,
+                            content: content,
+                            attachments: solutionAttachments,
+                            clientUuid: clientUuid,
+                          );
+                          if (ctx.mounted) Navigator.of(ctx).pop();
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text(
+                                  'Homework queued in offline outbox. Will sync when online.',
+                                ),
+                                backgroundColor: Color(0xFFF59E0B),
+                              ),
+                            );
+                          }
+                        }
+                        await _loadHomeworkTasks();
+                      },
+                child: Text(
+                  isUploading ? 'Uploading...' : (l10n?.submit ?? 'Submit'),
+                ),
+              ),
+            ],
+          );
+        },
       ),
     );
   }
@@ -550,110 +664,117 @@ class _HomeworkScreenState extends ConsumerState<HomeworkScreen> {
         maxChildSize: 0.9,
         minChildSize: 0.4,
         expand: false,
-        builder: (ctx, scrollController) => Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    'Submissions: ${task['title']}',
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
+        builder: (ctx, scrollController) {
+          final l10n = AppLocalizations.of(ctx);
+          return Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      '${l10n?.submissions ?? 'Submissions'}: ${task['title']}',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close),
+                      onPressed: () => Navigator.of(ctx).pop(),
+                    ),
+                  ],
+                ),
+                const Divider(),
+                if (submissions.isEmpty)
+                  Expanded(
+                    child: Center(
+                      child: Text(
+                        l10n?.noSubmissions ??
+                            'No submissions received yet for this task.',
+                      ),
+                    ),
+                  )
+                else
+                  Expanded(
+                    child: ListView.builder(
+                      controller: scrollController,
+                      itemCount: submissions.length,
+                      itemBuilder: (ctx, index) {
+                        final sub = submissions[index] as Map<String, dynamic>;
+                        final studentUser =
+                            sub['users'] as Map<String, dynamic>?;
+                        final studentName =
+                            studentUser?['full_name'] ?? 'Student';
+                        final grade = sub['grade']?.toString();
+                        final content = sub['content']?.toString() ?? '';
+
+                        final rawSubAtts = sub['attachments'];
+                        List subAtts = [];
+                        if (rawSubAtts is String && rawSubAtts.isNotEmpty) {
+                          try {
+                            final decoded = jsonDecode(rawSubAtts);
+                            if (decoded is List) subAtts = decoded;
+                          } catch (_) {}
+                        } else if (rawSubAtts is List) {
+                          subAtts = rawSubAtts;
+                        }
+
+                        return Card(
+                          margin: const EdgeInsets.only(bottom: 8),
+                          child: ListTile(
+                            title: Text(studentName),
+                            subtitle: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(content),
+                                if (subAtts.isNotEmpty) ...[
+                                  const SizedBox(height: 4),
+                                  Wrap(
+                                    spacing: 4,
+                                    children: subAtts.map((att) {
+                                      final name =
+                                          (att is Map ? att['name'] : att)
+                                              ?.toString() ??
+                                          'File';
+                                      return Chip(
+                                        visualDensity: VisualDensity.compact,
+                                        avatar: const Icon(
+                                          Icons.attach_file,
+                                          size: 12,
+                                        ),
+                                        label: Text(
+                                          name,
+                                          style: const TextStyle(fontSize: 10),
+                                        ),
+                                      );
+                                    }).toList(),
+                                  ),
+                                ],
+                              ],
+                            ),
+                            trailing: grade != null
+                                ? Chip(
+                                    label: Text(grade),
+                                    backgroundColor: const Color(0xFFD1FAE5),
+                                  )
+                                : ElevatedButton(
+                                    onPressed: () => _openGradingDialog(
+                                      sub['id']?.toString() ?? '',
+                                    ),
+                                    child: const Text('Grade'),
+                                  ),
+                          ),
+                        );
+                      },
                     ),
                   ),
-                  IconButton(
-                    icon: const Icon(Icons.close),
-                    onPressed: () => Navigator.of(ctx).pop(),
-                  ),
-                ],
-              ),
-              const Divider(),
-              if (submissions.isEmpty)
-                const Expanded(
-                  child: Center(
-                    child: Text('No submissions received yet for this task.'),
-                  ),
-                )
-              else
-                Expanded(
-                  child: ListView.builder(
-                    controller: scrollController,
-                    itemCount: submissions.length,
-                    itemBuilder: (ctx, index) {
-                      final sub = submissions[index] as Map<String, dynamic>;
-                      final studentUser = sub['users'] as Map<String, dynamic>?;
-                      final studentName =
-                          studentUser?['full_name'] ?? 'Student';
-                      final grade = sub['grade']?.toString();
-                      final content = sub['content']?.toString() ?? '';
-
-                      final rawSubAtts = sub['attachments'];
-                      List subAtts = [];
-                      if (rawSubAtts is String && rawSubAtts.isNotEmpty) {
-                        try {
-                          final decoded = jsonDecode(rawSubAtts);
-                          if (decoded is List) subAtts = decoded;
-                        } catch (_) {}
-                      } else if (rawSubAtts is List) {
-                        subAtts = rawSubAtts;
-                      }
-
-                      return Card(
-                        margin: const EdgeInsets.only(bottom: 8),
-                        child: ListTile(
-                          title: Text(studentName),
-                          subtitle: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(content),
-                              if (subAtts.isNotEmpty) ...[
-                                const SizedBox(height: 4),
-                                Wrap(
-                                  spacing: 4,
-                                  children: subAtts.map((att) {
-                                    final name =
-                                        (att is Map ? att['name'] : att)
-                                            ?.toString() ??
-                                        'File';
-                                    return Chip(
-                                      visualDensity: VisualDensity.compact,
-                                      avatar: const Icon(
-                                        Icons.attach_file,
-                                        size: 12,
-                                      ),
-                                      label: Text(
-                                        name,
-                                        style: const TextStyle(fontSize: 10),
-                                      ),
-                                    );
-                                  }).toList(),
-                                ),
-                              ],
-                            ],
-                          ),
-                          trailing: grade != null
-                              ? Chip(
-                                  label: Text(grade),
-                                  backgroundColor: const Color(0xFFD1FAE5),
-                                )
-                              : ElevatedButton(
-                                  onPressed: () => _openGradingDialog(
-                                    sub['id']?.toString() ?? '',
-                                  ),
-                                  child: const Text('Grade'),
-                                ),
-                        ),
-                      );
-                    },
-                  ),
-                ),
-            ],
-          ),
-        ),
+              ],
+            ),
+          );
+        },
       ),
     );
   }
@@ -664,60 +785,67 @@ class _HomeworkScreenState extends ConsumerState<HomeworkScreen> {
 
     await showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Grade Submission'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: gradeController,
-              decoration: const InputDecoration(
-                labelText: 'Grade (e.g. A, B+, 90/100)',
+      builder: (ctx) {
+        final l10n = AppLocalizations.of(ctx);
+        return AlertDialog(
+          title: Text(l10n?.gradeSubmission ?? 'Grade Submission'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: gradeController,
+                decoration: const InputDecoration(
+                  labelText: 'Grade (e.g. A, B+, 90/100)',
+                ),
               ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: feedbackController,
+                decoration: const InputDecoration(
+                  labelText: 'Teacher Feedback',
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: Text(l10n?.cancel ?? 'Cancel'),
             ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: feedbackController,
-              decoration: const InputDecoration(labelText: 'Teacher Feedback'),
+            ElevatedButton(
+              onPressed: () async {
+                final grade = gradeController.text.trim();
+                final feedback = feedbackController.text.trim();
+                if (grade.isEmpty) return;
+
+                try {
+                  final apiClient = ref.read(apiClientProvider);
+                  await apiClient.gradeHomeworkSubmission(submissionId, {
+                    'grade': grade,
+                    'feedback': feedback,
+                    'status': 'GRADED',
+                  });
+                  if (ctx.mounted) Navigator.of(ctx).pop();
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Grade saved successfully.'),
+                      ),
+                    );
+                  }
+                } catch (e) {
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Failed to save grade: $e')),
+                    );
+                  }
+                }
+              },
+              child: Text(l10n?.save ?? 'Save Grade'),
             ),
           ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              final grade = gradeController.text.trim();
-              final feedback = feedbackController.text.trim();
-              if (grade.isEmpty) return;
-
-              try {
-                final apiClient = ref.read(apiClientProvider);
-                await apiClient.gradeHomeworkSubmission(submissionId, {
-                  'grade': grade,
-                  'feedback': feedback,
-                  'status': 'GRADED',
-                });
-                if (ctx.mounted) Navigator.of(ctx).pop();
-                if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Grade saved successfully.')),
-                  );
-                }
-              } catch (e) {
-                if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Failed to save grade: $e')),
-                  );
-                }
-              }
-            },
-            child: const Text('Save Grade'),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 
@@ -725,10 +853,11 @@ class _HomeworkScreenState extends ConsumerState<HomeworkScreen> {
   Widget build(BuildContext context) {
     final auth = ref.watch(authProvider);
     final isTeacher = auth.role == 'TEACHER' || auth.role == 'SCHOOL_ADMIN';
+    final l10n = AppLocalizations.of(context);
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Homework & Assignments'),
+        title: Text(l10n?.homeworkTasks ?? 'Homework & Assignments'),
         backgroundColor: isTeacher
             ? const Color(0xFF0D9488)
             : const Color(0xFF1E40AF),
@@ -739,7 +868,7 @@ class _HomeworkScreenState extends ConsumerState<HomeworkScreen> {
               backgroundColor: const Color(0xFF0D9488),
               foregroundColor: Colors.white,
               icon: const Icon(Icons.add),
-              label: const Text('Assign Homework'),
+              label: Text(l10n?.assignHomework ?? 'Assign Homework'),
               onPressed: _openAssignHomeworkDialog,
             )
           : null,

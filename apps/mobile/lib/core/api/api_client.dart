@@ -1,5 +1,5 @@
 import 'dart:async';
-import 'dart:io' show Platform;
+import 'dart:io' show Platform, File;
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -51,7 +51,8 @@ class ApiClient {
           if (token != null && token.isNotEmpty) {
             options.headers['Authorization'] = 'Bearer $token';
           }
-          final clientVersion = appVersion ??
+          final clientVersion =
+              appVersion ??
               const String.fromEnvironment(
                 'APP_VERSION',
                 defaultValue: '1.1.0',
@@ -372,9 +373,7 @@ class ApiClient {
           .map((e) => Map<String, dynamic>.from(e as Map))
           .toList();
     } else if (rawData is List) {
-      return rawData
-          .map((e) => Map<String, dynamic>.from(e as Map))
-          .toList();
+      return rawData.map((e) => Map<String, dynamic>.from(e as Map)).toList();
     }
     return [];
   }
@@ -497,6 +496,77 @@ class ApiClient {
       return Map<String, dynamic>.from(rawData);
     }
     return {};
+  }
+
+  // ── Media & Attachment Upload ───────────────────────────────────────
+
+  Future<String> uploadAttachment({
+    required String filePath,
+    String? fileName,
+  }) async {
+    final file = File(filePath);
+    if (!await file.exists()) {
+      throw Exception('File does not exist at $filePath');
+    }
+
+    // 1. Fetch Cloudinary signed upload token from backend (quota enforced)
+    final sigRes = await dio.get(
+      '/upload/signature',
+      queryParameters: {'folderType': 'attachments'},
+    );
+    final rawSig = sigRes.data;
+    final sig = rawSig is Map && rawSig['data'] is Map
+        ? Map<String, dynamic>.from(rawSig['data'])
+        : (rawSig is Map
+              ? Map<String, dynamic>.from(rawSig)
+              : <String, dynamic>{});
+
+    final cloudName = sig['cloudName']?.toString() ?? 'edulanka';
+    final apiKey = sig['apiKey']?.toString() ?? '';
+    final timestamp = sig['timestamp']?.toString() ?? '';
+    final signature = sig['signature']?.toString() ?? '';
+    final folder = sig['folder']?.toString() ?? '';
+    final uploadPreset = sig['uploadPreset']?.toString();
+
+    // 2. Direct device-to-Cloudinary signed upload
+    final uploadDio = Dio(
+      BaseOptions(
+        connectTimeout: const Duration(seconds: 30),
+        receiveTimeout: const Duration(seconds: 60),
+      ),
+    );
+
+    final resolvedFileName = fileName ?? file.uri.pathSegments.last;
+    final formData = FormData.fromMap({
+      'file': await MultipartFile.fromFile(
+        filePath,
+        filename: resolvedFileName,
+      ),
+      'api_key': apiKey,
+      'timestamp': timestamp,
+      'signature': signature,
+      'folder': folder,
+      if (uploadPreset != null && uploadPreset.isNotEmpty)
+        'upload_preset': uploadPreset,
+    });
+
+    final uploadRes = await uploadDio.post(
+      'https://api.cloudinary.com/v1_1/$cloudName/auto/upload',
+      data: formData,
+    );
+
+    if (uploadRes.statusCode != null &&
+        uploadRes.statusCode! >= 200 &&
+        uploadRes.statusCode! < 300) {
+      final resData = uploadRes.data;
+      if (resData is Map && resData['secure_url'] != null) {
+        return resData['secure_url'].toString();
+      }
+      if (resData is Map && resData['url'] != null) {
+        return resData['url'].toString();
+      }
+    }
+    throw Exception('Failed to upload attachment to media storage');
   }
 }
 

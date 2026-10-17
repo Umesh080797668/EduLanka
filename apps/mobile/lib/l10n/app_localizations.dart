@@ -609,6 +609,102 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Please update EduLanka Mobile to continue.'**
   String get upgradeApp;
+
+  /// No description provided for @academicBlogs.
+  ///
+  /// In en, this message translates to:
+  /// **'Academic Blogs & Discourse'**
+  String get academicBlogs;
+
+  /// No description provided for @authorArticle.
+  ///
+  /// In en, this message translates to:
+  /// **'Author Educational Article'**
+  String get authorArticle;
+
+  /// No description provided for @reportArticle.
+  ///
+  /// In en, this message translates to:
+  /// **'Report Article'**
+  String get reportArticle;
+
+  /// No description provided for @takedownArticle.
+  ///
+  /// In en, this message translates to:
+  /// **'Takedown Article'**
+  String get takedownArticle;
+
+  /// No description provided for @restoreArticle.
+  ///
+  /// In en, this message translates to:
+  /// **'Restore Article'**
+  String get restoreArticle;
+
+  /// No description provided for @assignHomework.
+  ///
+  /// In en, this message translates to:
+  /// **'Assign New Homework'**
+  String get assignHomework;
+
+  /// No description provided for @gradeSubmission.
+  ///
+  /// In en, this message translates to:
+  /// **'Grade Submission'**
+  String get gradeSubmission;
+
+  /// No description provided for @publish.
+  ///
+  /// In en, this message translates to:
+  /// **'Publish'**
+  String get publish;
+
+  /// No description provided for @submit.
+  ///
+  /// In en, this message translates to:
+  /// **'Submit'**
+  String get submit;
+
+  /// No description provided for @browseFiles.
+  ///
+  /// In en, this message translates to:
+  /// **'Browse Device Files'**
+  String get browseFiles;
+
+  /// No description provided for @pickSolutionFiles.
+  ///
+  /// In en, this message translates to:
+  /// **'Pick Solution Files / Photos'**
+  String get pickSolutionFiles;
+
+  /// No description provided for @submissions.
+  ///
+  /// In en, this message translates to:
+  /// **'Submissions'**
+  String get submissions;
+
+  /// No description provided for @noSubmissions.
+  ///
+  /// In en, this message translates to:
+  /// **'No submissions received yet for this task.'**
+  String get noSubmissions;
+
+  /// No description provided for @broadcastEmergencyAlert.
+  ///
+  /// In en, this message translates to:
+  /// **'Broadcast Emergency Alert'**
+  String get broadcastEmergencyAlert;
+
+  /// No description provided for @paperUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Question paper document unavailable or not downloaded.'**
+  String get paperUnavailable;
+
+  /// No description provided for @markingSchemeUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Official marking scheme unavailable or not downloaded.'**
+  String get markingSchemeUnavailable;
 }
 
 class _AppLocalizationsDelegate

@@ -84,5 +84,21 @@
   "search": "Search",
   "refresh": "Refresh",
   "upgradeRequired": "Application Upgrade Required",
-  "upgradeApp": "Please update EduLanka Mobile to continue."
+  "upgradeApp": "Please update EduLanka Mobile to continue.",
+  "academicBlogs": "Academic Blogs & Discourse",
+  "authorArticle": "Author Educational Article",
+  "reportArticle": "Report Article",
+  "takedownArticle": "Takedown Article",
+  "restoreArticle": "Restore Article",
+  "assignHomework": "Assign New Homework",
+  "gradeSubmission": "Grade Submission",
+  "publish": "Publish",
+  "submit": "Submit",
+  "browseFiles": "Browse Device Files",
+  "pickSolutionFiles": "Pick Solution Files / Photos",
+  "submissions": "Submissions",
+  "noSubmissions": "No submissions received yet for this task.",
+  "broadcastEmergencyAlert": "Broadcast Emergency Alert",
+  "paperUnavailable": "Question paper document unavailable or not downloaded.",
+  "markingSchemeUnavailable": "Official marking scheme unavailable or not downloaded."
 }

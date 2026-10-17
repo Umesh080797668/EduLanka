@@ -31,6 +31,7 @@ class SyncService {
   StreamSubscription<List<ConnectivityResult>>? _connectivitySubscription;
   Timer? _periodicTimer;
   bool _isSyncing = false;
+  int? _planRetentionDays;
 
   // Exponential backoff configuration
   int _currentBackoffMs = 2000;
@@ -180,6 +181,10 @@ class SyncService {
       try {
         final res = await apiClient.getSyncEvents(since: currentSeq, limit: 50);
 
+        if (res['retentionDays'] is int) {
+          _planRetentionDays = res['retentionDays'] as int;
+        }
+
         // Check if client cursor predates the 90-day retention window (HTTP 410 Gone / resyncRequired)
         if (res['resyncRequired'] == true) {
           await _recoverFromSnapshot();
@@ -288,6 +293,10 @@ class SyncService {
 
     try {
       final pack = await apiClient.getDisasterPack();
+      final license = pack['license'] is Map ? pack['license'] as Map : null;
+      if (license != null && license['retentionDays'] is int) {
+        _planRetentionDays = license['retentionDays'] as int;
+      }
       final contacts = pack['emergencyContacts'] is List
           ? pack['emergencyContacts'] as List
           : await apiClient.getEmergencyContacts();
@@ -318,7 +327,10 @@ class SyncService {
       await fetchDisasterPack(force: forceDisasterPack);
 
       // Prune expired offline cache records and downloads according to plan retention days (S3)
-      await localDb.pruneExpiredCache(30);
+      final retentionDays = _planRetentionDays ?? 30;
+      if (retentionDays > 0) {
+        await localDb.pruneExpiredCache(retentionDays);
+      }
       await DownloadManager.instance.purgeExpired();
 
       return SyncResult(

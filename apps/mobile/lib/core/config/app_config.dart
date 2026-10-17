@@ -134,6 +134,14 @@ class AppConfig {
       apiBaseUrl = 'http://10.0.2.2:8081/api/v1';
     }
 
+    if ((kReleaseMode || env.isProduction) &&
+        !apiBaseUrl.startsWith('https://')) {
+      throw StateError(
+        'SECURITY EXCEPTION: In release/production builds, API_BASE_URL must use HTTPS protocol. '
+        'Received insecure endpoint: $apiBaseUrl',
+      );
+    }
+
     // Determine Realtime WebSocket URL
     final String wsBaseUrl;
     if (injectedWsUrl.isNotEmpty) {

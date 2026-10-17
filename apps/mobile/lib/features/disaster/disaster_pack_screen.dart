@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../core/database/local_database.dart';
+import '../../l10n/app_localizations.dart';
 import '../tutorial/tutorial_engine.dart';
 
 class DisasterPackScreen extends StatefulWidget {
@@ -46,6 +47,7 @@ class _DisasterPackScreenState extends State<DisasterPackScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Scaffold(
       appBar: AppBar(
         title: const Text(
@@ -245,7 +247,7 @@ class _DisasterPackScreenState extends State<DisasterPackScreen> {
                               ),
                             ),
                             icon: const Icon(Icons.call, size: 16),
-                            label: const Text('Call'),
+                            label: Text(l10n?.callEmergency ?? 'Call'),
                             onPressed: phone.isNotEmpty
                                 ? () => _callPhone(phone)
                                 : null,

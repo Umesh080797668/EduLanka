@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -90,10 +91,11 @@ class _BlogDetailScreenState extends ConsumerState<BlogDetailScreen> {
   Future<void> _toggleReaction(String type) async {
     final localDb = LocalDatabase.instance;
     final userId = ref.read(authProvider).userId ?? '';
+    final isRemoving = _myReaction == type;
 
     // Optimistic update
     setState(() {
-      if (_myReaction == type) {
+      if (isRemoving) {
         _myReaction = null;
         _blog['likes_count'] =
             ((_blog['likes_count'] as num?)?.toInt() ?? 1) - 1;
@@ -108,18 +110,237 @@ class _BlogDetailScreenState extends ConsumerState<BlogDetailScreen> {
 
     try {
       final apiClient = ref.read(apiClientProvider);
-      await apiClient.dio.post(
-        '/blogs/$_blogId/reactions',
-        data: {'reactionType': type},
-      );
+      if (isRemoving) {
+        await apiClient.dio.delete('/blogs/$_blogId/reactions');
+      } else {
+        await apiClient.dio.post(
+          '/blogs/$_blogId/reactions',
+          data: {'reactionType': type},
+        );
+      }
     } catch (_) {
-      // Queue offline reaction in local Drift database & outbox
-      await localDb.saveOfflineReaction(
-        blogId: _blogId,
-        commentId: null,
-        userId: userId,
-        reactionType: type,
-      );
+      if (isRemoving) {
+        await localDb.saveSyncedBlogReaction({
+          'id': '${_blogId}_$userId',
+          'blog_id': _blogId,
+          'user_id': userId,
+        }, eventType: 'REMOVED');
+      } else {
+        // Queue offline reaction in local Drift database & outbox
+        await localDb.saveOfflineReaction(
+          blogId: _blogId,
+          commentId: null,
+          userId: userId,
+          reactionType: type,
+        );
+      }
+    }
+  }
+
+  Future<void> _reportBlog() async {
+    final reasonController = TextEditingController();
+    final shouldSubmit = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF1E293B),
+        title: const Text(
+          'Report Article',
+          style: TextStyle(color: Colors.white),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Please provide a reason for flagging this article for academic review:',
+              style: TextStyle(color: Colors.white70, fontSize: 13),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: reasonController,
+              maxLines: 3,
+              style: const TextStyle(color: Colors.white, fontSize: 14),
+              decoration: InputDecoration(
+                hintText:
+                    'e.g. Inappropriate content, plagiarism, incorrect facts...',
+                hintStyle: const TextStyle(color: Colors.white38),
+                filled: true,
+                fillColor: const Color(0xFF0F172A),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Submit Report'),
+          ),
+        ],
+      ),
+    );
+
+    if (shouldSubmit == true && reasonController.text.trim().isNotEmpty) {
+      try {
+        final apiClient = ref.read(apiClientProvider);
+        await apiClient.dio.post(
+          '/blogs/$_blogId/report',
+          data: {'reason': reasonController.text.trim()},
+        );
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Report submitted for review.')),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          String msg = 'Failed to submit report';
+          if (e is DioException && e.response?.statusCode == 409) {
+            msg = 'You have already reported this blog post.';
+          }
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text(msg)));
+        }
+      }
+    }
+  }
+
+  Future<void> _takedownBlog() async {
+    final reasonController = TextEditingController();
+    final shouldSubmit = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF1E293B),
+        title: const Text(
+          'Takedown Article',
+          style: TextStyle(color: Colors.white),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Specify administrative justification for unpublishing this article:',
+              style: TextStyle(color: Colors.white70, fontSize: 13),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: reasonController,
+              maxLines: 2,
+              style: const TextStyle(color: Colors.white, fontSize: 14),
+              decoration: InputDecoration(
+                hintText: 'Takedown reason...',
+                hintStyle: const TextStyle(color: Colors.white38),
+                filled: true,
+                fillColor: const Color(0xFF0F172A),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.orangeAccent,
+            ),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Take Down'),
+          ),
+        ],
+      ),
+    );
+
+    if (shouldSubmit == true) {
+      try {
+        final apiClient = ref.read(apiClientProvider);
+        await apiClient.dio.patch(
+          '/blogs/$_blogId/takedown',
+          data: {
+            'reason': reasonController.text.trim().isEmpty
+                ? 'Administrative takedown'
+                : reasonController.text.trim(),
+          },
+        );
+        setState(() {
+          _blog['is_published'] = false;
+        });
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Article taken down and unpublished.'),
+            ),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('Takedown failed: $e')));
+        }
+      }
+    }
+  }
+
+  Future<void> _restoreBlog() async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF1E293B),
+        title: const Text(
+          'Restore Article',
+          style: TextStyle(color: Colors.white),
+        ),
+        content: const Text(
+          'Are you sure you want to restore and republish this blog article?',
+          style: TextStyle(color: Colors.white70),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Restore'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      try {
+        final apiClient = ref.read(apiClientProvider);
+        await apiClient.dio.patch('/blogs/$_blogId/restore');
+        setState(() {
+          _blog['is_published'] = true;
+        });
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Article restored successfully.')),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('Restore failed: $e')));
+        }
+      }
     }
   }
 
@@ -210,6 +431,71 @@ class _BlogDetailScreenState extends ConsumerState<BlogDetailScreen> {
         backgroundColor: const Color(0xFF1E293B),
         foregroundColor: Colors.white,
         elevation: 0,
+        actions: [
+          PopupMenuButton<String>(
+            icon: const Icon(Icons.more_vert),
+            onSelected: (value) {
+              if (value == 'report') {
+                _reportBlog();
+              } else if (value == 'takedown') {
+                _takedownBlog();
+              } else if (value == 'restore') {
+                _restoreBlog();
+              }
+            },
+            itemBuilder: (ctx) {
+              final isAdmin =
+                  userRole == 'SCHOOL_ADMIN' || userRole == 'SUPER_ADMIN';
+              final isPublished = _blog['is_published'] != false;
+              return [
+                const PopupMenuItem(
+                  value: 'report',
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.flag_outlined,
+                        size: 20,
+                        color: Colors.amberAccent,
+                      ),
+                      SizedBox(width: 8),
+                      Text('Report Article'),
+                    ],
+                  ),
+                ),
+                if (isAdmin && isPublished)
+                  const PopupMenuItem(
+                    value: 'takedown',
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.shield_outlined,
+                          size: 20,
+                          color: Colors.orangeAccent,
+                        ),
+                        SizedBox(width: 8),
+                        Text('Takedown Article'),
+                      ],
+                    ),
+                  ),
+                if (isAdmin && !isPublished)
+                  const PopupMenuItem(
+                    value: 'restore',
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.restore_outlined,
+                          size: 20,
+                          color: Colors.greenAccent,
+                        ),
+                        SizedBox(width: 8),
+                        Text('Restore Article'),
+                      ],
+                    ),
+                  ),
+              ];
+            },
+          ),
+        ],
       ),
       body: Container(
         color: const Color(0xFF0F172A),

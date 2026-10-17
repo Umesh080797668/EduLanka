@@ -5,6 +5,7 @@ import {
     ForbiddenException,
     BadRequestException,
     PayloadTooLargeException,
+    ConflictException,
 } from '@nestjs/common';
 import type { JwtPayload } from '@edu-lanka/shared-types';
 import { UserRole } from '@edu-lanka/shared-types';
@@ -648,7 +649,8 @@ export class BlogService {
 
         // Emit sync event for mobile sync (fanned out across active tenants if platform-wide)
         const isPlatform = data.scope === BlogScope.PLATFORM;
-        await this.emitSyncEvent(caller.tenantId, 'blog_post', data.id, 'CREATED', data, isPlatform);
+        const targetTenantId = data.tenant_id || caller.tenantId;
+        await this.emitSyncEvent(targetTenantId, 'blog_post', data.id, 'CREATED', data, isPlatform);
 
         return data;
     }
@@ -733,7 +735,8 @@ export class BlogService {
         }
 
         const isPlatform = blog.scope === BlogScope.PLATFORM;
-        await this.emitSyncEvent(caller.tenantId, 'blog_post', data.id, 'UPDATED', data, isPlatform);
+        const targetTenantId = data.tenant_id || blog.tenant_id || caller.tenantId;
+        await this.emitSyncEvent(targetTenantId, 'blog_post', data.id, 'UPDATED', data, isPlatform);
 
         return data;
     }
@@ -780,7 +783,8 @@ export class BlogService {
             .eq('id', id);
 
         const isPlatform = blog.scope === BlogScope.PLATFORM;
-        await this.emitSyncEvent(caller.tenantId, 'blog_post', id, 'DELETED', { id }, isPlatform);
+        const targetTenantId = blog.tenant_id || caller.tenantId;
+        await this.emitSyncEvent(targetTenantId, 'blog_post', id, 'DELETED', { id }, isPlatform);
 
         return { success: true };
     }
@@ -850,8 +854,9 @@ export class BlogService {
         }
 
         const isPlatform = blog.scope === BlogScope.PLATFORM;
+        const targetTenantId = blog.tenant_id || caller.tenantId;
         await this.emitSyncEvent(
-            caller.tenantId,
+            targetTenantId,
             'blog_comment',
             data.id,
             'CREATED',
@@ -925,15 +930,16 @@ export class BlogService {
         }
 
         const isPlatform = blog?.scope === BlogScope.PLATFORM;
+        const targetTenantId = blog?.tenant_id || caller.tenantId;
         await this.emitSyncEvent(
-            caller.tenantId,
+            targetTenantId,
             'blog_comment',
             data.id,
             'MODERATED',
             {
                 ...data,
-                scope: blog.scope,
-                class_id: blog.class_id,
+                scope: blog?.scope,
+                class_id: blog?.class_id,
             },
             isPlatform,
         );
@@ -984,8 +990,9 @@ export class BlogService {
             .eq('id', commentId);
 
         const isPlatform = blog?.scope === BlogScope.PLATFORM;
+        const targetTenantId = blog?.tenant_id || caller.tenantId;
         await this.emitSyncEvent(
-            caller.tenantId,
+            targetTenantId,
             'blog_comment',
             commentId,
             'DELETED',
@@ -1040,7 +1047,8 @@ export class BlogService {
             await client.from('blog_reactions').delete().eq('id', existing.id);
 
             const newCount = await this.updateReactionCount(blogId, dto.commentId);
-            await this.emitSyncEvent(caller.tenantId, 'blog_reaction', existing.id, 'REMOVED', {
+            const targetTenantId = blogRec.tenant_id || caller.tenantId;
+            await this.emitSyncEvent(targetTenantId, 'blog_reaction', existing.id, 'REMOVED', {
                 blogId,
                 commentId: dto.commentId,
                 userId: caller.sub,
@@ -1068,7 +1076,8 @@ export class BlogService {
             }
 
             const newCount = await this.updateReactionCount(blogId, dto.commentId);
-            await this.emitSyncEvent(caller.tenantId, 'blog_reaction', data.id, 'ADDED', {
+            const targetTenantId = blogRec.tenant_id || caller.tenantId;
+            await this.emitSyncEvent(targetTenantId, 'blog_reaction', data.id, 'ADDED', {
                 ...data,
                 scope: blogRec.scope,
                 class_id: blogRec.class_id,
@@ -1098,7 +1107,63 @@ export class BlogService {
     }
 
     /**
+     * Removes an academic reaction from a blog post or comment.
+     */
+    async removeReaction(blogId: string, caller: JwtPayload, commentId?: string) {
+        assertUuid(caller.tenantId, 'tenantId');
+        assertUuid(caller.sub, 'userId');
+        assertUuid(blogId, 'blogId');
+
+        const client = this.supabase.adminClient;
+        const { data: blogRec, error: blogErr } = await client
+            .from('blogs')
+            .select('id, tenant_id, scope, class_id')
+            .eq('id', blogId)
+            .is('deleted_at', null)
+            .maybeSingle();
+
+        if (blogErr || !blogRec) {
+            throw new NotFoundException(`Educational blog ${blogId} not found`);
+        }
+
+        await this.assertCanViewBlog(blogRec, caller);
+        const isPlatform = blogRec.scope === BlogScope.PLATFORM;
+
+        let query = client
+            .from('blog_reactions')
+            .select('id')
+            .eq('user_id', caller.sub);
+
+        if (commentId) {
+            assertUuid(commentId, 'commentId');
+            query = query.eq('comment_id', commentId);
+        } else {
+            query = query.eq('blog_id', blogId);
+        }
+
+        const { data: existing } = await query.maybeSingle();
+        if (existing) {
+            await client.from('blog_reactions').delete().eq('id', existing.id);
+            const newCount = await this.updateReactionCount(blogId, commentId);
+            const targetTenantId = blogRec.tenant_id || caller.tenantId;
+            await this.emitSyncEvent(targetTenantId, 'blog_reaction', existing.id, 'REMOVED', {
+                blogId,
+                commentId: commentId ?? null,
+                userId: caller.sub,
+                scope: blogRec.scope,
+                class_id: blogRec.class_id,
+            }, isPlatform);
+
+            return { active: false, reactionType: null, totalLikes: newCount };
+        }
+
+        const currentCount = await this.updateReactionCount(blogId, commentId);
+        return { active: false, reactionType: null, totalLikes: currentCount };
+    }
+
+    /**
      * Reports an educational blog post for review.
+     * Enforces view-access check, deduplication, and atomic count computation.
      */
     async reportBlog(id: string, dto: ReportBlogDto, caller: JwtPayload) {
         assertUuid(caller.tenantId, 'tenantId');
@@ -1108,7 +1173,7 @@ export class BlogService {
         const client = this.supabase.adminClient;
         const { data: blog, error: fetchErr } = await client
             .from('blogs')
-            .select('id, tenant_id, report_count')
+            .select('id, tenant_id, scope, class_id, report_count')
             .eq('id', id)
             .is('deleted_at', null)
             .maybeSingle();
@@ -1117,16 +1182,42 @@ export class BlogService {
             throw new NotFoundException(`Educational blog ${id} not found`);
         }
 
-        // Insert report record
-        await client.from('blog_reports').insert({
+        // 1. Enforce view-access check: caller must be authorized to view this blog
+        await this.assertCanViewBlog(blog, caller);
+
+        // 2. Deduplication check: prevent multiple reports from the same user on the same blog
+        const { data: existingReport } = await client
+            .from('blog_reports')
+            .select('id')
+            .eq('blog_id', id)
+            .eq('reporter_id', caller.sub)
+            .maybeSingle();
+
+        if (existingReport) {
+            throw new ConflictException('You have already submitted a report for this article');
+        }
+
+        // 3. Insert report record
+        const { error: insErr } = await client.from('blog_reports').insert({
             blog_id: id,
             reporter_id: caller.sub,
             tenant_id: caller.tenantId,
             reason: dto.reason,
+            status: 'PENDING',
         });
 
-        // Increment report count on blog
-        const newReportCount = (blog.report_count ?? 0) + 1;
+        if (insErr) {
+            this.logger.error(`Failed to insert blog report: ${insErr.message}`);
+            throw new BadRequestException('Failed to submit report');
+        }
+
+        // 4. Atomic report count calculation from actual records (eliminates count race)
+        const { count } = await client
+            .from('blog_reports')
+            .select('*', { count: 'exact', head: true })
+            .eq('blog_id', id);
+
+        const newReportCount = count ?? 1;
         const isFlagged = newReportCount >= 3;
 
         await client
@@ -1137,7 +1228,80 @@ export class BlogService {
             })
             .eq('id', id);
 
-        return { success: true, message: 'Blog reported for review' };
+        return {
+            success: true,
+            message: 'Blog reported for review',
+            reportCount: newReportCount,
+            isFlagged,
+        };
+    }
+
+    /**
+     * Lists reports for moderation review (School Admin for their school, Super Admin globally).
+     */
+    async listReports(caller: JwtPayload, blogId?: string) {
+        if (caller.role !== UserRole.SUPER_ADMIN && caller.role !== UserRole.SCHOOL_ADMIN) {
+            throw new ForbiddenException('Only administrators can view blog reports');
+        }
+
+        const client = this.supabase.adminClient;
+        let query = client
+            .from('blog_reports')
+            .select('*, blogs(id, title, tenant_id, school_name, scope, is_taken_down, is_flagged, author_id)')
+            .order('created_at', { ascending: false });
+
+        if (blogId) {
+            assertUuid(blogId, 'blogId');
+            query = query.eq('blog_id', blogId);
+        }
+
+        const { data: reports, error } = await query;
+        if (error) {
+            this.logger.error(`Failed to fetch blog reports: ${error.message}`);
+            throw new BadRequestException('Failed to fetch blog reports');
+        }
+
+        // Filter: SCHOOL_ADMIN can only view reports for their school's blogs
+        if (caller.role === UserRole.SCHOOL_ADMIN) {
+            return (reports ?? []).filter((r: any) => r.blogs?.tenant_id === caller.tenantId);
+        }
+        return reports ?? [];
+    }
+
+    /**
+     * Resolves or dismisses a blog report.
+     */
+    async resolveReport(reportId: string, status: 'RESOLVED' | 'DISMISSED', caller: JwtPayload) {
+        if (caller.role !== UserRole.SUPER_ADMIN && caller.role !== UserRole.SCHOOL_ADMIN) {
+            throw new ForbiddenException('Only administrators can resolve reports');
+        }
+        assertUuid(reportId, 'reportId');
+
+        const client = this.supabase.adminClient;
+        const { data: report } = await client
+            .from('blog_reports')
+            .select('*, blogs(tenant_id)')
+            .eq('id', reportId)
+            .maybeSingle();
+
+        if (!report) {
+            throw new NotFoundException('Report not found');
+        }
+
+        if (caller.role === UserRole.SCHOOL_ADMIN && report.blogs?.tenant_id !== caller.tenantId) {
+            throw new ForbiddenException('Cannot moderate reports outside your institution');
+        }
+
+        const { error } = await client
+            .from('blog_reports')
+            .update({ status })
+            .eq('id', reportId);
+
+        if (error) {
+            throw new BadRequestException('Failed to update report status');
+        }
+
+        return { success: true, message: `Report marked as ${status.toLowerCase()}` };
     }
 
     /**
@@ -1184,8 +1348,61 @@ export class BlogService {
         }
 
         const isPlatform = blog.scope === BlogScope.PLATFORM;
-        await this.emitSyncEvent(caller.tenantId, 'blog_post', id, 'DELETED', { id, is_taken_down: true }, isPlatform);
+        const targetTenantId = blog.tenant_id || caller.tenantId;
+        await this.emitSyncEvent(targetTenantId, 'blog_post', id, 'DELETED', { id, is_taken_down: true }, isPlatform);
 
         return { success: true, message: 'Blog post has been taken down', data };
+    }
+
+    /**
+     * Restores a taken-down educational blog post (School Admin for their school, Super Admin globally).
+     */
+    async restoreBlog(id: string, caller: JwtPayload) {
+        assertUuid(caller.tenantId, 'tenantId');
+        assertUuid(caller.sub, 'userId');
+        assertUuid(id, 'id');
+
+        const client = this.supabase.adminClient;
+        const { data: blog, error: fetchErr } = await client
+            .from('blogs')
+            .select('id, tenant_id, scope')
+            .eq('id', id)
+            .is('deleted_at', null)
+            .maybeSingle();
+
+        if (fetchErr || !blog) {
+            throw new NotFoundException(`Educational blog ${id} not found`);
+        }
+
+        if (caller.role !== UserRole.SUPER_ADMIN) {
+            if (caller.role !== UserRole.SCHOOL_ADMIN || blog.tenant_id !== caller.tenantId) {
+                throw new ForbiddenException('Only the author school administrator or Super Admin can restore this blog');
+            }
+        }
+
+        const { data, error } = await client
+            .from('blogs')
+            .update({
+                is_taken_down: false,
+                is_published: true,
+                taken_down_reason: null,
+                taken_down_by: null,
+                report_count: 0,
+                is_flagged: false,
+                updated_at: new Date().toISOString(),
+            })
+            .eq('id', id)
+            .select()
+            .single();
+
+        if (error || !data) {
+            throw new BadRequestException('Failed to restore blog post');
+        }
+
+        const isPlatform = blog.scope === BlogScope.PLATFORM;
+        const targetTenantId = blog.tenant_id || caller.tenantId;
+        await this.emitSyncEvent(targetTenantId, 'blog_post', id, 'UPDATED', data, isPlatform);
+
+        return { success: true, message: 'Blog post has been restored', data };
     }
 }

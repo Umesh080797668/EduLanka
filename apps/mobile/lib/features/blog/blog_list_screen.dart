@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/api/api_client.dart';
 import '../../core/auth/auth_state.dart';
 import '../../core/database/local_database.dart';
+import '../../l10n/app_localizations.dart';
 import '../tutorial/tutorial_engine.dart';
 
 class BlogListScreen extends ConsumerStatefulWidget {
@@ -111,9 +112,11 @@ class _BlogListScreenState extends ConsumerState<BlogListScreen>
         userRole == 'SCHOOL_ADMIN' ||
         userRole == 'SUPER_ADMIN';
 
+    final l10n = AppLocalizations.of(context);
+
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Academic Blogs & Discourse'),
+        title: Text(l10n?.academicBlogs ?? 'Academic Blogs & Discourse'),
         elevation: 0,
         backgroundColor: const Color(0xFF1E293B),
         foregroundColor: Colors.white,

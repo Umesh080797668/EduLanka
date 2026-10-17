@@ -1,6 +1,6 @@
 import type { JwtPayload } from '@edu-lanka/shared-types';
 import { UserRole } from '@edu-lanka/shared-types';
-import { ForbiddenException, BadRequestException, PayloadTooLargeException } from '@nestjs/common';
+import { ForbiddenException, BadRequestException, PayloadTooLargeException, ConflictException } from '@nestjs/common';
 import type { TestingModule } from '@nestjs/testing';
 import { Test } from '@nestjs/testing';
 import { SupabaseService } from '../../supabase/supabase.service';
@@ -32,6 +32,14 @@ describe('BlogService', () => {
         tenantId: tenantUuid,
         email: 'student@school.lk',
         role: UserRole.STUDENT,
+        tenantPlan: 'GROWTH',
+    };
+
+    const adminCaller: JwtPayload = {
+        sub: '77777777-7777-7777-7777-777777777777',
+        tenantId: tenantUuid,
+        email: 'admin@school.lk',
+        role: UserRole.SCHOOL_ADMIN,
         tenantPlan: 'GROWTH',
     };
 
@@ -603,6 +611,132 @@ describe('BlogService', () => {
 
             expect(result.active).toBe(true);
             expect(result.reactionType).toBe('HELPFUL');
+        });
+
+        it('should remove reaction when removeReaction is called', async () => {
+            const deleteMock = jest.fn().mockResolvedValue({ error: null });
+            mockSupabase.adminClient.from.mockImplementation((table: string) => {
+                if (table === 'blog_reactions') {
+                    return {
+                        select: jest.fn().mockReturnThis(),
+                        eq: jest.fn().mockReturnThis(),
+                        is: jest.fn().mockReturnThis(),
+                        maybeSingle: jest.fn().mockResolvedValue({ data: { id: 'reaction-1' } }),
+                        delete: jest.fn(() => ({ eq: deleteMock })),
+                    };
+                }
+                if (table === 'blogs') {
+                    return {
+                        select: jest.fn().mockReturnThis(),
+                        eq: jest.fn().mockReturnThis(),
+                        is: jest.fn().mockReturnThis(),
+                        update: jest.fn().mockReturnThis(),
+                        maybeSingle: jest.fn().mockResolvedValue({
+                            data: { id: blogUuid, tenant_id: tenantUuid, scope: BlogScope.SCHOOL },
+                            error: null,
+                        }),
+                    };
+                }
+                return { select: jest.fn().mockReturnThis() };
+            });
+
+            const result = await service.removeReaction(blogUuid, studentCaller);
+            expect(result.active).toBe(false);
+            expect(deleteMock).toHaveBeenCalledWith('id', 'reaction-1');
+        });
+    });
+
+    describe('reportBlog, takedown, and restore', () => {
+        it('should report a blog and increment atomic report count', async () => {
+            const insertReport = jest.fn().mockResolvedValue({ error: null });
+            mockSupabase.adminClient.from.mockImplementation((table: string) => {
+                if (table === 'blogs') {
+                    return {
+                        select: jest.fn().mockReturnThis(),
+                        eq: jest.fn().mockReturnThis(),
+                        is: jest.fn().mockReturnThis(),
+                        update: jest.fn().mockReturnThis(),
+                        maybeSingle: jest.fn().mockResolvedValue({
+                            data: { id: blogUuid, tenant_id: tenantUuid, scope: BlogScope.SCHOOL, report_count: 0 },
+                            error: null,
+                        }),
+                    };
+                }
+                if (table === 'blog_reports') {
+                    return {
+                        select: jest.fn().mockReturnThis(),
+                        eq: jest.fn().mockReturnThis(),
+                        maybeSingle: jest.fn().mockResolvedValue({ data: null }), // no previous report
+                        insert: insertReport,
+                        then: (resolve: any) => resolve({ count: 1, error: null }),
+                    };
+                }
+                return { select: jest.fn().mockReturnThis() };
+            });
+
+            const res = await service.reportBlog(blogUuid, { reason: 'Misleading pedagogical content' }, studentCaller);
+            expect(res.success).toBe(true);
+            expect(insertReport).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    blog_id: blogUuid,
+                    reason: 'Misleading pedagogical content',
+                }),
+            );
+        });
+
+        it('should reject duplicate report from the same user with ConflictException', async () => {
+            mockSupabase.adminClient.from.mockImplementation((table: string) => {
+                if (table === 'blogs') {
+                    return {
+                        select: jest.fn().mockReturnThis(),
+                        eq: jest.fn().mockReturnThis(),
+                        is: jest.fn().mockReturnThis(),
+                        maybeSingle: jest.fn().mockResolvedValue({
+                            data: { id: blogUuid, tenant_id: tenantUuid, scope: BlogScope.SCHOOL },
+                            error: null,
+                        }),
+                    };
+                }
+                if (table === 'blog_reports') {
+                    return {
+                        select: jest.fn().mockReturnThis(),
+                        eq: jest.fn().mockReturnThis(),
+                        maybeSingle: jest.fn().mockResolvedValue({ data: { id: 'report-existing-1' } }),
+                    };
+                }
+                return { select: jest.fn().mockReturnThis() };
+            });
+
+            await expect(
+                service.reportBlog(blogUuid, { reason: 'Spam' }, studentCaller),
+            ).rejects.toThrow(ConflictException);
+        });
+
+        it('should allow School Admin to restore a taken-down blog', async () => {
+            const updateBlog = jest.fn().mockReturnThis();
+            mockSupabase.adminClient.from.mockImplementation((table: string) => {
+                if (table === 'blogs') {
+                    return {
+                        select: jest.fn().mockReturnThis(),
+                        eq: jest.fn().mockReturnThis(),
+                        is: jest.fn().mockReturnThis(),
+                        maybeSingle: jest.fn().mockResolvedValue({
+                            data: { id: blogUuid, tenant_id: tenantUuid, scope: BlogScope.SCHOOL, is_taken_down: true },
+                            error: null,
+                        }),
+                        update: updateBlog,
+                        single: jest.fn().mockResolvedValue({
+                            data: { id: blogUuid, is_taken_down: false, is_published: true },
+                            error: null,
+                        }),
+                    };
+                }
+                return { select: jest.fn().mockReturnThis() };
+            });
+
+            const res = await service.restoreBlog(blogUuid, adminCaller);
+            expect(res.success).toBe(true);
+            expect(res.data.is_taken_down).toBe(false);
         });
     });
 

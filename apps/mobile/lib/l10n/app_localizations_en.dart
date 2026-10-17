@@ -267,4 +267,54 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get upgradeApp => 'Please update EduLanka Mobile to continue.';
+
+  @override
+  String get academicBlogs => 'Academic Blogs & Discourse';
+
+  @override
+  String get authorArticle => 'Author Educational Article';
+
+  @override
+  String get reportArticle => 'Report Article';
+
+  @override
+  String get takedownArticle => 'Takedown Article';
+
+  @override
+  String get restoreArticle => 'Restore Article';
+
+  @override
+  String get assignHomework => 'Assign New Homework';
+
+  @override
+  String get gradeSubmission => 'Grade Submission';
+
+  @override
+  String get publish => 'Publish';
+
+  @override
+  String get submit => 'Submit';
+
+  @override
+  String get browseFiles => 'Browse Device Files';
+
+  @override
+  String get pickSolutionFiles => 'Pick Solution Files / Photos';
+
+  @override
+  String get submissions => 'Submissions';
+
+  @override
+  String get noSubmissions => 'No submissions received yet for this task.';
+
+  @override
+  String get broadcastEmergencyAlert => 'Broadcast Emergency Alert';
+
+  @override
+  String get paperUnavailable =>
+      'Question paper document unavailable or not downloaded.';
+
+  @override
+  String get markingSchemeUnavailable =>
+      'Official marking scheme unavailable or not downloaded.';
 }

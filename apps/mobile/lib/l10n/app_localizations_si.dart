@@ -268,4 +268,54 @@ class AppLocalizationsSi extends AppLocalizations {
   @override
   String get upgradeApp =>
       'දිගටම කරගෙන යාමට කරුණාකර එඩියුලංකා යෙදුම යාවත්කාලීන කරන්න.';
+
+  @override
+  String get academicBlogs => 'ශාස්ත්‍රීය බ්ලොග් සහ සංවාද';
+
+  @override
+  String get authorArticle => 'අධ්‍යාපනික ලිපියක් රචනා කරන්න';
+
+  @override
+  String get reportArticle => 'ලිපිය වාර්තා කරන්න';
+
+  @override
+  String get takedownArticle => 'ලිපිය ඉවත් කරන්න';
+
+  @override
+  String get restoreArticle => 'ලිපිය නැවත ස්ථාපිත කරන්න';
+
+  @override
+  String get assignHomework => 'නව පැවරුමක් ලබා දෙන්න';
+
+  @override
+  String get gradeSubmission => 'ලකුණු ලබා දීම';
+
+  @override
+  String get publish => 'ප්‍රකාශයට පත් කරන්න';
+
+  @override
+  String get submit => 'ඉදිරිපත් කරන්න';
+
+  @override
+  String get browseFiles => 'උපාංග ගොනු සොයන්න';
+
+  @override
+  String get pickSolutionFiles => 'පිළිතුරු ගොනු / ඡායාරූප තෝරන්න';
+
+  @override
+  String get submissions => 'ඉදිරිපත් කිරීම්';
+
+  @override
+  String get noSubmissions =>
+      'මෙම පැවරුම සඳහා තවමත් ඉදිරිපත් කිරීම් ලැබී නොමැත.';
+
+  @override
+  String get broadcastEmergencyAlert => 'හදිසි අනතුරු ඇඟවීමක් විකාශනය කරන්න';
+
+  @override
+  String get paperUnavailable => 'ප්‍රශ්න පත්‍ර ලේඛනය නොමැත හෝ බාගත කර නොමැත.';
+
+  @override
+  String get markingSchemeUnavailable =>
+      'නිල ලකුණු ලබාදීමේ පටිපාටිය නොමැත හෝ බාගත කර නොමැත.';
 }

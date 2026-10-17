@@ -19,6 +19,9 @@ import {
     GraduationCap,
     Globe,
     Calendar,
+    Flag,
+    ShieldAlert,
+    RotateCcw,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -35,6 +38,22 @@ import { TutorialProvider } from '@/components/TutorialProvider';
 
 type BlogScope = 'SCHOOL' | 'CLASS' | 'PLATFORM';
 type AcademicReaction = 'LIKE' | 'HELPFUL' | 'INSIGHTFUL' | 'HEART';
+
+interface BlogReport {
+    id: string;
+    blog_id: string;
+    reporter_id: string;
+    reason: string;
+    is_resolved: boolean;
+    resolution_notes?: string | null;
+    created_at: string;
+    blog?: {
+        id: string;
+        title: string;
+        is_published: boolean;
+        author_name?: string;
+    };
+}
 
 interface BlogComment {
     id: string;
@@ -131,6 +150,17 @@ export default function BlogsPage() {
     const [composeContent, setComposeContent] = useState<string>('');
     const [classes, setClasses] = useState<TeacherClass[]>([]);
     const [submittingArticle, setSubmittingArticle] = useState<boolean>(false);
+
+    // Reporting & Moderation state
+    const [reportModalOpen, setReportModalOpen] = useState<boolean>(false);
+    const [reportReason, setReportReason] = useState<string>('');
+    const [submittingReport, setSubmittingReport] = useState<boolean>(false);
+
+    const [moderationOpen, setModerationOpen] = useState<boolean>(false);
+    const [reports, setReports] = useState<BlogReport[]>([]);
+    const [loadingReports, setLoadingReports] = useState<boolean>(false);
+    const [takedownReason, setTakedownReason] = useState<string>('');
+    const [takedownBlogId, setTakedownBlogId] = useState<string | null>(null);
 
     const isTeacherOrAdmin =
         role === 'TEACHER' || role === 'SCHOOL_ADMIN' || role === 'SUPER_ADMIN';
@@ -285,6 +315,91 @@ export default function BlogsPage() {
         }
     };
 
+    const handleReportArticle = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!selectedBlog || !reportReason.trim()) return;
+        setSubmittingReport(true);
+        try {
+            await apiClient.post(`/blogs/${selectedBlog.id}/report`, {
+                reason: reportReason.trim(),
+            });
+            toast.success('Report submitted for administrator review');
+            setReportModalOpen(false);
+            setReportReason('');
+        } catch (err: any) {
+            if (err?.response?.status === 409 || err?.message?.includes('already reported')) {
+                toast.error('You have already reported this blog post');
+            } else {
+                toast.error('Failed to submit report');
+            }
+        } finally {
+            setSubmittingReport(false);
+        }
+    };
+
+    const handleTakedownArticle = async (blogId: string, reason?: string) => {
+        try {
+            await apiClient.patch(`/blogs/${blogId}/takedown`, {
+                reason: reason || 'Administrative content takedown',
+            });
+            toast.success('Article taken down and unpublished');
+            setTakedownBlogId(null);
+            setTakedownReason('');
+            fetchBlogs(scope);
+            if (selectedBlog && selectedBlog.id === blogId) {
+                setSelectedBlog({ ...selectedBlog, is_published: false });
+            }
+            if (moderationOpen) {
+                fetchReports();
+            }
+        } catch {
+            toast.error('Failed to take down article');
+        }
+    };
+
+    const handleRestoreArticle = async (blogId: string) => {
+        try {
+            await apiClient.patch(`/blogs/${blogId}/restore`, {});
+            toast.success('Article restored and published');
+            fetchBlogs(scope);
+            if (selectedBlog && selectedBlog.id === blogId) {
+                setSelectedBlog({ ...selectedBlog, is_published: true });
+            }
+            if (moderationOpen) {
+                fetchReports();
+            }
+        } catch {
+            toast.error('Failed to restore article');
+        }
+    };
+
+    const fetchReports = async () => {
+        setLoadingReports(true);
+        try {
+            const data = await apiClient.get<BlogReport[]>('/blogs/reports');
+            if (Array.isArray(data)) {
+                setReports(data);
+            }
+        } catch {
+            toast.error('Failed to load blog reports');
+        } finally {
+            setLoadingReports(false);
+        }
+    };
+
+    const handleResolveReport = async (reportId: string) => {
+        try {
+            await apiClient.patch(`/blogs/reports/${reportId}`, {
+                isResolved: true,
+                resolutionNotes: 'Reviewed and resolved by administrator',
+            });
+            toast.success('Report marked as resolved');
+            fetchReports();
+        } catch {
+            toast.error('Failed to resolve report');
+        }
+    };
+
     const handleCreateArticle = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!composeTitle.trim() || !composeContent.trim()) {
@@ -388,16 +503,31 @@ export default function BlogsPage() {
                     title="Academic Blogs & Discourse"
                     description="Pedagogical insights, subject-matter discourse, and scholarly inquiry across the EduLanka network."
                     actions={
-                        isTeacherOrAdmin ? (
-                            <Button
-                                variant="primary"
-                                leadingIcon={<Plus className="w-4 h-4" />}
-                                onClick={() => setComposerOpen(true)}
-                                id="btn-author-article"
-                            >
-                                Author Article
-                            </Button>
-                        ) : undefined
+                        <div className="flex items-center gap-2">
+                            {(role === 'SCHOOL_ADMIN' || role === 'SUPER_ADMIN') && (
+                                <Button
+                                    variant="outline"
+                                    leadingIcon={<ShieldAlert className="w-4 h-4 text-amber-400" />}
+                                    onClick={() => {
+                                        setModerationOpen(true);
+                                        fetchReports();
+                                    }}
+                                    id="btn-moderation-reports"
+                                >
+                                    Moderation Reports
+                                </Button>
+                            )}
+                            {isTeacherOrAdmin && (
+                                <Button
+                                    variant="primary"
+                                    leadingIcon={<Plus className="w-4 h-4" />}
+                                    onClick={() => setComposerOpen(true)}
+                                    id="btn-author-article"
+                                >
+                                    Author Article
+                                </Button>
+                            )}
+                        </div>
                     }
                 />
 
@@ -625,6 +755,43 @@ export default function BlogsPage() {
                                 </div>
 
                                 <div className="flex items-center gap-2">
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        className="text-xs text-slate-400 hover:text-amber-400"
+                                        leadingIcon={<Flag className="w-3.5 h-3.5" />}
+                                        onClick={() => setReportModalOpen(true)}
+                                    >
+                                        Report
+                                    </Button>
+                                    {(role === 'SCHOOL_ADMIN' || role === 'SUPER_ADMIN') && (
+                                        <>
+                                            {selectedBlog.is_published ? (
+                                                <Button
+                                                    variant="outline"
+                                                    size="sm"
+                                                    className="text-xs text-rose-400 border-rose-500/30 hover:bg-rose-500/10"
+                                                    leadingIcon={<ShieldAlert className="w-3.5 h-3.5" />}
+                                                    onClick={() => {
+                                                        setTakedownBlogId(selectedBlog.id);
+                                                        setTakedownReason('');
+                                                    }}
+                                                >
+                                                    Takedown
+                                                </Button>
+                                            ) : (
+                                                <Button
+                                                    variant="outline"
+                                                    size="sm"
+                                                    className="text-xs text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/10"
+                                                    leadingIcon={<RotateCcw className="w-3.5 h-3.5" />}
+                                                    onClick={() => handleRestoreArticle(selectedBlog.id)}
+                                                >
+                                                    Restore
+                                                </Button>
+                                            )}
+                                        </>
+                                    )}
                                     <Badge
                                         tone={
                                             selectedBlog.scope === 'PLATFORM'
@@ -955,6 +1122,148 @@ export default function BlogsPage() {
                             </Button>
                         </div>
                     </form>
+                </Dialog>
+
+                {/* Report Article Dialog */}
+                <Dialog
+                    open={reportModalOpen}
+                    onClose={() => setReportModalOpen(false)}
+                    title="Report Article for Academic Review"
+                >
+                    <form onSubmit={handleReportArticle} className="space-y-4">
+                        <p className="text-xs text-slate-400">
+                            Please explain why this publication violates school academic integrity, safety, or community policies.
+                        </p>
+                        <Field label="Reason for report" required>
+                            <Textarea
+                                value={reportReason}
+                                onChange={(e) => setReportReason(e.target.value)}
+                                placeholder="Describe inappropriate content, copyright violation, misinformation, or harassment..."
+                                rows={3}
+                                required
+                            />
+                        </Field>
+                        <div className="flex justify-end gap-2 pt-2 border-t border-slate-800">
+                            <Button type="button" variant="ghost" onClick={() => setReportModalOpen(false)}>
+                                Cancel
+                            </Button>
+                            <Button type="submit" variant="primary" loading={submittingReport}>
+                                Submit Report
+                            </Button>
+                        </div>
+                    </form>
+                </Dialog>
+
+                {/* Administrative Takedown Dialog */}
+                <Dialog
+                    open={!!takedownBlogId}
+                    onClose={() => setTakedownBlogId(null)}
+                    title="Administrative Content Takedown"
+                >
+                    <div className="space-y-4">
+                        <p className="text-xs text-rose-400">
+                            This will immediately unpublish this article from student and educator feeds.
+                        </p>
+                        <Field label="Administrative Reason">
+                            <Input
+                                value={takedownReason}
+                                onChange={(e) => setTakedownReason(e.target.value)}
+                                placeholder="Reason for administrative takedown..."
+                            />
+                        </Field>
+                        <div className="flex justify-end gap-2 pt-2 border-t border-slate-800">
+                            <Button type="button" variant="ghost" onClick={() => setTakedownBlogId(null)}>
+                                Cancel
+                            </Button>
+                            <Button
+                                variant="primary"
+                                className="bg-rose-600 hover:bg-rose-500"
+                                onClick={() => takedownBlogId && handleTakedownArticle(takedownBlogId, takedownReason)}
+                            >
+                                Confirm Takedown
+                            </Button>
+                        </div>
+                    </div>
+                </Dialog>
+
+                {/* Blog Moderation & Reports Dialog */}
+                <Dialog
+                    open={moderationOpen}
+                    onClose={() => setModerationOpen(false)}
+                    title="Blog Moderation & Reports"
+                    className="max-w-3xl"
+                >
+                    <div className="space-y-4">
+                        {loadingReports ? (
+                            <div className="py-8 flex justify-center">
+                                <Spinner />
+                            </div>
+                        ) : reports.length === 0 ? (
+                            <div className="py-8 text-center text-sm text-slate-400">
+                                No active reports found. All articles comply with academic policies.
+                            </div>
+                        ) : (
+                            <div className="space-y-3 max-h-[60vh] overflow-y-auto pr-1">
+                                {reports.map((rep) => (
+                                    <div
+                                        key={rep.id}
+                                        className="p-4 rounded-lg bg-slate-900 border border-slate-800 space-y-2"
+                                    >
+                                        <div className="flex items-center justify-between">
+                                            <h5 className="font-semibold text-white text-sm">
+                                                {rep.blog?.title || `Article #${rep.blog_id}`}
+                                            </h5>
+                                            <Badge tone={rep.is_resolved ? 'neutral' : 'warning'}>
+                                                {rep.is_resolved ? 'Resolved' : 'Pending Review'}
+                                            </Badge>
+                                        </div>
+                                        <p className="text-xs text-slate-300">
+                                            <strong>Reason:</strong> {rep.reason}
+                                        </p>
+                                        <div className="flex items-center justify-between text-xs text-slate-500 pt-1 border-t border-slate-800/60">
+                                            <span>
+                                                Reported on {new Date(rep.created_at).toLocaleDateString()}
+                                            </span>
+                                            <div className="flex gap-2">
+                                                {!rep.is_resolved && (
+                                                    <Button
+                                                        size="sm"
+                                                        variant="outline"
+                                                        className="text-xs py-1"
+                                                        onClick={() => handleResolveReport(rep.id)}
+                                                    >
+                                                        Dismiss / Resolve
+                                                    </Button>
+                                                )}
+                                                {rep.blog?.is_published !== false ? (
+                                                    <Button
+                                                        size="sm"
+                                                        variant="outline"
+                                                        className="text-xs py-1 text-rose-400 border-rose-500/30 hover:bg-rose-500/10"
+                                                        onClick={() => {
+                                                            setTakedownBlogId(rep.blog_id);
+                                                            setTakedownReason(rep.reason);
+                                                        }}
+                                                    >
+                                                        Take Down
+                                                    </Button>
+                                                ) : (
+                                                    <Button
+                                                        size="sm"
+                                                        variant="outline"
+                                                        className="text-xs py-1 text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/10"
+                                                        onClick={() => handleRestoreArticle(rep.blog_id)}
+                                                    >
+                                                        Restore
+                                                    </Button>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
                 </Dialog>
             </div>
         </TutorialProvider>

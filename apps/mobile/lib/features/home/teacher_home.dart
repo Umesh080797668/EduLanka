@@ -187,12 +187,14 @@ class _TeacherHomeScreenState extends ConsumerState<TeacherHomeScreen> {
           final dateStr =
               '${selectedDate.year}-${selectedDate.month.toString().padLeft(2, '0')}-${selectedDate.day.toString().padLeft(2, '0')}';
 
+          final l10n = AppLocalizations.of(ctx);
+
           return AlertDialog(
-            title: const Row(
+            title: Row(
               children: [
-                Icon(Icons.how_to_reg_rounded, color: Color(0xFF0D9488)),
-                SizedBox(width: 8),
-                Text('Class Roll-Call Attendance'),
+                const Icon(Icons.how_to_reg_rounded, color: Color(0xFF0D9488)),
+                const SizedBox(width: 8),
+                Text(l10n?.markAttendance ?? 'Class Roll-Call Attendance'),
               ],
             ),
             content: SizedBox(
@@ -409,7 +411,7 @@ class _TeacherHomeScreenState extends ConsumerState<TeacherHomeScreen> {
             actions: [
               TextButton(
                 onPressed: () => Navigator.of(ctx).pop(),
-                child: const Text('Cancel'),
+                child: Text(l10n?.cancel ?? 'Cancel'),
               ),
               ElevatedButton(
                 style: ElevatedButton.styleFrom(
@@ -450,7 +452,9 @@ class _TeacherHomeScreenState extends ConsumerState<TeacherHomeScreen> {
                     );
                   }
                 },
-                child: Text('Save Roll-Call (${currentRoster.length})'),
+                child: Text(
+                  '${l10n?.save ?? 'Save Roll-Call'} (${currentRoster.length})',
+                ),
               ),
             ],
           );

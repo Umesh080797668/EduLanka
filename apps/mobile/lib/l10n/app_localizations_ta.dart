@@ -270,4 +270,56 @@ class AppLocalizationsTa extends AppLocalizations {
 
   @override
   String get upgradeApp => 'தொடர எஜூலங்கா செயலியைப் புதுப்பிக்கவும்.';
+
+  @override
+  String get academicBlogs => 'கல்வி வலைப்பதிவுகள் மற்றும் உரையாடல்';
+
+  @override
+  String get authorArticle => 'கல்வி கட்டுரையை எழுதுங்கள்';
+
+  @override
+  String get reportArticle => 'கட்டுரையைப் புகாரளிக்கவும்';
+
+  @override
+  String get takedownArticle => 'கட்டுரையை நீக்குங்கள்';
+
+  @override
+  String get restoreArticle => 'கட்டுரையை மீட்டெடுக்கவும்';
+
+  @override
+  String get assignHomework => 'புதிய வீட்டுப்பாடம் ஒதுக்குங்கள்';
+
+  @override
+  String get gradeSubmission => 'மதிப்பெண் வழங்குங்கள்';
+
+  @override
+  String get publish => 'வெளியிடுங்கள்';
+
+  @override
+  String get submit => 'சமர்ப்பிக்கவும்';
+
+  @override
+  String get browseFiles => 'கோப்புகளை உலாவவும்';
+
+  @override
+  String get pickSolutionFiles =>
+      'தீர்வு கோப்புகள் / புகைப்படங்களை தேர்ந்தெடுக்கவும்';
+
+  @override
+  String get submissions => 'சமர்ப்பிப்புகள்';
+
+  @override
+  String get noSubmissions =>
+      'இந்த பணிக்கான சமர்ப்பிப்புகள் எதுவும் இன்னும் பெறப்படவில்லை.';
+
+  @override
+  String get broadcastEmergencyAlert => 'அவசர எச்சரிக்கையை ஒளிபரப்பவும்';
+
+  @override
+  String get paperUnavailable =>
+      'வினாத்தாள் ஆவணம் கிடைக்கவில்லை அல்லது பதிவிறக்கப்படவில்லை.';
+
+  @override
+  String get markingSchemeUnavailable =>
+      'அதிகாரப்பூர்வ புள்ளி வழங்கும் முறை கிடைக்கவில்லை அல்லது பதிவிறக்கப்படவில்லை.';
 }

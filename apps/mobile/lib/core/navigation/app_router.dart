@@ -80,6 +80,10 @@ final routerProvider = Provider<GoRouter>((ref) {
             paperUrl: extra['paperUrl'] as String?,
             localFilePath: extra['localFilePath'] as String?,
             markingSchemeUrl: extra['markingSchemeUrl'] as String?,
+            localMarkingSchemePath:
+                extra['localMarkingSchemePath'] as String? ??
+                extra['localSchemePath'] as String? ??
+                extra['schemePath'] as String?,
           );
         },
       ),

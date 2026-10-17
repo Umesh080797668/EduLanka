@@ -60,17 +60,21 @@ class _AdminHomeScreenState extends ConsumerState<AdminHomeScreen> {
   }
 
   Future<void> _triggerDisasterPush() async {
+    final l10n = AppLocalizations.of(context);
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Broadcast Emergency Alert'),
-        content: const Text(
-          'Activate Disaster Mode for the school? This will dispatch high-priority push notifications and prepare offline disaster packs on all registered student and teacher devices.',
+        title: Text(
+          l10n?.broadcastEmergencyAlert ?? 'Broadcast Emergency Alert',
+        ),
+        content: Text(
+          l10n?.disasterClosureNotice ??
+              'Activate Disaster Mode for the school? This will dispatch high-priority push notifications and prepare offline disaster packs on all registered student and teacher devices.',
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('Cancel'),
+            child: Text(l10n?.cancel ?? 'Cancel'),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
@@ -78,7 +82,7 @@ class _AdminHomeScreenState extends ConsumerState<AdminHomeScreen> {
               foregroundColor: Colors.white,
             ),
             onPressed: () => Navigator.of(ctx).pop(true),
-            child: const Text('Broadcast Alert'),
+            child: Text(l10n?.broadcastEmergencyAlert ?? 'Broadcast Alert'),
           ),
         ],
       ),

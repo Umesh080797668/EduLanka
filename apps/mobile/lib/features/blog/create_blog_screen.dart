@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/api/api_client.dart';
+import '../../l10n/app_localizations.dart';
 
 class CreateBlogScreen extends ConsumerStatefulWidget {
   const CreateBlogScreen({super.key});
@@ -116,9 +117,10 @@ class _CreateBlogScreenState extends ConsumerState<CreateBlogScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Author Educational Article'),
+        title: Text(l10n?.authorArticle ?? 'Author Educational Article'),
         backgroundColor: const Color(0xFF1E293B),
         foregroundColor: Colors.white,
         elevation: 0,

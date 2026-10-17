@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <network-security-config>
-    <!-- Base Configuration: Allow cleartext traffic for local development and HTTPS for production -->
-    <base-config cleartextTrafficPermitted="true">
+    <!-- Base Configuration: Enforce TLS/HTTPS for all production/external domains -->
+    <base-config cleartextTrafficPermitted="false">
         <trust-anchors>
             <certificates src="system" />
         </trust-anchors>

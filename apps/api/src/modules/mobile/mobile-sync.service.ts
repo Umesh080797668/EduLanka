@@ -792,12 +792,35 @@ export class MobileSyncService {
 
         await this.touchDeviceActivity(caller.tenantId, caller.sub, latestSeq, deviceIdOrToken);
 
+        let retentionDays = 30;
+        try {
+            const { data: tenant } = await this.supabase.adminClient
+                .from('tenants')
+                .select('plan')
+                .eq('id', caller.tenantId)
+                .maybeSingle();
+            const planCode = String(tenant?.plan || 'STARTER').toUpperCase();
+            const { data: planInfo } = await this.supabase.adminClient
+                .from('plans')
+                .select('offline_retention_days')
+                .eq('code', planCode)
+                .maybeSingle();
+            if (typeof planInfo?.offline_retention_days === 'number' && planInfo.offline_retention_days > 0) {
+                retentionDays = planInfo.offline_retention_days;
+            } else {
+                retentionDays = planCode === 'INSTITUTIONAL' ? 90 : (planCode === 'GROWTH' ? 30 : 7);
+            }
+        } catch {
+            retentionDays = 30;
+        }
+
         return {
             tenantId: caller.tenantId,
             sinceSequence,
             latestSequence: latestSeq,
             hasMore,
             count: sanitizedEvents.length,
+            retentionDays,
             events: sanitizedEvents,
         };
     }

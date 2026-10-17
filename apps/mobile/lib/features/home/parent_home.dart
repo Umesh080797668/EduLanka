@@ -181,8 +181,11 @@ class _ParentHomeScreenState extends ConsumerState<ParentHomeScreen> {
                 color: const Color(0xFF10B981),
                 onTap: () {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Viewing child attendance history...'),
+                    SnackBar(
+                      content: Text(
+                        l10n?.attendanceHistory ??
+                            'Viewing child attendance history...',
+                      ),
                     ),
                   );
                 },

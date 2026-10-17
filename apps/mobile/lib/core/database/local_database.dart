@@ -570,9 +570,9 @@ class LocalDatabase {
     );
     totalPruned += prunedAtt;
 
-    // 3. Offline chat messages older than retention
+    // 3. Offline chat messages older than retention (strictly preserve pending outbox messages)
     final prunedChat = await driftDb.customUpdate(
-      "DELETE FROM offline_chat_messages WHERE created_at < ?",
+      "DELETE FROM offline_chat_messages WHERE created_at < ? AND id NOT IN (SELECT client_uuid FROM sync_outbox WHERE status = 'PENDING')",
       variables: [Variable.withString(cutoffIso)],
     );
     totalPruned += prunedChat;
@@ -584,9 +584,9 @@ class LocalDatabase {
     );
     totalPruned += prunedSub;
 
-    // 5. Offline blog comments older than retention
+    // 5. Offline blog comments older than retention (strictly preserve pending comments)
     final prunedComments = await driftDb.customUpdate(
-      "DELETE FROM offline_blog_comments WHERE created_at < ?",
+      "DELETE FROM offline_blog_comments WHERE created_at < ? AND sync_status != 'PENDING' AND id NOT IN (SELECT client_uuid FROM sync_outbox WHERE status = 'PENDING')",
       variables: [Variable.withString(cutoffIso)],
     );
     totalPruned += prunedComments;

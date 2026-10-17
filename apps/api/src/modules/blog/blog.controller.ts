@@ -45,6 +45,27 @@ export class BlogController {
         return this.blogService.listBlogs(user, { scope, classId, tag, search });
     }
 
+    @Get('reports')
+    @Roles(UserRole.SCHOOL_ADMIN, UserRole.SUPER_ADMIN)
+    @ApiOperation({ summary: 'List flagged blog reports (Admins only)' })
+    listReports(
+        @CurrentUser() user: JwtPayload,
+        @Query('blogId') blogId?: string,
+    ) {
+        return this.blogService.listReports(user, blogId);
+    }
+
+    @Patch('reports/:reportId')
+    @Roles(UserRole.SCHOOL_ADMIN, UserRole.SUPER_ADMIN)
+    @ApiOperation({ summary: 'Resolve or dismiss a blog report (Admins only)' })
+    resolveReport(
+        @CurrentUser() user: JwtPayload,
+        @Param('reportId') reportId: string,
+        @Body('status') status: 'RESOLVED' | 'DISMISSED',
+    ) {
+        return this.blogService.resolveReport(reportId, status, user);
+    }
+
     @Get(':id')
     @ApiOperation({ summary: 'Get educational blog post by ID with threaded comments and reactions' })
     getBlogById(@CurrentUser() user: JwtPayload, @Param('id') id: string) {
@@ -72,6 +93,26 @@ export class BlogController {
     @ApiOperation({ summary: 'Soft-delete an educational blog post' })
     deleteBlog(@CurrentUser() user: JwtPayload, @Param('id') id: string) {
         return this.blogService.deleteBlog(id, user);
+    }
+
+    @Post(':id/reactions')
+    @ApiOperation({ summary: 'Add or toggle academic reaction on a blog post or comment' })
+    toggleReaction(
+        @CurrentUser() user: JwtPayload,
+        @Param('id') id: string,
+        @Body() dto: ReactionDto,
+    ) {
+        return this.blogService.toggleReaction(id, dto, user);
+    }
+
+    @Delete(':id/reactions')
+    @ApiOperation({ summary: 'Remove academic reaction from a blog post or comment' })
+    removeReaction(
+        @CurrentUser() user: JwtPayload,
+        @Param('id') id: string,
+        @Query('commentId') commentId?: string,
+    ) {
+        return this.blogService.removeReaction(id, user, commentId);
     }
 
     @Post(':id/comments')
@@ -122,5 +163,15 @@ export class BlogController {
         @Body() dto: TakedownBlogDto,
     ) {
         return this.blogService.takedownBlog(id, dto, user);
+    }
+
+    @Patch(':id/restore')
+    @Roles(UserRole.SCHOOL_ADMIN, UserRole.SUPER_ADMIN)
+    @ApiOperation({ summary: 'Restore a taken-down educational blog post (School Admin / Super Admin)' })
+    restoreBlog(
+        @CurrentUser() user: JwtPayload,
+        @Param('id') id: string,
+    ) {
+        return this.blogService.restoreBlog(id, user);
     }
 }
