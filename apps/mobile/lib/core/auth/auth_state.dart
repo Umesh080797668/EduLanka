@@ -11,12 +11,14 @@ class AuthState {
   final String? role;
   final String? tenantId;
   final String? userId;
+  final String? tenantPlan;
 
   const AuthState({
     required this.status,
     this.role,
     this.tenantId,
     this.userId,
+    this.tenantPlan,
   });
 
   bool get isAuthenticated => status == AuthStatus.authenticated;
@@ -35,6 +37,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
     final role = await tokenStorage.getUserRole();
     final tenantId = await tokenStorage.getTenantId();
     final userId = await tokenStorage.getUserId();
+    final tenantPlan = await tokenStorage.getTenantPlan();
 
     if (token != null && role != null) {
       state = AuthState(
@@ -42,6 +45,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
         role: role.toUpperCase(),
         tenantId: tenantId,
         userId: userId,
+        tenantPlan: tenantPlan,
       );
     } else {
       state = const AuthState(status: AuthStatus.unauthenticated);
@@ -73,6 +77,9 @@ class AuthNotifier extends StateNotifier<AuthState> {
     final userId = user['id']?.toString() ?? '';
     final role = user['role']?.toString().toUpperCase() ?? 'STUDENT';
     final resolvedTenantId = user['tenantId']?.toString() ?? tenantId ?? '';
+    final resolvedTenantPlan = user['tenantPlan']?.toString() ??
+        user['plan']?.toString() ??
+        user['tenant']?['plan']?.toString();
 
     await setAuthenticated(
       accessToken: accessToken,
@@ -80,6 +87,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
       tenantId: resolvedTenantId,
       role: role,
       userId: userId,
+      tenantPlan: resolvedTenantPlan,
     );
   }
 
@@ -89,6 +97,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
     required String tenantId,
     required String role,
     required String userId,
+    String? tenantPlan,
   }) async {
     final prevUserId = await tokenStorage.getUserId();
     final prevTenantId = await tokenStorage.getTenantId();
@@ -105,6 +114,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
       tenantId: tenantId,
       role: role,
       userId: userId,
+      tenantPlan: tenantPlan,
     );
 
     state = AuthState(
@@ -112,6 +122,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
       role: role.toUpperCase(),
       tenantId: tenantId,
       userId: userId,
+      tenantPlan: tenantPlan,
     );
   }
 

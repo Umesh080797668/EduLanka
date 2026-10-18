@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../../l10n/app_localizations.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class TutorialStep {
@@ -173,11 +174,11 @@ class _TutorialDialogState extends State<_TutorialDialog> {
                 _currentStepIndex--;
               });
             },
-            child: const Text('Previous'),
+            child: Text(AppLocalizations.of(context)?.previous ?? 'Previous'),
           ),
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Skip'),
+          child: Text(AppLocalizations.of(context)?.skip ?? 'Skip'),
         ),
         ElevatedButton(
           style: ElevatedButton.styleFrom(

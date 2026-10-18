@@ -14,6 +14,7 @@ class TokenStorage {
   static const _keyUserRole = 'edulanka_user_role';
   static const _keyUserId = 'edulanka_user_id';
   static const _keyDeviceId = 'edulanka_device_id';
+  static const _keyTenantPlan = 'edulanka_tenant_plan';
 
   Future<void> saveTokens({
     required String accessToken,
@@ -21,14 +22,19 @@ class TokenStorage {
     required String tenantId,
     required String role,
     required String userId,
+    String? tenantPlan,
   }) async {
-    await Future.wait([
+    final futures = [
       _storage.write(key: _keyAccessToken, value: accessToken),
       _storage.write(key: _keyRefreshToken, value: refreshToken),
       _storage.write(key: _keyTenantId, value: tenantId),
       _storage.write(key: _keyUserRole, value: role),
       _storage.write(key: _keyUserId, value: userId),
-    ]);
+    ];
+    if (tenantPlan != null) {
+      futures.add(_storage.write(key: _keyTenantPlan, value: tenantPlan));
+    }
+    await Future.wait(futures);
   }
 
   Future<String?> getAccessToken() => _storage.read(key: _keyAccessToken);
@@ -36,6 +42,7 @@ class TokenStorage {
   Future<String?> getTenantId() => _storage.read(key: _keyTenantId);
   Future<String?> getUserRole() => _storage.read(key: _keyUserRole);
   Future<String?> getUserId() => _storage.read(key: _keyUserId);
+  Future<String?> getTenantPlan() => _storage.read(key: _keyTenantPlan);
 
   Future<String> getOrCreateDeviceId() async {
     final existing = await _storage.read(key: _keyDeviceId);

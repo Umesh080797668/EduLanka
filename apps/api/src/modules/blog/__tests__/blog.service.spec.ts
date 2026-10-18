@@ -731,6 +731,12 @@ describe('BlogService', () => {
                         }),
                     };
                 }
+                if (table === 'blog_reports') {
+                    return {
+                        update: jest.fn().mockReturnThis(),
+                        eq: jest.fn().mockReturnThis(),
+                    };
+                }
                 return { select: jest.fn().mockReturnThis() };
             });
 

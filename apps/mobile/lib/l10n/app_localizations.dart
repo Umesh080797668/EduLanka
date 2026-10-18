@@ -391,7 +391,7 @@ abstract class AppLocalizations {
   /// No description provided for @offlineVideos.
   ///
   /// In en, this message translates to:
-  /// **'Downloaded Video Lessons'**
+  /// **'Offline Library'**
   String get offlineVideos;
 
   /// No description provided for @downloadVideo.
@@ -705,6 +705,96 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Official marking scheme unavailable or not downloaded.'**
   String get markingSchemeUnavailable;
+
+  /// No description provided for @curriculumLessons.
+  ///
+  /// In en, this message translates to:
+  /// **'Online Lessons'**
+  String get curriculumLessons;
+
+  /// No description provided for @schemePaired.
+  ///
+  /// In en, this message translates to:
+  /// **'Scheme Paired'**
+  String get schemePaired;
+
+  /// No description provided for @paperOnly.
+  ///
+  /// In en, this message translates to:
+  /// **'Paper Only'**
+  String get paperOnly;
+
+  /// No description provided for @view.
+  ///
+  /// In en, this message translates to:
+  /// **'View'**
+  String get view;
+
+  /// No description provided for @play.
+  ///
+  /// In en, this message translates to:
+  /// **'Play'**
+  String get play;
+
+  /// No description provided for @download.
+  ///
+  /// In en, this message translates to:
+  /// **'Download'**
+  String get download;
+
+  /// No description provided for @change.
+  ///
+  /// In en, this message translates to:
+  /// **'Change'**
+  String get change;
+
+  /// No description provided for @submitWork.
+  ///
+  /// In en, this message translates to:
+  /// **'Submit Work'**
+  String get submitWork;
+
+  /// No description provided for @previous.
+  ///
+  /// In en, this message translates to:
+  /// **'Previous'**
+  String get previous;
+
+  /// No description provided for @skip.
+  ///
+  /// In en, this message translates to:
+  /// **'Skip'**
+  String get skip;
+
+  /// No description provided for @pending.
+  ///
+  /// In en, this message translates to:
+  /// **'Pending'**
+  String get pending;
+
+  /// No description provided for @planUpgradeRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'Plan Upgrade Required'**
+  String get planUpgradeRequired;
+
+  /// No description provided for @takeDown.
+  ///
+  /// In en, this message translates to:
+  /// **'Take Down'**
+  String get takeDown;
+
+  /// No description provided for @restore.
+  ///
+  /// In en, this message translates to:
+  /// **'Restore'**
+  String get restore;
+
+  /// No description provided for @submitReport.
+  ///
+  /// In en, this message translates to:
+  /// **'Submit Report'**
+  String get submitReport;
 }
 
 class _AppLocalizationsDelegate

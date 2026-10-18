@@ -1211,11 +1211,12 @@ export class BlogService {
             throw new BadRequestException('Failed to submit report');
         }
 
-        // 4. Atomic report count calculation from actual records (eliminates count race)
+        // 4. Atomic report count calculation from actual pending records (eliminates count race and ignores resolved reports)
         const { count } = await client
             .from('blog_reports')
             .select('*', { count: 'exact', head: true })
-            .eq('blog_id', id);
+            .eq('blog_id', id)
+            .eq('status', 'PENDING');
 
         const newReportCount = count ?? 1;
         const isFlagged = newReportCount >= 3;
@@ -1247,12 +1248,17 @@ export class BlogService {
         const client = this.supabase.adminClient;
         let query = client
             .from('blog_reports')
-            .select('*, blogs(id, title, tenant_id, school_name, scope, is_taken_down, is_flagged, author_id)')
+            .select('*, blogs!inner(id, title, tenant_id, school_name, scope, is_taken_down, is_flagged, author_id)')
             .order('created_at', { ascending: false });
 
         if (blogId) {
             assertUuid(blogId, 'blogId');
             query = query.eq('blog_id', blogId);
+        }
+
+        // Push school filter directly into SQL query
+        if (caller.role === UserRole.SCHOOL_ADMIN) {
+            query = query.eq('blogs.tenant_id', caller.tenantId);
         }
 
         const { data: reports, error } = await query;
@@ -1261,10 +1267,6 @@ export class BlogService {
             throw new BadRequestException('Failed to fetch blog reports');
         }
 
-        // Filter: SCHOOL_ADMIN can only view reports for their school's blogs
-        if (caller.role === UserRole.SCHOOL_ADMIN) {
-            return (reports ?? []).filter((r: any) => r.blogs?.tenant_id === caller.tenantId);
-        }
         return reports ?? [];
     }
 
@@ -1398,6 +1400,13 @@ export class BlogService {
         if (error || !data) {
             throw new BadRequestException('Failed to restore blog post');
         }
+
+        // Resolve existing pending reports so they do not immediately re-flag the blog on subsequent reports
+        await client
+            .from('blog_reports')
+            .update({ status: 'RESOLVED' })
+            .eq('blog_id', id)
+            .eq('status', 'PENDING');
 
         const isPlatform = blog.scope === BlogScope.PLATFORM;
         const targetTenantId = blog.tenant_id || caller.tenantId;

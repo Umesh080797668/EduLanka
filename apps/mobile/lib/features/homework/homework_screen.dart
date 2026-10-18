@@ -2,6 +2,8 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:path/path.dart' as p;
+import 'package:path_provider/path_provider.dart';
 import 'package:uuid/uuid.dart';
 import '../../core/api/api_client.dart';
 import '../../core/auth/auth_state.dart';
@@ -167,7 +169,7 @@ class _HomeworkScreenState extends ConsumerState<HomeworkScreen> {
                           setDialogState(() => selectedDate = picked);
                         }
                       },
-                      child: const Text('Change'),
+                      child: Text(l10n?.change ?? 'Change'),
                     ),
                   ),
                   const SizedBox(height: 12),
@@ -200,7 +202,14 @@ class _HomeworkScreenState extends ConsumerState<HomeworkScreen> {
                                   final result = await FilePicker.platform
                                       .pickFiles(
                                         allowMultiple: true,
-                                        type: FileType.any,
+                                        type: FileType.custom,
+                                        allowedExtensions: [
+                                          'jpg',
+                                          'jpeg',
+                                          'png',
+                                          'webp',
+                                          'pdf',
+                                        ],
                                       );
                                   if (result != null &&
                                       result.files.isNotEmpty) {
@@ -449,7 +458,14 @@ class _HomeworkScreenState extends ConsumerState<HomeworkScreen> {
                                   final result = await FilePicker.platform
                                       .pickFiles(
                                         allowMultiple: true,
-                                        type: FileType.any,
+                                        type: FileType.custom,
+                                        allowedExtensions: [
+                                          'jpg',
+                                          'jpeg',
+                                          'png',
+                                          'webp',
+                                          'pdf',
+                                        ],
                                       );
                                   if (result != null &&
                                       result.files.isNotEmpty) {
@@ -457,39 +473,67 @@ class _HomeworkScreenState extends ConsumerState<HomeworkScreen> {
                                     final apiClient = ref.read(
                                       apiClientProvider,
                                     );
+                                    final appDir =
+                                        await getApplicationDocumentsDirectory();
+                                    final offDir = Directory(
+                                      p.join(
+                                        appDir.path,
+                                        'offline_homework_attachments',
+                                      ),
+                                    );
+                                    if (!await offDir.exists()) {
+                                      await offDir.create(recursive: true);
+                                    }
+
                                     for (final f in result.files) {
-                                      String attachmentUrl = f.name;
-                                      if (f.path != null &&
-                                          File(f.path!).existsSync()) {
-                                        try {
-                                          attachmentUrl = await apiClient
-                                              .uploadAttachment(
-                                                filePath: f.path!,
-                                                fileName: f.name,
-                                              );
-                                        } catch (e) {
-                                          if (ctx.mounted) {
-                                            ScaffoldMessenger.of(
-                                              ctx,
-                                            ).showSnackBar(
-                                              SnackBar(
-                                                content: Text(
-                                                  'Failed to upload ${f.name}: $e',
-                                                ),
-                                              ),
+                                      if (f.path == null) continue;
+                                      final origFile = File(f.path!);
+                                      if (!origFile.existsSync()) continue;
+
+                                      final localCopyPath = p.join(
+                                        offDir.path,
+                                        '${const Uuid().v4()}_${f.name}',
+                                      );
+                                      await origFile.copy(localCopyPath);
+
+                                      String attachmentUrl = '';
+                                      try {
+                                        attachmentUrl = await apiClient
+                                            .uploadAttachment(
+                                              filePath: localCopyPath,
+                                              fileName: f.name,
                                             );
-                                          }
-                                          continue;
+                                      } catch (e) {
+                                        // Offline or network error: queued locally for background sync
+                                        if (ctx.mounted) {
+                                          ScaffoldMessenger.of(
+                                            ctx,
+                                          ).showSnackBar(
+                                            SnackBar(
+                                              content: Text(
+                                                '${f.name} cached locally. Will upload during sync.',
+                                              ),
+                                              duration: const Duration(
+                                                seconds: 2,
+                                              ),
+                                            ),
+                                          );
                                         }
                                       }
+
                                       solutionAttachments.add({
                                         'name': f.name,
                                         'url': attachmentUrl,
-                                        'path': f.path,
+                                        'localPath': localCopyPath,
                                         'size': f.size,
                                         'type':
                                             f.extension != null &&
-                                                ['jpg', 'jpeg', 'png'].contains(
+                                                [
+                                                  'jpg',
+                                                  'jpeg',
+                                                  'png',
+                                                  'webp',
+                                                ].contains(
                                                   f.extension!.toLowerCase(),
                                                 )
                                             ? 'image'
@@ -592,9 +636,17 @@ class _HomeworkScreenState extends ConsumerState<HomeworkScreen> {
 
                         try {
                           final apiClient = ref.read(apiClientProvider);
+                          final sanitizedAttachments = solutionAttachments.map((
+                            a,
+                          ) {
+                            final copy = Map<String, dynamic>.from(a);
+                            copy.remove('path');
+                            copy.remove('localPath');
+                            return copy;
+                          }).toList();
                           await apiClient.submitHomework(taskId, {
                             'content': content,
-                            'attachments': solutionAttachments,
+                            'attachments': sanitizedAttachments,
                             'clientUuid': clientUuid,
                           });
                           if (ctx.mounted) Navigator.of(ctx).pop();
@@ -764,7 +816,10 @@ class _HomeworkScreenState extends ConsumerState<HomeworkScreen> {
                                     onPressed: () => _openGradingDialog(
                                       sub['id']?.toString() ?? '',
                                     ),
-                                    child: const Text('Grade'),
+                                    child: Text(
+                                      AppLocalizations.of(context)?.grade ??
+                                          'Grade',
+                                    ),
                                   ),
                           ),
                         );
@@ -950,9 +1005,10 @@ class _HomeworkScreenState extends ConsumerState<HomeworkScreen> {
                                             : const Color(0xFFDBEAFE),
                                       )
                                     else if (!isTeacher)
-                                      const Chip(
-                                        label: Text('Pending'),
-                                        backgroundColor: Color(0xFFFEF3C7),
+                                      Chip(
+                                        label: Text(l10n?.pending ?? 'Pending'),
+                                        backgroundColor:
+                                            const Color(0xFFFEF3C7),
                                       ),
                                   ],
                                 ),
@@ -1041,7 +1097,9 @@ class _HomeworkScreenState extends ConsumerState<HomeworkScreen> {
                                           Icons.people_outline,
                                           size: 16,
                                         ),
-                                        label: const Text('Submissions'),
+                                        label: Text(
+                                          l10n?.submissions ?? 'Submissions',
+                                        ),
                                         onPressed: () =>
                                             _viewSubmissionsDialog(task),
                                       )
@@ -1051,7 +1109,9 @@ class _HomeworkScreenState extends ConsumerState<HomeworkScreen> {
                                           Icons.upload_file,
                                           size: 16,
                                         ),
-                                        label: const Text('Submit Work'),
+                                        label: Text(
+                                          l10n?.submitWork ?? 'Submit Work',
+                                        ),
                                         onPressed: () =>
                                             _openSubmitHomeworkDialog(task),
                                       ),

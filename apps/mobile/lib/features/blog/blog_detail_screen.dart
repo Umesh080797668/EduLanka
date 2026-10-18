@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/api/api_client.dart';
 import '../../core/auth/auth_state.dart';
 import '../../core/database/local_database.dart';
+import '../../l10n/app_localizations.dart';
 
 class BlogDetailScreen extends ConsumerStatefulWidget {
   final Map<String, dynamic> blog;
@@ -176,12 +177,14 @@ class _BlogDetailScreenState extends ConsumerState<BlogDetailScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel'),
+            child: Text(AppLocalizations.of(ctx)?.cancel ?? 'Cancel'),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Submit Report'),
+            child: Text(
+              AppLocalizations.of(ctx)?.submitReport ?? 'Submit Report',
+            ),
           ),
         ],
       ),
@@ -251,14 +254,14 @@ class _BlogDetailScreenState extends ConsumerState<BlogDetailScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel'),
+            child: Text(AppLocalizations.of(ctx)?.cancel ?? 'Cancel'),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.orangeAccent,
             ),
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Take Down'),
+            child: Text(AppLocalizations.of(ctx)?.takeDown ?? 'Take Down'),
           ),
         ],
       ),
@@ -300,9 +303,9 @@ class _BlogDetailScreenState extends ConsumerState<BlogDetailScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: const Color(0xFF1E293B),
-        title: const Text(
-          'Restore Article',
-          style: TextStyle(color: Colors.white),
+        title: Text(
+          AppLocalizations.of(ctx)?.restoreArticle ?? 'Restore Article',
+          style: const TextStyle(color: Colors.white),
         ),
         content: const Text(
           'Are you sure you want to restore and republish this blog article?',
@@ -311,12 +314,12 @@ class _BlogDetailScreenState extends ConsumerState<BlogDetailScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel'),
+            child: Text(AppLocalizations.of(ctx)?.cancel ?? 'Cancel'),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Restore'),
+            child: Text(AppLocalizations.of(ctx)?.restore ?? 'Restore'),
           ),
         ],
       ),
@@ -444,51 +447,52 @@ class _BlogDetailScreenState extends ConsumerState<BlogDetailScreen> {
               }
             },
             itemBuilder: (ctx) {
+              final l10n = AppLocalizations.of(ctx);
               final isAdmin =
                   userRole == 'SCHOOL_ADMIN' || userRole == 'SUPER_ADMIN';
               final isPublished = _blog['is_published'] != false;
               return [
-                const PopupMenuItem(
+                PopupMenuItem(
                   value: 'report',
                   child: Row(
                     children: [
-                      Icon(
+                      const Icon(
                         Icons.flag_outlined,
                         size: 20,
                         color: Colors.amberAccent,
                       ),
-                      SizedBox(width: 8),
-                      Text('Report Article'),
+                      const SizedBox(width: 8),
+                      Text(l10n?.reportArticle ?? 'Report Article'),
                     ],
                   ),
                 ),
                 if (isAdmin && isPublished)
-                  const PopupMenuItem(
+                  PopupMenuItem(
                     value: 'takedown',
                     child: Row(
                       children: [
-                        Icon(
+                        const Icon(
                           Icons.shield_outlined,
                           size: 20,
                           color: Colors.orangeAccent,
                         ),
-                        SizedBox(width: 8),
-                        Text('Takedown Article'),
+                        const SizedBox(width: 8),
+                        Text(l10n?.takedownArticle ?? 'Takedown Article'),
                       ],
                     ),
                   ),
                 if (isAdmin && !isPublished)
-                  const PopupMenuItem(
+                  PopupMenuItem(
                     value: 'restore',
                     child: Row(
                       children: [
-                        Icon(
+                        const Icon(
                           Icons.restore_outlined,
                           size: 20,
                           color: Colors.greenAccent,
                         ),
-                        SizedBox(width: 8),
-                        Text('Restore Article'),
+                        const SizedBox(width: 8),
+                        Text(l10n?.restoreArticle ?? 'Restore Article'),
                       ],
                     ),
                   ),

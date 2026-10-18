@@ -30,7 +30,7 @@ class AppLocalizationsSi extends AppLocalizations {
   String get offlineMode => 'නොබැඳි මාදිලිය ක්‍රියාත්මකයි';
 
   @override
-  String get offlineReady => 'නොබැඳි භාවිතයට සූදානම්';
+  String get offlineReady => 'නොබැඳිව සූදානම්';
 
   @override
   String get syncChanges => 'වෙනස්කම් සමමුහුර්ත කරන්න';
@@ -155,7 +155,7 @@ class AppLocalizationsSi extends AppLocalizations {
   String get noPapersFound => 'මෙම තේරීම සඳහා ප්‍රශ්න පත්‍ර හමු නොවීය.';
 
   @override
-  String get offlineVideos => 'බාගත කළ වීඩියෝ පාඩම්';
+  String get offlineVideos => 'නොබැඳි පුස්තකාලය';
 
   @override
   String get downloadVideo => 'නොබැඳි භාවිතය සඳහා බාගත කරන්න';
@@ -318,4 +318,49 @@ class AppLocalizationsSi extends AppLocalizations {
   @override
   String get markingSchemeUnavailable =>
       'නිල ලකුණු ලබාදීමේ පටිපාටිය නොමැත හෝ බාගත කර නොමැත.';
+
+  @override
+  String get curriculumLessons => 'මාර්ගගත පාඩම්';
+
+  @override
+  String get schemePaired => 'ලකුණු පටිපාටිය සහිතයි';
+
+  @override
+  String get paperOnly => 'ප්‍රශ්න පත්‍රය පමණි';
+
+  @override
+  String get view => 'බලන්න';
+
+  @override
+  String get play => 'ධාවනය';
+
+  @override
+  String get download => 'බාගන්න';
+
+  @override
+  String get change => 'වෙනස් කරන්න';
+
+  @override
+  String get submitWork => 'පැවරුම භාර දෙන්න';
+
+  @override
+  String get previous => 'පෙර';
+
+  @override
+  String get skip => 'මගහරින්න';
+
+  @override
+  String get pending => 'පොරොත්තුවේ';
+
+  @override
+  String get planUpgradeRequired => 'සැලසුම උත්ශ්‍රේණි කිරීම අවශ්‍යයි';
+
+  @override
+  String get takeDown => 'ඉවත් කරන්න';
+
+  @override
+  String get restore => 'නැවත ස්ථාපිත කරන්න';
+
+  @override
+  String get submitReport => 'වාර්තාව ඉදිරිපත් කරන්න';
 }

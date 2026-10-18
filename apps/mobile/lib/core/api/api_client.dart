@@ -498,6 +498,86 @@ class ApiClient {
     return {};
   }
 
+  // ── Media & Curriculum Lessons (P3-S5, P3-S6) ──────────────────────────
+
+  Future<Map<String, dynamic>> getMediaAssets({
+    int page = 1,
+    int limit = 20,
+    String? subject,
+    int? gradeLevel,
+  }) async {
+    final response = await dio.get(
+      '/media',
+      queryParameters: {
+        'page': page,
+        'limit': limit,
+        if (subject != null && subject.isNotEmpty) 'subject': subject,
+        'gradeLevel': ?gradeLevel,
+      },
+    );
+    final rawData = response.data;
+    if (rawData is Map<String, dynamic>) {
+      return rawData;
+    } else if (rawData is Map) {
+      return Map<String, dynamic>.from(rawData);
+    }
+    return {'data': [], 'count': 0};
+  }
+
+  Future<Map<String, dynamic>> getMediaAssetById(String id) async {
+    final response = await dio.get('/media/$id');
+    final rawData = response.data;
+    if (rawData is Map && rawData['data'] is Map) {
+      return Map<String, dynamic>.from(rawData['data']);
+    } else if (rawData is Map) {
+      return Map<String, dynamic>.from(rawData);
+    }
+    return {};
+  }
+
+  // ── Past Paper Hub & Schemes (P3-S7) ──────────────────────────────────
+
+  Future<Map<String, dynamic>> getPapers({
+    int page = 1,
+    int limit = 20,
+    String? subject,
+    int? gradeLevel,
+    String? examType,
+    String? medium,
+    int? year,
+  }) async {
+    final response = await dio.get(
+      '/papers',
+      queryParameters: {
+        'page': page,
+        'limit': limit,
+        if (subject != null && subject.isNotEmpty) 'subject': subject,
+        'gradeLevel': ?gradeLevel,
+        if (examType != null && examType.isNotEmpty) 'examType': examType,
+        if (medium != null && medium.isNotEmpty) 'medium': medium,
+        'year': ?year,
+      },
+    );
+    final rawData = response.data;
+    if (rawData is Map<String, dynamic>) {
+      return rawData;
+    } else if (rawData is Map) {
+      return Map<String, dynamic>.from(rawData);
+    }
+    return {'data': [], 'count': 0};
+  }
+
+  Future<Map<String, dynamic>> getPaperById(String id) async {
+    final response = await dio.get('/papers/$id');
+    final rawData = response.data;
+    if (rawData is Map && rawData['data'] is Map) {
+      return Map<String, dynamic>.from(rawData['data']);
+    } else if (rawData is Map) {
+      return Map<String, dynamic>.from(rawData);
+    }
+    return {};
+  }
+
   // ── Media & Attachment Upload ───────────────────────────────────────
 
   Future<String> uploadAttachment({
@@ -521,12 +601,30 @@ class ApiClient {
               ? Map<String, dynamic>.from(rawSig)
               : <String, dynamic>{});
 
-    final cloudName = sig['cloudName']?.toString() ?? 'edulanka';
+    final cloudName = sig['cloudName']?.toString();
+    if (cloudName == null || cloudName.isEmpty) {
+      throw StateError('Missing cloudName in upload signature response');
+    }
     final apiKey = sig['apiKey']?.toString() ?? '';
     final timestamp = sig['timestamp']?.toString() ?? '';
     final signature = sig['signature']?.toString() ?? '';
     final folder = sig['folder']?.toString() ?? '';
     final uploadPreset = sig['uploadPreset']?.toString();
+    final allowedFormats = sig['allowedFormats']?.toString();
+
+    // Validate format against allowed formats
+    if (allowedFormats != null && allowedFormats.isNotEmpty) {
+      final ext = file.path.split('.').last.toLowerCase();
+      final allowedList = allowedFormats
+          .split(',')
+          .map((s) => s.trim().toLowerCase())
+          .toList();
+      if (!allowedList.contains(ext)) {
+        throw FormatException(
+          'Unsupported file format .$ext. Allowed formats: $allowedFormats',
+        );
+      }
+    }
 
     // 2. Direct device-to-Cloudinary signed upload
     final uploadDio = Dio(
@@ -546,6 +644,8 @@ class ApiClient {
       'timestamp': timestamp,
       'signature': signature,
       'folder': folder,
+      if (allowedFormats != null && allowedFormats.isNotEmpty)
+        'allowed_formats': allowedFormats,
       if (uploadPreset != null && uploadPreset.isNotEmpty)
         'upload_preset': uploadPreset,
     });

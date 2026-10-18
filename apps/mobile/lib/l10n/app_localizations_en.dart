@@ -155,7 +155,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get noPapersFound => 'No past papers found for this selection.';
 
   @override
-  String get offlineVideos => 'Downloaded Video Lessons';
+  String get offlineVideos => 'Offline Library';
 
   @override
   String get downloadVideo => 'Download Lesson for Offline';
@@ -317,4 +317,49 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get markingSchemeUnavailable =>
       'Official marking scheme unavailable or not downloaded.';
+
+  @override
+  String get curriculumLessons => 'Online Lessons';
+
+  @override
+  String get schemePaired => 'Scheme Paired';
+
+  @override
+  String get paperOnly => 'Paper Only';
+
+  @override
+  String get view => 'View';
+
+  @override
+  String get play => 'Play';
+
+  @override
+  String get download => 'Download';
+
+  @override
+  String get change => 'Change';
+
+  @override
+  String get submitWork => 'Submit Work';
+
+  @override
+  String get previous => 'Previous';
+
+  @override
+  String get skip => 'Skip';
+
+  @override
+  String get pending => 'Pending';
+
+  @override
+  String get planUpgradeRequired => 'Plan Upgrade Required';
+
+  @override
+  String get takeDown => 'Take Down';
+
+  @override
+  String get restore => 'Restore';
+
+  @override
+  String get submitReport => 'Submit Report';
 }

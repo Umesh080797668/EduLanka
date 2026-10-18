@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsNotEmpty, IsString, MaxLength } from 'class-validator';
+import { IsIn, IsNotEmpty, IsString, MaxLength } from 'class-validator';
 
 export class ReportBlogDto {
     @ApiProperty({ description: 'Reason for reporting this blog post', example: 'Inappropriate language or academic misconduct' })
@@ -7,4 +7,11 @@ export class ReportBlogDto {
     @IsNotEmpty()
     @MaxLength(500)
     reason!: string;
+}
+
+export class ResolveReportDto {
+    @ApiProperty({ description: 'Resolution status for this blog report', enum: ['RESOLVED', 'DISMISSED'] })
+    @IsString()
+    @IsIn(['RESOLVED', 'DISMISSED'])
+    status!: 'RESOLVED' | 'DISMISSED';
 }

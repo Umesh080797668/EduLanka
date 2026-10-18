@@ -257,6 +257,9 @@ export class AttendanceService {
         }
 
         if (conflictLogs.length > 0) {
+            this.logger.warn(
+                `Detected and resolved ${conflictLogs.length} REST attendance conflict(s) for class ${dto.classId} on ${dto.date} (CLIENT_WINS)`,
+            );
             const { error: logErr } = await client
                 .from('attendance_conflicts_log')
                 .insert(conflictLogs);

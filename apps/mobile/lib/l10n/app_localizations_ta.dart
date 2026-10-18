@@ -30,7 +30,7 @@ class AppLocalizationsTa extends AppLocalizations {
   String get offlineMode => 'ஆஃப்லைன் பயன்முறை இயங்குகிறது';
 
   @override
-  String get offlineReady => 'ஆஃப்லைன் தயாராக உள்ளது';
+  String get offlineReady => 'ஆஃப்லைனில் தயார்';
 
   @override
   String get syncChanges => 'தரவை ஒத்திசைக்கவும்';
@@ -134,7 +134,7 @@ class AppLocalizationsTa extends AppLocalizations {
   String get markingScheme => 'புள்ளி வழங்கும் முறை';
 
   @override
-  String get grade => 'தரம்';
+  String get grade => 'வகுப்பு';
 
   @override
   String get subject => 'பாடம்';
@@ -156,7 +156,7 @@ class AppLocalizationsTa extends AppLocalizations {
       'இந்தத் தேர்வுக்கு வினாத்தாள்கள் எதுவும் கிடைக்கவில்லை.';
 
   @override
-  String get offlineVideos => 'பதிவிறக்கப்பட்ட வீடியோ பாடங்கள்';
+  String get offlineVideos => 'ஆஃப்லைன் நூலகம்';
 
   @override
   String get downloadVideo => 'ஆஃப்லைன் பயன்பாட்டிற்கு பதிவிறக்குக';
@@ -322,4 +322,49 @@ class AppLocalizationsTa extends AppLocalizations {
   @override
   String get markingSchemeUnavailable =>
       'அதிகாரப்பூர்வ புள்ளி வழங்கும் முறை கிடைக்கவில்லை அல்லது பதிவிறக்கப்படவில்லை.';
+
+  @override
+  String get curriculumLessons => 'இணையப் பாடங்கள்';
+
+  @override
+  String get schemePaired => 'புள்ளித் திட்டம் இணைக்கப்பட்டது';
+
+  @override
+  String get paperOnly => 'வினாத்தாள் மட்டும்';
+
+  @override
+  String get view => 'பார்க்க';
+
+  @override
+  String get play => 'இயக்க';
+
+  @override
+  String get download => 'பதிவிறக்க';
+
+  @override
+  String get change => 'மாற்று';
+
+  @override
+  String get submitWork => 'பணியை சமர்ப்பிக்கவும்';
+
+  @override
+  String get previous => 'முந்தைய';
+
+  @override
+  String get skip => 'தவிர்';
+
+  @override
+  String get pending => 'நிலுவையில்';
+
+  @override
+  String get planUpgradeRequired => 'திட்ட மேம்படுத்தல் தேவை';
+
+  @override
+  String get takeDown => 'நீக்கு';
+
+  @override
+  String get restore => 'மீட்டெடு';
+
+  @override
+  String get submitReport => 'புகாரை சமர்ப்பிக்கவும்';
 }

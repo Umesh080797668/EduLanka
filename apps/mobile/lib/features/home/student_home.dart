@@ -194,36 +194,16 @@ class _StudentHomeScreenState extends ConsumerState<StudentHomeScreen> {
               _buildFeatureCard(
                 icon: Icons.video_collection_rounded,
                 title: l10n?.videoLessons ?? 'Video Lessons',
-                subtitle: 'Offline Curriculum Playback',
+                subtitle: 'Curriculum & Offline Library',
                 color: const Color(0xFF3B82F6),
-                onTap: () {
-                  context.push(
-                    '/video-player',
-                    extra: {
-                      'title': 'Science Grade 10 — Lesson 01',
-                      'videoUrl':
-                          'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
-                    },
-                  );
-                },
+                onTap: () => context.push('/media'),
               ),
               _buildFeatureCard(
                 icon: Icons.assignment_outlined,
                 title: l10n?.pastPaperHub ?? 'Past Paper Hub',
                 subtitle: 'Paired Marking Schemes',
                 color: const Color(0xFF10B981),
-                onTap: () {
-                  context.push(
-                    '/paper-viewer',
-                    extra: {
-                      'title': 'O/L Mathematics Model Paper',
-                      'paperUrl':
-                          'https://cdn.syncfusion.com/content/PDFViewer/flutter-succinctly.pdf',
-                      'markingSchemeUrl':
-                          'https://cdn.syncfusion.com/content/PDFViewer/flutter-succinctly.pdf',
-                    },
-                  );
-                },
+                onTap: () => context.push('/papers'),
               ),
               _buildFeatureCard(
                 icon: Icons.assignment_turned_in_outlined,

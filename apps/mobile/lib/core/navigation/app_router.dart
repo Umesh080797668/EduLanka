@@ -9,7 +9,9 @@ import '../../features/home/student_home.dart';
 import '../../features/home/teacher_home.dart';
 import '../../features/home/parent_home.dart';
 import '../../features/papers/paper_viewer_screen.dart';
+import '../../features/papers/paper_hub_list_screen.dart';
 import '../../features/video/video_player_screen.dart';
+import '../../features/video/media_list_screen.dart';
 import '../../features/homework/homework_screen.dart';
 import '../../features/chat/chat_screen.dart';
 import '../../features/blog/blog_list_screen.dart';
@@ -86,6 +88,14 @@ final routerProvider = Provider<GoRouter>((ref) {
                 extra['schemePath'] as String?,
           );
         },
+      ),
+      GoRoute(
+        path: '/papers',
+        builder: (context, state) => const PaperHubListScreen(),
+      ),
+      GoRoute(
+        path: '/media',
+        builder: (context, state) => const MediaListScreen(),
       ),
       GoRoute(
         path: '/video-player',

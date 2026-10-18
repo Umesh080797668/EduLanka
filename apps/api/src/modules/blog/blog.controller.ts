@@ -23,7 +23,7 @@ import { UpdateBlogDto } from './dto/update-blog.dto';
 import { CreateCommentDto } from './dto/create-comment.dto';
 import { ReactionDto } from './dto/reaction.dto';
 import { ModerateCommentDto } from './dto/moderate-comment.dto';
-import { ReportBlogDto } from './dto/report-blog.dto';
+import { ReportBlogDto, ResolveReportDto } from './dto/report-blog.dto';
 import { TakedownBlogDto } from './dto/takedown-blog.dto';
 
 @ApiTags('Educational Blogs & Academic Discourse')
@@ -61,9 +61,9 @@ export class BlogController {
     resolveReport(
         @CurrentUser() user: JwtPayload,
         @Param('reportId') reportId: string,
-        @Body('status') status: 'RESOLVED' | 'DISMISSED',
+        @Body() dto: ResolveReportDto,
     ) {
-        return this.blogService.resolveReport(reportId, status, user);
+        return this.blogService.resolveReport(reportId, dto.status, user);
     }
 
     @Get(':id')

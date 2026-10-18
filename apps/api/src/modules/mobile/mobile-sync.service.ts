@@ -805,13 +805,13 @@ export class MobileSyncService {
                 .select('offline_retention_days')
                 .eq('code', planCode)
                 .maybeSingle();
-            if (typeof planInfo?.offline_retention_days === 'number' && planInfo.offline_retention_days > 0) {
+            if (typeof planInfo?.offline_retention_days === 'number') {
                 retentionDays = planInfo.offline_retention_days;
             } else {
-                retentionDays = planCode === 'INSTITUTIONAL' ? 90 : (planCode === 'GROWTH' ? 30 : 7);
+                retentionDays = (planCode === 'GROWTH' || planCode === 'INSTITUTIONAL') ? 0 : 7;
             }
         } catch {
-            retentionDays = 30;
+            retentionDays = 7;
         }
 
         return {
@@ -882,7 +882,7 @@ export class MobileSyncService {
         const policy = await getTenantSchoolPolicy(this.supabase, caller.tenantId);
 
         const nowSec = Math.floor(Date.now() / 1000);
-        const validitySec = retentionDays * 24 * 3600;
+        const validitySec = (retentionDays > 0 ? retentionDays : 90) * 24 * 3600;
         const expiresAtSec = nowSec + validitySec;
 
         const licensePayload = {

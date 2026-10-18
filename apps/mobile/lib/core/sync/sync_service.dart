@@ -115,12 +115,46 @@ class SyncService {
       final payload = jsonDecode(payloadStr) as Map<String, dynamic>;
 
       try {
+        final outboundPayload = Map<String, dynamic>.from(payload);
+
+        // Upload any offline homework attachments to Cloudinary before syncing
+        if (entityType == 'homework_submission' &&
+            outboundPayload['attachments'] is List) {
+          final attList = outboundPayload['attachments'] as List;
+          final sanitizedList = <Map<String, dynamic>>[];
+          for (final rawAtt in attList) {
+            if (rawAtt is Map) {
+              final att = Map<String, dynamic>.from(rawAtt);
+              final localPath =
+                  att['localPath']?.toString() ?? att['path']?.toString();
+              String currentUrl = att['url']?.toString() ?? '';
+
+              if (!currentUrl.startsWith('http') &&
+                  localPath != null &&
+                  File(localPath).existsSync()) {
+                final cloudUrl = await apiClient.uploadAttachment(
+                  filePath: localPath,
+                  fileName: att['name']?.toString(),
+                );
+                currentUrl = cloudUrl;
+                att['url'] = cloudUrl;
+              }
+
+              // Strictly drop path and localPath from the payload sent over the wire
+              att.remove('path');
+              att.remove('localPath');
+              sanitizedList.add(att);
+            }
+          }
+          outboundPayload['attachments'] = sanitizedList;
+        }
+
         final res = await apiClient.appendSyncEvent(
           clientUuid: clientUuid,
           entityType: entityType,
           entityId: entityId,
           eventType: eventType,
-          payload: payload,
+          payload: outboundPayload,
         );
 
         final seq = res['sequence'] is int ? res['sequence'] as int : null;
