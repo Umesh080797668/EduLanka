@@ -248,7 +248,7 @@ class DownloadManager extends StateNotifier<Map<String, DownloadTask>> {
   }
 
   /// Direct download start for custom tasks or test runners
-  Future<void> startDownload({
+  Future<DownloadTask> startDownload({
     required String id,
     required String title,
     required String remoteUrl,
@@ -292,6 +292,40 @@ class DownloadManager extends StateNotifier<Map<String, DownloadTask>> {
     state = {...state, id: task};
 
     _processQueue();
+    return task;
+  }
+
+  /// Waits until the download task with [id] completes or fails
+  Future<DownloadTask> waitForCompletion(
+    String id, {
+    Duration timeout = const Duration(minutes: 5),
+  }) async {
+    final current = state[id];
+    if (current != null && current.status == DownloadStatus.completed) {
+      return current;
+    }
+    if (current != null && current.status == DownloadStatus.failed) {
+      throw Exception(current.error ?? 'Download failed');
+    }
+
+    final completer = Completer<DownloadTask>();
+    final removeListener = addListener((tasks) {
+      final t = tasks[id];
+      if (t == null) return;
+      if (t.status == DownloadStatus.completed) {
+        if (!completer.isCompleted) completer.complete(t);
+      } else if (t.status == DownloadStatus.failed) {
+        if (!completer.isCompleted) {
+          completer.completeError(Exception(t.error ?? 'Download failed'));
+        }
+      }
+    });
+
+    try {
+      return await completer.future.timeout(timeout);
+    } finally {
+      removeListener();
+    }
   }
 
   /// Pauses an active download via CancelToken

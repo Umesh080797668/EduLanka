@@ -144,17 +144,18 @@ class _BlogDetailScreenState extends ConsumerState<BlogDetailScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: const Color(0xFF1E293B),
-        title: const Text(
-          'Report Article',
-          style: TextStyle(color: Colors.white),
+        title: Text(
+          AppLocalizations.of(ctx)?.reportArticle ?? 'Report Article',
+          style: const TextStyle(color: Colors.white),
         ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'Please provide a reason for flagging this article for academic review:',
-              style: TextStyle(color: Colors.white70, fontSize: 13),
+            Text(
+              AppLocalizations.of(ctx)?.reportReasonPrompt ??
+                  'Please provide a reason for flagging this article for academic review:',
+              style: const TextStyle(color: Colors.white70, fontSize: 13),
             ),
             const SizedBox(height: 12),
             TextField(
@@ -199,14 +200,23 @@ class _BlogDetailScreenState extends ConsumerState<BlogDetailScreen> {
         );
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Report submitted for review.')),
+            SnackBar(
+              content: Text(
+                AppLocalizations.of(context)?.reportSubmitted ??
+                    'Report submitted for review.',
+              ),
+            ),
           );
         }
       } catch (e) {
         if (mounted) {
-          String msg = 'Failed to submit report';
+          String msg =
+              AppLocalizations.of(context)?.errorActionFailed ??
+              'Failed to submit report';
           if (e is DioException && e.response?.statusCode == 409) {
-            msg = 'You have already reported this blog post.';
+            msg =
+                AppLocalizations.of(context)?.alreadyReported ??
+                'You have already reported this blog post.';
           }
           ScaffoldMessenger.of(
             context,
@@ -222,17 +232,18 @@ class _BlogDetailScreenState extends ConsumerState<BlogDetailScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: const Color(0xFF1E293B),
-        title: const Text(
-          'Takedown Article',
-          style: TextStyle(color: Colors.white),
+        title: Text(
+          AppLocalizations.of(ctx)?.takedownArticle ?? 'Takedown Article',
+          style: const TextStyle(color: Colors.white),
         ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'Specify administrative justification for unpublishing this article:',
-              style: TextStyle(color: Colors.white70, fontSize: 13),
+            Text(
+              AppLocalizations.of(ctx)?.takedownReasonPrompt ??
+                  'Specify administrative justification for unpublishing this article:',
+              style: const TextStyle(color: Colors.white70, fontSize: 13),
             ),
             const SizedBox(height: 12),
             TextField(
@@ -283,16 +294,24 @@ class _BlogDetailScreenState extends ConsumerState<BlogDetailScreen> {
         });
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Article taken down and unpublished.'),
+            SnackBar(
+              content: Text(
+                AppLocalizations.of(context)?.articleTakenDown ??
+                    'Article taken down and unpublished.',
+              ),
             ),
           );
         }
       } catch (e) {
         if (mounted) {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(SnackBar(content: Text('Takedown failed: $e')));
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                AppLocalizations.of(context)?.errorActionFailed ??
+                    'Takedown failed: $e',
+              ),
+            ),
+          );
         }
       }
     }
@@ -307,9 +326,10 @@ class _BlogDetailScreenState extends ConsumerState<BlogDetailScreen> {
           AppLocalizations.of(ctx)?.restoreArticle ?? 'Restore Article',
           style: const TextStyle(color: Colors.white),
         ),
-        content: const Text(
-          'Are you sure you want to restore and republish this blog article?',
-          style: TextStyle(color: Colors.white70),
+        content: Text(
+          AppLocalizations.of(ctx)?.restoreArticleConfirm ??
+              'Are you sure you want to restore and republish this blog article?',
+          style: const TextStyle(color: Colors.white70),
         ),
         actions: [
           TextButton(
@@ -334,14 +354,24 @@ class _BlogDetailScreenState extends ConsumerState<BlogDetailScreen> {
         });
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Article restored successfully.')),
+            SnackBar(
+              content: Text(
+                AppLocalizations.of(context)?.articleRestored ??
+                    'Article restored successfully.',
+              ),
+            ),
           );
         }
       } catch (e) {
         if (mounted) {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(SnackBar(content: Text('Restore failed: $e')));
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                AppLocalizations.of(context)?.errorActionFailed ??
+                    'Restore failed: $e',
+              ),
+            ),
+          );
         }
       }
     }
@@ -396,9 +426,14 @@ class _BlogDetailScreenState extends ConsumerState<BlogDetailScreen> {
       _loadBlogDetail();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Moderation action failed: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              AppLocalizations.of(context)?.errorActionFailed ??
+                  'Moderation action failed. Please try again.',
+            ),
+          ),
+        );
       }
     }
   }
@@ -660,7 +695,8 @@ class _BlogDetailScreenState extends ConsumerState<BlogDetailScreen> {
                         padding: const EdgeInsets.symmetric(vertical: 24),
                         child: Center(
                           child: Text(
-                            'No comments yet. Start the academic discourse below!',
+                            AppLocalizations.of(context)?.noCommentsYet ??
+                                'No comments yet. Start the academic discourse below!',
                             style: const TextStyle(
                               color: Color(0xFF94A3B8),
                               fontSize: 14,
@@ -857,9 +893,9 @@ class _BlogDetailScreenState extends ConsumerState<BlogDetailScreen> {
                 _replyingToAuthor = authorName;
               });
             },
-            child: const Text(
-              'Reply',
-              style: TextStyle(
+            child: Text(
+              AppLocalizations.of(context)?.reply ?? 'Reply',
+              style: const TextStyle(
                 color: Color(0xFF38BDF8),
                 fontSize: 12,
                 fontWeight: FontWeight.bold,

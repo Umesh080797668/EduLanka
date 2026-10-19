@@ -41,6 +41,10 @@ class SyncService {
   Timer? _periodicTimer;
   bool _isSyncing = false;
   int? _planRetentionDays;
+  int? _videoRetentionDays;
+
+  int? get planRetentionDays => _planRetentionDays;
+  int? get videoRetentionDays => _videoRetentionDays;
 
   // Exponential backoff configuration
   int _currentBackoffMs = 2000;
@@ -331,8 +335,13 @@ class SyncService {
     try {
       final pack = await apiClient.getDisasterPack();
       final license = pack['license'] is Map ? pack['license'] as Map : null;
-      if (license != null && license['retentionDays'] is int) {
-        _planRetentionDays = license['retentionDays'] as int;
+      if (license != null) {
+        if (license['retentionDays'] is int) {
+          _planRetentionDays = license['retentionDays'] as int;
+        }
+        if (license['videoRetentionDays'] is int) {
+          _videoRetentionDays = license['videoRetentionDays'] as int;
+        }
       }
       final contacts = pack['emergencyContacts'] is List
           ? pack['emergencyContacts'] as List

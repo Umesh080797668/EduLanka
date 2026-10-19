@@ -9,6 +9,7 @@ import '../../core/api/api_client.dart';
 import '../../core/auth/auth_state.dart';
 import '../../core/database/local_database.dart';
 import '../../core/download/download_manager.dart';
+import '../../core/sync/sync_service.dart';
 import '../../l10n/app_localizations.dart';
 import '../tutorial/tutorial_engine.dart';
 
@@ -104,6 +105,31 @@ class _PaperHubListScreenState extends ConsumerState<PaperHubListScreen> {
 
       if (await dirEntity.exists()) {
         final files = dirEntity.listSync();
+        for (final f in files) {
+          if (f is File) {
+            final filename = p.basename(f.path);
+            if (filename.endsWith('_paper.pdf') ||
+                filename.endsWith('_paper.enc.pdf')) {
+              final id = filename
+                  .replaceAll('_paper.enc.pdf', '')
+                  .replaceAll('_paper.pdf', '');
+              found.putIfAbsent(id, () => {})['paper'] = f.path;
+            } else if (filename.endsWith('_scheme.pdf') ||
+                filename.endsWith('_scheme.enc.pdf')) {
+              final id = filename
+                  .replaceAll('_scheme.enc.pdf', '')
+                  .replaceAll('_scheme.pdf', '');
+              found.putIfAbsent(id, () => {})['scheme'] = f.path;
+            }
+          }
+        }
+      }
+
+      // Check downloads directory where DownloadManager saves files
+      final appDir = await getApplicationDocumentsDirectory();
+      final downloadDir = Directory(p.join(appDir.path, 'downloads'));
+      if (await downloadDir.exists()) {
+        final files = downloadDir.listSync();
         for (final f in files) {
           if (f is File) {
             final filename = p.basename(f.path);
@@ -287,19 +313,22 @@ class _PaperHubListScreenState extends ConsumerState<PaperHubListScreen> {
     setState(() => _downloadingMap[paperId] = true);
 
     try {
-      final dir = await _offlinePapersDir;
       final paperFileName = '${paperId}_paper.enc.pdf';
       final schemeFileName = '${paperId}_scheme.enc.pdf';
-      final paperFile = File(p.join(dir, paperFileName));
-      final schemeFile = File(p.join(dir, schemeFileName));
 
+      final syncService = ref.read(syncServiceProvider);
+      final licenseRetention =
+          syncService.videoRetentionDays ?? syncService.planRetentionDays;
       final auth = ref.read(authProvider);
       final plan = auth.tenantPlan ?? 'COMMUNITY';
-      final retentionDays = (plan == 'GROWTH' || plan == 'INSTITUTIONAL')
+      final fallbackDays = plan == 'INSTITUTIONAL'
           ? 90
-          : 30;
+          : (plan == 'GROWTH' ? 30 : 7);
+      final retentionDays = (licenseRetention != null && licenseRetention > 0)
+          ? licenseRetention
+          : fallbackDays;
 
-      // 1. Download Paper PDF with S6 AES-256-CTR encryption & expiry
+      // 1. Queue Paper PDF download with S6 AES-256-CTR encryption & expiry
       await DownloadManager.instance.startDownload(
         id: 'paper_$paperId',
         title: '$title (Paper)',
@@ -308,7 +337,7 @@ class _PaperHubListScreenState extends ConsumerState<PaperHubListScreen> {
         retentionDays: retentionDays,
       );
 
-      // 2. Download Marking Scheme PDF if present
+      // 2. Queue Marking Scheme PDF download if present
       if (schemeUrl != null && schemeUrl.isNotEmpty) {
         await DownloadManager.instance.startDownload(
           id: 'scheme_$paperId',
@@ -319,14 +348,26 @@ class _PaperHubListScreenState extends ConsumerState<PaperHubListScreen> {
         );
       }
 
-      // 3. Save paper metadata locally in SQLCipher SQLite for offline browsing (P3-S7)
+      // 3. Await actual download completion before saving metadata or notifying user
+      final completedPaper = await DownloadManager.instance.waitForCompletion(
+        'paper_$paperId',
+      );
+      DownloadTask? completedScheme;
+      if (schemeUrl != null && schemeUrl.isNotEmpty) {
+        completedScheme = await DownloadManager.instance.waitForCompletion(
+          'scheme_$paperId',
+        );
+      }
+
+      final realPaperPath = completedPaper.localPath;
+      final realSchemePath = completedScheme?.localPath;
+
+      // 4. Save paper metadata locally in SQLCipher SQLite with REAL download paths (P3-S7)
       await LocalDatabase.instance.saveOfflinePaper(
         id: paperId,
         paper: paper,
-        localPaperPath: paperFile.path,
-        localSchemePath: (schemeUrl != null && schemeUrl.isNotEmpty)
-            ? schemeFile.path
-            : null,
+        localPaperPath: realPaperPath,
+        localSchemePath: realSchemePath,
         retentionDays: retentionDays,
       );
 
@@ -334,9 +375,8 @@ class _PaperHubListScreenState extends ConsumerState<PaperHubListScreen> {
         setState(() {
           _downloadingMap[paperId] = false;
           _localPathsMap[paperId] = {
-            'paper': paperFile.path,
-            if (schemeUrl != null && schemeUrl.isNotEmpty)
-              'scheme': schemeFile.path,
+            'paper': realPaperPath,
+            'scheme': ?realSchemePath,
           };
         });
 
@@ -350,7 +390,7 @@ class _PaperHubListScreenState extends ConsumerState<PaperHubListScreen> {
           ),
         );
       }
-    } catch (e) {
+    } catch (_) {
       if (mounted) {
         setState(() => _downloadingMap[paperId] = false);
         ScaffoldMessenger.of(context).showSnackBar(

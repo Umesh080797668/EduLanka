@@ -585,7 +585,7 @@ class _MediaListScreenState extends ConsumerState<MediaListScreen>
                 if (_isEmbed(asset)) ...[
                   ElevatedButton.icon(
                     icon: const Icon(Icons.open_in_new, size: 16),
-                    label: const Text('Watch'),
+                    label: Text(l10n?.watch ?? 'Watch'),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF2563EB),
                       foregroundColor: Colors.white,
@@ -658,8 +658,14 @@ class _MediaListScreenState extends ConsumerState<MediaListScreen>
   }
 
   Widget _buildOfflineLibraryTab(Map<String, DownloadTask> downloadTasks) {
+    final l10n = AppLocalizations.of(context);
     final completedTasks = downloadTasks.values
-        .where((t) => t.status == DownloadStatus.completed)
+        .where(
+          (t) =>
+              t.status == DownloadStatus.completed &&
+              !t.id.startsWith('paper_') &&
+              !t.id.startsWith('scheme_'),
+        )
         .toList();
 
     if (completedTasks.isEmpty) {
@@ -673,18 +679,19 @@ class _MediaListScreenState extends ConsumerState<MediaListScreen>
               color: Color(0xFF94A3B8),
             ),
             const SizedBox(height: 16),
-            const Text(
-              'No Offline Lessons Downloaded',
-              style: TextStyle(
+            Text(
+              l10n?.noOfflineLessons ?? 'No Offline Lessons Downloaded',
+              style: const TextStyle(
                 fontWeight: FontWeight.bold,
                 fontSize: 16,
                 color: Color(0xFF475569),
               ),
             ),
             const SizedBox(height: 6),
-            const Text(
-              'Download lessons from the Online tab for zero-data offline studying.',
-              style: TextStyle(fontSize: 13, color: Color(0xFF94A3B8)),
+            Text(
+              l10n?.noOfflineLessonsDesc ??
+                  'Download lessons from the Online tab for zero-data offline studying.',
+              style: const TextStyle(fontSize: 13, color: Color(0xFF94A3B8)),
               textAlign: TextAlign.center,
             ),
           ],

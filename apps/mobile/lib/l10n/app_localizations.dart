@@ -915,6 +915,60 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Homework submitted successfully!'**
   String get homeworkSubmitted;
+
+  /// No description provided for @watch.
+  ///
+  /// In en, this message translates to:
+  /// **'Watch'**
+  String get watch;
+
+  /// No description provided for @noOfflineLessons.
+  ///
+  /// In en, this message translates to:
+  /// **'No Offline Lessons Downloaded'**
+  String get noOfflineLessons;
+
+  /// No description provided for @noOfflineLessonsDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Download lessons from the Online tab for zero-data offline studying.'**
+  String get noOfflineLessonsDesc;
+
+  /// No description provided for @reportReasonPrompt.
+  ///
+  /// In en, this message translates to:
+  /// **'Please provide a reason for flagging this article for academic review:'**
+  String get reportReasonPrompt;
+
+  /// No description provided for @alreadyReported.
+  ///
+  /// In en, this message translates to:
+  /// **'You have already reported this blog post.'**
+  String get alreadyReported;
+
+  /// No description provided for @takedownReasonPrompt.
+  ///
+  /// In en, this message translates to:
+  /// **'Specify administrative justification for unpublishing this article:'**
+  String get takedownReasonPrompt;
+
+  /// No description provided for @restoreArticleConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Restore this article and make it publicly readable again across the institution?'**
+  String get restoreArticleConfirm;
+
+  /// No description provided for @noCommentsYet.
+  ///
+  /// In en, this message translates to:
+  /// **'No comments yet. Start the academic discourse!'**
+  String get noCommentsYet;
+
+  /// No description provided for @reply.
+  ///
+  /// In en, this message translates to:
+  /// **'Reply'**
+  String get reply;
 }
 
 class _AppLocalizationsDelegate

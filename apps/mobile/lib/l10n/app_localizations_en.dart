@@ -426,4 +426,35 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get homeworkSubmitted => 'Homework submitted successfully!';
+
+  @override
+  String get watch => 'Watch';
+
+  @override
+  String get noOfflineLessons => 'No Offline Lessons Downloaded';
+
+  @override
+  String get noOfflineLessonsDesc =>
+      'Download lessons from the Online tab for zero-data offline studying.';
+
+  @override
+  String get reportReasonPrompt =>
+      'Please provide a reason for flagging this article for academic review:';
+
+  @override
+  String get alreadyReported => 'You have already reported this blog post.';
+
+  @override
+  String get takedownReasonPrompt =>
+      'Specify administrative justification for unpublishing this article:';
+
+  @override
+  String get restoreArticleConfirm =>
+      'Restore this article and make it publicly readable again across the institution?';
+
+  @override
+  String get noCommentsYet => 'No comments yet. Start the academic discourse!';
+
+  @override
+  String get reply => 'Reply';
 }

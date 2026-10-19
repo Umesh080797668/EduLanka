@@ -434,4 +434,38 @@ class AppLocalizationsTa extends AppLocalizations {
   @override
   String get homeworkSubmitted =>
       'வீட்டுப்பாடம் வெற்றிகரமாக சமர்ப்பிக்கப்பட்டது!';
+
+  @override
+  String get watch => 'பார்க்க';
+
+  @override
+  String get noOfflineLessons =>
+      'பதிவிறக்கம் செய்யப்பட்ட ஆஃப்லைன் பாடங்கள் இல்லை';
+
+  @override
+  String get noOfflineLessonsDesc =>
+      'இணைய இணைப்பு இல்லாமல் படிக்க \'ஆன்லைன் பாடங்கள்\' பகுதியிலிருந்து பாடங்களைப் பதிவிறக்கவும்.';
+
+  @override
+  String get reportReasonPrompt =>
+      'இந்த கட்டுரையை கல்வி மதிப்பாய்வுக்கு உட்படுத்துவதற்கான காரணத்தைக் குறிப்பிடவும்:';
+
+  @override
+  String get alreadyReported =>
+      'நீங்கள் ஏற்கனவே இந்த கட்டுரையைப் புகாரளித்துள்ளீர்கள்.';
+
+  @override
+  String get takedownReasonPrompt =>
+      'இந்த கட்டுரையை நீக்குவதற்கான நிர்வாக காரணத்தைக் குறிப்பிடவும்:';
+
+  @override
+  String get restoreArticleConfirm =>
+      'இந்த கட்டுரையை மீட்டெடுத்து மீண்டும் அனைவருக்கும் படிக்கக்கூடியதாக மாற்ற விரும்புகிறீர்களா?';
+
+  @override
+  String get noCommentsYet =>
+      'இன்னும் கருத்துக்கள் இல்லை. கல்வி உரையாடலைத் தொடங்குங்கள்!';
+
+  @override
+  String get reply => 'பதிலளிக்கவும்';
 }

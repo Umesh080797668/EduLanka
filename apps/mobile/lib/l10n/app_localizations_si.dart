@@ -430,4 +430,36 @@ class AppLocalizationsSi extends AppLocalizations {
 
   @override
   String get homeworkSubmitted => 'පැවරුම සාර්ථකව භාර දෙන ලදී!';
+
+  @override
+  String get watch => 'නරඹන්න';
+
+  @override
+  String get noOfflineLessons => 'බාගත කළ නොබැඳි පාඩම් නොමැත';
+
+  @override
+  String get noOfflineLessonsDesc =>
+      'අන්තර්ජාලය නොමැතිව හැදෑරීම සඳහා \'පාඩම්\' පටිත්තෙන් පාඩම් බාගත කරන්න.';
+
+  @override
+  String get reportReasonPrompt =>
+      'ශාස්ත්‍රීය සමාලෝචනය සඳහා මෙම ලිපිය වාර්තා කිරීමට හේතුවක් සපයන්න:';
+
+  @override
+  String get alreadyReported => 'ඔබ දැනටමත් මෙම බ්ලොග් සටහන වාර්තා කර ඇත.';
+
+  @override
+  String get takedownReasonPrompt =>
+      'මෙම ලිපිය ඉවත් කිරීම සඳහා පරිපාලනමය සාධාරණීකරණය සඳහන් කරන්න:';
+
+  @override
+  String get restoreArticleConfirm =>
+      'මෙම ලිපිය ප්‍රතිස්ථාපනය කර නැවත ආයතනය පුරා ප්‍රසිද්ධියේ කියවිය හැකි පරිදි සකසන්නද?';
+
+  @override
+  String get noCommentsYet =>
+      'තවම අදහස් කිසිවක් නැත. ශාස්ත්‍රීය සංවාදය අරඹන්න!';
+
+  @override
+  String get reply => 'පිළිතුරු';
 }
