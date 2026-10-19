@@ -31,7 +31,7 @@ class _PaperHubListScreenState extends ConsumerState<PaperHubListScreen> {
   String? _error;
   List<Map<String, dynamic>> _papers = [];
   final Map<String, bool> _downloadingMap = {};
-  final Map<String, Map<String, String>> _localPathsMap = {};
+  final Map<String, Map<String, String?>> _localPathsMap = {};
 
   String? _selectedSubject;
   int? _selectedGrade;
@@ -329,7 +329,7 @@ class _PaperHubListScreenState extends ConsumerState<PaperHubListScreen> {
           : fallbackDays;
 
       // 1. Queue Paper PDF download with S6 AES-256-CTR encryption & expiry
-      await DownloadManager.instance.startDownload(
+      final paperTask = await DownloadManager.instance.startDownload(
         id: 'paper_$paperId',
         title: '$title (Paper)',
         remoteUrl: paperUrl,
@@ -338,8 +338,9 @@ class _PaperHubListScreenState extends ConsumerState<PaperHubListScreen> {
       );
 
       // 2. Queue Marking Scheme PDF download if present
+      DownloadTask? schemeTask;
       if (schemeUrl != null && schemeUrl.isNotEmpty) {
-        await DownloadManager.instance.startDownload(
+        schemeTask = await DownloadManager.instance.startDownload(
           id: 'scheme_$paperId',
           title: '$title (Scheme)',
           remoteUrl: schemeUrl,
@@ -348,47 +349,65 @@ class _PaperHubListScreenState extends ConsumerState<PaperHubListScreen> {
         );
       }
 
-      // 3. Await actual download completion before saving metadata or notifying user
-      final completedPaper = await DownloadManager.instance.waitForCompletion(
-        'paper_$paperId',
-      );
-      DownloadTask? completedScheme;
-      if (schemeUrl != null && schemeUrl.isNotEmpty) {
-        completedScheme = await DownloadManager.instance.waitForCompletion(
-          'scheme_$paperId',
-        );
-      }
-
-      final realPaperPath = completedPaper.localPath;
-      final realSchemePath = completedScheme?.localPath;
-
-      // 4. Save paper metadata locally in SQLCipher SQLite with REAL download paths (P3-S7)
+      // 3. Immediately save metadata to LocalDatabase (never missing even if app closes or download is queued)
       await LocalDatabase.instance.saveOfflinePaper(
         id: paperId,
         paper: paper,
-        localPaperPath: realPaperPath,
-        localSchemePath: realSchemePath,
+        localPaperPath: paperTask.localPath,
+        localSchemePath: schemeTask?.localPath,
         retentionDays: retentionDays,
       );
 
       if (mounted) {
         setState(() {
-          _downloadingMap[paperId] = false;
           _localPathsMap[paperId] = {
-            'paper': realPaperPath,
-            'scheme': ?realSchemePath,
+            'paper': paperTask.localPath,
+            'scheme': schemeTask?.localPath,
           };
         });
+      }
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              l10n?.paperDownloaded ??
-                  'Paper & Marking Scheme downloaded for offline study!',
-            ),
-            backgroundColor: const Color(0xFF10B981),
-          ),
+      // 4. Await download completion if fast; if queued or takes longer, do not fail
+      try {
+        await DownloadManager.instance.waitForCompletion(
+          'paper_$paperId',
+          timeout: const Duration(seconds: 15),
         );
+        if (schemeUrl != null && schemeUrl.isNotEmpty) {
+          await DownloadManager.instance.waitForCompletion(
+            'scheme_$paperId',
+            timeout: const Duration(seconds: 15),
+          );
+        }
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                l10n?.paperDownloaded ??
+                    'Paper & Marking Scheme downloaded for offline study!',
+              ),
+              backgroundColor: const Color(0xFF10B981),
+            ),
+          );
+        }
+      } catch (_) {
+        // If it timed out or is running in background queue, inform user it is queued
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                l10n?.downloadQueued ??
+                    'Download queued in background and will be available offline.',
+              ),
+              backgroundColor: const Color(0xFF0284C7),
+            ),
+          );
+        }
+      } finally {
+        if (mounted) {
+          setState(() => _downloadingMap[paperId] = false);
+        }
       }
     } catch (_) {
       if (mounted) {

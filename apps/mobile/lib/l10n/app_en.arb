@@ -149,5 +149,12 @@
   "takedownReasonPrompt": "Specify administrative justification for unpublishing this article:",
   "restoreArticleConfirm": "Restore this article and make it publicly readable again across the institution?",
   "noCommentsYet": "No comments yet. Start the academic discourse!",
-  "reply": "Reply"
+  "reply": "Reply",
+  "downloadQueued": "Download queued in background and will be available offline.",
+  "planUpgradeDesc": "Offline encrypted lesson downloads with local playback are exclusive to schools on the Growth and Institutional tiers (ADR-001).\n\nPlease contact your school administrator to upgrade.",
+  "pinned": "Pinned",
+  "pinAnswer": "Pin Insightful Answer",
+  "unpinAnswer": "Unpin Answer",
+  "hideComment": "Hide Comment",
+  "academicDiscussions": "Academic Discussions"
 }

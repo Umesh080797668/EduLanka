@@ -462,4 +462,27 @@ class AppLocalizationsSi extends AppLocalizations {
 
   @override
   String get reply => 'පිළිතුරු';
+
+  @override
+  String get downloadQueued =>
+      'බාගැනීම පසුබිමෙන් පෝලිම්ගත කර ඇති අතර සම්පූර්ණ වූ පසු නොබැඳිව ලබා ගත හැක.';
+
+  @override
+  String get planUpgradeDesc =>
+      'දේශීය ධාවනය සහිත නොබැඳි සංකේතාත්මක පාඩම් බාගැනීම් Growth සහ Institutional ශ්‍රේණිවල පාසල් සඳහා පමණක් සීමා වේ.\n\nවැඩිදියුණු කිරීමට කරුණාකර ඔබේ පාසල් පරිපාලක අමතන්න.';
+
+  @override
+  String get pinned => 'පින් කරන ලද';
+
+  @override
+  String get pinAnswer => 'වැදගත් පිළිතුර පින් කරන්න';
+
+  @override
+  String get unpinAnswer => 'පිළිතුර අන්පින් කරන්න';
+
+  @override
+  String get hideComment => 'අදහස සඟවන්න';
+
+  @override
+  String get academicDiscussions => 'ශාස්ත්‍රීය සංවාද';
 }

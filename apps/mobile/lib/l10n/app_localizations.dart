@@ -969,6 +969,48 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Reply'**
   String get reply;
+
+  /// No description provided for @downloadQueued.
+  ///
+  /// In en, this message translates to:
+  /// **'Download queued in background and will be available offline.'**
+  String get downloadQueued;
+
+  /// No description provided for @planUpgradeDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Offline encrypted lesson downloads with local playback are exclusive to schools on the Growth and Institutional tiers (ADR-001).\n\nPlease contact your school administrator to upgrade.'**
+  String get planUpgradeDesc;
+
+  /// No description provided for @pinned.
+  ///
+  /// In en, this message translates to:
+  /// **'Pinned'**
+  String get pinned;
+
+  /// No description provided for @pinAnswer.
+  ///
+  /// In en, this message translates to:
+  /// **'Pin Insightful Answer'**
+  String get pinAnswer;
+
+  /// No description provided for @unpinAnswer.
+  ///
+  /// In en, this message translates to:
+  /// **'Unpin Answer'**
+  String get unpinAnswer;
+
+  /// No description provided for @hideComment.
+  ///
+  /// In en, this message translates to:
+  /// **'Hide Comment'**
+  String get hideComment;
+
+  /// No description provided for @academicDiscussions.
+  ///
+  /// In en, this message translates to:
+  /// **'Academic Discussions'**
+  String get academicDiscussions;
 }
 
 class _AppLocalizationsDelegate

@@ -468,4 +468,27 @@ class AppLocalizationsTa extends AppLocalizations {
 
   @override
   String get reply => 'பதிலளிக்கவும்';
+
+  @override
+  String get downloadQueued =>
+      'பதிவிறக்கம் பின்னணியில் வரிசைப்படுத்தப்பட்டுள்ளது, முடிந்ததும் ஆஃப்லைனில் கிடைக்கும்.';
+
+  @override
+  String get planUpgradeDesc =>
+      'உள்ளூர் பின்னணியுடன் கூடிய ஆஃப்லைன் மறைகுறியாக்கப்பட்ட பாடப் பதிவிறக்கங்கள் Growth மற்றும் Institutional அடுக்குகளில் உள்ள பள்ளிகளுக்கு மட்டுமே பிரத்தியேகமானவை.\n\nமேம்படுத்த உங்கள் பள்ளி நிர்வாகியைத் தொடர்பு கொள்ளவும்.';
+
+  @override
+  String get pinned => 'பின் செய்யப்பட்டது';
+
+  @override
+  String get pinAnswer => 'பயனுள்ள பதிலை பின் செய்யவும்';
+
+  @override
+  String get unpinAnswer => 'பதிலை அன்பின் செய்யவும்';
+
+  @override
+  String get hideComment => 'கருத்தை மறைக்கவும்';
+
+  @override
+  String get academicDiscussions => 'கல்வி விவாதங்கள்';
 }

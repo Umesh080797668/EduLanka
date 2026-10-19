@@ -244,8 +244,9 @@ class _MediaListScreenState extends ConsumerState<MediaListScreen>
               ),
             ],
           ),
-          content: const Text(
-            'Offline encrypted lesson downloads with local playback are exclusive to schools on the Growth and Institutional tiers (ADR-001).\n\nPlease contact your school administrator to upgrade.',
+          content: Text(
+            AppLocalizations.of(ctx)?.planUpgradeDesc ??
+                'Offline encrypted lesson downloads with local playback are exclusive to schools on the Growth and Institutional tiers (ADR-001).\n\nPlease contact your school administrator to upgrade.',
           ),
           actions: [
             TextButton(

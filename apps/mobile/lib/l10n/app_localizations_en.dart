@@ -457,4 +457,27 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get reply => 'Reply';
+
+  @override
+  String get downloadQueued =>
+      'Download queued in background and will be available offline.';
+
+  @override
+  String get planUpgradeDesc =>
+      'Offline encrypted lesson downloads with local playback are exclusive to schools on the Growth and Institutional tiers (ADR-001).\n\nPlease contact your school administrator to upgrade.';
+
+  @override
+  String get pinned => 'Pinned';
+
+  @override
+  String get pinAnswer => 'Pin Insightful Answer';
+
+  @override
+  String get unpinAnswer => 'Unpin Answer';
+
+  @override
+  String get hideComment => 'Hide Comment';
+
+  @override
+  String get academicDiscussions => 'Academic Discussions';
 }

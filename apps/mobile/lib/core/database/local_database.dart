@@ -632,18 +632,46 @@ class LocalDatabase {
     } catch (_) {}
 
     // 8. Clean up orphaned or expired offline homework attachments
+    // strictly protect attachments referenced by pending submissions in sync_outbox or offline_homework_submissions
     try {
       final appDir = await getApplicationDocumentsDirectory();
       final offHwDir = Directory(
         p.join(appDir.path, 'offline_homework_attachments'),
       );
       if (await offHwDir.exists()) {
+        final pendingOutbox = await driftDb
+            .customSelect(
+              "SELECT payload FROM sync_outbox WHERE status = 'PENDING'",
+            )
+            .get();
+        final pendingSubmissions = await driftDb
+            .customSelect(
+              "SELECT attachments FROM offline_homework_submissions WHERE status = 'PENDING_SYNC'",
+            )
+            .get();
+
+        final activeReferences = <String>{};
+        for (final r in pendingOutbox) {
+          final payloadStr = r.data['payload']?.toString() ?? '';
+          activeReferences.add(payloadStr);
+        }
+        for (final r in pendingSubmissions) {
+          final attStr = r.data['attachments']?.toString() ?? '';
+          activeReferences.add(attStr);
+        }
+
         final files = offHwDir.listSync();
         for (final entity in files) {
           if (entity is File) {
-            final stat = entity.statSync();
-            if (stat.modified.isBefore(cutoff)) {
-              await entity.delete();
+            final fileName = p.basename(entity.path);
+            final isReferenced = activeReferences.any(
+              (ref) => ref.contains(fileName) || ref.contains(entity.path),
+            );
+            if (!isReferenced) {
+              final stat = entity.statSync();
+              if (stat.modified.isBefore(cutoff)) {
+                await entity.delete();
+              }
             }
           }
         }
@@ -1193,6 +1221,88 @@ class LocalDatabase {
     );
   }
 
+  /// Rebuilds missing offline_papers rows from completed paper_* download tasks (P3-S7)
+  Future<void> rebuildMissingOfflinePapers() async {
+    await _initDb();
+    try {
+      final tasks = await driftDb
+          .customSelect(
+            "SELECT * FROM download_tasks WHERE id LIKE 'paper_%' AND status = 'COMPLETED'",
+          )
+          .get();
+
+      for (final row in tasks) {
+        final taskId = row.data['id']?.toString() ?? '';
+        final paperId = taskId.replaceFirst('paper_', '');
+        if (paperId.isEmpty) continue;
+
+        final localPath = row.data['local_path']?.toString();
+        if (localPath == null || !File(localPath).existsSync()) continue;
+
+        final existing = await getOfflinePaper(paperId);
+        if (existing == null) {
+          // Check if scheme task also completed
+          final schemeRows = await driftDb
+              .customSelect(
+                "SELECT local_path FROM download_tasks WHERE id = ? AND status = 'COMPLETED'",
+                variables: [Variable.withString('scheme_$paperId')],
+              )
+              .get();
+          final schemePath = schemeRows.isNotEmpty
+              ? schemeRows.first.data['local_path']?.toString()
+              : null;
+
+          final rawTitle =
+              row.data['title']?.toString() ?? 'Examination Past Paper';
+          final cleanTitle = rawTitle.replaceAll(' (Paper)', '').trim();
+          final remoteUrl = row.data['remote_url']?.toString() ?? '';
+          final downloadedAt =
+              (row.data['downloaded_at'] as num?)?.toInt() ??
+              DateTime.now().millisecondsSinceEpoch;
+          final expiresAt =
+              (row.data['expires_at'] as num?)?.toInt() ??
+              (downloadedAt + 30 * 24 * 3600 * 1000);
+
+          await driftDb.customStatement(
+            '''
+            INSERT OR REPLACE INTO offline_papers (
+              id, tenant_id, title, subject, grade_level, exam_type, medium, year, term,
+              paper_url, marking_scheme_url, local_paper_path, local_scheme_path,
+              downloaded_at, expires_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+            ''',
+            [
+              paperId,
+              '',
+              cleanTitle,
+              '',
+              null,
+              null,
+              null,
+              null,
+              null,
+              remoteUrl,
+              null,
+              localPath,
+              schemePath,
+              downloadedAt,
+              expiresAt,
+            ],
+          );
+        } else if (existing['local_paper_path'] == null ||
+            existing['local_paper_path'] != localPath) {
+          await driftDb.customUpdate(
+            'UPDATE offline_papers SET local_paper_path = ? WHERE id = ?',
+            variables: [
+              Variable.withString(localPath),
+              Variable.withString(paperId),
+            ],
+          );
+        }
+      }
+    } catch (_) {}
+  }
+
   Future<List<Map<String, dynamic>>> getOfflinePapers({
     String? subject,
     int? gradeLevel,
@@ -1200,6 +1310,7 @@ class LocalDatabase {
     String? medium,
   }) async {
     await _initDb();
+    await rebuildMissingOfflinePapers();
     final conditions = <String>['1=1'];
     final variables = <Variable>[];
 

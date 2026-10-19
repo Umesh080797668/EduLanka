@@ -679,7 +679,7 @@ class _BlogDetailScreenState extends ConsumerState<BlogDetailScreen> {
                         ),
                         const SizedBox(width: 8),
                         Text(
-                          'Academic Discussions (${_comments.length})',
+                          '${AppLocalizations.of(context)?.academicDiscussions ?? 'Academic Discussions'} (${_comments.length})',
                           style: const TextStyle(
                             color: Colors.white,
                             fontSize: 17,
@@ -836,9 +836,9 @@ class _BlogDetailScreenState extends ConsumerState<BlogDetailScreen> {
               if (isPinned) ...[
                 const SizedBox(width: 6),
                 const Icon(Icons.push_pin, size: 14, color: Color(0xFFF59E0B)),
-                const Text(
-                  ' Pinned',
-                  style: TextStyle(
+                Text(
+                  ' ${AppLocalizations.of(context)?.pinned ?? 'Pinned'}',
+                  style: const TextStyle(
                     color: Color(0xFFF59E0B),
                     fontSize: 11,
                     fontWeight: FontWeight.bold,
@@ -865,15 +865,20 @@ class _BlogDetailScreenState extends ConsumerState<BlogDetailScreen> {
                     PopupMenuItem(
                       value: 'pin',
                       child: Text(
-                        isPinned ? 'Unpin Answer' : 'Pin Insightful Answer',
+                        isPinned
+                            ? (AppLocalizations.of(context)?.unpinAnswer ??
+                                  'Unpin Answer')
+                            : (AppLocalizations.of(context)?.pinAnswer ??
+                                  'Pin Insightful Answer'),
                         style: const TextStyle(color: Colors.white),
                       ),
                     ),
-                    const PopupMenuItem(
+                    PopupMenuItem(
                       value: 'hide',
                       child: Text(
-                        'Hide Comment',
-                        style: TextStyle(color: Colors.redAccent),
+                        AppLocalizations.of(context)?.hideComment ??
+                            'Hide Comment',
+                        style: const TextStyle(color: Colors.redAccent),
                       ),
                     ),
                   ],
