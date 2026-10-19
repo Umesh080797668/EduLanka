@@ -107,3 +107,17 @@ We adopt **Progressive MP4 with Stream-Aligned AES-256-CTR Encryption and End-to
 ### Trade-offs
 - Cloudinary generates progressive MP4 renditions alongside HLS, consuming additional tenant quota (managed via ledger stops).
 - Encryption at rest uses AES-256-CTR with envelope encryption and SHA-256 integrity verification rather than block-level GCM AEAD segment tags.
+
+---
+
+## Security Audit Reconciliation & Clarifications
+
+1. **Tamper Protection without Chunk Jitter:**
+   While raw AES-CTR is a stream cipher without built-in message authentication codes, EduLanka implements cryptographic tamper protection by enforcing end-to-end SHA-256 checksum verification (`AesCtrCipher.verifyIntegrity`) before decryption or playback begins. Any altered ciphertext byte produces a digest mismatch and causes the file to be purged. This eliminates the 64 KB segment chunking and buffering latency that chunked AES-256-GCM introduces on low-end 2 GB RAM Android Go devices while preserving full tamper resistance.
+
+2. **Absence of Native Media3 Code in `MainActivity.kt`:**
+   The exploratory Phase 3 Sprint 0 spike evaluated native Android Media3 / ExoPlayer `DataSource` integration via JNI/Kotlin in `MainActivity.kt`. This approach was formally abandoned in ADR-001 rev. 2026-10-15 because it locked offline decryption exclusively to Android and broke cross-platform playback on iOS, macOS, and Linux. `MainActivity.kt` is therefore kept clean, and playback is routed uniformly across all platforms via the Flutter `video_player` plugin connected to `LocalDecryptedVideoServer`.
+
+3. **Loopback Server Authentication Boundary:**
+   The `LocalDecryptedVideoServer` binds strictly to `127.0.0.1` and enforces ephemeral per-session UUID token authentication on the request path (`http://127.0.0.1:$port/$sessionToken/video.mp4`). Any process or app attempting to connect to the loopback port without the exact session token is immediately rejected with `HTTP 403 Forbidden`. The server instance is also immediately closed when the playback screen is disposed.
+

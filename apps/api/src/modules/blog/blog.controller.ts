@@ -80,6 +80,7 @@ export class BlogController {
     }
 
     @Patch(':id')
+    @Roles(UserRole.TEACHER, UserRole.SCHOOL_ADMIN, UserRole.SUPER_ADMIN)
     @ApiOperation({ summary: 'Update an existing blog post (Author/Admins)' })
     updateBlog(
         @CurrentUser() user: JwtPayload,
@@ -90,6 +91,7 @@ export class BlogController {
     }
 
     @Delete(':id')
+    @Roles(UserRole.TEACHER, UserRole.SCHOOL_ADMIN, UserRole.SUPER_ADMIN)
     @ApiOperation({ summary: 'Soft-delete an educational blog post' })
     deleteBlog(@CurrentUser() user: JwtPayload, @Param('id') id: string) {
         return this.blogService.deleteBlog(id, user);
@@ -126,6 +128,7 @@ export class BlogController {
     }
 
     @Patch('comments/:commentId/moderate')
+    @Roles(UserRole.TEACHER, UserRole.SCHOOL_ADMIN, UserRole.SUPER_ADMIN)
     @ApiOperation({ summary: 'Moderate comment (Hide/Pin) - Teachers/Admins' })
     moderateComment(
         @CurrentUser() user: JwtPayload,
@@ -136,6 +139,7 @@ export class BlogController {
     }
 
     @Delete('comments/:commentId')
+    @Roles(UserRole.TEACHER, UserRole.STUDENT, UserRole.SCHOOL_ADMIN, UserRole.SUPER_ADMIN)
     @ApiOperation({ summary: 'Delete a comment or reply' })
     deleteComment(
         @CurrentUser() user: JwtPayload,

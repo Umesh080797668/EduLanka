@@ -262,7 +262,7 @@ export class MediaService {
             expiresAt,
             signature,
             retentionDays,
-            cipherAlgorithm: 'Chunked AES-256-GCM (Tink Streaming AEAD)',
+            cipherAlgorithm: 'AES-256-CTR (Stream-Aligned with SHA-256 Integrity)',
         };
     }
 

@@ -681,10 +681,20 @@ export class BlogService {
             throw new NotFoundException(`Educational blog ${id} not found`);
         }
 
+        // Administrators cannot publish blogs. Only teachers can author and publish blogs.
+        if (caller.role === UserRole.SCHOOL_ADMIN || caller.role === UserRole.SUPER_ADMIN) {
+            if (dto.isPublished === true) {
+                throw new ForbiddenException('Administrators cannot publish blogs. Only teachers can author and publish blogs.');
+            }
+        }
+
         if (caller.role !== UserRole.SUPER_ADMIN) {
             if (caller.role === UserRole.SCHOOL_ADMIN) {
                 if (!blog.tenant_id || blog.tenant_id !== caller.tenantId) {
                     throw new ForbiddenException('School Admins can only update blogs belonging to their school');
+                }
+                if (dto.title !== undefined || dto.contentMarkdown !== undefined || dto.attachments !== undefined) {
+                    throw new ForbiddenException('Administrators may only manage (unpublish/pin) blogs. Only the authoring teacher can edit blog content.');
                 }
             } else if (caller.role === UserRole.TEACHER) {
                 if (blog.author_id !== caller.sub) {
@@ -723,12 +733,16 @@ export class BlogService {
         if (dto.isPublished !== undefined) updatePayload.is_published = dto.isPublished;
         if (dto.isPinned !== undefined) updatePayload.is_pinned = dto.isPinned;
 
-        const { data, error } = await this.supabase.adminClient
+        let updateQuery = this.supabase.adminClient
             .from('blogs')
             .update(updatePayload)
-            .eq('id', id)
-            .select()
-            .single();
+            .eq('id', id);
+
+        if (caller.role !== UserRole.SUPER_ADMIN) {
+            updateQuery = updateQuery.eq('tenant_id', caller.tenantId);
+        }
+
+        const { data, error } = await updateQuery.select().single();
 
         if (error || !data) {
             throw new BadRequestException(`Failed to update blog: ${error?.message}`);
@@ -777,10 +791,16 @@ export class BlogService {
             }
         }
 
-        await this.supabase.adminClient
+        let deleteQuery = this.supabase.adminClient
             .from('blogs')
             .update({ deleted_at: new Date().toISOString() })
             .eq('id', id);
+
+        if (caller.role !== UserRole.SUPER_ADMIN) {
+            deleteQuery = deleteQuery.eq('tenant_id', caller.tenantId);
+        }
+
+        await deleteQuery;
 
         const isPlatform = blog.scope === BlogScope.PLATFORM;
         const targetTenantId = blog.tenant_id || caller.tenantId;
@@ -885,7 +905,7 @@ export class BlogService {
 
         const { data: comment, error: fetchErr } = await this.supabase.adminClient
             .from('blog_comments')
-            .select('id, blog_id, author_id, tenant_id, is_pinned, is_hidden, blogs!inner(id, author_id, tenant_id, scope, class_id)')
+            .select('id, blog_id, author_id, tenant_id, is_pinned, is_hidden')
             .eq('id', commentId)
             .is('deleted_at', null)
             .maybeSingle();
@@ -894,11 +914,25 @@ export class BlogService {
             throw new NotFoundException(`Blog comment ${commentId} not found`);
         }
 
-        const blog = (comment as any).blogs;
+        let blog = (comment as any).blogs;
+        if (!blog) {
+            const { data: parentBlog, error: blogErr } = await this.supabase.adminClient
+                .from('blogs')
+                .select('id, author_id, tenant_id, scope, class_id')
+                .eq('id', comment.blog_id)
+                .is('deleted_at', null)
+                .maybeSingle();
+
+            if (blogErr || !parentBlog) {
+                throw new NotFoundException(`Educational blog for comment ${commentId} not found`);
+            }
+            blog = parentBlog;
+        }
 
         if (caller.role !== UserRole.SUPER_ADMIN) {
-            const isBlogAuthor = blog.author_id === caller.sub;
-            const isSchoolAdminForTenant = caller.role === UserRole.SCHOOL_ADMIN && blog.tenant_id === caller.tenantId;
+            const isBlogAuthor = blog.author_id === caller.sub && blog.tenant_id === caller.tenantId;
+            const isSchoolAdminForTenant = caller.role === UserRole.SCHOOL_ADMIN &&
+                blog.tenant_id === caller.tenantId;
 
             let isClassTeacher = false;
             if (caller.role === UserRole.TEACHER && blog.scope === BlogScope.CLASS && blog.class_id && blog.tenant_id === caller.tenantId) {
@@ -922,6 +956,7 @@ export class BlogService {
             .from('blog_comments')
             .update(updatePayload)
             .eq('id', commentId)
+            .eq('blog_id', blog.id)
             .select()
             .single();
 
@@ -957,7 +992,7 @@ export class BlogService {
 
         const { data: comment, error: fetchErr } = await this.supabase.adminClient
             .from('blog_comments')
-            .select('id, blog_id, author_id, tenant_id, blogs!inner(id, author_id, tenant_id, scope, class_id)')
+            .select('id, blog_id, author_id, tenant_id')
             .eq('id', commentId)
             .is('deleted_at', null)
             .maybeSingle();
@@ -966,12 +1001,26 @@ export class BlogService {
             throw new NotFoundException(`Comment ${commentId} not found`);
         }
 
-        const blog = (comment as any).blogs;
+        let blog = (comment as any).blogs;
+        if (!blog) {
+            const { data: parentBlog, error: blogErr } = await this.supabase.adminClient
+                .from('blogs')
+                .select('id, author_id, tenant_id, scope, class_id')
+                .eq('id', comment.blog_id)
+                .is('deleted_at', null)
+                .maybeSingle();
+
+            if (blogErr || !parentBlog) {
+                throw new NotFoundException(`Educational blog for comment ${commentId} not found`);
+            }
+            blog = parentBlog;
+        }
 
         if (caller.role !== UserRole.SUPER_ADMIN) {
-            const isCommentAuthor = comment.author_id === caller.sub;
-            const isBlogAuthor = blog.author_id === caller.sub;
-            const isSchoolAdminForTenant = caller.role === UserRole.SCHOOL_ADMIN && blog.tenant_id === caller.tenantId;
+            const isCommentAuthor = comment.author_id === caller.sub && comment.tenant_id === caller.tenantId;
+            const isBlogAuthor = blog.author_id === caller.sub && blog.tenant_id === caller.tenantId;
+            const isSchoolAdminForTenant = caller.role === UserRole.SCHOOL_ADMIN &&
+                blog.tenant_id === caller.tenantId;
 
             let isClassTeacher = false;
             if (caller.role === UserRole.TEACHER && blog.scope === BlogScope.CLASS && blog.class_id && blog.tenant_id === caller.tenantId) {
@@ -984,10 +1033,16 @@ export class BlogService {
             }
         }
 
-        await this.supabase.adminClient
+        const { error: deleteErr } = await this.supabase.adminClient
             .from('blog_comments')
             .update({ deleted_at: new Date().toISOString() })
-            .eq('id', commentId);
+            .eq('id', commentId)
+            .eq('blog_id', blog.id);
+
+        if (deleteErr) {
+            this.logger.error(`Failed to delete comment: ${deleteErr.message}`);
+            throw new BadRequestException('Failed to delete comment');
+        }
 
         const isPlatform = blog?.scope === BlogScope.PLATFORM;
         const targetTenantId = blog?.tenant_id || caller.tenantId;

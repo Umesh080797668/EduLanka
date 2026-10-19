@@ -456,6 +456,93 @@ describe('BlogService', () => {
             const res = await service.updateBlog(blogUuid, { isPublished: false }, adminCaller);
             expect(res.is_published).toBe(false);
         });
+
+        it('should reject school admin from publishing a blog', async () => {
+            const adminCaller: JwtPayload = {
+                sub: '77777777-7777-7777-7777-777777777777',
+                tenantId: tenantUuid,
+                email: 'admin@school1.lk',
+                role: UserRole.SCHOOL_ADMIN,
+            };
+
+            mockSupabase.adminClient.from.mockImplementation((table: string) => {
+                if (table === 'blogs') {
+                    return createMockChain({
+                        data: {
+                            id: blogUuid,
+                            tenant_id: tenantUuid,
+                            author_id: teacherUuid,
+                            scope: 'SCHOOL',
+                            is_published: false,
+                        },
+                        error: null,
+                    });
+                }
+                return createMockChain();
+            });
+
+            await expect(
+                service.updateBlog(blogUuid, { isPublished: true }, adminCaller),
+            ).rejects.toThrow(ForbiddenException);
+        });
+
+        it('should reject super admin from publishing a blog', async () => {
+            const superAdminCaller: JwtPayload = {
+                sub: '00000000-0000-0000-0000-000000000001',
+                tenantId: tenantUuid,
+                email: 'superadmin@edulanka.lk',
+                role: UserRole.SUPER_ADMIN,
+            };
+
+            mockSupabase.adminClient.from.mockImplementation((table: string) => {
+                if (table === 'blogs') {
+                    return createMockChain({
+                        data: {
+                            id: blogUuid,
+                            tenant_id: tenantUuid,
+                            author_id: teacherUuid,
+                            scope: 'SCHOOL',
+                            is_published: false,
+                        },
+                        error: null,
+                    });
+                }
+                return createMockChain();
+            });
+
+            await expect(
+                service.updateBlog(blogUuid, { isPublished: true }, superAdminCaller),
+            ).rejects.toThrow(ForbiddenException);
+        });
+
+        it('should reject school admin from editing blog title or content', async () => {
+            const adminCaller: JwtPayload = {
+                sub: '77777777-7777-7777-7777-777777777777',
+                tenantId: tenantUuid,
+                email: 'admin@school1.lk',
+                role: UserRole.SCHOOL_ADMIN,
+            };
+
+            mockSupabase.adminClient.from.mockImplementation((table: string) => {
+                if (table === 'blogs') {
+                    return createMockChain({
+                        data: {
+                            id: blogUuid,
+                            tenant_id: tenantUuid,
+                            author_id: teacherUuid,
+                            scope: 'SCHOOL',
+                            is_published: true,
+                        },
+                        error: null,
+                    });
+                }
+                return createMockChain();
+            });
+
+            await expect(
+                service.updateBlog(blogUuid, { title: 'Modified Content' }, adminCaller),
+            ).rejects.toThrow(ForbiddenException);
+        });
     });
 
     describe('comments and moderation', () => {
@@ -569,6 +656,84 @@ describe('BlogService', () => {
         it('should reject student from moderating comments', async () => {
             await expect(
                 service.moderateComment(commentUuid, { isPinned: true }, studentCaller),
+            ).rejects.toThrow(ForbiddenException);
+        });
+
+        it('should reject school admin from moderating comment on another school blog (Cross-Tenant)', async () => {
+            const adminCaller: JwtPayload = {
+                sub: '77777777-7777-7777-7777-777777777777',
+                tenantId: tenantUuid,
+                email: 'admin@school1.lk',
+                role: UserRole.SCHOOL_ADMIN,
+            };
+
+            mockSupabase.adminClient.from.mockImplementation((table: string) => {
+                if (table === 'blog_comments') {
+                    return {
+                        select: jest.fn().mockReturnThis(),
+                        eq: jest.fn().mockReturnThis(),
+                        is: jest.fn().mockReturnThis(),
+                        maybeSingle: jest.fn().mockResolvedValue({
+                            data: {
+                                id: commentUuid,
+                                blog_id: blogUuid,
+                                author_id: studentUuid,
+                                tenant_id: 'other-school-uuid',
+                                blogs: {
+                                    id: blogUuid,
+                                    author_id: 'other-teacher',
+                                    tenant_id: 'other-school-uuid',
+                                    scope: 'SCHOOL',
+                                },
+                            },
+                            error: null,
+                        }),
+                    };
+                }
+                return { select: jest.fn().mockReturnThis() };
+            });
+
+            await expect(
+                service.moderateComment(commentUuid, { isPinned: true }, adminCaller),
+            ).rejects.toThrow(ForbiddenException);
+        });
+
+        it('should reject school admin from deleting comment on another school blog (Cross-Tenant)', async () => {
+            const adminCaller: JwtPayload = {
+                sub: '77777777-7777-7777-7777-777777777777',
+                tenantId: tenantUuid,
+                email: 'admin@school1.lk',
+                role: UserRole.SCHOOL_ADMIN,
+            };
+
+            mockSupabase.adminClient.from.mockImplementation((table: string) => {
+                if (table === 'blog_comments') {
+                    return {
+                        select: jest.fn().mockReturnThis(),
+                        eq: jest.fn().mockReturnThis(),
+                        is: jest.fn().mockReturnThis(),
+                        maybeSingle: jest.fn().mockResolvedValue({
+                            data: {
+                                id: commentUuid,
+                                blog_id: blogUuid,
+                                author_id: studentUuid,
+                                tenant_id: 'other-school-uuid',
+                                blogs: {
+                                    id: blogUuid,
+                                    author_id: 'other-teacher',
+                                    tenant_id: 'other-school-uuid',
+                                    scope: 'SCHOOL',
+                                },
+                            },
+                            error: null,
+                        }),
+                    };
+                }
+                return { select: jest.fn().mockReturnThis() };
+            });
+
+            await expect(
+                service.deleteComment(commentUuid, adminCaller),
             ).rejects.toThrow(ForbiddenException);
         });
     });
