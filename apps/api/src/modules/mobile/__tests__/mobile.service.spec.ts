@@ -668,4 +668,158 @@ describe('MobileService', () => {
             expect(res.events[0].payload.content).toBe('Hello participant!');
         });
     });
+
+    describe('blog sync security & platform gating', () => {
+        it('should reject admin from creating/authoring a blog post via sync outbox', async () => {
+            const adminCaller: JwtPayload = {
+                ...caller,
+                role: UserRole.SCHOOL_ADMIN,
+            };
+
+            await expect(
+                service.appendSyncEvent(
+                    {
+                        entityType: 'blog_post',
+                        entityId: '33333333-3333-3333-3333-333333333333',
+                        eventType: 'CREATED',
+                        clientUuid: '91c85e7c-7907-4915-ae70-4d5b7f3a843c',
+                        payload: {
+                            title: 'Admin Post',
+                            content_markdown: 'Content',
+                            scope: 'SCHOOL',
+                        },
+                    },
+                    adminCaller,
+                ),
+            ).rejects.toThrow(ForbiddenException);
+        });
+
+        it('should reject teacher from creating platform blog if tenant is not Growth or above', async () => {
+            const starterCaller: JwtPayload = {
+                ...caller,
+                tenantPlan: 'STARTER',
+                role: UserRole.TEACHER,
+            };
+
+            await expect(
+                service.appendSyncEvent(
+                    {
+                        entityType: 'blog_post',
+                        entityId: '33333333-3333-3333-3333-333333333333',
+                        eventType: 'CREATED',
+                        clientUuid: '91c85e7c-7907-4915-ae70-4d5b7f3a843c',
+                        payload: {
+                            title: 'National Post',
+                            content_markdown: 'National Content',
+                            scope: 'PLATFORM',
+                        },
+                    },
+                    starterCaller,
+                ),
+            ).rejects.toThrow(ForbiddenException);
+        });
+
+        it('should filter out PLATFORM blog sync events for Starter plan callers in getSyncEvents', async () => {
+            const starterCaller: JwtPayload = {
+                ...caller,
+                tenantPlan: 'STARTER',
+                role: UserRole.STUDENT,
+            };
+
+            mockAdminClient.from.mockImplementation((table: string) => {
+                const builder: any = {
+                    select: jest.fn().mockReturnThis(),
+                    eq: jest.fn().mockReturnThis(),
+                    gt: jest.fn().mockReturnThis(),
+                    order: jest.fn().mockReturnThis(),
+                    limit: jest.fn().mockReturnThis(),
+                    maybeSingle: jest.fn().mockResolvedValue({ data: null, error: null }),
+                    then: (resolve: any) => {
+                        if (table === 'sync_events') {
+                            return resolve({
+                                data: [
+                                    {
+                                        id: 'ev-platform',
+                                        sequence: 1,
+                                        entity_type: 'blog_post',
+                                        payload: {
+                                            title: 'National Masterclass',
+                                            scope: 'PLATFORM',
+                                        },
+                                    },
+                                    {
+                                        id: 'ev-school',
+                                        sequence: 2,
+                                        entity_type: 'blog_post',
+                                        payload: {
+                                            title: 'School Notice Blog',
+                                            scope: 'SCHOOL',
+                                        },
+                                    },
+                                ],
+                                error: null,
+                            });
+                        }
+                        return resolve({ data: [], error: null });
+                    },
+                };
+                return builder;
+            });
+
+            const res = await service.getSyncEvents(starterCaller, 0, 50);
+            expect(res.events).toHaveLength(1);
+            expect(res.events[0].payload.title).toBe('School Notice Blog');
+        });
+
+        it('should allow PLATFORM blog sync events for Growth plan callers in getSyncEvents', async () => {
+            const growthCaller: JwtPayload = {
+                ...caller,
+                tenantPlan: 'GROWTH',
+                role: UserRole.STUDENT,
+            };
+
+            mockAdminClient.from.mockImplementation((table: string) => {
+                const builder: any = {
+                    select: jest.fn().mockReturnThis(),
+                    eq: jest.fn().mockReturnThis(),
+                    gt: jest.fn().mockReturnThis(),
+                    order: jest.fn().mockReturnThis(),
+                    limit: jest.fn().mockReturnThis(),
+                    maybeSingle: jest.fn().mockResolvedValue({ data: null, error: null }),
+                    then: (resolve: any) => {
+                        if (table === 'sync_events') {
+                            return resolve({
+                                data: [
+                                    {
+                                        id: 'ev-platform',
+                                        sequence: 1,
+                                        entity_type: 'blog_post',
+                                        payload: {
+                                            title: 'National Masterclass',
+                                            scope: 'PLATFORM',
+                                        },
+                                    },
+                                    {
+                                        id: 'ev-school',
+                                        sequence: 2,
+                                        entity_type: 'blog_post',
+                                        payload: {
+                                            title: 'School Notice Blog',
+                                            scope: 'SCHOOL',
+                                        },
+                                    },
+                                ],
+                                error: null,
+                            });
+                        }
+                        return resolve({ data: [], error: null });
+                    },
+                };
+                return builder;
+            });
+
+            const res = await service.getSyncEvents(growthCaller, 0, 50);
+            expect(res.events).toHaveLength(2);
+        });
+    });
 });

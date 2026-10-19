@@ -63,6 +63,7 @@ class _StudentHomeScreenState extends ConsumerState<StudentHomeScreen> {
               : const Color(0xFFEF4444),
         ),
       );
+      TutorialEngine.showTourIfUnseen(context, 'phase3_sync_badge');
     }
   }
 

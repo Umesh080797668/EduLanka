@@ -165,6 +165,76 @@ export class MobileSyncService {
         return (ctRows ?? []).map((ct: any) => ct.class_id).filter(Boolean);
     }
 
+    private async isCallerGrowthOrAbove(caller: JwtPayload): Promise<boolean> {
+        if (caller.role === UserRole.SUPER_ADMIN) return true;
+        let plan = caller.tenantPlan;
+        if (!plan && caller.tenantId) {
+            try {
+                const { data: tenant } = await this.supabase.adminClient
+                    .from('tenants')
+                    ?.select('plan')
+                    ?.eq('id', caller.tenantId)
+                    ?.maybeSingle() ?? {};
+                plan = tenant?.plan;
+            } catch {
+                plan = undefined;
+            }
+        }
+        return plan === 'GROWTH' || plan === 'INSTITUTIONAL';
+    }
+
+    private async getUserDisplayName(userId: string): Promise<string> {
+        try {
+            const { data } = await this.supabase.adminClient
+                .from('users')
+                .select('full_name')
+                .eq('id', userId)
+                .maybeSingle();
+            return data?.full_name || 'EduLanka Member';
+        } catch {
+            return 'EduLanka Member';
+        }
+    }
+
+    private async broadcastPlatformSyncEvent(
+        sourceTenantId: string,
+        entityType: 'blog_post' | 'blog_comment' | 'blog_reaction',
+        entityId: string,
+        eventType: string,
+        payload: Record<string, any>,
+    ) {
+        void (async () => {
+            try {
+                const { data: activeTenants } = await this.supabase.adminClient
+                    .from('tenants')
+                    .select('id, plan')
+                    .eq('status', 'ACTIVE');
+
+                const growthTenants = (activeTenants ?? []).filter(
+                    (t: any) => (t.plan === 'GROWTH' || t.plan === 'INSTITUTIONAL') && t.id !== sourceTenantId,
+                );
+
+                await Promise.allSettled(
+                    growthTenants.map(async (t: any) => {
+                        const { error: rpcErr } = await this.supabase.adminClient.rpc('append_sync_event', {
+                            p_tenant_id: t.id,
+                            p_entity_type: entityType,
+                            p_entity_id: entityId,
+                            p_event_type: eventType,
+                            p_payload: payload,
+                            p_client_uuid: randomUUID(),
+                        });
+                        if (rpcErr) {
+                            this.logger.warn(`Failed to broadcast platform sync event to tenant ${t.id}: ${rpcErr.message}`);
+                        }
+                    }),
+                );
+            } catch (err: any) {
+                this.logger.warn(`Failed to broadcast platform sync events: ${err?.message}`);
+            }
+        })();
+    }
+
     async appendSyncEvent(dto: AppendSyncEventDto, caller: JwtPayload, deviceIdOrToken?: string) {
         assertUuid(caller.tenantId, 'tenantId');
         assertUuid(caller.sub, 'userId');
@@ -329,9 +399,48 @@ export class MobileSyncService {
             case 'blog_post':
                 if (dto.eventType === 'CREATED') {
                     if (role !== UserRole.TEACHER) {
-                        throw new ForbiddenException('Only teachers can author educational blogs');
+                        throw new ForbiddenException('Only teachers can author educational blogs. Administrators may only manage blogs.');
                     }
-                } else {
+                    if (dto.payload?.scope === 'PLATFORM') {
+                        const isGrowth = await this.isCallerGrowthOrAbove(caller);
+                        if (!isGrowth) {
+                            throw new ForbiddenException('Platform-wide educational blogs require a Growth or Institutional plan');
+                        }
+
+                        // Daily post cap per teacher: max 3 platform blogs per day (UTC)
+                        const startOfDay = new Date();
+                        startOfDay.setUTCHours(0, 0, 0, 0);
+
+                        const { count: dailyCount } = await this.supabase.adminClient
+                            .from('blogs')
+                            .select('*', { count: 'exact', head: true })
+                            .eq('author_id', caller.sub)
+                            .eq('scope', 'PLATFORM')
+                            .gte('created_at', startOfDay.toISOString())
+                            .is('deleted_at', null);
+
+                        if ((dailyCount ?? 0) >= 3) {
+                            throw new BadRequestException('Daily platform blog publishing limit reached (maximum 3 posts per day)');
+                        }
+                    }
+                } else if (dto.eventType === 'UPDATED') {
+                    if (role !== UserRole.TEACHER && role !== UserRole.SCHOOL_ADMIN && role !== UserRole.SUPER_ADMIN) {
+                        throw new ForbiddenException('Only teachers and administrators can manage educational blog sync events');
+                    }
+                    if (role === UserRole.SCHOOL_ADMIN) {
+                        if (dto.payload?.is_published === true || dto.payload?.isPublished === true) {
+                            throw new ForbiddenException('School Administrators cannot publish or author blogs; they may only moderate or manage them.');
+                        }
+                        if (
+                            dto.payload?.title !== undefined ||
+                            dto.payload?.content_markdown !== undefined ||
+                            dto.payload?.contentMarkdown !== undefined ||
+                            dto.payload?.attachments !== undefined
+                        ) {
+                            throw new ForbiddenException('School Administrators cannot edit teacher blog content.');
+                        }
+                    }
+                } else if (dto.eventType === 'DELETED') {
                     if (role !== UserRole.TEACHER && role !== UserRole.SCHOOL_ADMIN && role !== UserRole.SUPER_ADMIN) {
                         throw new ForbiddenException('Only teachers and administrators can manage educational blog sync events');
                     }
@@ -537,12 +646,13 @@ export class MobileSyncService {
         // 6. Materialize offline Blog comments if new
         if (dto.entityType === 'blog_comment' && dto.payload) {
             const commentId = dto.entityId || dto.payload.id || randomUUID();
+            const blogId = dto.payload.blog_id ?? dto.payload.blogId;
             const { error: commentErr } = await client
                 .from('blog_comments')
                 .upsert({
                     id: commentId,
                     tenant_id: caller.tenantId,
-                    blog_id: dto.payload.blog_id ?? dto.payload.blogId,
+                    blog_id: blogId,
                     parent_id: dto.payload.parent_id ?? dto.payload.parentId ?? null,
                     author_id: caller.sub,
                     author_name: dto.payload.author_name ?? dto.payload.authorName ?? 'EduLanka Member',
@@ -557,17 +667,32 @@ export class MobileSyncService {
                     await client.from('sync_events').update({ applied: true }).eq('id', eventId);
                 }
             }
+
+            // If comment is on a PLATFORM blog, fan out across active Growth+ tenants
+            if (blogId) {
+                const { data: bRow } = await client.from('blogs').select('scope').eq('id', blogId).maybeSingle();
+                if (bRow?.scope === 'PLATFORM') {
+                    await this.broadcastPlatformSyncEvent(
+                        caller.tenantId,
+                        'blog_comment',
+                        commentId,
+                        dto.eventType,
+                        { ...dto.payload, id: commentId, blog_id: blogId, scope: 'PLATFORM' },
+                    );
+                }
+            }
         }
 
         // 7. Materialize offline Blog reactions if new
         if (dto.entityType === 'blog_reaction' && dto.payload) {
             const reactionId = dto.entityId || dto.payload.id || randomUUID();
+            const blogId = dto.payload.blog_id ?? dto.payload.blogId ?? null;
             const { error: reactionErr } = await client
                 .from('blog_reactions')
                 .upsert({
                     id: reactionId,
                     tenant_id: caller.tenantId,
-                    blog_id: dto.payload.blog_id ?? dto.payload.blogId ?? null,
+                    blog_id: blogId,
                     comment_id: dto.payload.comment_id ?? dto.payload.commentId ?? null,
                     user_id: caller.sub,
                     reaction_type: dto.payload.reaction_type ?? dto.payload.reactionType ?? 'LIKE',
@@ -578,6 +703,121 @@ export class MobileSyncService {
                 if (eventId) {
                     await client.from('sync_events').update({ applied: true }).eq('id', eventId);
                 }
+            }
+
+            // If reaction is on a PLATFORM blog, fan out across active Growth+ tenants
+            if (blogId) {
+                const { data: bRow } = await client.from('blogs').select('scope').eq('id', blogId).maybeSingle();
+                if (bRow?.scope === 'PLATFORM') {
+                    await this.broadcastPlatformSyncEvent(
+                        caller.tenantId,
+                        'blog_reaction',
+                        reactionId,
+                        dto.eventType,
+                        { ...dto.payload, id: reactionId, blog_id: blogId, scope: 'PLATFORM' },
+                    );
+                }
+            }
+        }
+
+        // 8. Materialize offline Blog posts if new/updated/deleted
+        if (dto.entityType === 'blog_post' && dto.payload) {
+            const blogId = dto.entityId || dto.payload.id || dto.clientUuid;
+            if (dto.eventType === 'CREATED') {
+                let schoolName: string | null = null;
+                if (caller.tenantId) {
+                    const { data: tenant } = await client
+                        .from('tenants')
+                        .select('name')
+                        .eq('id', caller.tenantId)
+                        .maybeSingle();
+                    schoolName = tenant?.name ?? null;
+                }
+                const authorName = await this.getUserDisplayName(caller.sub);
+
+                const { error: blogErr } = await client.from('blogs').upsert({
+                    id: blogId,
+                    tenant_id: caller.tenantId,
+                    school_name: schoolName,
+                    class_id: dto.payload.scope === 'CLASS' ? (dto.payload.class_id ?? dto.payload.classId ?? null) : null,
+                    scope: dto.payload.scope ?? 'SCHOOL',
+                    author_id: caller.sub,
+                    author_name: authorName,
+                    author_role: caller.role,
+                    title: dto.payload.title,
+                    content_markdown: dto.payload.content_markdown ?? dto.payload.contentMarkdown ?? '',
+                    cover_image_url: dto.payload.cover_image_url ?? dto.payload.coverImageUrl ?? null,
+                    attachments: dto.payload.attachments ?? [],
+                    tags: dto.payload.tags ?? [],
+                    is_published: dto.payload.is_published ?? dto.payload.isPublished ?? true,
+                    is_pinned: dto.payload.is_pinned ?? dto.payload.isPinned ?? false,
+                }, { onConflict: 'id' });
+
+                if (!blogErr) {
+                    const eventId = data?.id ?? preExistingEvent?.id;
+                    if (eventId) {
+                        await client.from('sync_events').update({ applied: true }).eq('id', eventId);
+                    }
+                }
+            } else if (dto.eventType === 'UPDATED') {
+                const updateFields: Record<string, any> = { updated_at: new Date().toISOString() };
+                if (dto.payload.title !== undefined) updateFields.title = dto.payload.title;
+                if (dto.payload.content_markdown !== undefined || dto.payload.contentMarkdown !== undefined) {
+                    updateFields.content_markdown = dto.payload.content_markdown ?? dto.payload.contentMarkdown;
+                }
+                if (dto.payload.cover_image_url !== undefined || dto.payload.coverImageUrl !== undefined) {
+                    updateFields.cover_image_url = dto.payload.cover_image_url ?? dto.payload.coverImageUrl;
+                }
+                if (dto.payload.attachments !== undefined) updateFields.attachments = dto.payload.attachments;
+                if (dto.payload.tags !== undefined) updateFields.tags = dto.payload.tags;
+                if (dto.payload.is_published !== undefined || dto.payload.isPublished !== undefined) {
+                    updateFields.is_published = dto.payload.is_published ?? dto.payload.isPublished;
+                }
+                if (dto.payload.is_pinned !== undefined || dto.payload.isPinned !== undefined) {
+                    updateFields.is_pinned = dto.payload.is_pinned ?? dto.payload.isPinned;
+                }
+
+                let updateQuery = client.from('blogs').update(updateFields).eq('id', blogId);
+                if (caller.role !== UserRole.SUPER_ADMIN) {
+                    updateQuery = updateQuery.eq('tenant_id', caller.tenantId);
+                }
+                if (caller.role === UserRole.TEACHER) {
+                    updateQuery = updateQuery.eq('author_id', caller.sub);
+                }
+                const { error: blogUpdateErr } = await updateQuery;
+                if (!blogUpdateErr) {
+                    const eventId = data?.id ?? preExistingEvent?.id;
+                    if (eventId) {
+                        await client.from('sync_events').update({ applied: true }).eq('id', eventId);
+                    }
+                }
+            } else if (dto.eventType === 'DELETED') {
+                let delQuery = client.from('blogs').update({ deleted_at: new Date().toISOString() }).eq('id', blogId);
+                if (caller.role !== UserRole.SUPER_ADMIN) {
+                    delQuery = delQuery.eq('tenant_id', caller.tenantId);
+                }
+                if (caller.role === UserRole.TEACHER) {
+                    delQuery = delQuery.eq('author_id', caller.sub);
+                }
+                const { error: blogDelErr } = await delQuery;
+                if (!blogDelErr) {
+                    const eventId = data?.id ?? preExistingEvent?.id;
+                    if (eventId) {
+                        await client.from('sync_events').update({ applied: true }).eq('id', eventId);
+                    }
+                }
+            }
+
+            // Fan out platform-wide blogs across active Growth+ tenants
+            const isPlatform = dto.payload.scope === 'PLATFORM';
+            if (isPlatform) {
+                await this.broadcastPlatformSyncEvent(
+                    caller.tenantId,
+                    'blog_post',
+                    blogId,
+                    dto.eventType,
+                    dto.payload,
+                );
             }
         }
 
@@ -674,6 +914,21 @@ export class MobileSyncService {
             myConversationIds = new Set((myParticipantRows ?? []).map((p: any) => p.conversation_id));
         }
 
+        let callerPlan = String(caller.tenantPlan || '').toUpperCase();
+        if (!callerPlan) {
+            try {
+                const { data: tRow } = await client
+                    .from('tenants')
+                    .select('plan')
+                    .eq('id', caller.tenantId)
+                    .maybeSingle();
+                callerPlan = String(tRow?.plan || 'STARTER').toUpperCase();
+            } catch {
+                callerPlan = 'STARTER';
+            }
+        }
+        const isCallerGrowth = callerPlan === 'GROWTH' || callerPlan === 'INSTITUTIONAL';
+
         const filteredEvents = pageRows.filter((event: any) => {
             if (caller.role === UserRole.SUPER_ADMIN || caller.role === UserRole.SCHOOL_ADMIN) {
                 return true;
@@ -720,7 +975,10 @@ export class MobileSyncService {
                         const classId = event.payload?.class_id ?? event.payload?.classId;
                         return !!classId && teacherClassIds.includes(classId);
                     }
-                    return !scope || scope === 'PLATFORM' || scope === 'SCHOOL';
+                    if (scope === 'PLATFORM') {
+                        return isCallerGrowth;
+                    }
+                    return !scope || scope === 'SCHOOL';
                 }
                 return false;
             }
@@ -758,7 +1016,10 @@ export class MobileSyncService {
                         const classId = event.payload?.class_id ?? event.payload?.classId;
                         return !!classId && !!studentClassId && classId === studentClassId;
                     }
-                    return !scope || scope === 'PLATFORM' || scope === 'SCHOOL';
+                    if (scope === 'PLATFORM') {
+                        return isCallerGrowth;
+                    }
+                    return !scope || scope === 'SCHOOL';
                 }
                 return false;
             }

@@ -141,8 +141,11 @@ class PushNotificationService {
         debugPrint('User tapped push notification: ${message.messageId}');
         syncService.triggerAutoSync();
       });
-    } catch (e, stackTrace) {
-      debugPrint('FirebaseMessaging setup failed: $e\n$stackTrace');
+    } catch (e) {
+      debugPrint(
+        '[PushNotificationService] Firebase credentials / google-services.json not configured or initialization skipped: $e. '
+        'Push notifications disabled; resilient background polling, connectivity listener, and app-open fallback will handle sync.',
+      );
       // Do not silently swallow — report to Sentry/console
     }
   }
