@@ -30,6 +30,7 @@ export interface TokenPair {
     accessToken: string;
     refreshToken: string;
     expiresIn: string;
+    tenantPlan?: string;
 }
 
 /** Parse a duration string (e.g. "7d", "15m", "1h") into total seconds */
@@ -894,7 +895,7 @@ export class AuthService {
             }
         }
 
-        return this.issueTokenPair({
+        const tokens = await this.issueTokenPair({
             sub: payload.sub,
             tenantId: payload.tenantId,
             tenantPlan: tenantPlan || 'COMMUNITY',
@@ -902,6 +903,11 @@ export class AuthService {
             role: payload.role,
             email: payload.email,
         });
+
+        return {
+            ...tokens,
+            tenantPlan: tenantPlan || 'COMMUNITY',
+        };
     }
 
     /**

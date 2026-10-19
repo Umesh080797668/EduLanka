@@ -6,6 +6,7 @@ import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../api/api_client.dart';
+import '../auth/auth_state.dart';
 import '../database/local_database.dart';
 import '../download/download_manager.dart';
 
@@ -27,6 +28,14 @@ class SyncService {
   final ApiClient apiClient;
   final LocalDatabase localDb;
   final void Function(Map<String, dynamic> payload)? onEntitlementRevoked;
+  final Ref? ref;
+
+  SyncService({
+    required this.apiClient,
+    required this.localDb,
+    this.onEntitlementRevoked,
+    this.ref,
+  });
 
   StreamSubscription<List<ConnectivityResult>>? _connectivitySubscription;
   Timer? _periodicTimer;
@@ -38,12 +47,6 @@ class SyncService {
   static const int _initialBackoffMs = 2000;
   static const int _maxBackoffMs = 60000;
   DateTime? _nextAllowedSyncTime;
-
-  SyncService({
-    required this.apiClient,
-    required this.localDb,
-    this.onEntitlementRevoked,
-  });
 
   /// Starts automatic background synchronization with connectivity listener and exponential backoff
   void startAutoSync({Duration period = const Duration(seconds: 30)}) {
@@ -360,8 +363,13 @@ class SyncService {
       final pulled = await pullSyncEvents();
       await fetchDisasterPack(force: forceDisasterPack);
 
-      // Prune expired offline cache records and downloads according to plan retention days (S3)
-      final retentionDays = _planRetentionDays ?? 30;
+      // Prune expired offline cache records according to plan retention days (S3)
+      // Starter: 7 days. Growth & Institutional: 0 (unlimited retention - no pruning).
+      final plan = ref?.read(authProvider).tenantPlan;
+      final fallbackDays = (plan == 'GROWTH' || plan == 'INSTITUTIONAL')
+          ? 0
+          : 7;
+      final retentionDays = _planRetentionDays ?? fallbackDays;
       if (retentionDays > 0) {
         await localDb.pruneExpiredCache(retentionDays);
       }
@@ -396,6 +404,7 @@ final syncServiceProvider = Provider<SyncService>((ref) {
   final service = SyncService(
     apiClient: apiClient,
     localDb: LocalDatabase.instance,
+    ref: ref,
     onEntitlementRevoked: (payload) async {
       final assetId =
           payload['asset_id'] ?? payload['lesson_id'] ?? payload['id'];

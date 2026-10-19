@@ -1,7 +1,11 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:drift/drift.dart';
 import 'package:flutter/foundation.dart';
+import 'package:path/path.dart' as p;
+import 'package:path_provider/path_provider.dart';
 import 'package:uuid/uuid.dart';
+import '../download/download_manager.dart';
 import 'drift_database.dart';
 
 /// Offline-first database service for EduLanka mobile, backed by SQLCipher-encrypted Drift (ADR-005)
@@ -598,6 +602,54 @@ class LocalDatabase {
     );
     totalPruned += prunedBlogs;
 
+    // 7. Expired saved papers and underlying downloaded files
+    try {
+      final expiredPapers = await driftDb
+          .customSelect(
+            'SELECT id, local_paper_path, local_scheme_path FROM offline_papers WHERE expires_at < ?',
+            variables: [
+              Variable.withInt(DateTime.now().millisecondsSinceEpoch),
+            ],
+          )
+          .get();
+      for (final row in expiredPapers) {
+        final pPath = row.read<String?>('local_paper_path');
+        final sPath = row.read<String?>('local_scheme_path');
+        if (pPath != null) {
+          final f = File(pPath);
+          if (await f.exists()) await f.delete();
+        }
+        if (sPath != null) {
+          final f = File(sPath);
+          if (await f.exists()) await f.delete();
+        }
+      }
+      final prunedPapers = await driftDb.customUpdate(
+        'DELETE FROM offline_papers WHERE expires_at < ?',
+        variables: [Variable.withInt(DateTime.now().millisecondsSinceEpoch)],
+      );
+      totalPruned += prunedPapers;
+    } catch (_) {}
+
+    // 8. Clean up orphaned or expired offline homework attachments
+    try {
+      final appDir = await getApplicationDocumentsDirectory();
+      final offHwDir = Directory(
+        p.join(appDir.path, 'offline_homework_attachments'),
+      );
+      if (await offHwDir.exists()) {
+        final files = offHwDir.listSync();
+        for (final entity in files) {
+          if (entity is File) {
+            final stat = entity.statSync();
+            if (stat.modified.isBefore(cutoff)) {
+              await entity.delete();
+            }
+          }
+        }
+      }
+    } catch (_) {}
+
     if (kDebugMode && totalPruned > 0) {
       debugPrint(
         '[LocalDatabase] Pruned $totalPruned expired cached records (retention: $retentionDays days).',
@@ -1072,6 +1124,137 @@ class LocalDatabase {
       await driftDb.customStatement('DELETE FROM offline_blogs;');
       await driftDb.customStatement('DELETE FROM offline_blog_comments;');
       await driftDb.customStatement('DELETE FROM offline_blog_reactions;');
+      await driftDb.customStatement('DELETE FROM offline_papers;');
     });
+
+    // Wipe physical downloaded / cached files on logout or tenant switch
+    try {
+      final appDir = await getApplicationDocumentsDirectory();
+      final papersDir = Directory(p.join(appDir.path, 'offline_papers'));
+      if (await papersDir.exists()) {
+        await papersDir.delete(recursive: true);
+      }
+      final hwDir = Directory(
+        p.join(appDir.path, 'offline_homework_attachments'),
+      );
+      if (await hwDir.exists()) {
+        await hwDir.delete(recursive: true);
+      }
+    } catch (_) {}
+
+    try {
+      await DownloadManager.instance.purgeAllDownloads();
+    } catch (_) {}
+  }
+
+  // ── Offline Papers (P3-S7) ──────────────────────────────────────────
+
+  Future<void> saveOfflinePaper({
+    required String id,
+    required Map<String, dynamic> paper,
+    String? localPaperPath,
+    String? localSchemePath,
+    int retentionDays = 30,
+  }) async {
+    await _initDb();
+    final nowMs = DateTime.now().millisecondsSinceEpoch;
+    final expiresMs =
+        nowMs + (retentionDays > 0 ? retentionDays : 365) * 24 * 3600 * 1000;
+
+    await driftDb.customStatement(
+      '''
+      INSERT OR REPLACE INTO offline_papers (
+        id, tenant_id, title, subject, grade_level, exam_type, medium, year, term,
+        paper_url, marking_scheme_url, local_paper_path, local_scheme_path,
+        downloaded_at, expires_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+      ''',
+      [
+        id,
+        paper['tenant_id']?.toString() ?? '',
+        paper['title']?.toString() ?? 'Examination Past Paper',
+        paper['subject']?.toString() ?? '',
+        paper['grade_level'] is int
+            ? paper['grade_level']
+            : int.tryParse(paper['grade_level']?.toString() ?? ''),
+        paper['exam_type']?.toString(),
+        paper['medium']?.toString(),
+        paper['year'] is int
+            ? paper['year']
+            : int.tryParse(paper['year']?.toString() ?? ''),
+        paper['term']?.toString(),
+        paper['paper_url']?.toString() ?? '',
+        paper['marking_scheme_url']?.toString(),
+        localPaperPath,
+        localSchemePath,
+        nowMs,
+        expiresMs,
+      ],
+    );
+  }
+
+  Future<List<Map<String, dynamic>>> getOfflinePapers({
+    String? subject,
+    int? gradeLevel,
+    String? examType,
+    String? medium,
+  }) async {
+    await _initDb();
+    final conditions = <String>['1=1'];
+    final variables = <Variable>[];
+
+    if (subject != null && subject.isNotEmpty && subject != 'All') {
+      conditions.add('subject = ?');
+      variables.add(Variable.withString(subject));
+    }
+    if (gradeLevel != null) {
+      conditions.add('grade_level = ?');
+      variables.add(Variable.withInt(gradeLevel));
+    }
+    if (examType != null && examType.isNotEmpty && examType != 'All') {
+      conditions.add('exam_type = ?');
+      variables.add(Variable.withString(examType));
+    }
+    if (medium != null && medium.isNotEmpty && medium != 'All') {
+      conditions.add('medium = ?');
+      variables.add(Variable.withString(medium));
+    }
+
+    final query =
+        'SELECT * FROM offline_papers WHERE ${conditions.join(' AND ')} ORDER BY downloaded_at DESC;';
+    final rows = await driftDb.customSelect(query, variables: variables).get();
+    return rows.map((r) => r.data).toList();
+  }
+
+  Future<Map<String, dynamic>?> getOfflinePaper(String id) async {
+    await _initDb();
+    final rows = await driftDb
+        .customSelect(
+          'SELECT * FROM offline_papers WHERE id = ? LIMIT 1',
+          variables: [Variable.withString(id)],
+        )
+        .get();
+    return rows.isEmpty ? null : rows.first.data;
+  }
+
+  Future<void> deleteOfflinePaper(String id) async {
+    await _initDb();
+    final row = await getOfflinePaper(id);
+    if (row != null) {
+      final pPath = row['local_paper_path']?.toString();
+      final sPath = row['local_scheme_path']?.toString();
+      if (pPath != null) {
+        final f = File(pPath);
+        if (await f.exists()) await f.delete();
+      }
+      if (sPath != null) {
+        final f = File(sPath);
+        if (await f.exists()) await f.delete();
+      }
+    }
+    await driftDb.customUpdate(
+      'DELETE FROM offline_papers WHERE id = ?',
+      variables: [Variable.withString(id)],
+    );
   }
 }

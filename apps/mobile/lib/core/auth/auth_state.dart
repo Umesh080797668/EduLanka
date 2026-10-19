@@ -77,7 +77,8 @@ class AuthNotifier extends StateNotifier<AuthState> {
     final userId = user['id']?.toString() ?? '';
     final role = user['role']?.toString().toUpperCase() ?? 'STUDENT';
     final resolvedTenantId = user['tenantId']?.toString() ?? tenantId ?? '';
-    final resolvedTenantPlan = user['tenantPlan']?.toString() ??
+    final resolvedTenantPlan =
+        user['tenantPlan']?.toString() ??
         user['plan']?.toString() ??
         user['tenant']?['plan']?.toString();
 
@@ -124,6 +125,18 @@ class AuthNotifier extends StateNotifier<AuthState> {
       userId: userId,
       tenantPlan: tenantPlan,
     );
+  }
+
+  void updateTenantPlan(String newPlan) {
+    if (state.isAuthenticated && state.tenantPlan != newPlan) {
+      state = AuthState(
+        status: state.status,
+        role: state.role,
+        tenantId: state.tenantId,
+        userId: state.userId,
+        tenantPlan: newPlan,
+      );
+    }
   }
 
   Future<void> logout({bool force = false}) async {

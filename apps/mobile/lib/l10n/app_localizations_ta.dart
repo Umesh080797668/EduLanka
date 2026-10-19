@@ -152,8 +152,7 @@ class AppLocalizationsTa extends AppLocalizations {
   String get downloadCompleted => 'பதிவிறக்கம் முடிந்தது.';
 
   @override
-  String get noPapersFound =>
-      'இந்தத் தேர்வுக்கு வினாத்தாள்கள் எதுவும் கிடைக்கவில்லை.';
+  String get noPapersFound => 'வினாத்தாள்கள் எதுவும் கிடைக்கவில்லை.';
 
   @override
   String get offlineVideos => 'ஆஃப்லைன் நூலகம்';
@@ -367,4 +366,72 @@ class AppLocalizationsTa extends AppLocalizations {
 
   @override
   String get submitReport => 'புகாரை சமர்ப்பிக்கவும்';
+
+  @override
+  String get reportSubmitted => 'புகார் மதிப்பாய்வுக்கு சமர்ப்பிக்கப்பட்டது.';
+
+  @override
+  String get articleTakenDown => 'கட்டுரை அகற்றப்பட்டது.';
+
+  @override
+  String get articleRestored => 'கட்டுரை வெற்றிகரமாக மீட்டெடுக்கப்பட்டது.';
+
+  @override
+  String get selectClassForClassBlog => 'வகுப்பை தேர்ந்தெடுக்கவும்';
+
+  @override
+  String get blogPublished => 'கல்வி கட்டுரை வெளியிடப்பட்டது!';
+
+  @override
+  String get emergencyAlertSent =>
+      'அவசர பேரிடர் எச்சரிக்கை வெற்றிகரமாக ஒளிபரப்பப்பட்டது.';
+
+  @override
+  String get videoUrlUnavailable => 'வீடியோ இணைப்பு கிடைக்கவில்லை';
+
+  @override
+  String get startingEncryptedDownload =>
+      'குறியாக்கப்பட்ட பதிவிறக்கம் தொடங்குகிறது...';
+
+  @override
+  String get noVideoLessonsFound => 'வீடியோ பாடங்கள் எதுவும் கிடைக்கவில்லை.';
+
+  @override
+  String get gradeSavedSuccessfully => 'மதிப்பெண் சேமிக்கப்பட்டது.';
+
+  @override
+  String get paperDocumentUnavailable => 'வினாத்தாள் ஆவணம் கிடைக்கவில்லை.';
+
+  @override
+  String get paperDownloaded =>
+      'வினாத்தாள் மற்றும் விடைக்குறிப்பு பதிவிறக்கப்பட்டது!';
+
+  @override
+  String get savedOffline => 'ஆஃப்லைனில் சேமிக்கப்பட்டது';
+
+  @override
+  String get allPapers => 'அனைத்து வினாத்தாள்கள்';
+
+  @override
+  String get errorDownloadFailed =>
+      'பதிவிறக்கம் தோல்வியடைந்தது. மீண்டும் முயற்சிக்கவும்.';
+
+  @override
+  String get errorLoadingLessons =>
+      'பாடங்களை ஏற்றுவதில் பிழை. மீண்டும் முயற்சிக்கவும்.';
+
+  @override
+  String get errorLoadingPapers =>
+      'வினாத்தாள்களை ஏற்றுவதில் பிழை. மீண்டும் முயற்சிக்கவும்.';
+
+  @override
+  String get errorActionFailed =>
+      'செயல் தோல்வியடைந்தது. மீண்டும் முயற்சிக்கவும்.';
+
+  @override
+  String get loadMore => 'மேலும் காட்டுக';
+
+  @override
+  String get homeworkSubmitted =>
+      'வீட்டுப்பாடம் வெற்றிகரமாக சமர்ப்பிக்கப்பட்டது!';
 }

@@ -385,7 +385,7 @@ abstract class AppLocalizations {
   /// No description provided for @noPapersFound.
   ///
   /// In en, this message translates to:
-  /// **'No past papers found for this selection.'**
+  /// **'No examination papers found for this filter.'**
   String get noPapersFound;
 
   /// No description provided for @offlineVideos.
@@ -795,6 +795,126 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Submit Report'**
   String get submitReport;
+
+  /// No description provided for @reportSubmitted.
+  ///
+  /// In en, this message translates to:
+  /// **'Report submitted for review.'**
+  String get reportSubmitted;
+
+  /// No description provided for @articleTakenDown.
+  ///
+  /// In en, this message translates to:
+  /// **'Article taken down and unpublished.'**
+  String get articleTakenDown;
+
+  /// No description provided for @articleRestored.
+  ///
+  /// In en, this message translates to:
+  /// **'Article restored successfully.'**
+  String get articleRestored;
+
+  /// No description provided for @selectClassForClassBlog.
+  ///
+  /// In en, this message translates to:
+  /// **'Please select a class for class-scoped blogs'**
+  String get selectClassForClassBlog;
+
+  /// No description provided for @blogPublished.
+  ///
+  /// In en, this message translates to:
+  /// **'Educational blog published successfully!'**
+  String get blogPublished;
+
+  /// No description provided for @emergencyAlertSent.
+  ///
+  /// In en, this message translates to:
+  /// **'Emergency Disaster Alert broadcasted successfully.'**
+  String get emergencyAlertSent;
+
+  /// No description provided for @videoUrlUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Video playback URL is not available'**
+  String get videoUrlUnavailable;
+
+  /// No description provided for @startingEncryptedDownload.
+  ///
+  /// In en, this message translates to:
+  /// **'Starting encrypted download...'**
+  String get startingEncryptedDownload;
+
+  /// No description provided for @noVideoLessonsFound.
+  ///
+  /// In en, this message translates to:
+  /// **'No video lessons found for this filter.'**
+  String get noVideoLessonsFound;
+
+  /// No description provided for @gradeSavedSuccessfully.
+  ///
+  /// In en, this message translates to:
+  /// **'Grade saved successfully.'**
+  String get gradeSavedSuccessfully;
+
+  /// No description provided for @paperDocumentUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Paper document URL is unavailable.'**
+  String get paperDocumentUnavailable;
+
+  /// No description provided for @paperDownloaded.
+  ///
+  /// In en, this message translates to:
+  /// **'Paper & Marking Scheme downloaded for offline study!'**
+  String get paperDownloaded;
+
+  /// No description provided for @savedOffline.
+  ///
+  /// In en, this message translates to:
+  /// **'Saved Offline'**
+  String get savedOffline;
+
+  /// No description provided for @allPapers.
+  ///
+  /// In en, this message translates to:
+  /// **'All Papers'**
+  String get allPapers;
+
+  /// No description provided for @errorDownloadFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to start download. Please try again.'**
+  String get errorDownloadFailed;
+
+  /// No description provided for @errorLoadingLessons.
+  ///
+  /// In en, this message translates to:
+  /// **'Error loading lessons. Please try again.'**
+  String get errorLoadingLessons;
+
+  /// No description provided for @errorLoadingPapers.
+  ///
+  /// In en, this message translates to:
+  /// **'Error loading papers. Please try again.'**
+  String get errorLoadingPapers;
+
+  /// No description provided for @errorActionFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Action failed. Please try again.'**
+  String get errorActionFailed;
+
+  /// No description provided for @loadMore.
+  ///
+  /// In en, this message translates to:
+  /// **'Load More'**
+  String get loadMore;
+
+  /// No description provided for @homeworkSubmitted.
+  ///
+  /// In en, this message translates to:
+  /// **'Homework submitted successfully!'**
+  String get homeworkSubmitted;
 }
 
 class _AppLocalizationsDelegate

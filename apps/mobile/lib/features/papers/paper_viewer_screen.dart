@@ -1,6 +1,8 @@
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:syncfusion_flutter_pdfviewer/pdfviewer.dart';
+import '../../core/download/download_manager.dart';
 import '../tutorial/tutorial_engine.dart';
 import '../../l10n/app_localizations.dart';
 
@@ -27,6 +29,9 @@ class PaperViewerScreen extends StatefulWidget {
 class _PaperViewerScreenState extends State<PaperViewerScreen> {
   bool _isSplitMode = true;
   bool _showingMarkingSchemeOnly = false;
+  Uint8List? _paperBytes;
+  Uint8List? _schemeBytes;
+  bool _isLoadingPdf = true;
 
   @override
   void initState() {
@@ -37,14 +42,41 @@ class _PaperViewerScreenState extends State<PaperViewerScreen> {
         (widget.markingSchemeUrl != null &&
             widget.markingSchemeUrl!.isNotEmpty);
     _isSplitMode = hasScheme;
+    _loadPdfFiles();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       TutorialEngine.showTourIfUnseen(context, 'phase3_paper_hub');
     });
   }
 
+  Future<void> _loadPdfFiles() async {
+    setState(() => _isLoadingPdf = true);
+    try {
+      if (widget.localFilePath != null &&
+          File(widget.localFilePath!).existsSync()) {
+        _paperBytes = await DownloadManager.instance.decryptFileBytes(
+          widget.localFilePath!,
+        );
+      }
+      if (widget.localMarkingSchemePath != null &&
+          File(widget.localMarkingSchemePath!).existsSync()) {
+        _schemeBytes = await DownloadManager.instance.decryptFileBytes(
+          widget.localMarkingSchemePath!,
+        );
+      }
+    } catch (_) {}
+    if (mounted) {
+      setState(() => _isLoadingPdf = false);
+    }
+  }
+
   Widget _buildPaperView() {
     final l10n = AppLocalizations.of(context);
-    if (widget.localFilePath != null &&
+    if (_isLoadingPdf) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    if (_paperBytes != null) {
+      return SfPdfViewer.memory(_paperBytes!);
+    } else if (widget.localFilePath != null &&
         File(widget.localFilePath!).existsSync()) {
       return SfPdfViewer.file(File(widget.localFilePath!));
     } else if (widget.paperUrl != null && widget.paperUrl!.isNotEmpty) {
@@ -60,7 +92,12 @@ class _PaperViewerScreenState extends State<PaperViewerScreen> {
 
   Widget _buildSchemeView() {
     final l10n = AppLocalizations.of(context);
-    if (widget.localMarkingSchemePath != null &&
+    if (_isLoadingPdf) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    if (_schemeBytes != null) {
+      return SfPdfViewer.memory(_schemeBytes!);
+    } else if (widget.localMarkingSchemePath != null &&
         File(widget.localMarkingSchemePath!).existsSync()) {
       return SfPdfViewer.file(File(widget.localMarkingSchemePath!));
     } else if (widget.markingSchemeUrl != null &&

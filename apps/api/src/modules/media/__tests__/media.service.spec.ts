@@ -85,7 +85,7 @@ describe('MediaService', () => {
                         }
                         if (table === 'plans') {
                             return Promise.resolve({
-                                data: { offline_retention_days: 30 },
+                                data: { offline_retention_days: 0, video_retention_days: 30 },
                                 error: null,
                             });
                         }

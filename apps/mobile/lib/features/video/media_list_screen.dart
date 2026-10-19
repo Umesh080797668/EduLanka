@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/api/api_client.dart';
 import '../../core/auth/auth_state.dart';
@@ -19,7 +20,12 @@ class MediaListScreen extends ConsumerStatefulWidget {
 class _MediaListScreenState extends ConsumerState<MediaListScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
+  final ScrollController _scrollController = ScrollController();
   bool _isLoading = true;
+  bool _isLoadingMore = false;
+  bool _hasMore = false;
+  int _currentPage = 1;
+  int _total = 0;
   String? _error;
   List<Map<String, dynamic>> _assets = [];
 
@@ -44,7 +50,16 @@ class _MediaListScreenState extends ConsumerState<MediaListScreen>
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
-    _loadMediaAssets();
+    _loadMediaAssets(reset: true);
+
+    _scrollController.addListener(() {
+      if (_scrollController.position.pixels >=
+          _scrollController.position.maxScrollExtent - 200) {
+        if (!_isLoading && !_isLoadingMore && _hasMore) {
+          _loadMoreMediaAssets();
+        }
+      }
+    });
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       TutorialEngine.showTourIfUnseen(context, 'phase3_video_tour');
@@ -54,18 +69,44 @@ class _MediaListScreenState extends ConsumerState<MediaListScreen>
   @override
   void dispose() {
     _tabController.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
-  Future<void> _loadMediaAssets() async {
+  bool _isEmbed(Map<String, dynamic> asset) {
+    final publicId = asset['cloudinary_public_id']?.toString() ?? '';
+    if (publicId.startsWith('embed_')) return true;
+    final url =
+        (asset['hls_url'] ?? asset['mp4_url'] ?? asset['cloudinary_secure_url'])
+            ?.toString() ??
+        '';
+    final u = url.toLowerCase();
+    return u.contains('youtube.com') ||
+        u.contains('youtu.be') ||
+        u.contains('vimeo.com') ||
+        u.contains('drive.google.com') ||
+        (!u.endsWith('.mp4') &&
+            !u.endsWith('.m3u8') &&
+            asset['hls_url'] == null &&
+            asset['mp4_url'] == null);
+  }
+
+  Future<void> _loadMediaAssets({bool reset = true}) async {
+    final l10n = AppLocalizations.of(context);
     setState(() {
       _isLoading = true;
       _error = null;
+      if (reset) {
+        _currentPage = 1;
+        _assets = [];
+      }
     });
 
     try {
       final apiClient = ref.read(apiClientProvider);
       final res = await apiClient.getMediaAssets(
+        page: _currentPage,
+        limit: 20,
         subject: _selectedSubject == 'All' ? null : _selectedSubject,
         gradeLevel: _selectedGrade,
       );
@@ -78,23 +119,73 @@ class _MediaListScreenState extends ConsumerState<MediaListScreen>
             .toList();
       }
 
+      final total = res['count'] is int
+          ? res['count'] as int
+          : (res['total'] is int ? res['total'] as int : 0);
+      final hasMore = res['hasMore'] == true || assetsList.length < total;
+
       if (mounted) {
         setState(() {
           _assets = assetsList;
+          _total = total;
+          _hasMore = hasMore;
           _isLoading = false;
         });
       }
-    } catch (e) {
+    } catch (_) {
       if (mounted) {
         setState(() {
-          _error = e.toString();
+          _error =
+              l10n?.errorLoadingLessons ??
+              'Error loading lessons. Please try again.';
           _isLoading = false;
         });
       }
     }
   }
 
-  void _onPlayAsset(Map<String, dynamic> asset) {
+  Future<void> _loadMoreMediaAssets() async {
+    if (_isLoadingMore || !_hasMore) return;
+    setState(() => _isLoadingMore = true);
+
+    try {
+      final nextPage = _currentPage + 1;
+      final apiClient = ref.read(apiClientProvider);
+      final res = await apiClient.getMediaAssets(
+        page: nextPage,
+        limit: 20,
+        subject: _selectedSubject == 'All' ? null : _selectedSubject,
+        gradeLevel: _selectedGrade,
+      );
+
+      final rawList = res['data'];
+      if (rawList is List && rawList.isNotEmpty) {
+        final newItems = rawList
+            .map((item) => Map<String, dynamic>.from(item as Map))
+            .toList();
+        if (mounted) {
+          setState(() {
+            _currentPage = nextPage;
+            _assets.addAll(newItems);
+            _hasMore = res['hasMore'] == true || _assets.length < _total;
+            _isLoadingMore = false;
+          });
+        }
+      } else {
+        if (mounted) {
+          setState(() {
+            _hasMore = false;
+            _isLoadingMore = false;
+          });
+        }
+      }
+    } catch (_) {
+      if (mounted) setState(() => _isLoadingMore = false);
+    }
+  }
+
+  Future<void> _onPlayAsset(Map<String, dynamic> asset) async {
+    final l10n = AppLocalizations.of(context);
     final title = asset['title']?.toString() ?? 'Curriculum Video Lesson';
     final videoUrl =
         asset['hls_url']?.toString() ??
@@ -103,11 +194,30 @@ class _MediaListScreenState extends ConsumerState<MediaListScreen>
 
     if (videoUrl == null || videoUrl.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Video playback URL is not available')),
+        SnackBar(
+          content: Text(
+            l10n?.videoUrlUnavailable ?? 'Video playback URL is not available',
+          ),
+        ),
       );
       return;
     }
 
+    if (_isEmbed(asset)) {
+      final uri = Uri.parse(videoUrl);
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      } else {
+        if (!mounted) return;
+        context.push(
+          '/video-player',
+          extra: {'title': title, 'videoUrl': videoUrl, 'assetId': asset['id']},
+        );
+      }
+      return;
+    }
+
+    if (!mounted) return;
     context.push(
       '/video-player',
       extra: {'title': title, 'videoUrl': videoUrl, 'assetId': asset['id']},
@@ -115,6 +225,7 @@ class _MediaListScreenState extends ConsumerState<MediaListScreen>
   }
 
   Future<void> _onDownloadAsset(Map<String, dynamic> asset) async {
+    final l10n = AppLocalizations.of(context);
     final auth = ref.read(authProvider);
     final plan = auth.tenantPlan ?? 'COMMUNITY';
     final isGrowthOrAbove = plan == 'GROWTH' || plan == 'INSTITUTIONAL';
@@ -152,12 +263,17 @@ class _MediaListScreenState extends ConsumerState<MediaListScreen>
 
     try {
       final apiClient = ref.read(apiClientProvider);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Starting encrypted download: ${asset['title']}...'),
-          duration: const Duration(seconds: 2),
-        ),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              l10n?.startingEncryptedDownload ??
+                  'Starting encrypted download...',
+            ),
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
 
       await DownloadManager.instance.enqueueFromManifest(
         assetId,
@@ -174,11 +290,14 @@ class _MediaListScreenState extends ConsumerState<MediaListScreen>
           ),
         );
       }
-    } catch (e) {
+    } catch (_) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Failed to start download: $e'),
+            content: Text(
+              l10n?.errorDownloadFailed ??
+                  'Failed to start download. Please try again.',
+            ),
             backgroundColor: Colors.red,
           ),
         );
@@ -234,25 +353,42 @@ class _MediaListScreenState extends ConsumerState<MediaListScreen>
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Text('Error loading lessons: $_error'),
+                      Text(_error!, style: const TextStyle(color: Colors.red)),
                       const SizedBox(height: 12),
                       ElevatedButton(
-                        onPressed: _loadMediaAssets,
+                        onPressed: () => _loadMediaAssets(reset: true),
                         child: Text(l10n?.retry ?? 'Retry'),
                       ),
                     ],
                   ),
                 )
               : _assets.isEmpty
-              ? const Center(
-                  child: Text('No video lessons found for this filter.'),
+              ? Center(
+                  child: Text(
+                    l10n?.noVideoLessonsFound ??
+                        'No video lessons found for this filter.',
+                  ),
                 )
               : RefreshIndicator(
-                  onRefresh: _loadMediaAssets,
+                  onRefresh: () => _loadMediaAssets(reset: true),
                   child: ListView.builder(
+                    controller: _scrollController,
                     padding: const EdgeInsets.all(12),
-                    itemCount: _assets.length,
+                    itemCount: _assets.length + (_hasMore ? 1 : 0),
                     itemBuilder: (context, index) {
+                      if (index == _assets.length) {
+                        return Center(
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            child: _isLoadingMore
+                                ? const CircularProgressIndicator()
+                                : ElevatedButton(
+                                    onPressed: _loadMoreMediaAssets,
+                                    child: Text(l10n?.loadMore ?? 'Load More'),
+                                  ),
+                          ),
+                        );
+                      }
                       final asset = _assets[index];
                       final assetId = asset['id']?.toString() ?? '';
                       final task = downloadTasks[assetId];
@@ -446,61 +582,73 @@ class _MediaListScreenState extends ConsumerState<MediaListScreen>
             Row(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
-                if (task != null && task.status == DownloadStatus.downloading)
-                  Padding(
-                    padding: const EdgeInsets.only(right: 8),
-                    child: SizedBox(
-                      width: 120,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          LinearProgressIndicator(value: task.progress),
-                          const SizedBox(height: 2),
-                          Text(
-                            '${(task.progress * 100).toInt()}% Encrypting',
-                            style: const TextStyle(fontSize: 10),
-                          ),
-                        ],
-                      ),
+                if (_isEmbed(asset)) ...[
+                  ElevatedButton.icon(
+                    icon: const Icon(Icons.open_in_new, size: 16),
+                    label: const Text('Watch'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF2563EB),
+                      foregroundColor: Colors.white,
                     ),
-                  )
-                else if (task != null &&
-                    task.status == DownloadStatus.completed)
-                  Padding(
-                    padding: const EdgeInsets.only(right: 8),
-                    child: Chip(
-                      avatar: const Icon(
-                        Icons.check_circle,
-                        size: 16,
-                        color: Colors.green,
-                      ),
-                      label: Text(
-                        l10n?.offlineReady ?? 'Offline Ready',
-                        style: TextStyle(fontSize: 11),
-                      ),
-                      backgroundColor: Color(0xFFECFDF5),
-                      padding: EdgeInsets.zero,
-                    ),
-                  )
-                else
-                  OutlinedButton.icon(
-                    icon: const Icon(Icons.download, size: 16),
-                    label: Text(l10n?.download ?? 'Download'),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: const Color(0xFF0D9488),
-                    ),
-                    onPressed: isReady ? () => _onDownloadAsset(asset) : null,
+                    onPressed: () => _onPlayAsset(asset),
                   ),
-                const SizedBox(width: 8),
-                ElevatedButton.icon(
-                  icon: const Icon(Icons.play_arrow, size: 18),
-                  label: Text(l10n?.play ?? 'Play'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF2563EB),
-                    foregroundColor: Colors.white,
+                ] else ...[
+                  if (task != null && task.status == DownloadStatus.downloading)
+                    Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: SizedBox(
+                        width: 120,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            LinearProgressIndicator(value: task.progress),
+                            const SizedBox(height: 2),
+                            Text(
+                              '${(task.progress * 100).toInt()}% Encrypting',
+                              style: const TextStyle(fontSize: 10),
+                            ),
+                          ],
+                        ),
+                      ),
+                    )
+                  else if (task != null &&
+                      task.status == DownloadStatus.completed)
+                    Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: Chip(
+                        avatar: const Icon(
+                          Icons.check_circle,
+                          size: 16,
+                          color: Colors.green,
+                        ),
+                        label: Text(
+                          l10n?.offlineReady ?? 'Offline Ready',
+                          style: const TextStyle(fontSize: 11),
+                        ),
+                        backgroundColor: const Color(0xFFECFDF5),
+                        padding: EdgeInsets.zero,
+                      ),
+                    )
+                  else
+                    OutlinedButton.icon(
+                      icon: const Icon(Icons.download, size: 16),
+                      label: Text(l10n?.download ?? 'Download'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: const Color(0xFF0D9488),
+                      ),
+                      onPressed: isReady ? () => _onDownloadAsset(asset) : null,
+                    ),
+                  const SizedBox(width: 8),
+                  ElevatedButton.icon(
+                    icon: const Icon(Icons.play_arrow, size: 18),
+                    label: Text(l10n?.play ?? 'Play'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF2563EB),
+                      foregroundColor: Colors.white,
+                    ),
+                    onPressed: isReady ? () => _onPlayAsset(asset) : null,
                   ),
-                  onPressed: isReady ? () => _onPlayAsset(asset) : null,
-                ),
+                ],
               ],
             ),
           ],

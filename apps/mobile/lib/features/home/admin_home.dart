@@ -101,19 +101,27 @@ class _AdminHomeScreenState extends ConsumerState<AdminHomeScreen> {
       );
 
       if (mounted) {
+        final l10n = AppLocalizations.of(context);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Emergency Disaster Alert broadcasted successfully.'),
-            backgroundColor: Color(0xFF10B981),
+          SnackBar(
+            content: Text(
+              l10n?.emergencyAlertSent ??
+                  'Emergency Disaster Alert broadcasted successfully.',
+            ),
+            backgroundColor: const Color(0xFF10B981),
           ),
         );
         _loadSyncHealth();
       }
-    } catch (e) {
+    } catch (_) {
       if (mounted) {
+        final l10n = AppLocalizations.of(context);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Failed to broadcast alert: $e'),
+            content: Text(
+              l10n?.errorActionFailed ??
+                  'Failed to broadcast alert. Please try again.',
+            ),
             backgroundColor: const Color(0xFFEF4444),
           ),
         );

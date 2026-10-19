@@ -65,9 +65,13 @@ class _CreateBlogScreenState extends ConsumerState<CreateBlogScreen> {
   Future<void> _publishBlog() async {
     if (!_formKey.currentState!.validate()) return;
     if (_scope == 'CLASS' && _selectedClassId == null) {
+      final l10n = AppLocalizations.of(context);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please select a class for class-scoped blogs'),
+        SnackBar(
+          content: Text(
+            l10n?.selectClassForClassBlog ??
+                'Please select a class for class-scoped blogs',
+          ),
         ),
       );
       return;
@@ -98,17 +102,28 @@ class _CreateBlogScreenState extends ConsumerState<CreateBlogScreen> {
       );
 
       if (mounted) {
+        final l10n = AppLocalizations.of(context);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Educational blog published successfully!'),
+          SnackBar(
+            content: Text(
+              l10n?.blogPublished ?? 'Educational blog published successfully!',
+            ),
+            backgroundColor: const Color(0xFF10B981),
           ),
         );
         context.pop(true);
       }
-    } catch (e) {
+    } catch (_) {
       if (mounted) {
+        final l10n = AppLocalizations.of(context);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to publish article: $e')),
+          SnackBar(
+            content: Text(
+              l10n?.errorActionFailed ??
+                  'Failed to publish article. Please try again.',
+            ),
+            backgroundColor: Colors.red,
+          ),
         );
         setState(() => _isSubmitting = false);
       }

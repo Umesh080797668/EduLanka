@@ -152,7 +152,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get downloadCompleted => 'Download completed.';
 
   @override
-  String get noPapersFound => 'No past papers found for this selection.';
+  String get noPapersFound => 'No examination papers found for this filter.';
 
   @override
   String get offlineVideos => 'Offline Library';
@@ -362,4 +362,68 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get submitReport => 'Submit Report';
+
+  @override
+  String get reportSubmitted => 'Report submitted for review.';
+
+  @override
+  String get articleTakenDown => 'Article taken down and unpublished.';
+
+  @override
+  String get articleRestored => 'Article restored successfully.';
+
+  @override
+  String get selectClassForClassBlog =>
+      'Please select a class for class-scoped blogs';
+
+  @override
+  String get blogPublished => 'Educational blog published successfully!';
+
+  @override
+  String get emergencyAlertSent =>
+      'Emergency Disaster Alert broadcasted successfully.';
+
+  @override
+  String get videoUrlUnavailable => 'Video playback URL is not available';
+
+  @override
+  String get startingEncryptedDownload => 'Starting encrypted download...';
+
+  @override
+  String get noVideoLessonsFound => 'No video lessons found for this filter.';
+
+  @override
+  String get gradeSavedSuccessfully => 'Grade saved successfully.';
+
+  @override
+  String get paperDocumentUnavailable => 'Paper document URL is unavailable.';
+
+  @override
+  String get paperDownloaded =>
+      'Paper & Marking Scheme downloaded for offline study!';
+
+  @override
+  String get savedOffline => 'Saved Offline';
+
+  @override
+  String get allPapers => 'All Papers';
+
+  @override
+  String get errorDownloadFailed =>
+      'Failed to start download. Please try again.';
+
+  @override
+  String get errorLoadingLessons => 'Error loading lessons. Please try again.';
+
+  @override
+  String get errorLoadingPapers => 'Error loading papers. Please try again.';
+
+  @override
+  String get errorActionFailed => 'Action failed. Please try again.';
+
+  @override
+  String get loadMore => 'Load More';
+
+  @override
+  String get homeworkSubmitted => 'Homework submitted successfully!';
 }

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io' show Platform, File;
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
@@ -14,6 +15,7 @@ class ApiClient {
   final String baseUrl;
   final void Function()? onSessionExpired;
   final void Function(Map<String, dynamic>? data)? onUpgradeRequired;
+  final void Function(String newPlan)? onPlanUpdated;
   final String? appVersion;
 
   Completer<String?>? _refreshCompleter;
@@ -23,6 +25,7 @@ class ApiClient {
     required this.baseUrl,
     this.onSessionExpired,
     this.onUpgradeRequired,
+    this.onPlanUpdated,
     this.appVersion,
   }) {
     dio = Dio(
@@ -115,6 +118,7 @@ class ApiClient {
             bool refreshSucceeded = false;
             bool isAuthRejection = false;
 
+            dynamic refreshPayload;
             try {
               // Route refresh through unintercepted Dio instance
               final refreshRes = await _refreshDio.post(
@@ -122,13 +126,14 @@ class ApiClient {
                 data: {'refreshToken': refreshToken},
               );
 
-              final data =
+              refreshPayload =
                   refreshRes.data is Map && refreshRes.data.containsKey('data')
                   ? refreshRes.data['data']
                   : refreshRes.data;
 
-              newAccess = data?['accessToken'] as String?;
-              newRefresh = data?['refreshToken'] as String? ?? refreshToken;
+              newAccess = refreshPayload?['accessToken'] as String?;
+              newRefresh =
+                  refreshPayload?['refreshToken'] as String? ?? refreshToken;
 
               if (newAccess != null && newAccess.isNotEmpty) {
                 refreshSucceeded = true;
@@ -149,13 +154,38 @@ class ApiClient {
               final role = await tokenStorage.getUserRole() ?? '';
               final userId = await tokenStorage.getUserId() ?? '';
 
+              String? refreshedPlan = refreshPayload is Map
+                  ? refreshPayload['tenantPlan'] as String?
+                  : null;
+              if (refreshedPlan == null || refreshedPlan.isEmpty) {
+                try {
+                  final parts = newAccess.split('.');
+                  if (parts.length == 3) {
+                    final normalized = base64.normalize(parts[1]);
+                    final payloadJson = utf8.decode(
+                      base64Url.decode(normalized),
+                    );
+                    final payload = jsonDecode(payloadJson);
+                    if (payload is Map && payload['tenantPlan'] is String) {
+                      refreshedPlan = payload['tenantPlan'] as String;
+                    }
+                  }
+                } catch (_) {}
+              }
+              refreshedPlan ??= await tokenStorage.getTenantPlan();
+
               await tokenStorage.saveTokens(
                 accessToken: newAccess,
                 refreshToken: newRefresh ?? refreshToken,
                 tenantId: tenantId,
                 role: role,
                 userId: userId,
+                tenantPlan: refreshedPlan,
               );
+
+              if (refreshedPlan != null && refreshedPlan.isNotEmpty) {
+                onPlanUpdated?.call(refreshedPlan);
+              }
 
               _refreshCompleter?.complete(newAccess);
               _refreshCompleter = null;
@@ -678,5 +708,7 @@ final apiClientProvider = Provider<ApiClient>((ref) {
     baseUrl: config.apiBaseUrl,
     appVersion: config.appVersion,
     onSessionExpired: () => ref.read(authProvider.notifier).logout(force: true),
+    onPlanUpdated: (plan) =>
+        ref.read(authProvider.notifier).updateTenantPlan(plan),
   );
 });

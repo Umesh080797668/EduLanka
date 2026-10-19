@@ -198,6 +198,27 @@ class AppDriftDatabase extends GeneratedDatabase {
         sync_status TEXT NOT NULL DEFAULT 'SYNCED'
       );
     ''');
+
+    // 13. Offline Past Papers & Marking Schemes (P3-S7)
+    await customStatement('''
+      CREATE TABLE IF NOT EXISTS offline_papers (
+        id TEXT PRIMARY KEY,
+        tenant_id TEXT,
+        title TEXT NOT NULL,
+        subject TEXT NOT NULL,
+        grade_level INTEGER,
+        exam_type TEXT,
+        medium TEXT,
+        year INTEGER,
+        term TEXT,
+        paper_url TEXT NOT NULL,
+        marking_scheme_url TEXT,
+        local_paper_path TEXT,
+        local_scheme_path TEXT,
+        downloaded_at INTEGER NOT NULL,
+        expires_at INTEGER NOT NULL
+      );
+    ''');
   }
 
   /// Formats encryption key for SQLCipher PRAGMA key statement.
@@ -210,7 +231,9 @@ class AppDriftDatabase extends GeneratedDatabase {
     try {
       final decoded = base64Url.decode(base64Url.normalize(rawKey));
       if (decoded.length == 32) {
-        final hex = decoded.map((b) => b.toRadixString(16).padLeft(2, '0')).join();
+        final hex = decoded
+            .map((b) => b.toRadixString(16).padLeft(2, '0'))
+            .join();
         return "x'$hex'";
       }
     } catch (_) {}

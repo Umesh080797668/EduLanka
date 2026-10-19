@@ -152,7 +152,7 @@ class AppLocalizationsSi extends AppLocalizations {
   String get downloadCompleted => 'බාගත කිරීම අවසන්.';
 
   @override
-  String get noPapersFound => 'මෙම තේරීම සඳහා ප්‍රශ්න පත්‍ර හමු නොවීය.';
+  String get noPapersFound => 'ප්‍රශ්න පත්‍ර කිසිවක් හමු නොවීය.';
 
   @override
   String get offlineVideos => 'නොබැඳි පුස්තකාලය';
@@ -363,4 +363,71 @@ class AppLocalizationsSi extends AppLocalizations {
 
   @override
   String get submitReport => 'වාර්තාව ඉදිරිපත් කරන්න';
+
+  @override
+  String get reportSubmitted => 'වාර්තාව සමාලෝචනය සඳහා ඉදිරිපත් කරන ලදී.';
+
+  @override
+  String get articleTakenDown => 'ලිපිය ඉවත් කර ප්‍රකාශනය අවලංගු කරන ලදී.';
+
+  @override
+  String get articleRestored => 'ලිපිය සාර්ථකව නැවත ස්ථාපිත කරන ලදී.';
+
+  @override
+  String get selectClassForClassBlog => 'කරුණාකර පන්තියක් තෝරන්න';
+
+  @override
+  String get blogPublished => 'අධ්‍යාපනික ලිපිය සාර්ථකව පළ කරන ලදී!';
+
+  @override
+  String get emergencyAlertSent =>
+      'හදිසි ආපදා අනතුරු ඇඟවීම සාර්ථකව විකාශනය විය.';
+
+  @override
+  String get videoUrlUnavailable => 'වීඩියෝ සබැඳිය නොමැත';
+
+  @override
+  String get startingEncryptedDownload => 'සංකේතාත්මක බාගත කිරීම ආරම්භ වේ...';
+
+  @override
+  String get noVideoLessonsFound =>
+      'මෙම පෙරහන සඳහා වීඩියෝ පාඩම් කිසිවක් හමු නොවීය.';
+
+  @override
+  String get gradeSavedSuccessfully => 'ලකුණු සාර්ථකව සුරකින ලදී.';
+
+  @override
+  String get paperDocumentUnavailable => 'ප්‍රශ්න පත්‍ර ලේඛන සබැඳිය නොමැත.';
+
+  @override
+  String get paperDownloaded =>
+      'ප්‍රශ්න පත්‍රය සහ ලකුණු පටිපාටිය බාගත කරන ලදී!';
+
+  @override
+  String get savedOffline => 'නොබැඳිව සුරකින ලද';
+
+  @override
+  String get allPapers => 'සියලු ප්‍රශ්න පත්‍ර';
+
+  @override
+  String get errorDownloadFailed =>
+      'බාගත කිරීම අසාර්ථක විය. කරුණාකර නැවත උත්සාහ කරන්න.';
+
+  @override
+  String get errorLoadingLessons =>
+      'පාඩම් පූරණය කිරීම අසාර්ථක විය. නැවත උත්සාහ කරන්න.';
+
+  @override
+  String get errorLoadingPapers =>
+      'ප්‍රශ්න පත්‍ර පූරණය කිරීම අසාර්ථක විය. නැවත උත්සාහ කරන්න.';
+
+  @override
+  String get errorActionFailed =>
+      'ක්‍රියාව අසාර්ථක විය. කරුණාකර නැවත උත්සාහ කරන්න.';
+
+  @override
+  String get loadMore => 'තවත් පෙන්වන්න';
+
+  @override
+  String get homeworkSubmitted => 'පැවරුම සාර්ථකව භාර දෙන ලදී!';
 }

@@ -1,5 +1,4 @@
 import 'dart:io';
-import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -7,6 +6,9 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
 import '../../core/api/api_client.dart';
+import '../../core/auth/auth_state.dart';
+import '../../core/database/local_database.dart';
+import '../../core/download/download_manager.dart';
 import '../../l10n/app_localizations.dart';
 import '../tutorial/tutorial_engine.dart';
 
@@ -18,7 +20,13 @@ class PaperHubListScreen extends ConsumerStatefulWidget {
 }
 
 class _PaperHubListScreenState extends ConsumerState<PaperHubListScreen> {
+  final ScrollController _scrollController = ScrollController();
   bool _isLoading = true;
+  bool _isLoadingMore = false;
+  bool _hasMore = false;
+  int _currentPage = 1;
+  int _total = 0;
+  bool _isOfflineMode = false;
   String? _error;
   List<Map<String, dynamic>> _papers = [];
   final Map<String, bool> _downloadingMap = {};
@@ -57,11 +65,26 @@ class _PaperHubListScreenState extends ConsumerState<PaperHubListScreen> {
   void initState() {
     super.initState();
     _checkSavedPapers();
-    _loadPapers();
+    _loadPapers(reset: true);
+
+    _scrollController.addListener(() {
+      if (_scrollController.position.pixels >=
+          _scrollController.position.maxScrollExtent - 200) {
+        if (!_isLoading && !_isLoadingMore && _hasMore && !_isOfflineMode) {
+          _loadMorePapers();
+        }
+      }
+    });
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       TutorialEngine.showTourIfUnseen(context, 'phase3_papers_tour');
     });
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
   }
 
   Future<String> get _offlinePapersDir async {
@@ -77,20 +100,42 @@ class _PaperHubListScreenState extends ConsumerState<PaperHubListScreen> {
     try {
       final dir = await _offlinePapersDir;
       final dirEntity = Directory(dir);
-      if (!await dirEntity.exists()) return;
-
-      final files = dirEntity.listSync();
       final Map<String, Map<String, String>> found = {};
 
-      for (final f in files) {
-        if (f is File) {
-          final filename = p.basename(f.path);
-          if (filename.endsWith('_paper.pdf')) {
-            final id = filename.replaceAll('_paper.pdf', '');
-            found.putIfAbsent(id, () => {})['paper'] = f.path;
-          } else if (filename.endsWith('_scheme.pdf')) {
-            final id = filename.replaceAll('_scheme.pdf', '');
-            found.putIfAbsent(id, () => {})['scheme'] = f.path;
+      if (await dirEntity.exists()) {
+        final files = dirEntity.listSync();
+        for (final f in files) {
+          if (f is File) {
+            final filename = p.basename(f.path);
+            if (filename.endsWith('_paper.pdf') ||
+                filename.endsWith('_paper.enc.pdf')) {
+              final id = filename
+                  .replaceAll('_paper.enc.pdf', '')
+                  .replaceAll('_paper.pdf', '');
+              found.putIfAbsent(id, () => {})['paper'] = f.path;
+            } else if (filename.endsWith('_scheme.pdf') ||
+                filename.endsWith('_scheme.enc.pdf')) {
+              final id = filename
+                  .replaceAll('_scheme.enc.pdf', '')
+                  .replaceAll('_scheme.pdf', '');
+              found.putIfAbsent(id, () => {})['scheme'] = f.path;
+            }
+          }
+        }
+      }
+
+      // Also check LocalDatabase for registered offline papers
+      final dbPapers = await LocalDatabase.instance.getOfflinePapers();
+      for (final pRow in dbPapers) {
+        final id = pRow['id']?.toString() ?? '';
+        final pPath = pRow['local_paper_path']?.toString();
+        final sPath = pRow['local_scheme_path']?.toString();
+        if (id.isNotEmpty) {
+          if (pPath != null && File(pPath).existsSync()) {
+            found.putIfAbsent(id, () => {})['paper'] = pPath;
+          }
+          if (sPath != null && File(sPath).existsSync()) {
+            found.putIfAbsent(id, () => {})['scheme'] = sPath;
           }
         }
       }
@@ -104,15 +149,22 @@ class _PaperHubListScreenState extends ConsumerState<PaperHubListScreen> {
     } catch (_) {}
   }
 
-  Future<void> _loadPapers() async {
+  Future<void> _loadPapers({bool reset = true}) async {
+    final l10n = AppLocalizations.of(context);
     setState(() {
       _isLoading = true;
       _error = null;
+      if (reset) {
+        _currentPage = 1;
+        _papers = [];
+      }
     });
 
     try {
       final apiClient = ref.read(apiClientProvider);
       final res = await apiClient.getPapers(
+        page: _currentPage,
+        limit: 20,
         subject: _selectedSubject == 'All' ? null : _selectedSubject,
         gradeLevel: _selectedGrade,
         medium: _selectedMedium,
@@ -127,55 +179,156 @@ class _PaperHubListScreenState extends ConsumerState<PaperHubListScreen> {
             .toList();
       }
 
+      final total = res['count'] is int
+          ? res['count'] as int
+          : (res['total'] is int ? res['total'] as int : 0);
+      final hasMore = res['hasMore'] == true || papersList.length < total;
+
       if (mounted) {
         setState(() {
           _papers = papersList;
+          _total = total;
+          _hasMore = hasMore;
+          _isOfflineMode = false;
           _isLoading = false;
         });
       }
       await _checkSavedPapers();
     } catch (e) {
+      // Offline fallback: load cached papers from LocalDatabase (P3-S7 airplane mode)
+      final offlinePapers = await LocalDatabase.instance.getOfflinePapers(
+        subject: _selectedSubject,
+        gradeLevel: _selectedGrade,
+        medium: _selectedMedium,
+        examType: _selectedExamType,
+      );
+
       if (mounted) {
         setState(() {
-          _error = e.toString();
           _isLoading = false;
+          if (offlinePapers.isNotEmpty) {
+            _papers = offlinePapers;
+            _isOfflineMode = true;
+            _hasMore = false;
+            _error = null;
+          } else {
+            _error =
+                l10n?.errorLoadingPapers ??
+                'Failed to load papers. Check connection.';
+          }
         });
       }
+      await _checkSavedPapers();
+    }
+  }
+
+  Future<void> _loadMorePapers() async {
+    if (_isLoadingMore || !_hasMore || _isOfflineMode) return;
+    setState(() => _isLoadingMore = true);
+
+    try {
+      final nextPage = _currentPage + 1;
+      final apiClient = ref.read(apiClientProvider);
+      final res = await apiClient.getPapers(
+        page: nextPage,
+        limit: 20,
+        subject: _selectedSubject == 'All' ? null : _selectedSubject,
+        gradeLevel: _selectedGrade,
+        medium: _selectedMedium,
+        examType: _selectedExamType,
+      );
+
+      final rawList = res['data'];
+      if (rawList is List && rawList.isNotEmpty) {
+        final newItems = rawList
+            .map((item) => Map<String, dynamic>.from(item as Map))
+            .toList();
+        if (mounted) {
+          setState(() {
+            _currentPage = nextPage;
+            _papers.addAll(newItems);
+            _hasMore = res['hasMore'] == true || _papers.length < _total;
+            _isLoadingMore = false;
+          });
+        }
+        await _checkSavedPapers();
+      } else {
+        if (mounted) {
+          setState(() {
+            _hasMore = false;
+            _isLoadingMore = false;
+          });
+        }
+      }
+    } catch (_) {
+      if (mounted) setState(() => _isLoadingMore = false);
     }
   }
 
   Future<void> _downloadPaperAndScheme(Map<String, dynamic> paper) async {
+    final l10n = AppLocalizations.of(context);
     final paperId = paper['id']?.toString() ?? '';
     final paperUrl = paper['paper_url']?.toString();
     final schemeUrl = paper['marking_scheme_url']?.toString();
+    final title = paper['title']?.toString() ?? 'Examination Past Paper';
 
     if (paperId.isEmpty || paperUrl == null || paperUrl.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Paper document URL is unavailable.')),
+        SnackBar(
+          content: Text(
+            l10n?.paperDocumentUnavailable ??
+                'Paper document URL is unavailable.',
+          ),
+        ),
       );
       return;
     }
 
     setState(() => _downloadingMap[paperId] = true);
-    final dir = await _offlinePapersDir;
-    final paperFile = File(p.join(dir, '${paperId}_paper.pdf'));
-    final schemeFile = File(p.join(dir, '${paperId}_scheme.pdf'));
-
-    final dio = Dio(
-      BaseOptions(
-        connectTimeout: const Duration(seconds: 30),
-        receiveTimeout: const Duration(seconds: 60),
-      ),
-    );
 
     try {
-      // 1. Download Paper PDF
-      await dio.download(paperUrl, paperFile.path);
+      final dir = await _offlinePapersDir;
+      final paperFileName = '${paperId}_paper.enc.pdf';
+      final schemeFileName = '${paperId}_scheme.enc.pdf';
+      final paperFile = File(p.join(dir, paperFileName));
+      final schemeFile = File(p.join(dir, schemeFileName));
+
+      final auth = ref.read(authProvider);
+      final plan = auth.tenantPlan ?? 'COMMUNITY';
+      final retentionDays = (plan == 'GROWTH' || plan == 'INSTITUTIONAL')
+          ? 90
+          : 30;
+
+      // 1. Download Paper PDF with S6 AES-256-CTR encryption & expiry
+      await DownloadManager.instance.startDownload(
+        id: 'paper_$paperId',
+        title: '$title (Paper)',
+        remoteUrl: paperUrl,
+        customFileName: paperFileName,
+        retentionDays: retentionDays,
+      );
 
       // 2. Download Marking Scheme PDF if present
       if (schemeUrl != null && schemeUrl.isNotEmpty) {
-        await dio.download(schemeUrl, schemeFile.path);
+        await DownloadManager.instance.startDownload(
+          id: 'scheme_$paperId',
+          title: '$title (Scheme)',
+          remoteUrl: schemeUrl,
+          customFileName: schemeFileName,
+          retentionDays: retentionDays,
+        );
       }
+
+      // 3. Save paper metadata locally in SQLCipher SQLite for offline browsing (P3-S7)
+      await LocalDatabase.instance.saveOfflinePaper(
+        id: paperId,
+        paper: paper,
+        localPaperPath: paperFile.path,
+        localSchemePath: (schemeUrl != null && schemeUrl.isNotEmpty)
+            ? schemeFile.path
+            : null,
+        retentionDays: retentionDays,
+      );
 
       if (mounted) {
         setState(() {
@@ -188,11 +341,12 @@ class _PaperHubListScreenState extends ConsumerState<PaperHubListScreen> {
         });
 
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
+          SnackBar(
             content: Text(
-              'Paper & Marking Scheme downloaded for offline study!',
+              l10n?.paperDownloaded ??
+                  'Paper & Marking Scheme downloaded for offline study!',
             ),
-            backgroundColor: Color(0xFF10B981),
+            backgroundColor: const Color(0xFF10B981),
           ),
         );
       }
@@ -201,7 +355,10 @@ class _PaperHubListScreenState extends ConsumerState<PaperHubListScreen> {
         setState(() => _downloadingMap[paperId] = false);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Failed to download paper: $e'),
+            content: Text(
+              l10n?.errorDownloadFailed ??
+                  'Failed to download paper. Please try again.',
+            ),
             backgroundColor: Colors.red,
           ),
         );
@@ -244,12 +401,37 @@ class _PaperHubListScreenState extends ConsumerState<PaperHubListScreen> {
           IconButton(
             icon: const Icon(Icons.refresh),
             tooltip: 'Refresh Papers',
-            onPressed: _loadPapers,
+            onPressed: () => _loadPapers(reset: true),
           ),
         ],
       ),
       body: Column(
         children: [
+          if (_isOfflineMode)
+            Container(
+              color: const Color(0xFFFEF3C7),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Row(
+                children: [
+                  const Icon(
+                    Icons.cloud_off,
+                    size: 18,
+                    color: Color(0xFFD97706),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Offline / Airplane Mode: Showing ${_papers.length} saved papers',
+                      style: const TextStyle(
+                        fontSize: 13,
+                        color: Color(0xFF92400E),
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
           _buildFilterBar(),
           Expanded(
             child: _isLoading
@@ -259,27 +441,47 @@ class _PaperHubListScreenState extends ConsumerState<PaperHubListScreen> {
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Text('Error: $_error'),
+                        Text(
+                          _error!,
+                          style: const TextStyle(color: Colors.red),
+                        ),
                         const SizedBox(height: 12),
                         ElevatedButton(
-                          onPressed: _loadPapers,
+                          onPressed: () => _loadPapers(reset: true),
                           child: Text(l10n?.retry ?? 'Retry'),
                         ),
                       ],
                     ),
                   )
                 : _papers.isEmpty
-                ? const Center(
+                ? Center(
                     child: Text(
-                      'No examination papers found matching current filters.',
+                      l10n?.noPapersFound ??
+                          'No examination papers found matching current filters.',
                     ),
                   )
                 : RefreshIndicator(
-                    onRefresh: _loadPapers,
+                    onRefresh: () => _loadPapers(reset: true),
                     child: ListView.builder(
+                      controller: _scrollController,
                       padding: const EdgeInsets.all(12),
-                      itemCount: _papers.length,
+                      itemCount: _papers.length + (_hasMore ? 1 : 0),
                       itemBuilder: (context, index) {
+                        if (index == _papers.length) {
+                          return Center(
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 16),
+                              child: _isLoadingMore
+                                  ? const CircularProgressIndicator()
+                                  : ElevatedButton(
+                                      onPressed: _loadMorePapers,
+                                      child: Text(
+                                        l10n?.loadMore ?? 'Load More',
+                                      ),
+                                    ),
+                            ),
+                          );
+                        }
                         final paper = _papers[index];
                         return _buildPaperCard(paper);
                       },

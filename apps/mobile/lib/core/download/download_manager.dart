@@ -530,6 +530,46 @@ class DownloadManager extends StateNotifier<Map<String, DownloadTask>> {
     );
   }
 
+  /// Decrypts an encrypted file at rest into memory bytes for viewing (e.g. PDFs, images) (ADR-001, P3-S6)
+  Future<Uint8List?> decryptFileBytes(String taskIdOrPath) async {
+    DownloadTask? task = state[taskIdOrPath];
+    if (task == null) {
+      final dbRow = await _localDb.getDownloadTask(taskIdOrPath);
+      if (dbRow != null) {
+        task = DownloadTask.fromDbMap(dbRow);
+      } else {
+        final allTasks = await _localDb.getDownloadTasks();
+        for (final r in allTasks) {
+          if (r['local_path'] == taskIdOrPath) {
+            task = DownloadTask.fromDbMap(r);
+            break;
+          }
+        }
+      }
+    }
+
+    final targetPath = task?.localPath ?? taskIdOrPath;
+    final file = File(targetPath);
+    if (!await file.exists()) return null;
+
+    if (task == null || task.encryptionKey == null) {
+      // Unencrypted file fallback
+      return await file.readAsBytes();
+    }
+
+    final masterKey = await EncryptionKeyStorage.getOrCreateKey(
+      configuredKey: _config?.encryptionKey,
+    );
+    final keyPair = KeyEncapsulation.unwrapDek(
+      wrappedDekBase64: task.encryptionKey!,
+      masterKeyBase64: masterKey,
+    );
+
+    final cipher = AesCtrCipher(keyPair.dek, keyPair.iv);
+    final encBytes = await file.readAsBytes();
+    return cipher.processBytes(encBytes, 0);
+  }
+
   /// Purges expired downloaded videos according to tenant plan retention window (ADR-001)
   Future<void> purgeExpired() async {
     try {

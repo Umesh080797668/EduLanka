@@ -859,30 +859,36 @@ export class MobileSyncService {
 
         const isGrowthOrAbove = planCode === 'GROWTH' || planCode === 'INSTITUTIONAL';
 
-        // Single source of truth: read retention from public.plans
-        let retentionDays = isGrowthOrAbove ? 30 : 7;
+        // Single source of truth: separate cache retention from video download retention
+        let cacheRetentionDays = isGrowthOrAbove ? 0 : 7;
+        let videoRetentionDays = isGrowthOrAbove ? (planCode === 'INSTITUTIONAL' ? 90 : 30) : 0;
         try {
             const { data: planInfo } = await this.supabase.adminClient
                 .from('plans')
-                .select('offline_retention_days')
+                .select('offline_retention_days, video_retention_days')
                 .eq('code', planCode)
                 .maybeSingle();
 
-            if (typeof planInfo?.offline_retention_days === 'number' && planInfo.offline_retention_days > 0) {
-                retentionDays = planInfo.offline_retention_days;
+            if (typeof planInfo?.offline_retention_days === 'number') {
+                cacheRetentionDays = planInfo.offline_retention_days;
+            }
+            if (typeof planInfo?.video_retention_days === 'number') {
+                videoRetentionDays = planInfo.video_retention_days;
             }
         } catch {
             // Fallback to plan tier defaults
-            retentionDays = isGrowthOrAbove ? 30 : 7;
+            cacheRetentionDays = isGrowthOrAbove ? 0 : 7;
+            videoRetentionDays = isGrowthOrAbove ? (planCode === 'INSTITUTIONAL' ? 90 : 30) : 0;
         }
 
-        const offlineVideoEnabled = isGrowthOrAbove;
+        const offlineVideoEnabled = isGrowthOrAbove && videoRetentionDays > 0;
 
         // 3. Centralized deduplicated school policy lookup
         const policy = await getTenantSchoolPolicy(this.supabase, caller.tenantId);
 
         const nowSec = Math.floor(Date.now() / 1000);
-        const validitySec = (retentionDays > 0 ? retentionDays : 90) * 24 * 3600;
+        const effectiveValidityDays = videoRetentionDays > 0 ? videoRetentionDays : (cacheRetentionDays > 0 ? cacheRetentionDays : 30);
+        const validitySec = effectiveValidityDays * 24 * 3600;
         const expiresAtSec = nowSec + validitySec;
 
         const licensePayload = {
@@ -892,7 +898,8 @@ export class MobileSyncService {
             role: caller.role,
             plan: tenant.plan,
             academicYear: policy?.academic_year || new Date().getFullYear(),
-            retentionDays,
+            retentionDays: cacheRetentionDays,
+            videoRetentionDays,
             issuedAt: nowSec,
             expiresAt: expiresAtSec,
             offlineVideoEnabled,

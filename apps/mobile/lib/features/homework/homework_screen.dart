@@ -636,6 +636,24 @@ class _HomeworkScreenState extends ConsumerState<HomeworkScreen> {
 
                         try {
                           final apiClient = ref.read(apiClientProvider);
+                          for (final a in solutionAttachments) {
+                            final u = a['url']?.toString() ?? '';
+                            final lPath =
+                                a['localPath']?.toString() ??
+                                a['path']?.toString() ??
+                                '';
+                            if ((u.isEmpty || !u.startsWith('http')) &&
+                                lPath.isNotEmpty &&
+                                File(lPath).existsSync()) {
+                              final upUrl = await apiClient.uploadAttachment(
+                                filePath: lPath,
+                                fileName:
+                                    a['name']?.toString() ?? 'solution_file',
+                              );
+                              a['url'] = upUrl;
+                            }
+                          }
+
                           final sanitizedAttachments = solutionAttachments.map((
                             a,
                           ) {
@@ -652,11 +670,14 @@ class _HomeworkScreenState extends ConsumerState<HomeworkScreen> {
                           if (ctx.mounted) Navigator.of(ctx).pop();
                           if (mounted) {
                             ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
+                              SnackBar(
                                 content: Text(
-                                  'Homework submitted successfully!',
+                                  AppLocalizations.of(
+                                        context,
+                                      )?.homeworkSubmitted ??
+                                      'Homework submitted successfully!',
                                 ),
-                                backgroundColor: Color(0xFF10B981),
+                                backgroundColor: const Color(0xFF10B981),
                               ),
                             );
                           }
@@ -883,15 +904,25 @@ class _HomeworkScreenState extends ConsumerState<HomeworkScreen> {
                   if (ctx.mounted) Navigator.of(ctx).pop();
                   if (mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Grade saved successfully.'),
+                      SnackBar(
+                        content: Text(
+                          l10n?.gradeSavedSuccessfully ??
+                              'Grade saved successfully.',
+                        ),
+                        backgroundColor: const Color(0xFF10B981),
                       ),
                     );
                   }
-                } catch (e) {
+                } catch (_) {
                   if (mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Failed to save grade: $e')),
+                      SnackBar(
+                        content: Text(
+                          l10n?.errorActionFailed ??
+                              'Failed to save grade. Please try again.',
+                        ),
+                        backgroundColor: Colors.red,
+                      ),
                     );
                   }
                 }
@@ -1007,8 +1038,9 @@ class _HomeworkScreenState extends ConsumerState<HomeworkScreen> {
                                     else if (!isTeacher)
                                       Chip(
                                         label: Text(l10n?.pending ?? 'Pending'),
-                                        backgroundColor:
-                                            const Color(0xFFFEF3C7),
+                                        backgroundColor: const Color(
+                                          0xFFFEF3C7,
+                                        ),
                                       ),
                                   ],
                                 ),

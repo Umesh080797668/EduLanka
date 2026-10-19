@@ -198,11 +198,13 @@ export class MediaService {
         // Fetch offline retention from public.plans
         const { data: planInfo } = await this.supabase.adminClient
             .from('plans')
-            .select('offline_retention_days')
+            .select('offline_retention_days, video_retention_days')
             .eq('code', plan)
             .maybeSingle();
 
-        const retentionDays = Number(planInfo?.offline_retention_days) || 30;
+        const retentionDays =
+            Number(planInfo?.video_retention_days) ||
+            (plan === 'INSTITUTIONAL' ? 90 : 30);
 
         // Generate cryptographic expiring token & signed URL
         const expiresTimestamp = Math.floor(Date.now() / 1000) + 3600; // 1-hour validity
