@@ -49,7 +49,8 @@
         "mobileReleases": "Mobile App Releases",
         "analytics": "Platform Analytics",
         "attendance": "Attendance Roll Call",
-        "homework": "Homework & Tasks"
+        "homework": "Homework & Tasks",
+        "emergencyPack": "Disaster Pack"
     },
     "Header": {
         "searchPlaceholder": "Search...",

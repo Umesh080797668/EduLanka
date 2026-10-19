@@ -170,6 +170,14 @@ class AppConfig {
         ? injectedFirebaseAppId
         : (env.isProduction || kReleaseMode ? '' : null);
 
+    if ((kReleaseMode || env.isProduction) &&
+        injectedEncryptionKey.isNotEmpty) {
+      throw StateError(
+        'SECURITY EXCEPTION: Compile-time ENCRYPTION_KEY must never be provided in release/production builds. '
+        'Keys must be hardware-backed via FlutterSecureStorage (ADR-005).',
+      );
+    }
+
     return AppConfig(
       environment: env,
       apiBaseUrl: apiBaseUrl,
@@ -183,7 +191,7 @@ class AppConfig {
       firebaseProjectId: firebaseProjectId,
       firebaseMessagingSenderId: firebaseMessagingSenderId,
       firebaseAppId: firebaseAppId,
-      encryptionKey: injectedEncryptionKey.isNotEmpty
+      encryptionKey: (!kReleaseMode && injectedEncryptionKey.isNotEmpty)
           ? injectedEncryptionKey
           : null,
       offlineLicenseKeyId: injectedLicenseKeyId.isNotEmpty

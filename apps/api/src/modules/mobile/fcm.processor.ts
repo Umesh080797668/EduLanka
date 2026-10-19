@@ -76,8 +76,8 @@ export class FcmProcessor extends WorkerHost {
             this.logger.log('Executing scheduled purge of sync events older than 90 days (ADR-002)...');
             const { data, error } = await this.supabaseService.adminClient.rpc('purge_old_sync_events');
             if (error) {
-                this.logger.error(`Scheduled purge failed: ${error.message}`);
-                return { success: false, error: error.message };
+                this.logger.error(`[CRITICAL_MAINTENANCE_ERROR] Scheduled purge failed: ${error.message}`);
+                throw new Error(`Scheduled purge failed: ${error.message}`);
             }
             const count = Number(data) || 0;
             this.logger.log(`Scheduled purge completed: ${count} events deleted.`);

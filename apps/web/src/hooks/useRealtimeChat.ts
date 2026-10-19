@@ -221,13 +221,14 @@ export function useRealtimeChat(conversationId: string) {
             });
         };
 
+        const typingTimers = typingTimersRef.current;
         start();
 
         return () => {
             isMounted = false;
             stopPollingFallback();
-            typingTimersRef.current.forEach((t) => clearTimeout(t));
-            typingTimersRef.current.clear();
+            typingTimers.forEach((t) => clearTimeout(t));
+            typingTimers.clear();
             socketRef.current?.emit('leave_conversation', { conversationId });
             socketRef.current?.disconnect();
             socketRef.current = null;

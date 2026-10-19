@@ -48,7 +48,9 @@ export function DisasterPackModal({ isOpen, onClose }: DisasterPackModalProps) {
         if (!isOpen) return;
 
         let isMounted = true;
-        setLoading(true);
+        queueMicrotask(() => {
+            if (isMounted) setLoading(true);
+        });
 
         apiClient
             .get<DisasterPackData>('/mobile/disaster-pack', { skipGlobalToast: true })

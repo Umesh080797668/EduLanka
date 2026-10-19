@@ -49,7 +49,8 @@
         "mobileReleases": "மொபைல் செயலி வெளியீடுகள்",
         "analytics": "தளப் பகுப்பாய்வு",
         "attendance": "வருகைப்பதிவு",
-        "homework": "வீட்டுப்பாடம் & பணிகள்"
+        "homework": "வீட்டுப்பாடம் & பணிகள்",
+        "emergencyPack": "பேரிடர் தொகுப்பு"
     },
     "Header": {
         "searchPlaceholder": "தேடுக...",

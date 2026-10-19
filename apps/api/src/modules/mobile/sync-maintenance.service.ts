@@ -15,11 +15,13 @@ export class SyncMaintenanceService implements OnApplicationBootstrap, OnModuleD
     ) { }
 
     async onApplicationBootstrap() {
+        // Always initiate in-process watchdog timer to guarantee execution even if BullMQ workers/queues stall or stop
+        this.startFallbackPurgeTimer();
+
         if (!this.pushQueue) {
             this.logger.error(
-                '[CRITICAL_MAINTENANCE_ALERT] BullMQ push queue is absent; automated 90-day sync events retention purge cannot be registered with BullMQ. Starting in-process daily fallback timer.',
+                '[CRITICAL_MAINTENANCE_ALERT] BullMQ push queue is absent; automated 90-day sync events retention purge running exclusively via in-process watchdog timer.',
             );
-            this.startFallbackPurgeTimer();
             return;
         }
 
@@ -36,15 +38,16 @@ export class SyncMaintenanceService implements OnApplicationBootstrap, OnModuleD
                 await anyQueue.add('purge-sync-events', {}, {
                     repeat: { pattern: '0 2 * * *' },
                     jobId: 'scheduled-purge-old-sync-events',
+                    attempts: 5,
+                    backoff: { type: 'exponential', delay: 10000 },
                 });
             }
             this.logger.log('Scheduled daily 90-day sync events retention purge job via BullMQ');
         } catch (err: any) {
             this.logger.error(
-                `[CRITICAL_MAINTENANCE_ALERT] Failed to schedule repeatable BullMQ 90-day purge job: ${err.message}. Starting in-process fallback timer.`,
+                `[CRITICAL_MAINTENANCE_ALERT] Failed to schedule repeatable BullMQ 90-day purge job: ${err.message}. Relying on in-process watchdog timer.`,
                 err.stack,
             );
-            this.startFallbackPurgeTimer();
         }
     }
 
@@ -57,8 +60,21 @@ export class SyncMaintenanceService implements OnApplicationBootstrap, OnModuleD
 
     private startFallbackPurgeTimer() {
         if (this.fallbackTimer) return;
-        // Run once a day (24 hours) as in-process backup when queue is absent
         const TWENTY_FOUR_HOURS = 24 * 60 * 60 * 1000;
+
+        // Run initial check 5 seconds after boot so container restarts don't miss scheduled purge cycles
+        setTimeout(() => {
+            void (async () => {
+                try {
+                    this.logger.log('Executing initial boot-time 90-day sync events retention purge...');
+                    await this.executeRetentionPurge();
+                } catch (err: any) {
+                    this.logger.error(`[CRITICAL_MAINTENANCE_ALERT] Initial boot-time purge failed: ${err?.message || err}`);
+                }
+            })();
+        }, 5000).unref();
+
+        // Run recurring 24-hour watchdog
         this.fallbackTimer = setInterval(() => {
             void (async () => {
                 try {
@@ -78,8 +94,8 @@ export class SyncMaintenanceService implements OnApplicationBootstrap, OnModuleD
     async executeRetentionPurge(): Promise<number> {
         const { data, error } = await this.supabase.adminClient.rpc('purge_old_sync_events');
         if (error) {
-            this.logger.error(`purge_old_sync_events failed: ${error.message}`);
-            return 0;
+            this.logger.error(`[CRITICAL_MAINTENANCE_ERROR] purge_old_sync_events failed: ${error.message}`);
+            throw new Error(`purge_old_sync_events failed: ${error.message}`);
         }
         const count = Number(data) || 0;
         this.logger.log(`purge_old_sync_events completed: ${count} expired events purged.`);

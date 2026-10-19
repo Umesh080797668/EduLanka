@@ -49,7 +49,8 @@
         "mobileReleases": "ජංගම යෙදුම් නිකුතු",
         "analytics": "වේදිකා විශ්ලේෂණ",
         "attendance": "පැමිණීම සටහන් කිරීම",
-        "homework": "ගෙදර වැඩ සහ පැවරුම්"
+        "homework": "ගෙදර වැඩ සහ පැවරුම්",
+        "emergencyPack": "හදිසි ආපදා පැකේජය"
     },
     "Header": {
         "searchPlaceholder": "සොයන්න...",

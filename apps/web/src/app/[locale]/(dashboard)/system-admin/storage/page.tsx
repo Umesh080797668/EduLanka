@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
     AlertTriangle,
     Database,
@@ -32,7 +32,7 @@ export default function StorageMonitoringPage() {
     const [refreshing, setRefreshing] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
 
-    const fetchStorageData = async () => {
+    const fetchStorageData = useCallback(async () => {
         try {
             const res = await apiClient.get<{ success: boolean; tenants: TenantStorageItem[] }>(
                 '/media/storage-usage',
@@ -46,10 +46,32 @@ export default function StorageMonitoringPage() {
             setLoading(false);
             setRefreshing(false);
         }
-    };
+    }, []);
 
     useEffect(() => {
-        fetchStorageData();
+        let isMounted = true;
+        apiClient
+            .get<{ success: boolean; tenants: TenantStorageItem[] }>('/media/storage-usage')
+            .then((res) => {
+                if (isMounted) setTenants(res.tenants || []);
+            })
+            .catch((err: any) => {
+                if (isMounted) {
+                    toast.error('Failed to load storage ledger data', {
+                        description: err?.message || 'Access denied or server error',
+                    });
+                }
+            })
+            .finally(() => {
+                if (isMounted) {
+                    setLoading(false);
+                    setRefreshing(false);
+                }
+            });
+
+        return () => {
+            isMounted = false;
+        };
     }, []);
 
     const handleRefresh = () => {
@@ -223,13 +245,12 @@ export default function StorageMonitoringPage() {
                                                     <div className="space-y-1">
                                                         <div className="w-full h-1.5 rounded-full bg-muted overflow-hidden">
                                                             <div
-                                                                className={`h-full rounded-full ${
-                                                                    percent > 90
+                                                                className={`h-full rounded-full ${percent > 90
                                                                         ? 'bg-rose-500'
                                                                         : percent > 75
-                                                                        ? 'bg-amber-500'
-                                                                        : 'bg-emerald-500'
-                                                                }`}
+                                                                            ? 'bg-amber-500'
+                                                                            : 'bg-emerald-500'
+                                                                    }`}
                                                                 style={{ width: `${percent}%` }}
                                                             />
                                                         </div>

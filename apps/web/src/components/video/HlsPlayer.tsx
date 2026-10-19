@@ -92,8 +92,10 @@ export function HlsPlayer({ hlsUrl, mp4Url, poster, autoPlay = true }: HlsPlayer
                 if (autoPlay) video.play().catch(() => { });
             });
         } else {
-            setError('No compatible video stream format found');
-            setIsLoading(false);
+            queueMicrotask(() => {
+                setError('No compatible video stream format found');
+                setIsLoading(false);
+            });
         }
 
         return () => {

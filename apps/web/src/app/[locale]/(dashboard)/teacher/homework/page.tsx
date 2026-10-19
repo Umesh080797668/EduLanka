@@ -60,6 +60,7 @@ export default function TeacherHomeworkPage() {
     const [selectedClassId, setSelectedClassId] = useState<string>('ALL');
     const [tasks, setTasks] = useState<HomeworkTask[]>([]);
     const [loading, setLoading] = useState(true);
+    const [currentTime] = useState(() => Date.now());
 
     // Create Homework Modal state
     const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -282,7 +283,7 @@ export default function TeacherHomeworkPage() {
                     <div id="homework-tasks-grid" className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
                         {filteredTasks.map((task) => {
                             const dueDate = new Date(task.due_date);
-                            const isPastDue = dueDate.getTime() < Date.now();
+                            const isPastDue = dueDate.getTime() < currentTime;
 
                             return (
                                 <Card

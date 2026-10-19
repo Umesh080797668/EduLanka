@@ -22,7 +22,20 @@ class EncryptionKeyStorage {
 
     // In release mode, compile-time static keys are strictly disallowed to prevent
     // baking a single shared master key into the compiled client binary.
-    if (!kReleaseMode) {
+    if (kReleaseMode) {
+      const envKey = String.fromEnvironment('ENCRYPTION_KEY', defaultValue: '');
+      if (envKey.isNotEmpty) {
+        throw StateError(
+          'SECURITY VIOLATION: Compile-time ENCRYPTION_KEY must never be baked into release builds. '
+          'Keys must be hardware-backed via secure storage (ADR-005).',
+        );
+      }
+      if (configuredKey != null && configuredKey.isNotEmpty) {
+        throw StateError(
+          'SECURITY VIOLATION: Injected configuredKey is prohibited in release builds.',
+        );
+      }
+    } else {
       if (configuredKey != null && configuredKey.isNotEmpty) {
         _cachedKey = configuredKey;
         return configuredKey;

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import {
     AlertTriangle,
@@ -94,7 +94,7 @@ export default function EmergencyReadinessPage() {
     const [isBroadcasting, setIsBroadcasting] = useState(false);
     const [broadcastReason, setBroadcastReason] = useState('MONSOON_FLOODING');
 
-    const fetchData = async () => {
+    const fetchData = useCallback(async () => {
         try {
             const [contactsRes, sheltersRes, previewRes] = await Promise.all([
                 apiClient.get<EmergencyContact[]>('/mobile/emergency-contacts').catch(() => []),
@@ -111,10 +111,34 @@ export default function EmergencyReadinessPage() {
             setIsLoading(false);
             setIsRefreshing(false);
         }
-    };
+    }, []);
 
     useEffect(() => {
-        fetchData();
+        let isMounted = true;
+        Promise.all([
+            apiClient.get<EmergencyContact[]>('/mobile/emergency-contacts').catch(() => []),
+            apiClient.get<Shelter[]>('/mobile/shelters').catch(() => []),
+            apiClient.get<DisasterPackPreview>('/mobile/disaster-pack').catch(() => null),
+        ])
+            .then(([contactsRes, sheltersRes, previewRes]) => {
+                if (!isMounted) return;
+                setContacts(Array.isArray(contactsRes) ? contactsRes : []);
+                setShelters(Array.isArray(sheltersRes) ? sheltersRes : []);
+                setPackPreview(previewRes);
+            })
+            .catch(() => {
+                if (isMounted) toast.error('Failed to load emergency readiness data');
+            })
+            .finally(() => {
+                if (isMounted) {
+                    setIsLoading(false);
+                    setIsRefreshing(false);
+                }
+            });
+
+        return () => {
+            isMounted = false;
+        };
     }, []);
 
     const handleRefresh = () => {
@@ -318,11 +342,10 @@ export default function EmergencyReadinessPage() {
                     <button
                         type="button"
                         onClick={() => setActiveTab('contacts')}
-                        className={`inline-flex items-center gap-2 border-b-2 px-4 py-3 text-sm font-semibold transition-colors ${
-                            activeTab === 'contacts'
-                                ? 'border-brand-600 text-brand-600 dark:border-brand-400 dark:text-brand-400'
-                                : 'border-transparent text-neutral-500 hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200'
-                        }`}
+                        className={`inline-flex items-center gap-2 border-b-2 px-4 py-3 text-sm font-semibold transition-colors ${activeTab === 'contacts'
+                            ? 'border-brand-600 text-brand-600 dark:border-brand-400 dark:text-brand-400'
+                            : 'border-transparent text-neutral-500 hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200'
+                            }`}
                     >
                         <Phone className="size-4" />
                         Emergency Contacts ({contacts.length})
@@ -330,11 +353,10 @@ export default function EmergencyReadinessPage() {
                     <button
                         type="button"
                         onClick={() => setActiveTab('shelters')}
-                        className={`inline-flex items-center gap-2 border-b-2 px-4 py-3 text-sm font-semibold transition-colors ${
-                            activeTab === 'shelters'
-                                ? 'border-brand-600 text-brand-600 dark:border-brand-400 dark:text-brand-400'
-                                : 'border-transparent text-neutral-500 hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200'
-                        }`}
+                        className={`inline-flex items-center gap-2 border-b-2 px-4 py-3 text-sm font-semibold transition-colors ${activeTab === 'shelters'
+                            ? 'border-brand-600 text-brand-600 dark:border-brand-400 dark:text-brand-400'
+                            : 'border-transparent text-neutral-500 hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200'
+                            }`}
                     >
                         <Home className="size-4" />
                         Evacuation Shelters ({shelters.length})
@@ -342,11 +364,10 @@ export default function EmergencyReadinessPage() {
                     <button
                         type="button"
                         onClick={() => setActiveTab('preview')}
-                        className={`inline-flex items-center gap-2 border-b-2 px-4 py-3 text-sm font-semibold transition-colors ${
-                            activeTab === 'preview'
-                                ? 'border-brand-600 text-brand-600 dark:border-brand-400 dark:text-brand-400'
-                                : 'border-transparent text-neutral-500 hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200'
-                        }`}
+                        className={`inline-flex items-center gap-2 border-b-2 px-4 py-3 text-sm font-semibold transition-colors ${activeTab === 'preview'
+                            ? 'border-brand-600 text-brand-600 dark:border-brand-400 dark:text-brand-400'
+                            : 'border-transparent text-neutral-500 hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200'
+                            }`}
                     >
                         <Radio className="size-4" />
                         Offline Pack Preview & Broadcast

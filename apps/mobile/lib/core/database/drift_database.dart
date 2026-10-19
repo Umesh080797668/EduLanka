@@ -223,7 +223,7 @@ class AppDriftDatabase extends GeneratedDatabase {
 
   /// Formats encryption key for SQLCipher PRAGMA key statement.
   /// If the key represents 32 bytes (raw hex or base64), passes it as a 256-bit raw hex key: x'...'
-  /// Otherwise, escapes single quotes to prevent syntax breakage and SQL injection.
+  /// Otherwise, converts the key bytes to a hex literal x'...' to prevent any SQL injection or syntax breakage.
   static String formatPragmaKey(String rawKey) {
     if (RegExp(r'^[0-9a-fA-F]{64}$').hasMatch(rawKey)) {
       return "x'$rawKey'";
@@ -238,8 +238,10 @@ class AppDriftDatabase extends GeneratedDatabase {
       }
     } catch (_) {}
 
-    final safeKey = rawKey.replaceAll("'", "''");
-    return "'$safeKey'";
+    // Encode string to hex literal to guarantee safe PRAGMA parameterization
+    final bytes = utf8.encode(rawKey);
+    final hex = bytes.map((b) => b.toRadixString(16).padLeft(2, '0')).join();
+    return "x'$hex'";
   }
 
   static AppDriftDatabase createEncrypted() {

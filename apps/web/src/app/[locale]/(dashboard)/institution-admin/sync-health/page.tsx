@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
     Activity,
     AlertCircle,
@@ -39,7 +39,7 @@ export default function SyncHealthPage() {
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
 
-    const fetchSyncHealth = async () => {
+    const fetchSyncHealth = useCallback(async () => {
         try {
             const res = await apiClient.get<SyncHealthData>('/mobile/sync-health');
             setData(res);
@@ -51,10 +51,32 @@ export default function SyncHealthPage() {
             setLoading(false);
             setRefreshing(false);
         }
-    };
+    }, []);
 
     useEffect(() => {
-        fetchSyncHealth();
+        let isMounted = true;
+        apiClient
+            .get<SyncHealthData>('/mobile/sync-health')
+            .then((res) => {
+                if (isMounted) setData(res);
+            })
+            .catch((err: any) => {
+                if (isMounted) {
+                    toast.error('Failed to load sync health data', {
+                        description: err?.message || 'Network error',
+                    });
+                }
+            })
+            .finally(() => {
+                if (isMounted) {
+                    setLoading(false);
+                    setRefreshing(false);
+                }
+            });
+
+        return () => {
+            isMounted = false;
+        };
     }, []);
 
     const handleRefresh = () => {

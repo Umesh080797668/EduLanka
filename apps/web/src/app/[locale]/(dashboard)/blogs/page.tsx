@@ -128,7 +128,7 @@ const REACTION_CONFIG: Record<
 };
 
 export default function BlogsPage() {
-    const [role, setRole] = useState<string>('');
+    const [role] = useState<string>(() => (typeof window !== 'undefined' ? (authManager.getRole() || '') : ''));
     const [scope, setScope] = useState<BlogScope>('SCHOOL');
     const [blogs, setBlogs] = useState<BlogPost[]>([]);
     const [loading, setLoading] = useState<boolean>(true);
@@ -165,10 +165,6 @@ export default function BlogsPage() {
     const isTeacherOrAdmin =
         role === 'TEACHER' || role === 'SCHOOL_ADMIN' || role === 'SUPER_ADMIN';
 
-    useEffect(() => {
-        setRole(authManager.getRole());
-    }, []);
-
     const fetchBlogs = useCallback(async (currentScope: BlogScope) => {
         setLoading(true);
         try {
@@ -188,8 +184,28 @@ export default function BlogsPage() {
     }, []);
 
     useEffect(() => {
-        fetchBlogs(scope);
-    }, [scope, fetchBlogs]);
+        let isMounted = true;
+        apiClient
+            .get<BlogPost[]>(`/blogs?scope=${scope}`, { skipGlobalToast: true })
+            .then((data) => {
+                if (!isMounted) return;
+                if (Array.isArray(data)) {
+                    setBlogs(data);
+                } else if (data && Array.isArray((data as any).data)) {
+                    setBlogs((data as any).data);
+                }
+            })
+            .catch(() => {
+                if (isMounted) toast.error('Failed to load academic blogs');
+            })
+            .finally(() => {
+                if (isMounted) setLoading(false);
+            });
+
+        return () => {
+            isMounted = false;
+        };
+    }, [scope]);
 
     // Fetch classes for teacher composer
     useEffect(() => {

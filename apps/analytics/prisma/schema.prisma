@@ -1,0 +1,92 @@
+// EduLanka — Analytics Service Prisma Schema (P3-S9)
+// Provides complete schema definitions for Prisma Client generation in Docker and CI environments.
+
+datasource db {
+  provider = "postgresql"
+  url      = env("ANALYTICS_DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Tenant {
+  id               String            @id @default(uuid()) @db.Uuid
+  name             String
+  slug             String            @unique
+  plan             String            @default("STARTER")
+  createdAt        DateTime          @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt        DateTime          @updatedAt @map("updated_at") @db.Timestamptz
+  users            User[]
+  smsLogs          SmsLog[]
+  deviceTokens     DeviceToken[]
+  billingSnapshots BillingSnapshot[]
+
+  @@map("tenants")
+}
+
+model User {
+  id        String   @id @default(uuid()) @db.Uuid
+  tenantId  String   @map("tenant_id") @db.Uuid
+  email     String   @unique
+  role      String
+  fullName  String   @map("full_name")
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@map("users")
+}
+
+model SmsLog {
+  id        String   @id @default(uuid()) @db.Uuid
+  tenantId  String   @map("tenant_id") @db.Uuid
+  recipient String
+  message   String
+  status    String   @default("SENT")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@map("sms_logs")
+}
+
+model DeviceToken {
+  id         String   @id @default(uuid()) @db.Uuid
+  tenantId   String   @map("tenant_id") @db.Uuid
+  userId     String   @map("user_id") @db.Uuid
+  platform   String
+  token      String
+  lastSeenAt DateTime @default(now()) @map("last_seen_at") @db.Timestamptz
+  isActive   Boolean  @default(true) @map("is_active")
+  tenant     Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@map("device_tokens")
+}
+
+model MediaDownloadLog {
+  id          String   @id @default(uuid()) @db.Uuid
+  tenantId    String   @map("tenant_id") @db.Uuid
+  userId      String   @map("user_id") @db.Uuid
+  assetId     String   @map("asset_id") @db.Uuid
+  downloadedAt DateTime @default(now()) @map("downloaded_at") @db.Timestamptz
+
+  @@map("media_download_logs")
+}
+
+model BillingSnapshot {
+  id                 String   @id @default(uuid()) @db.Uuid
+  tenantId           String   @map("tenant_id") @db.Uuid
+  billingMonth       String   @map("billing_month")
+  activeStudentCount Int      @map("active_student_count")
+  smsSentCount       Int      @map("sms_sent_count")
+  storageUsedBytes   BigInt   @map("storage_used_bytes")
+  storageQuotaGb     Float    @map("storage_quota_gb")
+  totalAmountLkr     Float    @map("total_amount_lkr")
+  status             String   @default("UNPAID")
+  createdAt          DateTime @default(now()) @map("created_at") @db.Timestamptz
+  tenant             Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, billingMonth], map: "uq_billing_snapshot_tenant_month")
+  @@map("billing_snapshots")
+}

@@ -29,24 +29,31 @@ export default function MobileReleasesPage() {
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
 
-    const fetchVersion = async () => {
-        try {
-            const data = await apiClient.get<MobileVersionData>('/mobile/version');
-            setMinVersion(data.minVersion || '1.0.0');
-            setLatestVersion(data.latestVersion || '1.0.0');
-            setReleaseNotes(data.releaseNotes || '');
-            setForceUpdate(Boolean(data.forceUpdate));
-        } catch (err: any) {
-            toast.error('Failed to fetch mobile release version', {
-                description: err?.message || 'Server error',
-            });
-        } finally {
-            setLoading(false);
-        }
-    };
-
     useEffect(() => {
-        fetchVersion();
+        let isMounted = true;
+        apiClient
+            .get<MobileVersionData>('/mobile/version')
+            .then((data) => {
+                if (!isMounted) return;
+                setMinVersion(data.minVersion || '1.0.0');
+                setLatestVersion(data.latestVersion || '1.0.0');
+                setReleaseNotes(data.releaseNotes || '');
+                setForceUpdate(Boolean(data.forceUpdate));
+            })
+            .catch((err: any) => {
+                if (isMounted) {
+                    toast.error('Failed to fetch mobile release version', {
+                        description: err?.message || 'Server error',
+                    });
+                }
+            })
+            .finally(() => {
+                if (isMounted) setLoading(false);
+            });
+
+        return () => {
+            isMounted = false;
+        };
     }, []);
 
     const handleSave = async (e: React.FormEvent) => {

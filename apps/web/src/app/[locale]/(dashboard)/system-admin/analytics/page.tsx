@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   BarChart3,
   RefreshCw,
@@ -78,8 +78,7 @@ interface BillingSnapshotItem {
 }
 
 export default function PlatformAnalyticsPage() {
-  const currentMonth = new Date().toISOString().slice(0, 7);
-  const [selectedMonth, setSelectedMonth] = useState(currentMonth);
+  const [selectedMonth, setSelectedMonth] = useState(() => new Date().toISOString().slice(0, 7));
 
   const [activeStudents, setActiveStudents] = useState<ActiveStudentItem[]>([]);
   const [smsUsage, setSmsUsage] = useState<SmsUsageItem[]>([]);
@@ -92,7 +91,7 @@ export default function PlatformAnalyticsPage() {
   const [generatingSnapshots, setGeneratingSnapshots] = useState(false);
   const [activeTab, setActiveTab] = useState<'students' | 'downloads' | 'sms' | 'sync' | 'billing'>('students');
 
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     setLoading(true);
     try {
       const [studentsRes, smsRes, storageRes, syncRes, mediaRes, snapshotsRes] = await Promise.allSettled([
@@ -117,10 +116,38 @@ export default function PlatformAnalyticsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [selectedMonth]);
 
   useEffect(() => {
-    loadData();
+    let isMounted = true;
+    Promise.allSettled([
+      analyticsFetch<ActiveStudentItem[]>(`/tenants/active-students?billingMonth=${selectedMonth}`),
+      analyticsFetch<SmsUsageItem[]>('/tenants/sms-usage'),
+      analyticsFetch<StorageUsageItem[]>('/tenants/storage'),
+      analyticsFetch<SyncHealthItem[]>('/sync-health?staleDays=3'),
+      analyticsFetch<MediaDownloadItem[]>('/media/downloads'),
+      analyticsFetch<BillingSnapshotItem[]>(`/billing/snapshots?billingMonth=${selectedMonth}`),
+    ]).then(([studentsRes, smsRes, storageRes, syncRes, mediaRes, snapshotsRes]) => {
+      if (!isMounted) return;
+      if (studentsRes.status === 'fulfilled') setActiveStudents(studentsRes.value || []);
+      if (smsRes.status === 'fulfilled') setSmsUsage(smsRes.value || []);
+      if (storageRes.status === 'fulfilled') setStorageUsage(storageRes.value || []);
+      if (syncRes.status === 'fulfilled') setSyncHealth(syncRes.value || []);
+      if (mediaRes.status === 'fulfilled') setMediaDownloads(mediaRes.value || []);
+      if (snapshotsRes.status === 'fulfilled') setSnapshots(snapshotsRes.value || []);
+    }).catch((err: any) => {
+      if (isMounted) {
+        toast.error('Failed to load platform analytics', {
+          description: err?.message || 'Check microservice connection and credentials',
+        });
+      }
+    }).finally(() => {
+      if (isMounted) setLoading(false);
+    });
+
+    return () => {
+      isMounted = false;
+    };
   }, [selectedMonth]);
 
   const handleGenerateSnapshots = async () => {
