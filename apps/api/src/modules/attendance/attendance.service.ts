@@ -352,4 +352,168 @@ export class AttendanceService {
             dailyStats,
         };
     }
+
+    /**
+     * Retrieve attendance records for the currently authenticated student.
+     */
+    async getMyAttendance(caller: JwtPayload, startDate?: string, endDate?: string) {
+        assertUuid(caller.tenantId, 'tenantId');
+        assertUuid(caller.sub, 'userId');
+
+        const client = this.supabase.adminClient;
+
+        // Fetch student profile linked to caller
+        const { data: student } = await client
+            .from('students')
+            .select('id, user_id, admission_no, class_id, classes(id, name, grade)')
+            .eq('tenant_id', caller.tenantId)
+            .eq('user_id', caller.sub)
+            .maybeSingle();
+
+        const studentIdCandidates = [caller.sub];
+        if (student?.id) {
+            studentIdCandidates.push(student.id);
+        }
+
+        let query = client
+            .from('attendance')
+            .select('id, student_id, class_id, date, period, status, marked_at, classes(id, name, grade)')
+            .eq('tenant_id', caller.tenantId)
+            .in('student_id', studentIdCandidates)
+            .is('deleted_at', null)
+            .order('date', { ascending: false })
+            .order('period', { ascending: false });
+
+        if (startDate) query = query.gte('date', startDate);
+        if (endDate) query = query.lte('date', endDate);
+
+        const { data, error } = await query;
+        if (error) {
+            this.logger.error(`Failed to fetch student attendance: ${error.message}`);
+            throw new InternalServerErrorException('Failed to retrieve student attendance history');
+        }
+
+        const records = data ?? [];
+        const summary = {
+            total: records.length,
+            present: records.filter((r) => r.status === 'PRESENT').length,
+            absent: records.filter((r) => r.status === 'ABSENT').length,
+            late: records.filter((r) => r.status === 'LATE').length,
+            excused: records.filter((r) => r.status === 'EXCUSED').length,
+            attendancePercentage: records.length > 0
+                ? Math.round(
+                    ((records.filter((r) => r.status === 'PRESENT' || r.status === 'LATE').length) /
+                        records.length) *
+                    100,
+                )
+                : 100,
+        };
+
+        return {
+            student: student ?? { user_id: caller.sub },
+            records,
+            summary,
+        };
+    }
+
+    /**
+     * Retrieve attendance records for a specific student (Accessible by Admins, assigned Teachers, and Parents of the student).
+     */
+    async getStudentAttendance(
+        caller: JwtPayload,
+        studentId: string,
+        startDate?: string,
+        endDate?: string,
+    ) {
+        assertUuid(caller.tenantId, 'tenantId');
+        assertUuid(caller.sub, 'userId');
+        assertUuid(studentId, 'studentId');
+
+        const client = this.supabase.adminClient;
+
+        // Fetch student entity
+        const { data: student, error: studentErr } = await client
+            .from('students')
+            .select('id, user_id, admission_no, class_id, users!inner(full_name, email), classes(id, name, grade)')
+            .eq('tenant_id', caller.tenantId)
+            .or(`id.eq.${studentId},user_id.eq.${studentId}`)
+            .maybeSingle();
+
+        if (studentErr || !student) {
+            throw new NotFoundException(`Student ${studentId} not found in this school`);
+        }
+
+        // Authorization check
+        if (
+            caller.role === UserRole.SUPER_ADMIN ||
+            caller.role === UserRole.SCHOOL_ADMIN
+        ) {
+            // Full administrative access allowed
+        } else if (caller.role === UserRole.TEACHER) {
+            const teacherClasses = await this.getTeacherClassIds(caller);
+            if (!student.class_id || !teacherClasses.includes(student.class_id)) {
+                throw new ForbiddenException('Teachers can only view attendance for students in their assigned classes');
+            }
+        } else if (caller.role === UserRole.PARENT) {
+            const { data: link } = await client
+                .from('parents')
+                .select('id')
+                .eq('tenant_id', caller.tenantId)
+                .eq('user_id', caller.sub)
+                .eq('student_id', student.id)
+                .maybeSingle();
+
+            if (!link) {
+                throw new ForbiddenException('Parents can only view attendance for their linked children');
+            }
+        } else if (caller.role === UserRole.STUDENT) {
+            if (student.user_id !== caller.sub && student.id !== caller.sub) {
+                throw new ForbiddenException('Students can only view their own attendance');
+            }
+        } else {
+            throw new ForbiddenException('Unauthorized to view attendance');
+        }
+
+        const studentIdCandidates = [student.id, student.user_id].filter(Boolean);
+
+        let query = client
+            .from('attendance')
+            .select('id, student_id, class_id, date, period, status, marked_at, classes(id, name, grade)')
+            .eq('tenant_id', caller.tenantId)
+            .in('student_id', studentIdCandidates)
+            .is('deleted_at', null)
+            .order('date', { ascending: false })
+            .order('period', { ascending: false });
+
+        if (startDate) query = query.gte('date', startDate);
+        if (endDate) query = query.lte('date', endDate);
+
+        const { data, error } = await query;
+        if (error) {
+            this.logger.error(`Failed to fetch student attendance: ${error.message}`);
+            throw new InternalServerErrorException('Failed to retrieve student attendance history');
+        }
+
+        const records = data ?? [];
+        const summary = {
+            total: records.length,
+            present: records.filter((r) => r.status === 'PRESENT').length,
+            absent: records.filter((r) => r.status === 'ABSENT').length,
+            late: records.filter((r) => r.status === 'LATE').length,
+            excused: records.filter((r) => r.status === 'EXCUSED').length,
+            attendancePercentage: records.length > 0
+                ? Math.round(
+                    ((records.filter((r) => r.status === 'PRESENT' || r.status === 'LATE').length) /
+                        records.length) *
+                    100,
+                )
+                : 100,
+        };
+
+        return {
+            student,
+            records,
+            summary,
+        };
+    }
 }

@@ -233,6 +233,13 @@ class _StudentHomeScreenState extends ConsumerState<StudentHomeScreen> {
                 onTap: () => context.push('/homework'),
               ),
               _buildFeatureCard(
+                icon: Icons.how_to_reg_rounded,
+                title: l10n?.attendanceHistory ?? 'Attendance Log',
+                subtitle: 'Roll-Call & Presence',
+                color: const Color(0xFF0D9488),
+                onTap: () => context.push('/attendance'),
+              ),
+              _buildFeatureCard(
                 icon: Icons.menu_book,
                 title: l10n?.academicBlogs ?? 'Academic Blogs',
                 subtitle:

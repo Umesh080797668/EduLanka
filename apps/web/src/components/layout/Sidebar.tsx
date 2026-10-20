@@ -69,6 +69,7 @@ const NAV: Record<Role, NavSection[]> = {
             items: [
                 { nameKey: 'dashboard', href: '/student', icon: LayoutDashboard, exact: true, id: 'nav-dashboard' },
                 { nameKey: 'gradesReports', href: '/student/grades', icon: GraduationCap, id: 'nav-grades' },
+                { nameKey: 'attendance', href: '/student/attendance', icon: UserCheck, id: 'nav-attendance' },
                 { nameKey: 'homework', href: '/student/homework', icon: FileEdit, id: 'nav-homework' },
                 { nameKey: 'resources', href: '/student/resources', icon: BookOpen, id: 'nav-resources' },
                 { nameKey: 'pastPapers', href: '/student/papers', icon: FileText, id: 'nav-papers' },
@@ -83,6 +84,8 @@ const NAV: Record<Role, NavSection[]> = {
         {
             items: [
                 { nameKey: 'dashboard', href: '/parent', icon: LayoutDashboard, exact: true, id: 'nav-dashboard' },
+                { nameKey: 'attendance', href: '/parent/attendance', icon: UserCheck, id: 'nav-attendance' },
+                { nameKey: 'homework', href: '/parent/homework', icon: FileEdit, id: 'nav-homework' },
                 { nameKey: 'notices', href: '/notices', icon: Bell, id: 'nav-notices' },
                 { nameKey: 'chat', href: '/chat', icon: MessagesSquare, id: 'nav-chat' },
                 { nameKey: 'emergencyPack', href: '/emergency', icon: ShieldAlert, id: 'nav-emergency' },

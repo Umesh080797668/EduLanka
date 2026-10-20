@@ -137,3 +137,94 @@ VALUES
      'සම්පූර්ණ කරන ලද ගොනු හෝ සබැඳි අමුණා, ඔබගේ වැඩ ඉදිරිපත් කර ගුරු ප්‍රතිපෝෂණ සහ ලකුණු බලන්න.',
      'முடிந்த பணிக் கோப்புகள் அல்லது இணைப்புகளை இணைத்து, சமர்ப்பித்து, ஆசிரியரின் மதிப்பெண்கள் மற்றும் கருத்துக்களைப் பார்க்கவும்.')
 ON CONFLICT (tutorial_id, step_order) DO NOTHING;
+
+-- 5. STUDENT CAP ENFORCEMENT & ADVISORY LOCK (Eliminates Race Conditions & Reactivation Bypass)
+CREATE OR REPLACE FUNCTION public.enforce_student_cap()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+DECLARE
+    v_plan TEXT;
+    v_active_count INTEGER;
+BEGIN
+    -- Per-tenant advisory xact lock to serialize concurrent student creations and prevent race conditions
+    PERFORM pg_advisory_xact_lock(hashtext('student_cap_' || NEW.tenant_id::text));
+
+    -- Lock the tenant row FOR NO KEY UPDATE so foreign key key-share locks are not blocked
+    SELECT plan INTO v_plan 
+    FROM public.tenants 
+    WHERE id = NEW.tenant_id 
+    FOR NO KEY UPDATE;
+
+    -- Enforce student cap for COMMUNITY (75 active students per blueprint §7b)
+    IF v_plan = 'COMMUNITY' THEN
+        SELECT count(*) INTO v_active_count 
+        FROM public.students s
+        JOIN public.users u ON u.id = s.user_id
+        WHERE s.tenant_id = NEW.tenant_id 
+          AND u.is_active = TRUE 
+          AND (TG_OP = 'INSERT' OR s.id != NEW.id);
+
+        IF v_active_count >= 75 THEN
+            RAISE EXCEPTION 'COMMUNITY tier limit exceeded: Maximum 75 active students allowed. Please upgrade to Starter.' 
+                USING ERRCODE = 'check_violation';
+        END IF;
+    END IF;
+
+    RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS enforce_student_cap_trigger ON public.students;
+CREATE TRIGGER enforce_student_cap_trigger
+    BEFORE INSERT OR UPDATE OF tenant_id, user_id ON public.students
+    FOR EACH ROW
+    EXECUTE FUNCTION public.enforce_student_cap();
+
+-- Trigger for user reactivation (users.is_active false -> true)
+CREATE OR REPLACE FUNCTION public.enforce_user_reactivation_student_cap()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+DECLARE
+    v_plan TEXT;
+    v_active_count INTEGER;
+BEGIN
+    -- Only trigger when an inactive student user is being reactivated
+    IF (OLD.is_active = FALSE AND NEW.is_active = TRUE AND NEW.role = 'STUDENT') THEN
+        -- Take transaction advisory lock to serialize cap checks per tenant
+        PERFORM pg_advisory_xact_lock(hashtext('student_cap_' || NEW.tenant_id::text));
+
+        -- Lock the tenant row FOR NO KEY UPDATE so foreign key key-share locks are not blocked
+        SELECT plan INTO v_plan 
+        FROM public.tenants 
+        WHERE id = NEW.tenant_id 
+        FOR NO KEY UPDATE;
+
+        IF v_plan = 'COMMUNITY' THEN
+            SELECT count(*) INTO v_active_count 
+            FROM public.students s
+            JOIN public.users u ON u.id = s.user_id
+            WHERE s.tenant_id = NEW.tenant_id 
+              AND u.is_active = TRUE;
+
+            IF v_active_count >= 75 THEN
+                RAISE EXCEPTION 'COMMUNITY tier limit exceeded: Maximum 75 active students allowed. Please upgrade to Starter.' 
+                    USING ERRCODE = 'check_violation';
+            END IF;
+        END IF;
+    END IF;
+
+    RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_user_reactivation_student_cap ON public.users;
+CREATE TRIGGER trg_user_reactivation_student_cap
+    BEFORE UPDATE OF is_active ON public.users
+    FOR EACH ROW
+    EXECUTE FUNCTION public.enforce_user_reactivation_student_cap();

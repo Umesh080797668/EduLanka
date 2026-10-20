@@ -34,7 +34,20 @@ class LocalDecryptedVideoServer {
     required Uint8List dek,
     required Uint8List iv,
     String? sessionToken,
+    String? expectedSha256,
   }) async {
+    // Validate SHA-256 integrity before starting playback (ADR-001)
+    if (expectedSha256 != null && expectedSha256.isNotEmpty) {
+      if (await file.exists()) {
+        final bytes = await file.readAsBytes();
+        if (!AesCtrCipher.verifyIntegrity(bytes, expectedSha256)) {
+          throw Exception(
+            'Tamper check failed: SHA-256 mismatch for ${file.path}',
+          );
+        }
+      }
+    }
+
     final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
     final token = sessionToken ?? const Uuid().v4();
     return LocalDecryptedVideoServer._(

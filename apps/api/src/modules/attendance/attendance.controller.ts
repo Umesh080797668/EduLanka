@@ -5,6 +5,7 @@ import {
     Post,
     Body,
     Query,
+    Param,
     UseGuards,
     HttpCode,
     HttpStatus,
@@ -24,6 +25,31 @@ import { AttendanceService } from './attendance.service';
 @Controller('attendance')
 export class AttendanceController {
     constructor(private readonly attendanceService: AttendanceService) { }
+
+    @Get('my-attendance')
+    @ApiOperation({ summary: 'Get current student attendance history' })
+    @ApiQuery({ name: 'startDate', required: false, type: String })
+    @ApiQuery({ name: 'endDate', required: false, type: String })
+    getMyAttendance(
+        @CurrentUser() user: JwtPayload,
+        @Query('startDate') startDate?: string,
+        @Query('endDate') endDate?: string,
+    ) {
+        return this.attendanceService.getMyAttendance(user, startDate, endDate);
+    }
+
+    @Get('student/:studentId')
+    @ApiOperation({ summary: 'Get attendance history for a specific student (Admins, Teachers, and Parents)' })
+    @ApiQuery({ name: 'startDate', required: false, type: String })
+    @ApiQuery({ name: 'endDate', required: false, type: String })
+    getStudentAttendance(
+        @CurrentUser() user: JwtPayload,
+        @Param('studentId') studentId: string,
+        @Query('startDate') startDate?: string,
+        @Query('endDate') endDate?: string,
+    ) {
+        return this.attendanceService.getStudentAttendance(user, studentId, startDate, endDate);
+    }
 
     @Get()
     @ApiOperation({ summary: 'Get class attendance roster and status for a specific date and period' })

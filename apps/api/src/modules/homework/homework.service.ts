@@ -16,7 +16,7 @@ import type { CreateHomeworkDto, SubmitHomeworkDto, GradeHomeworkDto } from './d
 export class HomeworkService {
     private readonly logger = new Logger(HomeworkService.name);
 
-    constructor(private readonly supabase: SupabaseService) {}
+    constructor(private readonly supabase: SupabaseService) { }
 
     private async getTeacherClassIds(caller: JwtPayload): Promise<string[]> {
         const { data: tRec } = await this.supabase.adminClient
@@ -49,21 +49,13 @@ export class HomeworkService {
     }
 
     private async getParentChildrenClassIds(caller: JwtPayload): Promise<string[]> {
-        const { data: pRec } = await this.supabase.adminClient
+        const { data: pRows } = await this.supabase.adminClient
             .from('parents')
-            .select('id')
-            .eq('tenant_id', caller.tenantId)
-            .eq('user_id', caller.sub)
-            .maybeSingle();
-
-        if (!pRec?.id) return [];
-
-        const { data: psRows } = await this.supabase.adminClient
-            .from('parent_students')
             .select('student_id')
-            .eq('parent_id', pRec.id);
+            .eq('tenant_id', caller.tenantId)
+            .eq('user_id', caller.sub);
 
-        const studentIds = (psRows ?? []).map((r: any) => r.student_id);
+        const studentIds = (pRows ?? []).map((r: any) => r.student_id).filter(Boolean);
         if (studentIds.length === 0) return [];
 
         const { data: sRows } = await this.supabase.adminClient
@@ -136,6 +128,59 @@ export class HomeworkService {
             }));
         }
 
+        // For parents, attach their children's submissions if submitted
+        if (caller.role === UserRole.PARENT && data && data.length > 0) {
+            const { data: pRows } = await client
+                .from('parents')
+                .select('student_id, students(id, user_id, users(full_name))')
+                .eq('tenant_id', caller.tenantId)
+                .eq('user_id', caller.sub);
+
+            const pRowsAny: any[] = (pRows as any) ?? [];
+            const studentUserIds = pRowsAny
+                .map((p) => {
+                    const stu = Array.isArray(p.students) ? p.students[0] : p.students;
+                    return stu?.user_id;
+                })
+                .filter(Boolean);
+            const studentNameMap = new Map<string, string>();
+            for (const p of pRowsAny) {
+                const stu = Array.isArray(p.students) ? p.students[0] : p.students;
+                const usr = Array.isArray(stu?.users) ? stu?.users[0] : stu?.users;
+                if (stu?.user_id) {
+                    studentNameMap.set(stu.user_id, usr?.full_name || 'Child');
+                }
+                if (p.student_id) {
+                    studentNameMap.set(p.student_id, usr?.full_name || 'Child');
+                }
+            }
+
+            if (studentUserIds.length > 0) {
+                const taskIds = data.map((t: any) => t.id);
+                const { data: submissions } = await client
+                    .from('homework_submissions')
+                    .select('*')
+                    .eq('tenant_id', caller.tenantId)
+                    .in('student_id', studentUserIds)
+                    .in('homework_id', taskIds);
+
+                const subByTask = new Map<string, any[]>();
+                for (const sub of submissions ?? []) {
+                    const list = subByTask.get(sub.homework_id) || [];
+                    list.push({
+                        ...sub,
+                        studentName: studentNameMap.get(sub.student_id) || 'Child',
+                    });
+                    subByTask.set(sub.homework_id, list);
+                }
+
+                return data.map((t: any) => ({
+                    ...t,
+                    childSubmissions: subByTask.get(t.id) ?? [],
+                }));
+            }
+        }
+
         return data ?? [];
     }
 
@@ -167,6 +212,51 @@ export class HomeworkService {
                 .maybeSingle();
 
             return { ...data, mySubmission: sub ?? null };
+        }
+
+        // Check parent's children submissions
+        if (caller.role === UserRole.PARENT) {
+            const { data: pRows } = await this.supabase.adminClient
+                .from('parents')
+                .select('student_id, students(id, user_id, users(full_name))')
+                .eq('tenant_id', caller.tenantId)
+                .eq('user_id', caller.sub);
+
+            const pRowsAny: any[] = (pRows as any) ?? [];
+            const studentUserIds = pRowsAny
+                .map((p) => {
+                    const stu = Array.isArray(p.students) ? p.students[0] : p.students;
+                    return stu?.user_id;
+                })
+                .filter(Boolean);
+            const studentNameMap = new Map<string, string>();
+            for (const p of pRowsAny) {
+                const stu = Array.isArray(p.students) ? p.students[0] : p.students;
+                const usr = Array.isArray(stu?.users) ? stu?.users[0] : stu?.users;
+                if (stu?.user_id) {
+                    studentNameMap.set(stu.user_id, usr?.full_name || 'Child');
+                }
+                if (p.student_id) {
+                    studentNameMap.set(p.student_id, usr?.full_name || 'Child');
+                }
+            }
+
+            if (studentUserIds.length > 0) {
+                const { data: submissions } = await this.supabase.adminClient
+                    .from('homework_submissions')
+                    .select('*')
+                    .eq('tenant_id', caller.tenantId)
+                    .in('student_id', studentUserIds)
+                    .eq('homework_id', id);
+
+                return {
+                    ...data,
+                    childSubmissions: (submissions ?? []).map((sub: any) => ({
+                        ...sub,
+                        studentName: studentNameMap.get(sub.student_id) || 'Child',
+                    })),
+                };
+            }
         }
 
         return data;

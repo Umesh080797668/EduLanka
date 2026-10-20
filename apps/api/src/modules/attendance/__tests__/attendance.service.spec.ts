@@ -358,4 +358,156 @@ describe('AttendanceService', () => {
             );
         });
     });
+
+    describe('getMyAttendance and getStudentAttendance', () => {
+        it('should allow student to fetch their own attendance with summary metrics', () => {
+            const mockQuery = {
+                select: jest.fn().mockReturnThis(),
+                eq: jest.fn().mockReturnThis(),
+                in: jest.fn().mockReturnThis(),
+                is: jest.fn().mockReturnThis(),
+                order: jest.fn().mockReturnThis(),
+                gte: jest.fn().mockReturnThis(),
+                lte: jest.fn().mockReturnThis(),
+                maybeSingle: jest.fn().mockResolvedValue({
+                    data: {
+                        id: 'stu-uuid-1',
+                        user_id: studentUserUuid,
+                        admission_no: '2026/0001',
+                        class_id: classUuid,
+                    },
+                    error: null,
+                }),
+                then: (resolve: any) =>
+                    resolve({
+                        data: [
+                            { id: 'att-1', student_id: studentUserUuid, status: 'PRESENT', date: '2026-10-15', period: 1 },
+                            { id: 'att-2', student_id: studentUserUuid, status: 'ABSENT', date: '2026-10-14', period: 1 },
+                        ],
+                        error: null,
+                    }),
+            };
+
+            mockAdminClient.from.mockReturnValue(mockQuery);
+
+            return service.getMyAttendance(studentCaller).then((res) => {
+                expect(res.records).toHaveLength(2);
+                expect(res.summary.total).toBe(2);
+                expect(res.summary.present).toBe(1);
+                expect(res.summary.absent).toBe(1);
+                expect(res.summary.attendancePercentage).toBe(50);
+            });
+        });
+
+        it('should allow linked parent to fetch their child attendance', async () => {
+            const parentCaller: JwtPayload = {
+                sub: '66666666-6666-6666-6666-666666666666',
+                tenantId: tenantUuid,
+                email: 'parent@school.lk',
+                role: UserRole.PARENT,
+            };
+
+            const studentEntityUuid = '88888888-8888-8888-8888-888888888888';
+
+            mockAdminClient.from.mockImplementation((table: string) => {
+                if (table === 'students') {
+                    return {
+                        select: jest.fn().mockReturnThis(),
+                        eq: jest.fn().mockReturnThis(),
+                        or: jest.fn().mockReturnThis(),
+                        maybeSingle: jest.fn().mockResolvedValue({
+                            data: {
+                                id: studentEntityUuid,
+                                user_id: studentUserUuid,
+                                admission_no: '2026/0001',
+                                class_id: classUuid,
+                                users: { full_name: 'Student One', email: 's1@school.lk' },
+                            },
+                            error: null,
+                        }),
+                    };
+                }
+                if (table === 'parents') {
+                    return {
+                        select: jest.fn().mockReturnThis(),
+                        eq: jest.fn().mockReturnThis(),
+                        maybeSingle: jest.fn().mockResolvedValue({
+                            data: { id: 'parent-link-id' },
+                            error: null,
+                        }),
+                    };
+                }
+                if (table === 'attendance') {
+                    return {
+                        select: jest.fn().mockReturnThis(),
+                        eq: jest.fn().mockReturnThis(),
+                        in: jest.fn().mockReturnThis(),
+                        is: jest.fn().mockReturnThis(),
+                        order: jest.fn().mockReturnThis(),
+                        gte: jest.fn().mockReturnThis(),
+                        lte: jest.fn().mockReturnThis(),
+                        then: (resolve: any) =>
+                            resolve({
+                                data: [
+                                    { id: 'att-1', student_id: studentUserUuid, status: 'PRESENT', date: '2026-10-15', period: 1 },
+                                ],
+                                error: null,
+                            }),
+                    };
+                }
+                return { select: jest.fn().mockReturnThis() };
+            });
+
+            const res = await service.getStudentAttendance(parentCaller, studentEntityUuid);
+            expect(res.records).toHaveLength(1);
+            expect(res.student.admission_no).toBe('2026/0001');
+            expect(res.summary.present).toBe(1);
+        });
+
+        it('should reject unlinked parent from fetching attendance', async () => {
+            const parentCaller: JwtPayload = {
+                sub: '77777777-7777-7777-7777-777777777777',
+                tenantId: tenantUuid,
+                email: 'parent@school.lk',
+                role: UserRole.PARENT,
+            };
+
+            const studentEntityUuid = '88888888-8888-8888-8888-888888888888';
+
+            mockAdminClient.from.mockImplementation((table: string) => {
+                if (table === 'students') {
+                    return {
+                        select: jest.fn().mockReturnThis(),
+                        eq: jest.fn().mockReturnThis(),
+                        or: jest.fn().mockReturnThis(),
+                        maybeSingle: jest.fn().mockResolvedValue({
+                            data: {
+                                id: studentEntityUuid,
+                                user_id: studentUserUuid,
+                                admission_no: '2026/0001',
+                                class_id: classUuid,
+                                users: { full_name: 'Student One', email: 's1@school.lk' },
+                            },
+                            error: null,
+                        }),
+                    };
+                }
+                if (table === 'parents') {
+                    return {
+                        select: jest.fn().mockReturnThis(),
+                        eq: jest.fn().mockReturnThis(),
+                        maybeSingle: jest.fn().mockResolvedValue({
+                            data: null,
+                            error: null,
+                        }),
+                    };
+                }
+                return { select: jest.fn().mockReturnThis() };
+            });
+
+            await expect(
+                service.getStudentAttendance(parentCaller, studentEntityUuid),
+            ).rejects.toThrow(ForbiddenException);
+        });
+    });
 });

@@ -198,16 +198,7 @@ class _ParentHomeScreenState extends ConsumerState<ParentHomeScreen> {
                 title: l10n?.attendanceHistory ?? 'Attendance Report',
                 subtitle: 'Daily Roll-Call Status',
                 color: const Color(0xFF10B981),
-                onTap: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(
-                        l10n?.attendanceHistory ??
-                            'Viewing child attendance history...',
-                      ),
-                    ),
-                  );
-                },
+                onTap: () => context.push('/attendance'),
               ),
               _buildCard(
                 icon: Icons.assignment_turned_in_outlined,

@@ -253,6 +253,40 @@ export class UsersService {
             db = this.supabase.adminClient;
         }
 
+        // Check student cap if reactivating an inactive student
+        if (isActive) {
+            const { data: userToActivate } = await db
+                .from('users')
+                .select('id, role, tenant_id, is_active')
+                .eq('id', id)
+                .maybeSingle();
+
+            if (!userToActivate) throw new NotFoundException(`User ${id} not found`);
+
+            if (userToActivate.is_active === false && userToActivate.role === UserRole.STUDENT) {
+                const targetTenantId = userToActivate.tenant_id;
+                const { data: tenant } = await this.supabase.adminClient
+                    .from('tenants')
+                    .select('plan')
+                    .eq('id', targetTenantId)
+                    .maybeSingle();
+
+                if (tenant?.plan === 'COMMUNITY') {
+                    const { count, error: countErr } = await this.supabase.adminClient
+                        .from('students')
+                        .select('id, users!inner(is_active)', { count: 'exact', head: true })
+                        .eq('tenant_id', targetTenantId)
+                        .eq('users.is_active', true);
+
+                    if (!countErr && (count ?? 0) >= 75) {
+                        throw new ForbiddenException(
+                            'COMMUNITY tier limit exceeded: Maximum 75 active students allowed. Please upgrade to Starter.',
+                        );
+                    }
+                }
+            }
+        }
+
         const { data, error } = await db
             .from('users')
             .update({ is_active: isActive, deactivation_reason: isActive ? null : (reason || null) })
@@ -260,7 +294,16 @@ export class UsersService {
             .select()
             .maybeSingle();
 
-        if (error) throw new InternalServerErrorException(`Failed to set user activation to ${isActive}`);
+        if (error) {
+            if (
+                error.message?.toLowerCase().includes('limit exceeded') ||
+                error.message?.toLowerCase().includes('cap exceeded') ||
+                error.message?.toLowerCase().includes('capped at')
+            ) {
+                throw new ForbiddenException(error.message);
+            }
+            throw new InternalServerErrorException(`Failed to set user activation to ${isActive}`);
+        }
         if (!data) throw new NotFoundException(`User ${id} not found`);
 
         // Invalidate active cache and revoke sessions if deactivated

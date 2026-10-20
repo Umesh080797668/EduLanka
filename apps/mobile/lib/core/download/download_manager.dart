@@ -487,6 +487,12 @@ class DownloadManager extends StateNotifier<Map<String, DownloadTask>> {
           await targetFile.delete();
         }
         await partFile.rename(task.localPath);
+
+        // Record cryptographic SHA-256 integrity checksum (ADR-001)
+        final encBytes = await targetFile.readAsBytes();
+        final sha256Hash = AesCtrCipher.computeSha256(encBytes);
+        final shaFile = File('${task.localPath}.sha256');
+        await shaFile.writeAsString(sha256Hash);
       }
 
       final completedTask = task.copyWith(
@@ -549,6 +555,20 @@ class DownloadManager extends StateNotifier<Map<String, DownloadTask>> {
     final file = File(task.localPath);
     if (!await file.exists()) return null;
 
+    // Verify SHA-256 integrity checksum before playback (ADR-001)
+    String? expectedSha;
+    final shaFile = File('${task.localPath}.sha256');
+    if (await shaFile.exists()) {
+      expectedSha = (await shaFile.readAsString()).trim();
+      final fileBytes = await file.readAsBytes();
+      if (!AesCtrCipher.verifyIntegrity(fileBytes, expectedSha)) {
+        debugPrint(
+          'Pre-playback SHA-256 tamper verification failed for task ${task.id}',
+        );
+        return null;
+      }
+    }
+
     final masterKey = await EncryptionKeyStorage.getOrCreateKey(
       configuredKey: _config?.encryptionKey,
     );
@@ -561,6 +581,7 @@ class DownloadManager extends StateNotifier<Map<String, DownloadTask>> {
       file: file,
       dek: keyPair.dek,
       iv: keyPair.iv,
+      expectedSha256: expectedSha,
     );
   }
 
@@ -663,6 +684,10 @@ class DownloadManager extends StateNotifier<Map<String, DownloadTask>> {
       final part = File('${task.localPath}.part');
       if (await part.exists()) {
         await part.delete();
+      }
+      final shaFile = File('${task.localPath}.sha256');
+      if (await shaFile.exists()) {
+        await shaFile.delete();
       }
     }
 
