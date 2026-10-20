@@ -1,4 +1,4 @@
-import { Logger } from '@nestjs/common';
+import { Logger, Optional } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import {
   WebSocketGateway,
@@ -13,6 +13,7 @@ import { Server, Socket } from 'socket.io';
 
 import { AuthService } from '../auth/auth.service';
 import { RedisService } from '../redis/redis.service';
+import { PlanFeaturesService, PlanFeature } from '../tenant/plan-features.service';
 
 import { ChatService } from './chat.service';
 
@@ -27,6 +28,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     private readonly jwtService: JwtService,
     private readonly redisService: RedisService,
     private readonly authService: AuthService,
+    @Optional() private readonly planFeaturesService: PlanFeaturesService = new PlanFeaturesService({ adminClient: {} } as any),
   ) { }
 
   async handleConnection(client: Socket) {
@@ -49,6 +51,13 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       const isActive = await this.authService.isUserActive(userId, payload.role);
       if (!isActive) {
         throw new Error('User account is deactivated');
+      }
+
+      if (payload.tenantId) {
+        const plan = payload.tenantPlan || await this.planFeaturesService.getTenantPlan(payload.tenantId);
+        if (!this.planFeaturesService.isFeatureEnabled(plan, PlanFeature.CHAT)) {
+          throw new Error('Real-time chat is not available on Community tier. Upgrade to Starter.');
+        }
       }
 
       client.data.tenantId = payload.tenantId;

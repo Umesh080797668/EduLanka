@@ -5,6 +5,7 @@ import {
     BadRequestException,
     NotFoundException,
     Logger,
+    Optional,
 } from '@nestjs/common';
 
 import { sanitizeNoticeHtml, noticeHtmlToText } from '../../common/utils/sanitize-html';
@@ -12,6 +13,7 @@ import { NotificationsGateway } from '../notifications/notifications.gateway';
 import { SmsService } from '../sms/sms.service';
 import { SupabaseService } from '../supabase/supabase.service';
 
+import { PlanFeaturesService, PlanFeature } from '../tenant/plan-features.service';
 import { CreateNoticeDto, UpdateNoticeDto } from './dto/notices.dto';
 
 @Injectable()
@@ -22,6 +24,7 @@ export class NoticesService {
         private readonly supabaseService: SupabaseService,
         private readonly smsService: SmsService,
         private readonly notificationsGateway: NotificationsGateway,
+        @Optional() private readonly planFeatures: PlanFeaturesService = new PlanFeaturesService(supabaseService),
     ) { }
 
     async createNotice(tenantId: string, authorId: string, request: CreateNoticeDto | any, callerRole?: string) {
@@ -102,14 +105,20 @@ export class NoticesService {
             throw new BadRequestException('Notice content is required.');
         }
 
-        // Blueprint constraints for Free tier
-        if (tenant.plan === 'COMMUNITY') {
-            if (scope !== 'SCHOOL_WIDE' && scope !== 'UNIVERSAL') {
-                throw new ForbiddenException('Community tier only supports SCHOOL_WIDE scoping. Upgrade to Starter to unlock Class/Grade targeting.');
-            }
-            if (send_sms) {
-                throw new ForbiddenException('SMS notifications are strictly unavailable for the Community tier.');
-            }
+        // Central Plan-Feature verification per Blueprint Section 7
+        if (scope === 'CLASS_SPECIFIC' || scope === 'GRADE_LEVEL') {
+            this.planFeatures.assertFeature(
+                tenant.plan,
+                PlanFeature.TARGETED_NOTICES,
+                'Community tier only supports SCHOOL_WIDE scoping. Upgrade to Starter to unlock Class/Grade targeting.',
+            );
+        }
+        if (send_sms) {
+            this.planFeatures.assertFeature(
+                tenant.plan,
+                PlanFeature.TWILIO_SMS,
+                'SMS notifications are strictly unavailable for the Community tier.',
+            );
         }
 
         // Policy check: Enforce school policy sms_enabled
@@ -629,6 +638,13 @@ export class NoticesService {
         }
         if (nextScope === 'GRADE_LEVEL' && (nextGrade === undefined || nextGrade === null)) {
             throw new BadRequestException('Target grade is required for grade-level notices.');
+        }
+        if (nextScope === 'CLASS_SPECIFIC' || nextScope === 'GRADE_LEVEL') {
+            await this.planFeatures.assertTenantFeature(
+                tenantId,
+                PlanFeature.TARGETED_NOTICES,
+                'Community tier only supports SCHOOL_WIDE scoping. Upgrade to Starter to unlock Class/Grade targeting.',
+            );
         }
 
         if (callerRole === UserRole.TEACHER) {

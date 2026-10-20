@@ -13,6 +13,7 @@ import {
     ConflictException,
     InternalServerErrorException,
     Logger,
+    Optional,
 } from '@nestjs/common';
 
 import { AuditLogsService } from '../audit-logs/audit-logs.service';
@@ -45,6 +46,8 @@ interface TenantRow {
     updated_at: string;
 }
 
+import { PlanFeaturesService, PlanFeature } from './plan-features.service';
+
 @Injectable()
 export class TenantService {
     private readonly logger = new Logger(TenantService.name);
@@ -54,7 +57,8 @@ export class TenantService {
     constructor(
         private readonly supabase: SupabaseService,
         private readonly auditLogs: AuditLogsService,
-        private readonly smsService: SmsService
+        private readonly smsService: SmsService,
+        @Optional() private readonly planFeatures: PlanFeaturesService = new PlanFeaturesService(supabase),
     ) { }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
@@ -324,6 +328,13 @@ export class TenantService {
             .single();
 
         if (!tenant) throw new NotFoundException('Tenant context unavailable.');
+
+        // Blueprint Section 7: Disaster Mode starts at Starter tier.
+        this.planFeatures.assertFeature(
+            tenant.plan,
+            PlanFeature.DISASTER_MODE,
+            'Disaster Mode is not available on Community tier. Upgrade to Starter.',
+        );
 
         // 1. Atomically activate via stored procedure to prevent duplicate activation races
         const { data: eventData, error: rpcErr } = await this.supabase.adminClient.rpc('activate_disaster_mode', {

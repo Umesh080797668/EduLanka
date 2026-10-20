@@ -127,7 +127,7 @@ The full vision spans roughly six independently hard products: a multi-tenant sc
 - **Online-First Baseline & Transparent Fallback:** Offline capabilities represent a resilient progressive enhancement. All functions operate natively as direct online workflows (REST / WebSockets) when connected or on the web. On mobile devices with intermittent connectivity, Drift + SQLCipher caches state locally and the outbox sync engine reconciles writes automatically.
 
 **Scope:**
-- Flutter app (`apps/mobile`, feature-first monorepo layout) using **Riverpod** state management and **Drift with SQLCipher** (`sqlcipher_flutter_libs` + `flutter_secure_storage` encryption key):
+- Flutter app (`apps/mobile`, feature-first monorepo layout) using **Riverpod** state management and **Drift with SQLCipher** (`sqlite3mc via build hooks` + `flutter_secure_storage` encryption key):
   - Online-first & offline attendance marking.
   - Online-first & offline homework submission payloads.
   - Real-time and cached chat messaging.
@@ -159,7 +159,7 @@ The full vision spans roughly six independently hard products: a multi-tenant sc
 
 **Explicitly deferred:** National Resource Marketplace (school-internal resource sharing only in this phase), AI assistant, gamification badges.
 
-**Tech introduced:** Flutter/Dart (`apps/mobile`), Riverpod, Drift + SQLCipher (`sqlcipher_flutter_libs`), `flutter_secure_storage`, Cloudinary chunked MP4 pipeline, FCM HTTP v1 push registry.
+**Tech introduced:** Flutter/Dart (`apps/mobile`), Riverpod, Drift + SQLCipher (`sqlite3mc via build hooks`), `flutter_secure_storage`, Cloudinary chunked MP4 pipeline, FCM HTTP v1 push registry.
 
 ---
 
@@ -337,7 +337,7 @@ The diagram below represents the fully realized architecture; earlier phases imp
 
 - **Phase 1:** Next.js 16+ (App Router, Turbopack, RSC, Tailwind CSS), NestJS REST APIs, Supabase (shared schema, `tenant_id` + RLS — revised from schema-per-tenant in Sprint 7, see §4a), Redis (sessions).
 - **Phase 2:** NestJS WebSockets (chat gateway), Twilio Programmable Messaging API (alphanumeric sender IDs, UTF-8), Redis (WebSocket state, SMS queues).
-- **Phase 3:** Flutter (Dart, `apps/mobile`), Riverpod, Drift + SQLCipher (via `sqlcipher_flutter_libs` with Keystore/Keychain keys) for encrypted local storage, Prisma ORM (for server-side Super Admin microservices), Cloudinary (HLS streaming and resumable stream-aligned AES-256-CTR MP4 downloads with SHA-256 integrity validation and authenticated loopback streaming, ADR-001 rev. 2026-10-15), FCM HTTP v1 push registry. Cross-platform Web ↔ Mobile bidirectional feature parity.
+- **Phase 3:** Flutter (Dart, `apps/mobile`), Riverpod, Drift + SQLCipher (via `sqlite3mc via build hooks` with Keystore/Keychain keys) for encrypted local storage, Prisma ORM (for server-side Super Admin microservices), Cloudinary (HLS streaming and resumable stream-aligned AES-256-CTR MP4 downloads with SHA-256 integrity validation and authenticated loopback streaming, ADR-001 rev. 2026-10-15), FCM HTTP v1 push registry. Cross-platform Web ↔ Mobile bidirectional feature parity.
 - **Phase 4:** Python (FastAPI) AI engine, Meilisearch, dedicated Vector Database (Pinecone / Qdrant / Milvus), Qwen LLM.
 - **Phase 5:** Scikit-learn / XGBoost for Early Warning and Exam Prediction models, served alongside the FastAPI AI engine; external weather/disaster-data API (Dept. of Meteorology / Disaster Management Centre) for Disaster Impact Prediction.
 - **Phase 6:** Google OR-Tools (Smart Timetable Generator), ClickHouse (Ministry Data Warehouse / OLAP), Prometheus, Grafana, OpenTelemetry, Sentry (national-scale observability), National Disaster Management Centre (NDMC) API integration for the National Disaster Coordination Dashboard.

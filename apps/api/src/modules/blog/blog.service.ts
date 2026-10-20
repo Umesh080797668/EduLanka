@@ -6,6 +6,7 @@ import {
     BadRequestException,
     PayloadTooLargeException,
     ConflictException,
+    Optional,
 } from '@nestjs/common';
 import type { JwtPayload } from '@edu-lanka/shared-types';
 import { UserRole } from '@edu-lanka/shared-types';
@@ -20,12 +21,22 @@ import type { ReactionDto } from './dto/reaction.dto';
 import type { ModerateCommentDto } from './dto/moderate-comment.dto';
 import type { ReportBlogDto } from './dto/report-blog.dto';
 import type { TakedownBlogDto } from './dto/takedown-blog.dto';
+import { PlanFeaturesService, PlanFeature } from '../tenant/plan-features.service';
 
 @Injectable()
 export class BlogService {
     private readonly logger = new Logger(BlogService.name);
 
-    constructor(private readonly supabase: SupabaseService) { }
+    constructor(
+        private readonly supabase: SupabaseService,
+        @Optional() private readonly planFeatures: PlanFeaturesService = new PlanFeaturesService(supabase),
+    ) { }
+
+    private async getCallerPlan(caller: JwtPayload): Promise<string> {
+        if (caller.tenantPlan) return caller.tenantPlan;
+        if (!caller.tenantId) return 'COMMUNITY';
+        return this.planFeatures.getTenantPlan(caller.tenantId);
+    }
 
     private async isCallerGrowthOrAbove(caller: JwtPayload): Promise<boolean> {
         if (caller.role === UserRole.SUPER_ADMIN) return true;
@@ -210,6 +221,14 @@ export class BlogService {
         if (!blog.tenant_id || blog.tenant_id !== caller.tenantId) {
             throw new ForbiddenException('Cannot access blog from another school');
         }
+
+        // Non-platform blogs (CLASS & SCHOOL) require Starter tier or above
+        const callerPlan = await this.getCallerPlan(caller);
+        this.planFeatures.assertFeature(
+            callerPlan,
+            PlanFeature.BLOGS_SCHOOL,
+            'Educational blogs require Starter tier or above.',
+        );
 
         if (blog.scope === BlogScope.CLASS) {
             if (caller.role === UserRole.PARENT) {
@@ -580,6 +599,15 @@ export class BlogService {
             if ((dailyCount ?? 0) >= 3) {
                 throw new BadRequestException('Daily platform blog publishing limit reached (maximum 3 posts per day)');
             }
+        }
+
+        if (dto.scope === BlogScope.CLASS || dto.scope === BlogScope.SCHOOL) {
+            const plan = await this.getCallerPlan(caller);
+            this.planFeatures.assertFeature(
+                plan,
+                PlanFeature.BLOGS_SCHOOL,
+                'Educational blogs require Starter tier or above. Upgrade to Starter to author class or school blogs.',
+            );
         }
 
         if (dto.scope === BlogScope.CLASS) {

@@ -100,6 +100,7 @@ import { AuditLogsService } from '../../audit-logs/audit-logs.service';
 import { SmsService } from '../../sms/sms.service';
 import { SupabaseService } from '../../supabase/supabase.service';
 import { TenantService } from '../tenant.service';
+import { PlanFeaturesService } from '../plan-features.service';
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
@@ -110,6 +111,7 @@ describe('TenantService', () => {
         const module: TestingModule = await Test.createTestingModule({
             providers: [
                 TenantService,
+                PlanFeaturesService,
                 { provide: SupabaseService, useValue: supabaseMock },
                 { provide: AuditLogsService, useValue: { logAction: jest.fn().mockResolvedValue(true) } },
                 { provide: SmsService, useValue: { sendBatchSms: jest.fn().mockResolvedValue({ success: true, queuedCount: 1 }) } },

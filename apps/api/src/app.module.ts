@@ -18,6 +18,7 @@ import { GradesModule } from './modules/grades/grades.module';
 import { HealthModule } from './modules/health/health.module';
 import { HomeworkModule } from './modules/homework/homework.module';
 import { AttendanceModule } from './modules/attendance/attendance.module';
+import { BillingModule } from './modules/billing/billing.module';
 import { BlogModule } from './modules/blog/blog.module';
 import { MediaModule } from './modules/media/media.module';
 import { MobileModule } from './modules/mobile/mobile.module';
@@ -154,6 +155,7 @@ import { UsersModule } from './modules/users/users.module';
         HomeworkModule,
         AttendanceModule,
         BlogModule,
+        BillingModule,
     ],
     providers: [
         {

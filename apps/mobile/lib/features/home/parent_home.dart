@@ -71,6 +71,11 @@ class _ParentHomeScreenState extends ConsumerState<ParentHomeScreen> {
         foregroundColor: Colors.white,
         actions: [
           IconButton(
+            tooltip: l10n?.announcements ?? 'School Notices',
+            icon: const Icon(Icons.notifications_outlined),
+            onPressed: () => context.push('/notices'),
+          ),
+          IconButton(
             tooltip: 'Teacher Chat',
             icon: const Icon(Icons.chat_bubble_outline_rounded),
             onPressed: () => context.push('/chat'),
@@ -119,9 +124,9 @@ class _ParentHomeScreenState extends ConsumerState<ParentHomeScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
-                          'Student Monitoring',
-                          style: TextStyle(
+                        Text(
+                          l10n?.profileDetails ?? 'Student Monitoring',
+                          style: const TextStyle(
                             fontWeight: FontWeight.bold,
                             fontSize: 16,
                           ),
@@ -153,9 +158,9 @@ class _ParentHomeScreenState extends ConsumerState<ParentHomeScreen> {
           ),
           const SizedBox(height: 16),
 
-          const Text(
-            'Quick Actions',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          Text(
+            l10n?.dashboard ?? 'Quick Actions',
+            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 12),
 
@@ -173,6 +178,20 @@ class _ParentHomeScreenState extends ConsumerState<ParentHomeScreen> {
                 subtitle: 'Offline Emergency Pack',
                 color: const Color(0xFFEF4444),
                 onTap: () => DisasterPackSheet.show(context),
+              ),
+              _buildCard(
+                icon: Icons.notifications_active_rounded,
+                title: l10n?.announcements ?? 'School Notices',
+                subtitle: 'Circulars & Alerts',
+                color: const Color(0xFF0284C7),
+                onTap: () => context.push('/notices'),
+              ),
+              _buildCard(
+                icon: Icons.assessment_rounded,
+                title: 'Grades & Report Card',
+                subtitle: 'Term Marks & Download PDF',
+                color: const Color(0xFF4F46E5),
+                onTap: () => context.push('/grades'),
               ),
               _buildCard(
                 icon: Icons.calendar_month_rounded,
@@ -200,7 +219,7 @@ class _ParentHomeScreenState extends ConsumerState<ParentHomeScreen> {
               _buildCard(
                 icon: Icons.chat_bubble_outline_rounded,
                 title: 'Teacher Chat',
-                subtitle: 'Direct Messaging',
+                subtitle: l10n?.notifications ?? 'Direct Messaging',
                 color: const Color(0xFF8B5CF6),
                 onTap: () => context.push('/chat'),
               ),

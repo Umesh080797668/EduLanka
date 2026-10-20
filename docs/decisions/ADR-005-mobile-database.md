@@ -13,13 +13,13 @@ EduLanka caches educational records, offline attendance, chat messages, and stud
 
 We evaluated two local database approaches:
 1. **sqflite / sqflite_sqlcipher:** Raw SQL strings, manual object mapping, lacks type safety and automatic schema migration helpers.
-2. **Drift (formerly Moor) with SQLCipher (`sqlcipher_flutter_libs`):** Strongly typed Dart DSL, compile-time query verification, automatic reactive streams (`watch()`), migration APIs, and transparent 256-bit AES encryption.
+2. **Drift (formerly Moor) with SQLCipher (`sqlite3mc via build hooks`):** Strongly typed Dart DSL, compile-time query verification, automatic reactive streams (`watch()`), migration APIs, and transparent 256-bit AES encryption.
 
 ---
 
 ## Decision
 
-We adopt **Drift with SQLCipher via `sqlcipher_flutter_libs`**, securing the encryption key via **`flutter_secure_storage`** (backed by Android Keystore and iOS Keychain).
+We adopt **Drift with SQLCipher via `sqlite3mc via build hooks`**, securing the encryption key via **`flutter_secure_storage`** (backed by Android Keystore and iOS Keychain).
 
 ### Architecture & Key Lifecycle:
 

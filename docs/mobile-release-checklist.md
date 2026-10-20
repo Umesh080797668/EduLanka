@@ -58,7 +58,7 @@ Configure the following secrets in your CI runner (e.g., GitHub Secrets):
 
 ## 3. Database Encryption & Master Key Security (ADR-005)
 
-EduLanka utilizes Drift backed by SQLCipher (`sqlcipher_flutter_libs`) for complete local database encryption.
+EduLanka utilizes Drift backed by SQLCipher (`sqlite3mc via build hooks`) for complete local database encryption.
 
 ### Production Constraints
 - **NO Compile-time Static Keys**: `--dart-define=ENCRYPTION_KEY=...` must **NEVER** be specified in release builds.

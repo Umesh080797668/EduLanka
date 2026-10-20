@@ -608,6 +608,83 @@ class ApiClient {
     return {};
   }
 
+  // ── School Notices & Scoped Announcements ─────────────────────────
+
+  Future<List<Map<String, dynamic>>> getNotices({
+    String? classId,
+    int? gradeLevel,
+  }) async {
+    final response = await dio.get(
+      '/notices',
+      queryParameters: {
+        if (classId != null && classId.isNotEmpty) 'classId': classId,
+        'gradeLevel': ?gradeLevel,
+      },
+    );
+    final rawData = response.data;
+    if (rawData is Map && rawData['data'] is List) {
+      return (rawData['data'] as List)
+          .map((e) => Map<String, dynamic>.from(e as Map))
+          .toList();
+    } else if (rawData is List) {
+      return rawData.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+    }
+    return [];
+  }
+
+  // ── Student Marks & Term Report Cards ──────────────────────────────
+
+  Future<Map<String, dynamic>?> getStudentMe() async {
+    try {
+      final response = await dio.get('/students/me');
+      final rawData = response.data;
+      if (rawData is Map && rawData['data'] is Map) {
+        return Map<String, dynamic>.from(rawData['data']);
+      } else if (rawData is Map) {
+        return Map<String, dynamic>.from(rawData);
+      }
+    } catch (_) {}
+    return null;
+  }
+
+  Future<Map<String, dynamic>?> getParentMe() async {
+    try {
+      final response = await dio.get('/parents/me');
+      final rawData = response.data;
+      if (rawData is Map && rawData['data'] is Map) {
+        return Map<String, dynamic>.from(rawData['data']);
+      } else if (rawData is Map) {
+        return Map<String, dynamic>.from(rawData);
+      }
+    } catch (_) {}
+    return null;
+  }
+
+  Future<List<Map<String, dynamic>>> getStudentMarks(String studentId) async {
+    final response = await dio.get('/student-marks/student/$studentId');
+    final rawData = response.data;
+    if (rawData is Map && rawData['data'] is List) {
+      return (rawData['data'] as List)
+          .map((e) => Map<String, dynamic>.from(e as Map))
+          .toList();
+    } else if (rawData is List) {
+      return rawData.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+    }
+    return [];
+  }
+
+  Future<List<int>> downloadReportCard({
+    required String studentId,
+    required int term,
+    required int year,
+  }) async {
+    final response = await dio.get<List<int>>(
+      '/report-cards/student/$studentId/term/$term/year/$year/download',
+      options: Options(responseType: ResponseType.bytes),
+    );
+    return response.data ?? [];
+  }
+
   // ── Media & Attachment Upload ───────────────────────────────────────
 
   Future<String> uploadAttachment({

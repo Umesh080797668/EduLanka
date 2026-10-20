@@ -3,7 +3,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 
 @Injectable()
 export class TenantAnalyticsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) { }
 
   /**
    * Active students per tenant (Phase 3 billing integration).
@@ -198,11 +198,19 @@ export class TenantAnalyticsService {
     const overagePricePerSms = Number(process.env.SMS_OVERAGE_PRICE_LKR) || 2;
 
     for (const td of tenantData) {
-      const studentCharge = td.activeStudentCount * td.pricePerStudentLkr;
+      // Blueprint §7b: Volume discount applies to Active Student Fee component only
+      let studentDiscount = 0;
+      if (td.activeStudentCount > 1000) {
+        studentDiscount = 0.20;
+      } else if (td.activeStudentCount > 250) {
+        studentDiscount = 0.10;
+      }
+      const effectiveStudentRate = td.pricePerStudentLkr * (1 - studentDiscount);
+      const studentCharge = Math.round(td.activeStudentCount * effectiveStudentRate);
       const allowance = td.smsAllowance !== undefined ? Number(td.smsAllowance) : (
         td.plan === 'STARTER' ? Math.max(td.activeStudentCount * 3, 100) :
-        td.plan === 'GROWTH' ? Math.max(td.activeStudentCount * 5, 500) :
-        td.plan === 'INSTITUTIONAL' ? Math.max(td.activeStudentCount * 8, 2000) : 0
+          td.plan === 'GROWTH' ? Math.max(td.activeStudentCount * 5, 500) :
+            td.plan === 'INSTITUTIONAL' ? Math.max(td.activeStudentCount * 8, 2000) : 0
       );
       const smsOverageCount = Math.max(0, td.smsCount - allowance);
       const smsOverageCharge = smsOverageCount * overagePricePerSms;

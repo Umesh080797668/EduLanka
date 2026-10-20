@@ -69,6 +69,7 @@ const NAV: Record<Role, NavSection[]> = {
             items: [
                 { nameKey: 'dashboard', href: '/student', icon: LayoutDashboard, exact: true, id: 'nav-dashboard' },
                 { nameKey: 'gradesReports', href: '/student/grades', icon: GraduationCap, id: 'nav-grades' },
+                { nameKey: 'homework', href: '/student/homework', icon: FileEdit, id: 'nav-homework' },
                 { nameKey: 'resources', href: '/student/resources', icon: BookOpen, id: 'nav-resources' },
                 { nameKey: 'pastPapers', href: '/student/papers', icon: FileText, id: 'nav-papers' },
                 { nameKey: 'blogs', href: '/blogs', icon: Newspaper, id: 'nav-blogs' },

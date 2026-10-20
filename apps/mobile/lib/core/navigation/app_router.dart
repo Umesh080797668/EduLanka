@@ -18,6 +18,8 @@ import '../../features/blog/blog_list_screen.dart';
 import '../../features/blog/blog_detail_screen.dart';
 import '../../features/blog/create_blog_screen.dart';
 import '../../features/disaster/disaster_pack_screen.dart';
+import '../../features/notices/notices_screen.dart';
+import '../../features/grades/grades_screen.dart';
 
 /// Notifier that bridges Riverpod AuthState changes to GoRouter's refreshListenable
 /// without destroying and rebuilding the GoRouter instance.
@@ -141,6 +143,20 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/disaster-pack',
         builder: (context, state) => const DisasterPackScreen(),
+      ),
+      GoRoute(
+        path: '/notices',
+        builder: (context, state) => const NoticesScreen(),
+      ),
+      GoRoute(
+        path: '/grades',
+        builder: (context, state) {
+          final extra = state.extra as Map<String, dynamic>? ?? {};
+          return GradesScreen(
+            studentId: extra['studentId'] as String?,
+            studentName: extra['studentName'] as String?,
+          );
+        },
       ),
     ],
     redirect: (context, state) {

@@ -8,6 +8,7 @@ import { AuditLogsService } from '../../audit-logs/audit-logs.service';
 import { SmsService } from '../../sms/sms.service';
 import { SupabaseService } from '../../supabase/supabase.service';
 import { TenantService } from '../tenant.service';
+import { PlanFeaturesService } from '../plan-features.service';
 
 describe('Disaster Mode (TenantService)', () => {
     let service: TenantService;
@@ -118,6 +119,7 @@ describe('Disaster Mode (TenantService)', () => {
         const module: TestingModule = await Test.createTestingModule({
             providers: [
                 TenantService,
+                PlanFeaturesService,
                 { provide: SupabaseService, useValue: mockSupabase },
                 { provide: AuditLogsService, useValue: mockAuditLogs },
                 { provide: SmsService, useValue: mockSmsService },
@@ -242,7 +244,7 @@ describe('Disaster Mode (TenantService)', () => {
             ).rejects.toThrow(new ConflictException('Disaster Mode is already active for this school.'));
         });
 
-        it('should suppress SMS dispatch for COMMUNITY tier schools per blueprint', async () => {
+        it('should reject COMMUNITY tier schools from activating Disaster Mode per blueprint', async () => {
             mockSupabase.adminClient.from.mockImplementationOnce(() => ({
                 select: () => ({
                     eq: () => ({
@@ -260,16 +262,14 @@ describe('Disaster Mode (TenantService)', () => {
                 }),
             }));
 
-            const result = await service.activateDisasterMode(
-                { reason: DisasterReason.OTHER },
-                schoolAdminCaller
-            );
+            await expect(
+                service.activateDisasterMode(
+                    { reason: DisasterReason.OTHER },
+                    schoolAdminCaller
+                )
+            ).rejects.toThrow(ForbiddenException);
 
             expect(mockSmsService.sendBatchSms).not.toHaveBeenCalled();
-            expect(result.smsQueued).toBe(0);
-            expect(mockAuditLogs.logAction).toHaveBeenCalledWith(
-                expect.objectContaining({ action: 'DISASTER_MODE_ENGAGED' })
-            );
         });
     });
 

@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Delete, Body, Req, UseGuards, Param, Query, HttpCode, HttpStatus, ParseUUIDPipe } from '@nestjs/common';
+import { Controller, Get, Post, Delete, Body, Req, UseGuards, Param, Query, HttpCode, HttpStatus, ParseUUIDPipe, Optional } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { AuthGuard } from '@nestjs/passport';
 import { ThrottlerGuard } from '@nestjs/throttler';
@@ -15,6 +15,8 @@ import {
     RemoveParticipantDto,
 } from './dto/chat.dto';
 
+import { PlanFeaturesService, PlanFeature } from '../tenant/plan-features.service';
+
 /**
  * Handshake tickets are deliberately short-lived: they exist only to survive the
  * moment between page load and socket connect, and socket.io refetches one on
@@ -29,11 +31,17 @@ export class ChatController {
         private readonly chatService: ChatService,
         private readonly gateway: ChatGateway,
         private readonly jwt: JwtService,
+        @Optional() private readonly planFeatures: PlanFeaturesService = new PlanFeaturesService({ adminClient: {} } as any),
     ) { }
 
     /** Tokens are issued with `sub`; the aliases cover older payload shapes. */
     private callerId(req: any): string {
         return req.user.sub || req.user.user_id || req.user.id;
+    }
+
+    private async assertChatPlan(req: any) {
+        const plan = req.user.tenantPlan || await this.planFeatures.getTenantPlan(req.user.tenantId);
+        this.planFeatures.assertFeature(plan, PlanFeature.CHAT, 'Real-time chat is not available on Community tier. Upgrade to Starter.');
     }
 
     // =========================================================================
@@ -51,6 +59,7 @@ export class ChatController {
      */
     @Get('socket-ticket')
     async socketTicket(@Req() req: any) {
+        await this.assertChatPlan(req);
         const { sub, tenantId, role, email } = req.user;
         const token = await this.jwt.signAsync(
             { sub, tenantId, role, email },
@@ -61,6 +70,7 @@ export class ChatController {
 
     @Get('conversations')
     async listConversations(@Req() req: any) {
+        await this.assertChatPlan(req);
         return this.chatService.listConversations(
             req.user.tenantId,
             this.callerId(req),

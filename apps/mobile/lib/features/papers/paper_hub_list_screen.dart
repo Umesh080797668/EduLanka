@@ -328,6 +328,13 @@ class _PaperHubListScreenState extends ConsumerState<PaperHubListScreen> {
           ? licenseRetention
           : fallbackDays;
 
+      // 0. Pre-persist paper metadata so no downloaded file can ever be orphaned without DB metadata
+      await LocalDatabase.instance.saveOfflinePaper(
+        id: paperId,
+        paper: paper,
+        retentionDays: retentionDays,
+      );
+
       // 1. Queue Paper PDF download with S6 AES-256-CTR encryption & expiry
       final paperTask = await DownloadManager.instance.startDownload(
         id: 'paper_$paperId',

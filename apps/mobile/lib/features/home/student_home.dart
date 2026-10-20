@@ -79,6 +79,11 @@ class _StudentHomeScreenState extends ConsumerState<StudentHomeScreen> {
         foregroundColor: Colors.white,
         actions: [
           IconButton(
+            tooltip: l10n?.announcements ?? 'School Notices',
+            icon: const Icon(Icons.notifications_outlined),
+            onPressed: () => context.push('/notices'),
+          ),
+          IconButton(
             tooltip: 'Chat',
             icon: const Icon(Icons.chat_bubble_outline_rounded),
             onPressed: () => context.push('/chat'),
@@ -137,7 +142,7 @@ class _StudentHomeScreenState extends ConsumerState<StudentHomeScreen> {
                         Text(
                           _pendingCount > 0
                               ? 'Offline Changes Queued'
-                              : 'Offline Ready',
+                              : (l10n?.offlineReady ?? 'Offline Ready'),
                           style: const TextStyle(
                             fontWeight: FontWeight.bold,
                             fontSize: 16,
@@ -170,9 +175,9 @@ class _StudentHomeScreenState extends ConsumerState<StudentHomeScreen> {
           ),
           const SizedBox(height: 16),
 
-          const Text(
-            'Curriculum & Practice',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          Text(
+            l10n?.appSubtitle ?? 'Curriculum & Practice',
+            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 12),
 
@@ -191,6 +196,20 @@ class _StudentHomeScreenState extends ConsumerState<StudentHomeScreen> {
                 subtitle: 'Emergency Shelters & Contacts',
                 color: const Color(0xFFEF4444),
                 onTap: () => DisasterPackSheet.show(context),
+              ),
+              _buildFeatureCard(
+                icon: Icons.notifications_active_rounded,
+                title: l10n?.announcements ?? 'School Notices',
+                subtitle: 'Circulars & Alerts',
+                color: const Color(0xFF0284C7),
+                onTap: () => context.push('/notices'),
+              ),
+              _buildFeatureCard(
+                icon: Icons.assessment_rounded,
+                title: 'Grades & Report Card',
+                subtitle: 'Term Marks & PDF Report',
+                color: const Color(0xFF4F46E5),
+                onTap: () => context.push('/grades'),
               ),
               _buildFeatureCard(
                 icon: Icons.video_collection_rounded,
@@ -215,8 +234,9 @@ class _StudentHomeScreenState extends ConsumerState<StudentHomeScreen> {
               ),
               _buildFeatureCard(
                 icon: Icons.menu_book,
-                title: 'Academic Blogs',
-                subtitle: 'Class & School Discourse',
+                title: l10n?.academicBlogs ?? 'Academic Blogs',
+                subtitle:
+                    l10n?.academicDiscussions ?? 'Class & School Discourse',
                 color: const Color(0xFF8B5CF6),
                 onTap: () => context.push('/blogs'),
               ),

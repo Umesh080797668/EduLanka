@@ -151,6 +151,28 @@ class LocalDatabase {
     );
   }
 
+  Future<String?> getSyncMetadata(String key) async {
+    await _initDb();
+    final rows = await driftDb
+        .customSelect(
+          'SELECT value FROM sync_metadata WHERE key = ?',
+          variables: [Variable.withString(key)],
+        )
+        .get();
+    if (rows.isNotEmpty) {
+      return rows.first.data['value']?.toString();
+    }
+    return null;
+  }
+
+  Future<void> saveSyncMetadata(String key, String value) async {
+    await _initDb();
+    await driftDb.customInsert(
+      'INSERT OR REPLACE INTO sync_metadata (key, value) VALUES (?, ?)',
+      variables: [Variable.withString(key), Variable.withString(value)],
+    );
+  }
+
   // ── Attendance Operations ──────────────────────────────────────────
 
   Future<void> recordAttendance({
@@ -641,13 +663,16 @@ class LocalDatabase {
       if (await offHwDir.exists()) {
         final pendingOutbox = await driftDb
             .customSelect(
-              "SELECT payload FROM sync_outbox WHERE status = 'PENDING'",
+              "SELECT payload FROM sync_outbox WHERE status != 'SYNCED'",
             )
             .get();
         final pendingSubmissions = await driftDb
             .customSelect(
-              "SELECT attachments FROM offline_homework_submissions WHERE status = 'PENDING_SYNC'",
+              "SELECT attachments FROM offline_homework_submissions WHERE status != 'SYNCED'",
             )
+            .get();
+        final taskAttachments = await driftDb
+            .customSelect("SELECT attachments FROM offline_homework_tasks")
             .get();
 
         final activeReferences = <String>{};
@@ -658,6 +683,10 @@ class LocalDatabase {
         for (final r in pendingSubmissions) {
           final attStr = r.data['attachments']?.toString() ?? '';
           activeReferences.add(attStr);
+        }
+        for (final r in taskAttachments) {
+          final taskAttStr = r.data['attachments']?.toString() ?? '';
+          activeReferences.add(taskAttStr);
         }
 
         final files = offHwDir.listSync();
@@ -1189,6 +1218,12 @@ class LocalDatabase {
     final expiresMs =
         nowMs + (retentionDays > 0 ? retentionDays : 365) * 24 * 3600 * 1000;
 
+    final existing = await getOfflinePaper(id);
+    final resolvedPaperPath =
+        localPaperPath ?? existing?['local_paper_path'] as String?;
+    final resolvedSchemePath =
+        localSchemePath ?? existing?['local_scheme_path'] as String?;
+
     await driftDb.customStatement(
       '''
       INSERT OR REPLACE INTO offline_papers (
@@ -1213,8 +1248,8 @@ class LocalDatabase {
         paper['term']?.toString(),
         paper['paper_url']?.toString() ?? '',
         paper['marking_scheme_url']?.toString(),
-        localPaperPath,
-        localSchemePath,
+        resolvedPaperPath,
+        resolvedSchemePath,
         nowMs,
         expiresMs,
       ],
@@ -1289,12 +1324,22 @@ class LocalDatabase {
               expiresAt,
             ],
           );
-        } else if (existing['local_paper_path'] == null ||
-            existing['local_paper_path'] != localPath) {
+        } else {
+          final schemeRows = await driftDb
+              .customSelect(
+                "SELECT local_path FROM download_tasks WHERE id = ? AND status = 'COMPLETED'",
+                variables: [Variable.withString('scheme_$paperId')],
+              )
+              .get();
+          final schemePath = schemeRows.isNotEmpty
+              ? schemeRows.first.data['local_path']?.toString()
+              : null;
+
           await driftDb.customUpdate(
-            'UPDATE offline_papers SET local_paper_path = ? WHERE id = ?',
+            'UPDATE offline_papers SET local_paper_path = ?, local_scheme_path = coalesce(nullif(?, \'\'), local_scheme_path) WHERE id = ?',
             variables: [
               Variable.withString(localPath),
+              Variable.withString(schemePath ?? ''),
               Variable.withString(paperId),
             ],
           );
