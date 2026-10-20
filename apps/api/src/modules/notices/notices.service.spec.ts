@@ -213,6 +213,42 @@ describe('NoticesService', () => {
       expect(result.id).toBe('notice_1');
     });
 
+    it('should throw BadRequestException if SMS is disabled by school policy', async () => {
+      supabaseService.adminClient.from.mockImplementation((table: string) => {
+        if (table === 'school_policy') {
+          return {
+            select: jest.fn().mockReturnValue({
+              eq: jest.fn().mockReturnValue({
+                maybeSingle: jest.fn().mockResolvedValue({ data: { sms_enabled: false }, error: null }),
+                single: jest.fn().mockResolvedValue({ data: { sms_enabled: false }, error: null }),
+              }),
+            }),
+          };
+        }
+        return {
+          select: jest.fn().mockReturnValue({
+            eq: jest.fn().mockReturnValue({
+              single: jest.fn().mockResolvedValue({ data: { id: 'tenant_1', plan: 'STARTER' }, error: null }),
+            }),
+          }),
+        };
+      });
+
+      await expect(
+        service.createNotice(
+          'tenant_1',
+          'user_principal',
+          {
+            title: 'Sports Day Announcement',
+            content_html: '<p>Sports meet on Friday</p>',
+            scope: 'SCHOOL_WIDE',
+            send_sms: true,
+          },
+          UserRole.SCHOOL_ADMIN
+        )
+      ).rejects.toThrow(BadRequestException);
+    });
+
     it('should throw ForbiddenException if teacher profile does not exist', async () => {
       mockTenantFrom.mockImplementation((table: string) => {
         if (table === 'teachers') {

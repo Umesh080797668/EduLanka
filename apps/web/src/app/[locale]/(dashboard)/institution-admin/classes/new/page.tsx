@@ -13,6 +13,8 @@ import { Button, buttonClass } from '@/components/ui/Button';
 import { Card, CardContent } from '@/components/ui/Card';
 import { Field, Input, Select } from '@/components/ui/Form';
 import { PageHeader } from '@/components/ui/Layout';
+import { TutorialProvider } from '@/components/TutorialProvider';
+import { HelpButton } from '@/components/HelpButton';
 
 export default function NewClassPage() {
     const t = useTranslations('InstitutionAdminClasses');
@@ -66,112 +68,115 @@ export default function NewClassPage() {
     };
 
     return (
-        <div className="mx-auto max-w-2xl">
-            <PageHeader
-                icon={<BookOpen />}
-                breadcrumb={
-                    <Link
-                        href="/institution-admin/classes"
-                        className="inline-flex items-center gap-1.5 rounded-input font-medium text-muted-foreground transition-colors hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
-                    >
-                        <ChevronLeft className="size-3.5" />
-                        {t('backClasses')}
-                    </Link>
-                }
-                title={t('createNew')}
-            />
-
-            {error && (
-                <Alert tone="danger" className="mb-6" onDismiss={() => setError(null)}>
-                    {error}
-                </Alert>
-            )}
-
-            <form onSubmit={handleSubmit}>
-                <Card>
-                    <CardContent className="space-y-5 pt-6">
-                        <Field
-                            label={t('curriculumGrade')}
-                            htmlFor="grade-id"
-                            required
+        <TutorialProvider role="SCHOOL_ADMIN" screenId="admin_classes_new">
+            <div className="mx-auto max-w-2xl">
+                <PageHeader
+                    icon={<BookOpen />}
+                    breadcrumb={
+                        <Link
+                            href="/institution-admin/classes"
+                            className="inline-flex items-center gap-1.5 rounded-input font-medium text-muted-foreground transition-colors hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
                         >
-                            <Select
-                                id="grade-id"
+                            <ChevronLeft className="size-3.5" />
+                            {t('backClasses')}
+                        </Link>
+                    }
+                    title={t('createNew')}
+                />
+
+                {error && (
+                    <Alert tone="danger" className="mb-6" onDismiss={() => setError(null)}>
+                        {error}
+                    </Alert>
+                )}
+
+                <form onSubmit={handleSubmit}>
+                    <Card>
+                        <CardContent className="space-y-5 pt-6">
+                            <Field
+                                label={t('curriculumGrade')}
+                                htmlFor="grade-id"
                                 required
-                                disabled={loadingGrades}
-                                value={gradeId}
-                                onChange={(e) => setGradeId(e.target.value)}
                             >
-                                {loadingGrades && (
-                                    <option>{t('loadingGrades')}</option>
-                                )}
-                                {grades.map((g: any) => (
-                                    <option key={g.id} value={g.id}>
-                                        {g.label || `${t('gradeShort')} ${g.level}`}
-                                    </option>
-                                ))}
-                            </Select>
-                        </Field>
+                                <Select
+                                    id="grade-id"
+                                    required
+                                    disabled={loadingGrades}
+                                    value={gradeId}
+                                    onChange={(e) => setGradeId(e.target.value)}
+                                >
+                                    {loadingGrades && (
+                                        <option>{t('loadingGrades')}</option>
+                                    )}
+                                    {grades.map((g: any) => (
+                                        <option key={g.id} value={g.id}>
+                                            {g.label || `${t('gradeShort')} ${g.level}`}
+                                        </option>
+                                    ))}
+                                </Select>
+                            </Field>
 
-                        <Field
-                            label={t('section')}
-                            hint={t('sectionHint')}
-                            htmlFor="section"
-                            required
-                        >
-                            <Input
-                                id="section"
-                                type="text"
+                            <Field
+                                label={t('section')}
+                                hint={t('sectionHint')}
+                                htmlFor="section"
                                 required
-                                value={section}
-                                onChange={(e) => setSection(e.target.value)}
-                                placeholder={t('sectionHint')}
-                            />
-                        </Field>
-
-                        <Field label={t('instructionMedium')} htmlFor="medium">
-                            <Select
-                                id="medium"
-                                value={medium}
-                                onChange={(e) => setMedium(e.target.value)}
                             >
-                                <option value="">{t('notApplicable')}</option>
-                                <option value="ENGLISH">{t('englishMed')}</option>
-                                <option value="SINHALA">{t('sinhalaMed')}</option>
-                                <option value="TAMIL">{t('tamilMed')}</option>
-                            </Select>
-                        </Field>
+                                <Input
+                                    id="section"
+                                    type="text"
+                                    required
+                                    value={section}
+                                    onChange={(e) => setSection(e.target.value)}
+                                    placeholder={t('sectionHint')}
+                                />
+                            </Field>
 
-                        <Field label={t('academicYear')} htmlFor="year" required>
-                            <Input
-                                id="year"
-                                type="number"
-                                required
-                                min={2000}
-                                max={2100}
-                                value={year}
-                                onChange={(e) => setYear(e.target.value)}
-                            />
-                        </Field>
+                            <Field label={t('instructionMedium')} htmlFor="medium">
+                                <Select
+                                    id="medium"
+                                    value={medium}
+                                    onChange={(e) => setMedium(e.target.value)}
+                                >
+                                    <option value="">{t('notApplicable')}</option>
+                                    <option value="ENGLISH">{t('englishMed')}</option>
+                                    <option value="SINHALA">{t('sinhalaMed')}</option>
+                                    <option value="TAMIL">{t('tamilMed')}</option>
+                                </Select>
+                            </Field>
 
-                        <div className="flex justify-end gap-3 pt-2">
-                            <Link
-                                href="/institution-admin/classes"
-                                className={buttonClass({ variant: 'outline' })}
-                            >
-                                {t('cancel')}
-                            </Link>
-                            <Button
-                                type="submit"
-                                loading={saving}
-                                leadingIcon={<Plus />}
-                            >
-                                {saving ? t('creating') : t('createForm')}
-                            </Button>
-                        </div>
-                    </CardContent>
-                </Card>
-            </form>
-        </div>
+                            <Field label={t('academicYear')} htmlFor="year" required>
+                                <Input
+                                    id="year"
+                                    type="number"
+                                    required
+                                    min={2000}
+                                    max={2100}
+                                    value={year}
+                                    onChange={(e) => setYear(e.target.value)}
+                                />
+                            </Field>
+
+                            <div className="flex justify-end gap-3 pt-2">
+                                <Link
+                                    href="/institution-admin/classes"
+                                    className={buttonClass({ variant: 'outline' })}
+                                >
+                                    {t('cancel')}
+                                </Link>
+                                <Button
+                                    type="submit"
+                                    loading={saving}
+                                    leadingIcon={<Plus />}
+                                >
+                                    {saving ? t('creating') : t('createForm')}
+                                </Button>
+                            </div>
+                        </CardContent>
+                    </Card>
+                </form>
+                <HelpButton />
+            </div>
+        </TutorialProvider>
     );
 }

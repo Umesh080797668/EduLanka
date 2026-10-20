@@ -11,8 +11,10 @@ import { toast } from 'sonner';
 
 import { apiClient } from '@/lib/api-client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/Card';
-import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
+import { Badge } from '@/components/ui/Badge';
+import { TutorialProvider } from '@/components/TutorialProvider';
+import { HelpButton } from '@/components/HelpButton';
 
 interface MobileVersionData {
     minVersion: string;
@@ -77,156 +79,161 @@ export default function MobileReleasesPage() {
     };
 
     return (
-        <div className="space-y-6 p-6 max-w-4xl mx-auto">
-            {/* Header */}
-            <div>
-                <h1 className="text-2xl font-bold tracking-tight text-foreground flex items-center gap-2">
-                    <Smartphone className="w-6 h-6 text-primary" />
-                    Mobile App Release & Force-Update Gates
-                </h1>
-                <p className="text-sm text-muted-foreground mt-1">
-                    Manage semantic version requirements, deprecation gates, and OTA upgrade banners for Flutter mobile clients.
-                </p>
-            </div>
-
-            {/* Current Status Banner */}
-            <Card className="border-border/60 bg-card/60 backdrop-blur-sm">
-                <CardContent className="pt-6">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                        <div className="space-y-1">
-                            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                                Live Release Telemetry
-                            </span>
-                            <div className="flex items-center gap-3">
-                                <span className="text-xl font-bold text-foreground">
-                                    Latest: v{latestVersion}
-                                </span>
-                                <span className="text-sm text-muted-foreground">
-                                    (Min Supported: v{minVersion})
-                                </span>
-                            </div>
-                        </div>
-                        <Badge
-                            tone={forceUpdate ? 'danger' : 'success'}
-                            className="flex items-center gap-1.5 self-start sm:self-auto"
-                        >
-                            {forceUpdate ? (
-                                <>
-                                    <AlertOctagon className="w-3.5 h-3.5" /> Force Update Active
-                                </>
-                            ) : (
-                                <>
-                                    <CheckCircle2 className="w-3.5 h-3.5" /> Soft Upgrade Mode
-                                </>
-                            )}
-                        </Badge>
+        <TutorialProvider role="SUPER_ADMIN" screenId="sys_releases">
+            <div className="space-y-6 p-6 max-w-4xl mx-auto">
+                {/* Header */}
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                    <div>
+                        <h1 className="text-2xl font-bold tracking-tight text-foreground flex items-center gap-2">
+                            <Smartphone className="w-6 h-6 text-primary" />
+                            Mobile App Release & Force-Update Gates
+                        </h1>
+                        <p className="text-sm text-muted-foreground mt-1">
+                            Manage semantic version requirements, deprecation gates, and OTA upgrade banners for Flutter mobile clients.
+                        </p>
                     </div>
-                </CardContent>
-            </Card>
+                    <HelpButton />
+                </div>
 
-            {/* Configuration Form */}
-            <Card className="border-border/60 shadow-sm">
-                <CardHeader>
-                    <CardTitle className="text-base font-semibold">
-                        Release Parameters
-                    </CardTitle>
-                    <CardDescription>
-                        Clients below the minimum version are immediately blocked from offline sync and redirected to the app store.
-                    </CardDescription>
-                </CardHeader>
-                <CardContent>
-                    {loading ? (
-                        <div className="py-8 text-center text-muted-foreground animate-pulse">
-                            Loading release parameters...
+                {/* Current Status Banner */}
+                <Card className="border-border/60 bg-card/60 backdrop-blur-sm">
+                    <CardContent className="pt-6">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                            <div className="space-y-1">
+                                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                                    Live Release Telemetry
+                                </span>
+                                <div className="flex items-center gap-3">
+                                    <span className="text-xl font-bold text-foreground">
+                                        Latest: v{latestVersion}
+                                    </span>
+                                    <span className="text-sm text-muted-foreground">
+                                        (Min Supported: v{minVersion})
+                                    </span>
+                                </div>
+                            </div>
+                            <Badge
+                                tone={forceUpdate ? 'danger' : 'success'}
+                                className="flex items-center gap-1.5 self-start sm:self-auto"
+                            >
+                                {forceUpdate ? (
+                                    <>
+                                        <AlertOctagon className="w-3.5 h-3.5" /> Force Update Active
+                                    </>
+                                ) : (
+                                    <>
+                                        <CheckCircle2 className="w-3.5 h-3.5" /> Soft Upgrade Mode
+                                    </>
+                                )}
+                            </Badge>
                         </div>
-                    ) : (
-                        <form onSubmit={handleSave} className="space-y-5">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div className="space-y-1.5">
-                                    <label className="text-xs font-semibold text-foreground">
-                                        Minimum Supported Version (SemVer) *
-                                    </label>
-                                    <input
-                                        type="text"
-                                        required
-                                        pattern="^\d+\.\d+\.\d+$"
-                                        value={minVersion}
-                                        onChange={(e) => setMinVersion(e.target.value)}
-                                        placeholder="e.g. 1.0.0"
-                                        className="w-full h-9 px-3 rounded-md bg-background border border-border text-sm font-mono text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
-                                    />
-                                    <p className="text-[11px] text-muted-foreground">
-                                        Hard cutoff. Devices below this version cannot authenticate.
-                                    </p>
+                    </CardContent>
+                </Card>
+
+                {/* Configuration Form */}
+                <Card className="border-border/60 shadow-sm">
+                    <CardHeader>
+                        <CardTitle className="text-base font-semibold">
+                            Release Parameters
+                        </CardTitle>
+                        <CardDescription>
+                            Clients below the minimum version are immediately blocked from offline sync and redirected to the app store.
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        {loading ? (
+                            <div className="py-8 text-center text-muted-foreground animate-pulse">
+                                Loading release parameters...
+                            </div>
+                        ) : (
+                            <form onSubmit={handleSave} className="space-y-5">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div className="space-y-1.5">
+                                        <label className="text-xs font-semibold text-foreground">
+                                            Minimum Supported Version (SemVer) *
+                                        </label>
+                                        <input
+                                            type="text"
+                                            required
+                                            pattern="^\d+\.\d+\.\d+$"
+                                            value={minVersion}
+                                            onChange={(e) => setMinVersion(e.target.value)}
+                                            placeholder="e.g. 1.0.0"
+                                            className="w-full h-9 px-3 rounded-md bg-background border border-border text-sm font-mono text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                                        />
+                                        <p className="text-[11px] text-muted-foreground">
+                                            Hard cutoff. Devices below this version cannot authenticate.
+                                        </p>
+                                    </div>
+
+                                    <div className="space-y-1.5">
+                                        <label className="text-xs font-semibold text-foreground">
+                                            Latest Production Version *
+                                        </label>
+                                        <input
+                                            type="text"
+                                            required
+                                            pattern="^\d+\.\d+\.\d+$"
+                                            value={latestVersion}
+                                            onChange={(e) => setLatestVersion(e.target.value)}
+                                            placeholder="e.g. 1.1.0"
+                                            className="w-full h-9 px-3 rounded-md bg-background border border-border text-sm font-mono text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                                        />
+                                        <p className="text-[11px] text-muted-foreground">
+                                            Latest published binary version in Google Play / TestFlight.
+                                        </p>
+                                    </div>
                                 </div>
 
                                 <div className="space-y-1.5">
                                     <label className="text-xs font-semibold text-foreground">
-                                        Latest Production Version *
+                                        Release Notes & Changelog
                                     </label>
-                                    <input
-                                        type="text"
-                                        required
-                                        pattern="^\d+\.\d+\.\d+$"
-                                        value={latestVersion}
-                                        onChange={(e) => setLatestVersion(e.target.value)}
-                                        placeholder="e.g. 1.1.0"
-                                        className="w-full h-9 px-3 rounded-md bg-background border border-border text-sm font-mono text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                                    <textarea
+                                        value={releaseNotes}
+                                        onChange={(e) => setReleaseNotes(e.target.value)}
+                                        rows={4}
+                                        placeholder="Summary of bug fixes, new offline features, and performance enhancements..."
+                                        className="w-full p-2.5 rounded-md bg-background border border-border text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
                                     />
-                                    <p className="text-[11px] text-muted-foreground">
-                                        Latest published binary version in Google Play / TestFlight.
+                                </div>
+
+                                <div className="rounded-lg border border-border/80 bg-muted/20 p-4 space-y-2">
+                                    <div className="flex items-center gap-2">
+                                        <input
+                                            type="checkbox"
+                                            id="forceUpdateToggle"
+                                            checked={forceUpdate}
+                                            onChange={(e) => setForceUpdate(e.target.checked)}
+                                            className="rounded border-border text-primary focus:ring-primary h-4 w-4"
+                                        />
+                                        <label
+                                            htmlFor="forceUpdateToggle"
+                                            className="text-sm font-semibold text-foreground cursor-pointer"
+                                        >
+                                            Enforce Mandatory Update (Force Update)
+                                        </label>
+                                    </div>
+                                    <p className="text-xs text-muted-foreground pl-6">
+                                        When checked, the mobile app will render a non-dismissible modal preventing users from interacting with the app until updated.
                                     </p>
                                 </div>
-                            </div>
 
-                            <div className="space-y-1.5">
-                                <label className="text-xs font-semibold text-foreground">
-                                    Release Notes & Changelog
-                                </label>
-                                <textarea
-                                    value={releaseNotes}
-                                    onChange={(e) => setReleaseNotes(e.target.value)}
-                                    rows={4}
-                                    placeholder="Summary of bug fixes, new offline features, and performance enhancements..."
-                                    className="w-full p-2.5 rounded-md bg-background border border-border text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
-                                />
-                            </div>
-
-                            <div className="rounded-lg border border-border/80 bg-muted/20 p-4 space-y-2">
-                                <div className="flex items-center gap-2">
-                                    <input
-                                        type="checkbox"
-                                        id="forceUpdateToggle"
-                                        checked={forceUpdate}
-                                        onChange={(e) => setForceUpdate(e.target.checked)}
-                                        className="rounded border-border text-primary focus:ring-primary h-4 w-4"
-                                    />
-                                    <label
-                                        htmlFor="forceUpdateToggle"
-                                        className="text-sm font-semibold text-foreground cursor-pointer"
+                                <div className="flex justify-end pt-2">
+                                    <Button
+                                        type="submit"
+                                        disabled={saving}
+                                        className="flex items-center gap-2"
                                     >
-                                        Enforce Mandatory Update (Force Update)
-                                    </label>
+                                        <Save className="w-4 h-4" />
+                                        {saving ? 'Saving...' : 'Deploy Release Gates'}
+                                    </Button>
                                 </div>
-                                <p className="text-xs text-muted-foreground pl-6">
-                                    When checked, the mobile app will render a non-dismissible modal preventing users from interacting with the app until updated.
-                                </p>
-                            </div>
-
-                            <div className="flex justify-end pt-2">
-                                <Button
-                                    type="submit"
-                                    disabled={saving}
-                                    className="flex items-center gap-2"
-                                >
-                                    <Save className="w-4 h-4" />
-                                    {saving ? 'Saving...' : 'Deploy Release Gates'}
-                                </Button>
-                            </div>
-                        </form>
-                    )}
-                </CardContent>
-            </Card>
-        </div>
+                            </form>
+                        )}
+                    </CardContent>
+                </Card>
+            </div>
+        </TutorialProvider>
     );
 }

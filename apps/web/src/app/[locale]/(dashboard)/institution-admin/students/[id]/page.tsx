@@ -42,6 +42,8 @@ import { Field, Input, Select } from '@/components/ui/Form';
 import ImageUpload from '@/components/ui/ImageUpload';
 import { EmptyState } from '@/components/ui/Layout';
 import { PageSkeleton } from '@/components/ui/Skeleton';
+import { TutorialProvider } from '@/components/TutorialProvider';
+import { HelpButton } from '@/components/HelpButton';
 
 export default function StudentDetailPage() {
     const t = useTranslations('InstitutionAdminStudents');
@@ -216,267 +218,272 @@ export default function StudentDetailPage() {
     const fullName = student.users?.full_name ?? '';
 
     return (
-        <div className="mx-auto max-w-4xl space-y-6">
-            <Link
-                href="/institution-admin/students"
-                className="inline-flex items-center gap-1.5 rounded-input text-sm font-medium text-muted-foreground transition-colors hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
-            >
-                <ChevronLeft className="size-3.5" />
-                {t('backStudents')}
-            </Link>
-
-            {error && (
-                <Alert tone="danger" onDismiss={() => setError(null)}>
-                    {error}
-                </Alert>
-            )}
-
-            {/* ── Identity ──────────────────────────────────────────────────── */}
-            <Card>
-                <CardContent className="flex flex-col gap-5 pt-6 sm:flex-row sm:items-center">
-                    <ImageUpload
-                        currentImageUrl={student.users?.avatar_url}
-                        onUploadSuccess={handleAvatarUpload}
-                        onError={(err) => toast.error(err)}
-                        size={72}
-                        className="shrink-0"
-                    />
-                    <div className="min-w-0 flex-1">
-                        <div className="flex flex-wrap items-center gap-2.5">
-                            <h1 className="truncate text-xl font-bold tracking-tight text-foreground">
-                                {fullName}
-                            </h1>
-                            <Badge tone={isActive ? 'success' : 'danger'} dot>
-                                {isActive ? t('active') : t('inactive')}
-                            </Badge>
-                        </div>
-                        <p className="mt-1 truncate text-sm text-muted-foreground">
-                            {student.users?.email || t('none')}
-                        </p>
-                    </div>
-
-                    <Button
-                        variant="outline"
-                        onClick={() => setShowStatusModal(true)}
-                        leadingIcon={isActive ? <ShieldOff /> : <ShieldCheck />}
-                        className={isActive ? 'text-destructive' : 'text-success'}
+        <TutorialProvider role="SCHOOL_ADMIN" screenId="admin_students_detail">
+            <div className="mx-auto max-w-4xl space-y-6">
+                <div className="flex items-center justify-between">
+                    <Link
+                        href="/institution-admin/students"
+                        className="inline-flex items-center gap-1.5 rounded-input text-sm font-medium text-muted-foreground transition-colors hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
                     >
-                        {isActive ? ts('suspendAccount') : ts('reactivateAccount')}
-                    </Button>
-                </CardContent>
-            </Card>
+                        <ChevronLeft className="size-3.5" />
+                        {t('backStudents')}
+                    </Link>
+                    <HelpButton />
+                </div>
 
-            <div className="grid gap-6 lg:grid-cols-2">
-                {/* ── Profile ───────────────────────────────────────────────── */}
+                {error && (
+                    <Alert tone="danger" onDismiss={() => setError(null)}>
+                        {error}
+                    </Alert>
+                )}
+
+                {/* ── Identity ──────────────────────────────────────────────────── */}
                 <Card>
-                    <CardHeader className="flex-row items-center justify-between gap-3">
-                        <CardTitle as="h2">{t('profileInfo')}</CardTitle>
-                        {!isEditing ? (
-                            <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={toggleEdit}
-                                leadingIcon={<Edit2 />}
-                            >
-                                {t('editProfile')}
-                            </Button>
-                        ) : (
-                            <div className="flex gap-2">
+                    <CardContent className="flex flex-col gap-5 pt-6 sm:flex-row sm:items-center">
+                        <ImageUpload
+                            currentImageUrl={student.users?.avatar_url}
+                            onUploadSuccess={handleAvatarUpload}
+                            onError={(err) => toast.error(err)}
+                            size={72}
+                            className="shrink-0"
+                        />
+                        <div className="min-w-0 flex-1">
+                            <div className="flex flex-wrap items-center gap-2.5">
+                                <h1 className="truncate text-xl font-bold tracking-tight text-foreground">
+                                    {fullName}
+                                </h1>
+                                <Badge tone={isActive ? 'success' : 'danger'} dot>
+                                    {isActive ? t('active') : t('inactive')}
+                                </Badge>
+                            </div>
+                            <p className="mt-1 truncate text-sm text-muted-foreground">
+                                {student.users?.email || t('none')}
+                            </p>
+                        </div>
+
+                        <Button
+                            variant="outline"
+                            onClick={() => setShowStatusModal(true)}
+                            leadingIcon={isActive ? <ShieldOff /> : <ShieldCheck />}
+                            className={isActive ? 'text-destructive' : 'text-success'}
+                        >
+                            {isActive ? ts('suspendAccount') : ts('reactivateAccount')}
+                        </Button>
+                    </CardContent>
+                </Card>
+
+                <div className="grid gap-6 lg:grid-cols-2">
+                    {/* ── Profile ───────────────────────────────────────────────── */}
+                    <Card>
+                        <CardHeader className="flex-row items-center justify-between gap-3">
+                            <CardTitle as="h2">{t('profileInfo')}</CardTitle>
+                            {!isEditing ? (
                                 <Button
                                     variant="ghost"
                                     size="sm"
                                     onClick={toggleEdit}
-                                    disabled={savingProfile}
+                                    leadingIcon={<Edit2 />}
                                 >
-                                    {tc('cancel')}
+                                    {t('editProfile')}
                                 </Button>
-                                <Button
-                                    size="sm"
-                                    onClick={handleSaveProfile}
-                                    loading={savingProfile}
-                                    leadingIcon={<Save />}
-                                >
-                                    {tc('save')}
-                                </Button>
-                            </div>
-                        )}
-                    </CardHeader>
+                            ) : (
+                                <div className="flex gap-2">
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={toggleEdit}
+                                        disabled={savingProfile}
+                                    >
+                                        {tc('cancel')}
+                                    </Button>
+                                    <Button
+                                        size="sm"
+                                        onClick={handleSaveProfile}
+                                        loading={savingProfile}
+                                        leadingIcon={<Save />}
+                                    >
+                                        {tc('save')}
+                                    </Button>
+                                </div>
+                            )}
+                        </CardHeader>
 
-                    <CardContent>
-                        {!isEditing ? (
-                            <dl className="divide-y divide-border text-sm">
-                                {[
-                                    {
-                                        icon: <Ticket className="size-3.5" />,
-                                        label: t('admissionNumber'),
-                                        value: student.admission_no,
-                                    },
-                                    {
-                                        icon: <Mail className="size-3.5" />,
-                                        label: t('email'),
-                                        value: student.users?.email || t('none'),
-                                    },
-                                    {
-                                        icon: <Phone className="size-3.5" />,
-                                        label: t('phone'),
-                                        value: student.users?.phone_number || t('none'),
-                                    },
-                                    {
-                                        icon: <CalendarDays className="size-3.5" />,
-                                        label: t('dob'),
-                                        value: student.date_of_birth || t('notSpecified'),
-                                    },
-                                    {
-                                        icon: <UserRound className="size-3.5" />,
-                                        label: t('gender'),
-                                        value: student.gender || t('notSpecified'),
-                                    },
-                                ].map(({ icon, label, value }) => (
-                                    <div
-                                        key={label}
-                                        className="flex items-center justify-between gap-4 py-2.5"
-                                    >
-                                        <dt className="flex items-center gap-2 text-muted-foreground">
-                                            {icon}
-                                            {label}
-                                        </dt>
-                                        <dd className="truncate font-medium capitalize text-foreground">
-                                            {value}
-                                        </dd>
+                        <CardContent>
+                            {!isEditing ? (
+                                <dl className="divide-y divide-border text-sm">
+                                    {[
+                                        {
+                                            icon: <Ticket className="size-3.5" />,
+                                            label: t('admissionNumber'),
+                                            value: student.admission_no,
+                                        },
+                                        {
+                                            icon: <Mail className="size-3.5" />,
+                                            label: t('email'),
+                                            value: student.users?.email || t('none'),
+                                        },
+                                        {
+                                            icon: <Phone className="size-3.5" />,
+                                            label: t('phone'),
+                                            value: student.users?.phone_number || t('none'),
+                                        },
+                                        {
+                                            icon: <CalendarDays className="size-3.5" />,
+                                            label: t('dob'),
+                                            value: student.date_of_birth || t('notSpecified'),
+                                        },
+                                        {
+                                            icon: <UserRound className="size-3.5" />,
+                                            label: t('gender'),
+                                            value: student.gender || t('notSpecified'),
+                                        },
+                                    ].map(({ icon, label, value }) => (
+                                        <div
+                                            key={label}
+                                            className="flex items-center justify-between gap-4 py-2.5"
+                                        >
+                                            <dt className="flex items-center gap-2 text-muted-foreground">
+                                                {icon}
+                                                {label}
+                                            </dt>
+                                            <dd className="truncate font-medium capitalize text-foreground">
+                                                {value}
+                                            </dd>
+                                        </div>
+                                    ))}
+                                </dl>
+                            ) : (
+                                <div className="space-y-4">
+                                    <Field label={t('fullName')} htmlFor="edit-full-name">
+                                        <Input
+                                            id="edit-full-name"
+                                            inputSize="sm"
+                                            value={editForm.fullName}
+                                            onChange={(e) =>
+                                                setEditForm({
+                                                    ...editForm,
+                                                    fullName: e.target.value,
+                                                })
+                                            }
+                                        />
+                                    </Field>
+                                    <Field label={t('phoneNumber')} htmlFor="edit-phone">
+                                        <Input
+                                            id="edit-phone"
+                                            type="tel"
+                                            inputSize="sm"
+                                            value={editForm.phoneNumber}
+                                            onChange={(e) =>
+                                                setEditForm({
+                                                    ...editForm,
+                                                    phoneNumber: e.target.value,
+                                                })
+                                            }
+                                        />
+                                    </Field>
+                                    <Field label={t('dob')} htmlFor="edit-dob">
+                                        <Input
+                                            id="edit-dob"
+                                            type="date"
+                                            inputSize="sm"
+                                            value={editForm.dateOfBirth}
+                                            onChange={(e) =>
+                                                setEditForm({
+                                                    ...editForm,
+                                                    dateOfBirth: e.target.value,
+                                                })
+                                            }
+                                        />
+                                    </Field>
+                                    <Field label={t('gender')} htmlFor="edit-gender">
+                                        <Select
+                                            id="edit-gender"
+                                            selectSize="sm"
+                                            value={editForm.gender}
+                                            onChange={(e) =>
+                                                setEditForm({
+                                                    ...editForm,
+                                                    gender: e.target.value,
+                                                })
+                                            }
+                                        >
+                                            <option value="">{t('notSpecified')}</option>
+                                            <option value="male">{t('male')}</option>
+                                            <option value="female">{t('female')}</option>
+                                            <option value="other">{t('other')}</option>
+                                        </Select>
+                                    </Field>
+                                </div>
+                            )}
+                        </CardContent>
+                    </Card>
+
+                    {/* ── Class assignment ──────────────────────────────────────── */}
+                    <Card>
+                        <CardHeader>
+                            <CardTitle as="h2">{t('classAssignment')}</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            {student.classes && (
+                                <div className="mb-5 rounded-card border border-border bg-primary-subtle p-4">
+                                    <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-primary">
+                                        <School className="size-3.5" />
+                                        {t('currentlyAssignedTo')}
                                     </div>
-                                ))}
-                            </dl>
-                        ) : (
-                            <div className="space-y-4">
-                                <Field label={t('fullName')} htmlFor="edit-full-name">
-                                    <Input
-                                        id="edit-full-name"
-                                        inputSize="sm"
-                                        value={editForm.fullName}
-                                        onChange={(e) =>
-                                            setEditForm({
-                                                ...editForm,
-                                                fullName: e.target.value,
-                                            })
-                                        }
-                                    />
-                                </Field>
-                                <Field label={t('phoneNumber')} htmlFor="edit-phone">
-                                    <Input
-                                        id="edit-phone"
-                                        type="tel"
-                                        inputSize="sm"
-                                        value={editForm.phoneNumber}
-                                        onChange={(e) =>
-                                            setEditForm({
-                                                ...editForm,
-                                                phoneNumber: e.target.value,
-                                            })
-                                        }
-                                    />
-                                </Field>
-                                <Field label={t('dob')} htmlFor="edit-dob">
-                                    <Input
-                                        id="edit-dob"
-                                        type="date"
-                                        inputSize="sm"
-                                        value={editForm.dateOfBirth}
-                                        onChange={(e) =>
-                                            setEditForm({
-                                                ...editForm,
-                                                dateOfBirth: e.target.value,
-                                            })
-                                        }
-                                    />
-                                </Field>
-                                <Field label={t('gender')} htmlFor="edit-gender">
+                                    <div className="mt-1 text-lg font-bold text-foreground">
+                                        {(student.classes.grade as any)?.name ??
+                                            `${t('gradeShort')} ${student.classes.grade}`}
+                                        &nbsp;&ndash;&nbsp;{student.classes.section}
+                                    </div>
+                                    <div className="text-sm text-muted-foreground">
+                                        {t('year')} {student.classes.year}
+                                    </div>
+                                </div>
+                            )}
+
+                            <form onSubmit={handleAssignClass} className="space-y-4">
+                                <Field label={t('changeClass')} htmlFor="class-select">
                                     <Select
-                                        id="edit-gender"
-                                        selectSize="sm"
-                                        value={editForm.gender}
-                                        onChange={(e) =>
-                                            setEditForm({
-                                                ...editForm,
-                                                gender: e.target.value,
-                                            })
-                                        }
+                                        id="class-select"
+                                        value={selectedClassId}
+                                        onChange={(e) => setSelectedClassId(e.target.value)}
                                     >
-                                        <option value="">{t('notSpecified')}</option>
-                                        <option value="male">{t('male')}</option>
-                                        <option value="female">{t('female')}</option>
-                                        <option value="other">{t('other')}</option>
+                                        <option value="">{t('noClassSelected')}</option>
+                                        {classes.map((cls) => (
+                                            <option key={cls.id} value={cls.id}>
+                                                {(cls.grade as any)?.name ??
+                                                    `${t('gradeShort')} ${cls.grade}`}
+                                                &ndash;{cls.section} ({cls.year})
+                                            </option>
+                                        ))}
                                     </Select>
                                 </Field>
-                            </div>
-                        )}
-                    </CardContent>
-                </Card>
 
-                {/* ── Class assignment ──────────────────────────────────────── */}
-                <Card>
-                    <CardHeader>
-                        <CardTitle as="h2">{t('classAssignment')}</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        {student.classes && (
-                            <div className="mb-5 rounded-card border border-border bg-primary-subtle p-4">
-                                <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-primary">
-                                    <School className="size-3.5" />
-                                    {t('currentlyAssignedTo')}
-                                </div>
-                                <div className="mt-1 text-lg font-bold text-foreground">
-                                    {(student.classes.grade as any)?.name ??
-                                        `${t('gradeShort')} ${student.classes.grade}`}
-                                    &nbsp;&ndash;&nbsp;{student.classes.section}
-                                </div>
-                                <div className="text-sm text-muted-foreground">
-                                    {t('year')} {student.classes.year}
-                                </div>
-                            </div>
-                        )}
-
-                        <form onSubmit={handleAssignClass} className="space-y-4">
-                            <Field label={t('changeClass')} htmlFor="class-select">
-                                <Select
-                                    id="class-select"
-                                    value={selectedClassId}
-                                    onChange={(e) => setSelectedClassId(e.target.value)}
+                                <Button
+                                    type="submit"
+                                    block
+                                    loading={assigningClass}
+                                    disabled={
+                                        !selectedClassId ||
+                                        selectedClassId === student.class_id
+                                    }
                                 >
-                                    <option value="">{t('noClassSelected')}</option>
-                                    {classes.map((cls) => (
-                                        <option key={cls.id} value={cls.id}>
-                                            {(cls.grade as any)?.name ??
-                                                `${t('gradeShort')} ${cls.grade}`}
-                                            &ndash;{cls.section} ({cls.year})
-                                        </option>
-                                    ))}
-                                </Select>
-                            </Field>
+                                    {assigningClass ? t('saving') : t('updateAssignment')}
+                                </Button>
+                            </form>
+                        </CardContent>
+                    </Card>
+                </div>
 
-                            <Button
-                                type="submit"
-                                block
-                                loading={assigningClass}
-                                disabled={
-                                    !selectedClassId ||
-                                    selectedClassId === student.class_id
-                                }
-                            >
-                                {assigningClass ? t('saving') : t('updateAssignment')}
-                            </Button>
-                        </form>
-                    </CardContent>
-                </Card>
+                <AccountStatusDialog
+                    open={showStatusModal}
+                    onClose={() => setShowStatusModal(false)}
+                    isActive={isActive}
+                    name={fullName}
+                    loading={actionLoading}
+                    onConfirm={confirmToggleStatus}
+                />
             </div>
-
-            <AccountStatusDialog
-                open={showStatusModal}
-                onClose={() => setShowStatusModal(false)}
-                isActive={isActive}
-                name={fullName}
-                loading={actionLoading}
-                onConfirm={confirmToggleStatus}
-            />
-        </div>
+        </TutorialProvider>
     );
 }

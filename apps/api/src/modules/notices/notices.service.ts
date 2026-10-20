@@ -112,6 +112,24 @@ export class NoticesService {
             }
         }
 
+        // Policy check: Enforce school policy sms_enabled
+        if (send_sms) {
+            const query = adminClient
+                .from('school_policy')
+                .select('sms_enabled')
+                .eq('tenant_id', tenantId);
+
+            const { data: policy } = typeof (query as any)?.maybeSingle === 'function'
+                ? await (query as any).maybeSingle()
+                : typeof (query as any)?.single === 'function'
+                    ? await (query as any).single()
+                    : { data: null };
+
+            if (policy && policy.sms_enabled === false) {
+                throw new BadRequestException('SMS notifications are disabled by school policy.');
+            }
+        }
+
         const { data, error } = await client
             .from('notices')
             .insert({
@@ -493,8 +511,21 @@ export class NoticesService {
 
         for (const tenant of tenants) {
             try {
-                // Per blueprint: Community tier has SMS disabled by policy; skip SMS cleanly for Community
-                const sendSms = tenant.plan === 'COMMUNITY' ? false : Boolean(request.send_sms);
+                // Per blueprint: Community tier has SMS disabled; also respect tenant school policy
+                let sendSms = false;
+                if (tenant.plan !== 'COMMUNITY' && Boolean(request.send_sms)) {
+                    try {
+                        const polQuery = db.from('school_policy').select('sms_enabled').eq('tenant_id', tenant.id);
+                        const polRes = typeof (polQuery as any)?.maybeSingle === 'function'
+                            ? await (polQuery as any).maybeSingle()
+                            : typeof (polQuery as any)?.single === 'function'
+                                ? await (polQuery as any).single()
+                                : { data: null };
+                        sendSms = polRes?.data ? polRes.data.sms_enabled !== false : true;
+                    } catch {
+                        sendSms = true;
+                    }
+                }
 
                 await this.createNotice(
                     tenant.id,

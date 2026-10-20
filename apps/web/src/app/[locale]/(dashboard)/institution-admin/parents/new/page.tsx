@@ -14,6 +14,8 @@ import { Card, CardContent, CardFooter } from '@/components/ui/Card';
 import { CredentialHandoff } from '@/components/ui/CredentialHandoff';
 import { Field, Input } from '@/components/ui/Form';
 import { PageHeader, SectionHeading } from '@/components/ui/Layout';
+import { TutorialProvider } from '@/components/TutorialProvider';
+import { HelpButton } from '@/components/HelpButton';
 
 export default function NewParentPage() {
     const t = useTranslations('InstitutionAdminParents');
@@ -97,118 +99,121 @@ export default function NewParentPage() {
     }
 
     return (
-        <div className="mx-auto max-w-3xl">
-            <PageHeader
-                icon={<UserPlus />}
-                breadcrumb={
-                    <Link
-                        href="/institution-admin/parents"
-                        className="inline-flex items-center gap-1.5 rounded-input font-medium text-muted-foreground transition-colors hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
-                    >
-                        <ChevronLeft className="size-3.5" />
-                        {t('backParents')}
-                    </Link>
-                }
-                title={t('createNewParent')}
-                description={t('createNewProfile')}
-            />
+        <TutorialProvider role="SCHOOL_ADMIN" screenId="admin_parents_new">
+            <div className="mx-auto max-w-3xl">
+                <PageHeader
+                    icon={<UserPlus />}
+                    breadcrumb={
+                        <Link
+                            href="/institution-admin/parents"
+                            className="inline-flex items-center gap-1.5 rounded-input font-medium text-muted-foreground transition-colors hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+                        >
+                            <ChevronLeft className="size-3.5" />
+                            {t('backParents')}
+                        </Link>
+                    }
+                    title={t('createNewParent')}
+                    description={t('createNewProfile')}
+                    action={<HelpButton />}
+                />
 
-            {error && (
-                <Alert tone="danger" className="mb-6" onDismiss={() => setError(null)}>
-                    {error}
-                </Alert>
-            )}
+                {error && (
+                    <Alert tone="danger" className="mb-6" onDismiss={() => setError(null)}>
+                        {error}
+                    </Alert>
+                )}
 
-            <motion.div
-                initial={{ opacity: 0, y: 12 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.3 }}
-            >
-                <form onSubmit={handleSubmit}>
-                    <Card flush>
-                        <CardContent className="space-y-8 p-6 sm:p-8">
-                            <div>
-                                <SectionHeading
-                                    title={t('personalInfo')}
-                                    className="mb-5"
-                                />
-                                <Field
-                                    label={t('fullName')}
-                                    htmlFor="parent-name"
-                                    required
-                                >
-                                    <Input
-                                        id="parent-name"
-                                        type="text"
-                                        required
-                                        value={fullName}
-                                        onChange={(e) => setFullName(e.target.value)}
-                                        placeholder={tf('phFullName')}
+                <motion.div
+                    initial={{ opacity: 0, y: 12 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.3 }}
+                >
+                    <form onSubmit={handleSubmit}>
+                        <Card flush>
+                            <CardContent className="space-y-8 p-6 sm:p-8">
+                                <div>
+                                    <SectionHeading
+                                        title={t('personalInfo')}
+                                        className="mb-5"
                                     />
-                                </Field>
-                            </div>
-
-                            {/* ── Contact — at least one channel is required ─── */}
-                            <div>
-                                <SectionHeading
-                                    title={t('contactDetails')}
-                                    className="mb-5"
-                                />
-                                <div className="grid gap-5 sm:grid-cols-2">
                                     <Field
-                                        label={`${t('emailAddress')} (${tc('optional')})`}
-                                        htmlFor="parent-email"
+                                        label={t('fullName')}
+                                        htmlFor="parent-name"
+                                        required
                                     >
                                         <Input
-                                            id="parent-email"
-                                            type="email"
-                                            leadingIcon={<Mail />}
-                                            value={email}
-                                            onChange={(e) => setEmail(e.target.value)}
-                                            placeholder={tf('phEmail')}
-                                        />
-                                    </Field>
-
-                                    <Field
-                                        label={t('mobileNumber')}
-                                        htmlFor="parent-phone"
-                                    >
-                                        <Input
-                                            id="parent-phone"
-                                            type="tel"
-                                            leadingIcon={<Phone />}
-                                            value={phoneNumber}
-                                            onChange={(e) =>
-                                                setPhoneNumber(e.target.value)
-                                            }
-                                            placeholder={tf('phMobile')}
+                                            id="parent-name"
+                                            type="text"
+                                            required
+                                            value={fullName}
+                                            onChange={(e) => setFullName(e.target.value)}
+                                            placeholder={tf('phFullName')}
                                         />
                                     </Field>
                                 </div>
-                            </div>
 
-                            <Note>{t('securePasswordGen')}</Note>
-                        </CardContent>
+                                {/* ── Contact — at least one channel is required ─── */}
+                                <div>
+                                    <SectionHeading
+                                        title={t('contactDetails')}
+                                        className="mb-5"
+                                    />
+                                    <div className="grid gap-5 sm:grid-cols-2">
+                                        <Field
+                                            label={`${t('emailAddress')} (${tc('optional')})`}
+                                            htmlFor="parent-email"
+                                        >
+                                            <Input
+                                                id="parent-email"
+                                                type="email"
+                                                leadingIcon={<Mail />}
+                                                value={email}
+                                                onChange={(e) => setEmail(e.target.value)}
+                                                placeholder={tf('phEmail')}
+                                            />
+                                        </Field>
 
-                        <CardFooter className="justify-end gap-3">
-                            <Link
-                                href="/institution-admin/parents"
-                                className={buttonClass({ variant: 'outline' })}
-                            >
-                                {t('cancel')}
-                            </Link>
-                            <Button
-                                type="submit"
-                                loading={loading}
-                                disabled={!fullName || (!email && !phoneNumber)}
-                                leadingIcon={<Save />}
-                            >
-                                {t('createAccount')}
-                            </Button>
-                        </CardFooter>
-                    </Card>
-                </form>
-            </motion.div>
-        </div>
+                                        <Field
+                                            label={t('mobileNumber')}
+                                            htmlFor="parent-phone"
+                                        >
+                                            <Input
+                                                id="parent-phone"
+                                                type="tel"
+                                                leadingIcon={<Phone />}
+                                                value={phoneNumber}
+                                                onChange={(e) =>
+                                                    setPhoneNumber(e.target.value)
+                                                }
+                                                placeholder={tf('phMobile')}
+                                            />
+                                        </Field>
+                                    </div>
+                                </div>
+
+                                <Note>{t('securePasswordGen')}</Note>
+                            </CardContent>
+
+                            <CardFooter className="justify-end gap-3">
+                                <Link
+                                    href="/institution-admin/parents"
+                                    className={buttonClass({ variant: 'outline' })}
+                                >
+                                    {t('cancel')}
+                                </Link>
+                                <Button
+                                    type="submit"
+                                    loading={loading}
+                                    disabled={!fullName || (!email && !phoneNumber)}
+                                    leadingIcon={<Save />}
+                                >
+                                    {t('createAccount')}
+                                </Button>
+                            </CardFooter>
+                        </Card>
+                    </form>
+                </motion.div>
+            </div>
+        </TutorialProvider>
     );
 }

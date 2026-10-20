@@ -22,6 +22,7 @@ import { toast } from 'sonner';
 
 import { apiClient } from '@/lib/api-client';
 import { TutorialProvider } from '@/components/TutorialProvider';
+import { HelpButton } from '@/components/HelpButton';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
@@ -417,6 +418,7 @@ export default function StudentPapersPage() {
                         ))}
                     </div>
                 )}
+                <HelpButton />
             </div>
         </TutorialProvider>
     );

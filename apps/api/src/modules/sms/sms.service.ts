@@ -44,6 +44,22 @@ export class SmsService {
         const billingMonth = new Date().toISOString().slice(0, 7);
         const reservationKey = `sms:reserved:${tenantId}:${billingMonth}`;
 
+        // Policy check: Verify sms_enabled unless safety-critical disaster emergency
+        if (!options.isSafetyCritical && !options.disasterEventId) {
+            const { data: policy } = await this.supabaseService.adminClient
+                .from('school_policy')
+                .select('sms_enabled')
+                .eq('tenant_id', tenantId)
+                .maybeSingle();
+
+            if (policy && policy.sms_enabled === false) {
+                this.logger.warn(
+                    `SMS batch dispatch blocked for Tenant ${tenantId}: SMS notifications are disabled by school policy.`
+                );
+                return { success: false, queuedCount: 0, segmentCount: segments.segmentCount, reason: 'SMS_DISABLED_BY_SCHOOL_POLICY' };
+            }
+        }
+
         // Quota and overage check
         if (!options.bypassQuota) {
             const { data: quota } = await this.supabaseService.adminClient

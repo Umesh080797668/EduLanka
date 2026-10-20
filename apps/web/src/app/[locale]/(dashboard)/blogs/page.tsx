@@ -35,6 +35,7 @@ import { PageHeader, EmptyState } from '@/components/ui/Layout';
 import { Dialog } from '@/components/ui/Dialog';
 import { Spinner } from '@/components/ui/Spinner';
 import { TutorialProvider } from '@/components/TutorialProvider';
+import { HelpButton } from '@/components/HelpButton';
 
 type BlogScope = 'SCHOOL' | 'CLASS' | 'PLATFORM';
 type AcademicReaction = 'LIKE' | 'HELPFUL' | 'INSIGHTFUL' | 'HEART';
@@ -1281,6 +1282,7 @@ export default function BlogsPage() {
                         )}
                     </div>
                 </Dialog>
+                <HelpButton />
             </div>
         </TutorialProvider>
     );

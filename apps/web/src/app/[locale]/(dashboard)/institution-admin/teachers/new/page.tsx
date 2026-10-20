@@ -19,6 +19,8 @@ import { Field, Input } from '@/components/ui/Form';
 import ImageUpload from '@/components/ui/ImageUpload';
 import { PageHeader, SectionHeading } from '@/components/ui/Layout';
 import { SubjectAreaDialog } from '@/components/teachers/SubjectAreaDialog';
+import { TutorialProvider } from '@/components/TutorialProvider';
+import { HelpButton } from '@/components/HelpButton';
 
 export default function NewTeacherPage() {
     const t = useTranslations('InstitutionAdminTeachers');
@@ -111,178 +113,181 @@ export default function NewTeacherPage() {
     }
 
     return (
-        <div className="mx-auto max-w-3xl">
-            <PageHeader
-                icon={<UserPlus />}
-                breadcrumb={
-                    <Link
-                        href="/institution-admin/teachers"
-                        className="inline-flex items-center gap-1.5 rounded-input font-medium text-muted-foreground transition-colors hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
-                    >
-                        <ChevronLeft className="size-3.5" />
-                        {t('backTeachers')}
-                    </Link>
-                }
-                title={t('addNewTeacher')}
-                description={t('createNewProfile')}
-            />
+        <TutorialProvider role="SCHOOL_ADMIN" screenId="admin_teachers_new">
+            <div className="mx-auto max-w-3xl">
+                <PageHeader
+                    icon={<UserPlus />}
+                    breadcrumb={
+                        <Link
+                            href="/institution-admin/teachers"
+                            className="inline-flex items-center gap-1.5 rounded-input font-medium text-muted-foreground transition-colors hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+                        >
+                            <ChevronLeft className="size-3.5" />
+                            {t('backTeachers')}
+                        </Link>
+                    }
+                    title={t('addNewTeacher')}
+                    description={t('createNewProfile')}
+                />
 
-            {error && (
-                <Alert tone="danger" className="mb-6" onDismiss={() => setError(null)}>
-                    {error}
-                </Alert>
-            )}
+                {error && (
+                    <Alert tone="danger" className="mb-6" onDismiss={() => setError(null)}>
+                        {error}
+                    </Alert>
+                )}
 
-            <motion.div
-                initial={{ opacity: 0, y: 12 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.3 }}
-            >
-                <form id="teacherForm" onSubmit={handleSubmit}>
-                    <Card flush>
-                        <CardContent className="space-y-8 p-6 sm:p-8">
-                            {/* ── Personal ──────────────────────────────────── */}
-                            <div>
-                                <SectionHeading
-                                    title={t('personalInfo')}
-                                    className="mb-5"
-                                />
-
-                                <div className="mb-6 flex items-center gap-4">
-                                    <ImageUpload
-                                        currentImageUrl={avatarUrl}
-                                        onUploadSuccess={setAvatarUrl}
-                                        onError={(err) => toast.error(err)}
-                                        size={80}
-                                        className="shrink-0"
+                <motion.div
+                    initial={{ opacity: 0, y: 12 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.3 }}
+                >
+                    <form id="teacherForm" onSubmit={handleSubmit}>
+                        <Card flush>
+                            <CardContent className="space-y-8 p-6 sm:p-8">
+                                {/* ── Personal ──────────────────────────────────── */}
+                                <div>
+                                    <SectionHeading
+                                        title={t('personalInfo')}
+                                        className="mb-5"
                                     />
-                                    <div className="text-sm">
-                                        <p className="font-semibold text-foreground">
-                                            {tf('profilePicture')}
-                                        </p>
-                                        <p className="text-muted-foreground">
-                                            {tf('profilePictureHint')}
-                                        </p>
+
+                                    <div className="mb-6 flex items-center gap-4">
+                                        <ImageUpload
+                                            currentImageUrl={avatarUrl}
+                                            onUploadSuccess={setAvatarUrl}
+                                            onError={(err) => toast.error(err)}
+                                            size={80}
+                                            className="shrink-0"
+                                        />
+                                        <div className="text-sm">
+                                            <p className="font-semibold text-foreground">
+                                                {tf('profilePicture')}
+                                            </p>
+                                            <p className="text-muted-foreground">
+                                                {tf('profilePictureHint')}
+                                            </p>
+                                        </div>
                                     </div>
-                                </div>
 
-                                <Field
-                                    label={t('fullName')}
-                                    htmlFor="teacher-name"
-                                    required
-                                >
-                                    <Input
-                                        id="teacher-name"
-                                        type="text"
-                                        required
-                                        value={fullName}
-                                        onChange={(e) => setFullName(e.target.value)}
-                                        placeholder={tf('phFullName')}
-                                    />
-                                </Field>
-                            </div>
-
-                            {/* ── Contact ───────────────────────────────────── */}
-                            <div>
-                                <SectionHeading
-                                    title={t('contactDetails')}
-                                    className="mb-5"
-                                />
-                                <div className="grid gap-5 sm:grid-cols-2">
                                     <Field
-                                        label={t('emailAddress')}
-                                        htmlFor="teacher-email"
+                                        label={t('fullName')}
+                                        htmlFor="teacher-name"
                                         required
                                     >
                                         <Input
-                                            id="teacher-email"
-                                            type="email"
+                                            id="teacher-name"
+                                            type="text"
                                             required
-                                            leadingIcon={<Mail />}
-                                            value={email}
-                                            onChange={(e) => setEmail(e.target.value)}
-                                            placeholder={tf('phEmail')}
-                                        />
-                                    </Field>
-
-                                    <Field
-                                        label={`${t('mobileNumber')} (${tc('optional')})`}
-                                        htmlFor="teacher-phone"
-                                    >
-                                        <Input
-                                            id="teacher-phone"
-                                            type="tel"
-                                            leadingIcon={<Phone />}
-                                            value={phoneNumber}
-                                            onChange={(e) =>
-                                                setPhoneNumber(e.target.value)
-                                            }
-                                            placeholder={tf('phMobile')}
+                                            value={fullName}
+                                            onChange={(e) => setFullName(e.target.value)}
+                                            placeholder={tf('phFullName')}
                                         />
                                     </Field>
                                 </div>
-                            </div>
 
-                            {/* ── Teaching load ─────────────────────────────── */}
-                            <div>
-                                <SectionHeading
-                                    title={t('subjectAreas')}
-                                    description={t('manageSubjectsDesc')}
-                                    className="mb-5"
-                                />
+                                {/* ── Contact ───────────────────────────────────── */}
+                                <div>
+                                    <SectionHeading
+                                        title={t('contactDetails')}
+                                        className="mb-5"
+                                    />
+                                    <div className="grid gap-5 sm:grid-cols-2">
+                                        <Field
+                                            label={t('emailAddress')}
+                                            htmlFor="teacher-email"
+                                            required
+                                        >
+                                            <Input
+                                                id="teacher-email"
+                                                type="email"
+                                                required
+                                                leadingIcon={<Mail />}
+                                                value={email}
+                                                onChange={(e) => setEmail(e.target.value)}
+                                                placeholder={tf('phEmail')}
+                                            />
+                                        </Field>
 
-                                {subjectAreas.length > 0 && (
-                                    <div className="mb-4 flex flex-wrap gap-2">
-                                        {subjectAreas.map((subject) => (
-                                            <Badge key={subject} tone="primary">
-                                                {subjectLabel(subject)}
-                                            </Badge>
-                                        ))}
+                                        <Field
+                                            label={`${t('mobileNumber')} (${tc('optional')})`}
+                                            htmlFor="teacher-phone"
+                                        >
+                                            <Input
+                                                id="teacher-phone"
+                                                type="tel"
+                                                leadingIcon={<Phone />}
+                                                value={phoneNumber}
+                                                onChange={(e) =>
+                                                    setPhoneNumber(e.target.value)
+                                                }
+                                                placeholder={tf('phMobile')}
+                                            />
+                                        </Field>
                                     </div>
-                                )}
+                                </div>
 
-                                <Button
-                                    type="button"
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => setSubjectsOpen(true)}
-                                    leadingIcon={<ListChecks />}
+                                {/* ── Teaching load ─────────────────────────────── */}
+                                <div>
+                                    <SectionHeading
+                                        title={t('subjectAreas')}
+                                        description={t('manageSubjectsDesc')}
+                                        className="mb-5"
+                                    />
+
+                                    {subjectAreas.length > 0 && (
+                                        <div className="mb-4 flex flex-wrap gap-2">
+                                            {subjectAreas.map((subject) => (
+                                                <Badge key={subject} tone="primary">
+                                                    {subjectLabel(subject)}
+                                                </Badge>
+                                            ))}
+                                        </div>
+                                    )}
+
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => setSubjectsOpen(true)}
+                                        leadingIcon={<ListChecks />}
+                                    >
+                                        {subjectAreas.length > 0
+                                            ? t('editSubjects')
+                                            : t('addSubjects')}
+                                    </Button>
+                                </div>
+
+                                <Note>{t('securePasswordGen')}</Note>
+                            </CardContent>
+                            <CardFooter className="justify-end gap-3">
+                                <Link
+                                    href="/institution-admin/teachers"
+                                    className={buttonClass({ variant: 'outline' })}
                                 >
-                                    {subjectAreas.length > 0
-                                        ? t('editSubjects')
-                                        : t('addSubjects')}
+                                    {t('cancel')}
+                                </Link>
+                                <Button
+                                    type="submit"
+                                    form="teacherForm"
+                                    loading={loading}
+                                    disabled={!fullName || !email}
+                                    leadingIcon={<Save />}
+                                >
+                                    {t('createAccount')}
                                 </Button>
-                            </div>
+                            </CardFooter>
+                        </Card>
+                    </form>
+                </motion.div>
 
-                            <Note>{t('securePasswordGen')}</Note>
-                        </CardContent>
-                        <CardFooter className="justify-end gap-3">
-                            <Link
-                                href="/institution-admin/teachers"
-                                className={buttonClass({ variant: 'outline' })}
-                            >
-                                {t('cancel')}
-                            </Link>
-                            <Button
-                                type="submit"
-                                form="teacherForm"
-                                loading={loading}
-                                disabled={!fullName || !email}
-                                leadingIcon={<Save />}
-                            >
-                                {t('createAccount')}
-                            </Button>
-                        </CardFooter>
-                    </Card>
-                </form>
-            </motion.div>
-
-            <SubjectAreaDialog
-                open={subjectsOpen}
-                onClose={() => setSubjectsOpen(false)}
-                value={subjectAreas}
-                onChange={setSubjectAreas}
-            />
-        </div>
+                <SubjectAreaDialog
+                    open={subjectsOpen}
+                    onClose={() => setSubjectsOpen(false)}
+                    value={subjectAreas}
+                    onChange={setSubjectAreas}
+                />
+                <HelpButton />
+            </div>
+        </TutorialProvider>
     );
 }

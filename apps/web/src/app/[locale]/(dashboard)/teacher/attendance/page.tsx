@@ -24,6 +24,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { EmptyState, PageHeader } from '@/components/ui/Layout';
 import { PageSkeleton } from '@/components/ui/Skeleton';
 import { TutorialProvider } from '@/components/TutorialProvider';
+import { HelpButton } from '@/components/HelpButton';
 
 type AttendanceStatus = 'PRESENT' | 'ABSENT' | 'LATE' | 'EXCUSED';
 
@@ -514,6 +515,7 @@ export default function TeacherAttendancePage() {
                         )}
                     </CardContent>
                 </Card>
+                <HelpButton />
             </div>
         </TutorialProvider>
     );

@@ -36,6 +36,8 @@ import ImageUpload from '@/components/ui/ImageUpload';
 import { EmptyState } from '@/components/ui/Layout';
 import { PageSkeleton, Skeleton } from '@/components/ui/Skeleton';
 import { SubjectAreaDialog } from '@/components/teachers/SubjectAreaDialog';
+import { TutorialProvider } from '@/components/TutorialProvider';
+import { HelpButton } from '@/components/HelpButton';
 
 export default function TeacherDetailPage() {
     const t = useTranslations('InstitutionAdminTeachers');
@@ -209,238 +211,241 @@ export default function TeacherDetailPage() {
     const subjects = teacher.subject_areas ?? [];
 
     return (
-        <div className="mx-auto max-w-4xl space-y-6">
-            <Link
-                href="/institution-admin/teachers"
-                className="inline-flex items-center gap-1.5 rounded-input text-sm font-medium text-muted-foreground transition-colors hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
-            >
-                <ChevronLeft className="size-3.5" />
-                {t('backTeachers')}
-            </Link>
+        <TutorialProvider role="SCHOOL_ADMIN" screenId="admin_teachers_detail">
+            <div className="mx-auto max-w-4xl space-y-6">
+                <Link
+                    href="/institution-admin/teachers"
+                    className="inline-flex items-center gap-1.5 rounded-input text-sm font-medium text-muted-foreground transition-colors hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+                >
+                    <ChevronLeft className="size-3.5" />
+                    {t('backTeachers')}
+                </Link>
 
-            {error && (
-                <Alert tone="danger" onDismiss={() => setError(null)}>
-                    {error}
-                </Alert>
-            )}
+                {error && (
+                    <Alert tone="danger" onDismiss={() => setError(null)}>
+                        {error}
+                    </Alert>
+                )}
 
-            {/* ── Identity ──────────────────────────────────────────────────── */}
-            <Card>
-                <CardContent className="flex flex-col gap-5 pt-6 sm:flex-row sm:items-center">
-                    <ImageUpload
-                        currentImageUrl={teacher.users?.avatar_url}
-                        onUploadSuccess={handleAvatarUpload}
-                        onError={(err) => toast.error(err)}
-                        size={72}
-                        className="shrink-0"
-                    />
-                    <div className="min-w-0 flex-1">
-                        <div className="flex flex-wrap items-center gap-2.5">
-                            <h1 className="truncate text-xl font-bold tracking-tight text-foreground">
-                                {fullName}
-                            </h1>
-                            <Badge tone={isActive ? 'success' : 'danger'} dot>
-                                {isActive ? t('active') : t('inactive')}
-                            </Badge>
-                        </div>
-                        <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted-foreground">
-                            <span className="truncate">{teacher.users?.email || t('none')}</span>
-                            <span aria-hidden>&middot;</span>
-                            <span className="numeric">{teacher.employee_no}</span>
-                        </p>
-                    </div>
-                    <Button
-                        variant="outline"
-                        onClick={() => setShowStatusModal(true)}
-                        leadingIcon={isActive ? <ShieldOff /> : <ShieldCheck />}
-                        className={isActive ? 'text-destructive' : 'text-success'}
-                    >
-                        {isActive ? ts('suspendAccount') : ts('reactivateAccount')}
-                    </Button>
-                </CardContent>
-            </Card>
-
-            <div className="grid gap-6 lg:grid-cols-2">
-                {/* ── Profile ───────────────────────────────────────────────── */}
+                {/* ── Identity ──────────────────────────────────────────────────── */}
                 <Card>
-                    <CardHeader className="flex-row items-center justify-between gap-3">
-                        <CardTitle as="h2">{t('profileInfo')}</CardTitle>
-                        {!isEditing ? (
-                            <Button variant="ghost" size="sm" onClick={toggleEdit} leadingIcon={<Edit2 />}>
-                                {t('editProfile')}
-                            </Button>
-                        ) : (
-                            <div className="flex gap-2">
-                                <Button variant="ghost" size="sm" onClick={toggleEdit} disabled={savingProfile}>
-                                    {tc('cancel')}
-                                </Button>
-                                <Button size="sm" onClick={handleSaveProfile} loading={savingProfile} leadingIcon={<Save />}>
-                                    {tc('save')}
-                                </Button>
-                            </div>
-                        )}
-                    </CardHeader>
-                    <CardContent>
-                        {!isEditing ? (
-                            <dl className="divide-y divide-border text-sm">
-                                {[
-                                    { icon: <BadgeCheck className="size-3.5" />, label: t('employeeNumber'), value: teacher.employee_no },
-                                    { icon: <Mail className="size-3.5" />, label: t('email'), value: teacher.users?.email || t('none') },
-                                    { icon: <Phone className="size-3.5" />, label: t('phone'), value: teacher.users?.phone_number || t('none') },
-                                    { icon: <CalendarDays className="size-3.5" />, label: t('hireDate'), value: teacher.hire_date || t('notSpecified') },
-                                ].map(({ icon, label, value }) => (
-                                    <div key={label} className="flex items-center justify-between gap-4 py-2.5">
-                                        <dt className="flex items-center gap-2 text-muted-foreground">{icon}{label}</dt>
-                                        <dd className="truncate font-medium text-foreground">{value}</dd>
-                                    </div>
-                                ))}
-                            </dl>
-                        ) : (
-                            <div className="space-y-4">
-                                <Field label={t('fullName')} htmlFor="edit-full-name">
-                                    <Input
-                                        id="edit-full-name"
-                                        inputSize="sm"
-                                        value={editForm.fullName}
-                                        onChange={(e) => setEditForm({ ...editForm, fullName: e.target.value })}
-                                    />
-                                </Field>
-                                <Field label={t('mobileNumber')} htmlFor="edit-phone">
-                                    <Input
-                                        id="edit-phone"
-                                        type="tel"
-                                        inputSize="sm"
-                                        leadingIcon={<Phone />}
-                                        value={editForm.phoneNumber}
-                                        onChange={(e) => setEditForm({ ...editForm, phoneNumber: e.target.value })}
-                                    />
-                                </Field>
-                                <Field label={t('hireDate')} htmlFor="edit-hire-date">
-                                    <Input
-                                        id="edit-hire-date"
-                                        type="date"
-                                        inputSize="sm"
-                                        value={editForm.hireDate}
-                                        onChange={(e) => setEditForm({ ...editForm, hireDate: e.target.value })}
-                                    />
-                                </Field>
-                            </div>
-                        )}
-                    </CardContent>
-                </Card>
-
-                {/* ── Teaching load + Assigned Classes ────────────────────── */}
-                <Card>
-                    <CardHeader className="flex-row items-center justify-between gap-3">
-                        <div className="flex items-center gap-2.5">
-                            <CardTitle as="h2">{t('subjectAreas')}</CardTitle>
-                            {subjects.length > 0 && (
-                                <Badge tone="neutral" variant="outline" size="sm">
-                                    {t('subjectCount', { count: subjects.length })}
+                    <CardContent className="flex flex-col gap-5 pt-6 sm:flex-row sm:items-center">
+                        <ImageUpload
+                            currentImageUrl={teacher.users?.avatar_url}
+                            onUploadSuccess={handleAvatarUpload}
+                            onError={(err) => toast.error(err)}
+                            size={72}
+                            className="shrink-0"
+                        />
+                        <div className="min-w-0 flex-1">
+                            <div className="flex flex-wrap items-center gap-2.5">
+                                <h1 className="truncate text-xl font-bold tracking-tight text-foreground">
+                                    {fullName}
+                                </h1>
+                                <Badge tone={isActive ? 'success' : 'danger'} dot>
+                                    {isActive ? t('active') : t('inactive')}
                                 </Badge>
-                            )}
+                            </div>
+                            <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted-foreground">
+                                <span className="truncate">{teacher.users?.email || t('none')}</span>
+                                <span aria-hidden>&middot;</span>
+                                <span className="numeric">{teacher.employee_no}</span>
+                            </p>
                         </div>
-                        <Button variant="ghost" size="sm" onClick={openSubjects} leadingIcon={<ListChecks />}>
-                            {t('editSubjects')}
+                        <Button
+                            variant="outline"
+                            onClick={() => setShowStatusModal(true)}
+                            leadingIcon={isActive ? <ShieldOff /> : <ShieldCheck />}
+                            className={isActive ? 'text-destructive' : 'text-success'}
+                        >
+                            {isActive ? ts('suspendAccount') : ts('reactivateAccount')}
                         </Button>
-                    </CardHeader>
-                    <CardContent>
-                        {subjects.length > 0 ? (
-                            <div className="flex flex-wrap gap-2">
-                                {subjects.map((subject) => (
-                                    <Badge key={subject} tone="primary">{subjectLabel(subject)}</Badge>
-                                ))}
-                            </div>
-                        ) : (
-                            <div className="flex flex-wrap items-center gap-3">
-                                <p className="text-sm text-muted-foreground">{t('noSubjects')}</p>
-                                <Button variant="outline" size="sm" onClick={openSubjects} leadingIcon={<ListChecks />}>
-                                    {t('addSubjects')}
-                                </Button>
-                            </div>
-                        )}
-
-                        <hr className="my-6 border-border" />
-
-                        {/* ── Assigned Classes ──────────────────────────────── */}
-                        <div className="mb-3 flex items-center justify-between gap-2">
-                            <h3 className="flex items-center gap-2 text-sm font-semibold text-foreground">
-                                <BookMarked className="size-4 text-muted-foreground" />
-                                {t('assignedClasses')}
-                                {classes && classes.length > 0 && (
-                                    <Badge tone="neutral" variant="outline" size="sm">{classes.length}</Badge>
-                                )}
-                            </h3>
-                            <Link
-                                href="/institution-admin/classes"
-                                className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
-                            >
-                                {t('goToClasses')}
-                                <ExternalLink className="size-3" />
-                            </Link>
-                        </div>
-
-                        {classesLoading ? (
-                            <div className="space-y-2">
-                                <Skeleton className="h-10 w-full rounded-input" />
-                                <Skeleton className="h-10 w-3/4 rounded-input" />
-                            </div>
-                        ) : classesError ? (
-                            <p className="text-sm text-destructive">{t('classesLoadFailed')}</p>
-                        ) : classes && classes.length > 0 ? (
-                            <ul className="divide-y divide-border">
-                                {classes.map((ct: any) => {
-                                    const cls = ct.classes ?? ct;
-                                    const grade = cls.grade ?? '—';
-                                    const section = cls.section ?? '—';
-                                    const year = cls.year ?? '';
-                                    const isHomeroom = !!ct.is_homeroom;
-                                    return (
-                                        <li key={ct.id ?? ct.class_id} className="flex items-center gap-3 py-2.5">
-                                            <span className="grid size-8 shrink-0 place-items-center rounded-full bg-primary-subtle text-primary-subtle-foreground">
-                                                <BookOpen className="size-4" aria-hidden />
-                                            </span>
-                                            <span className="min-w-0 flex-1">
-                                                <span className="block truncate text-sm font-semibold text-foreground">
-                                                    Grade {grade} — {section}
-                                                </span>
-                                                {year && (
-                                                    <span className="text-xs text-muted-foreground">{year}</span>
-                                                )}
-                                            </span>
-                                            {isHomeroom && (
-                                                <Badge tone="primary" size="sm" variant="solid">
-                                                    {t('homeroomBadge')}
-                                                </Badge>
-                                            )}
-                                        </li>
-                                    );
-                                })}
-                            </ul>
-                        ) : (
-                            <p className="text-sm text-muted-foreground">{t('noAssignedClasses')}</p>
-                        )}
                     </CardContent>
                 </Card>
+
+                <div className="grid gap-6 lg:grid-cols-2">
+                    {/* ── Profile ───────────────────────────────────────────────── */}
+                    <Card>
+                        <CardHeader className="flex-row items-center justify-between gap-3">
+                            <CardTitle as="h2">{t('profileInfo')}</CardTitle>
+                            {!isEditing ? (
+                                <Button variant="ghost" size="sm" onClick={toggleEdit} leadingIcon={<Edit2 />}>
+                                    {t('editProfile')}
+                                </Button>
+                            ) : (
+                                <div className="flex gap-2">
+                                    <Button variant="ghost" size="sm" onClick={toggleEdit} disabled={savingProfile}>
+                                        {tc('cancel')}
+                                    </Button>
+                                    <Button size="sm" onClick={handleSaveProfile} loading={savingProfile} leadingIcon={<Save />}>
+                                        {tc('save')}
+                                    </Button>
+                                </div>
+                            )}
+                        </CardHeader>
+                        <CardContent>
+                            {!isEditing ? (
+                                <dl className="divide-y divide-border text-sm">
+                                    {[
+                                        { icon: <BadgeCheck className="size-3.5" />, label: t('employeeNumber'), value: teacher.employee_no },
+                                        { icon: <Mail className="size-3.5" />, label: t('email'), value: teacher.users?.email || t('none') },
+                                        { icon: <Phone className="size-3.5" />, label: t('phone'), value: teacher.users?.phone_number || t('none') },
+                                        { icon: <CalendarDays className="size-3.5" />, label: t('hireDate'), value: teacher.hire_date || t('notSpecified') },
+                                    ].map(({ icon, label, value }) => (
+                                        <div key={label} className="flex items-center justify-between gap-4 py-2.5">
+                                            <dt className="flex items-center gap-2 text-muted-foreground">{icon}{label}</dt>
+                                            <dd className="truncate font-medium text-foreground">{value}</dd>
+                                        </div>
+                                    ))}
+                                </dl>
+                            ) : (
+                                <div className="space-y-4">
+                                    <Field label={t('fullName')} htmlFor="edit-full-name">
+                                        <Input
+                                            id="edit-full-name"
+                                            inputSize="sm"
+                                            value={editForm.fullName}
+                                            onChange={(e) => setEditForm({ ...editForm, fullName: e.target.value })}
+                                        />
+                                    </Field>
+                                    <Field label={t('mobileNumber')} htmlFor="edit-phone">
+                                        <Input
+                                            id="edit-phone"
+                                            type="tel"
+                                            inputSize="sm"
+                                            leadingIcon={<Phone />}
+                                            value={editForm.phoneNumber}
+                                            onChange={(e) => setEditForm({ ...editForm, phoneNumber: e.target.value })}
+                                        />
+                                    </Field>
+                                    <Field label={t('hireDate')} htmlFor="edit-hire-date">
+                                        <Input
+                                            id="edit-hire-date"
+                                            type="date"
+                                            inputSize="sm"
+                                            value={editForm.hireDate}
+                                            onChange={(e) => setEditForm({ ...editForm, hireDate: e.target.value })}
+                                        />
+                                    </Field>
+                                </div>
+                            )}
+                        </CardContent>
+                    </Card>
+
+                    {/* ── Teaching load + Assigned Classes ────────────────────── */}
+                    <Card>
+                        <CardHeader className="flex-row items-center justify-between gap-3">
+                            <div className="flex items-center gap-2.5">
+                                <CardTitle as="h2">{t('subjectAreas')}</CardTitle>
+                                {subjects.length > 0 && (
+                                    <Badge tone="neutral" variant="outline" size="sm">
+                                        {t('subjectCount', { count: subjects.length })}
+                                    </Badge>
+                                )}
+                            </div>
+                            <Button variant="ghost" size="sm" onClick={openSubjects} leadingIcon={<ListChecks />}>
+                                {t('editSubjects')}
+                            </Button>
+                        </CardHeader>
+                        <CardContent>
+                            {subjects.length > 0 ? (
+                                <div className="flex flex-wrap gap-2">
+                                    {subjects.map((subject) => (
+                                        <Badge key={subject} tone="primary">{subjectLabel(subject)}</Badge>
+                                    ))}
+                                </div>
+                            ) : (
+                                <div className="flex flex-wrap items-center gap-3">
+                                    <p className="text-sm text-muted-foreground">{t('noSubjects')}</p>
+                                    <Button variant="outline" size="sm" onClick={openSubjects} leadingIcon={<ListChecks />}>
+                                        {t('addSubjects')}
+                                    </Button>
+                                </div>
+                            )}
+
+                            <hr className="my-6 border-border" />
+
+                            {/* ── Assigned Classes ──────────────────────────────── */}
+                            <div className="mb-3 flex items-center justify-between gap-2">
+                                <h3 className="flex items-center gap-2 text-sm font-semibold text-foreground">
+                                    <BookMarked className="size-4 text-muted-foreground" />
+                                    {t('assignedClasses')}
+                                    {classes && classes.length > 0 && (
+                                        <Badge tone="neutral" variant="outline" size="sm">{classes.length}</Badge>
+                                    )}
+                                </h3>
+                                <Link
+                                    href="/institution-admin/classes"
+                                    className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
+                                >
+                                    {t('goToClasses')}
+                                    <ExternalLink className="size-3" />
+                                </Link>
+                            </div>
+
+                            {classesLoading ? (
+                                <div className="space-y-2">
+                                    <Skeleton className="h-10 w-full rounded-input" />
+                                    <Skeleton className="h-10 w-3/4 rounded-input" />
+                                </div>
+                            ) : classesError ? (
+                                <p className="text-sm text-destructive">{t('classesLoadFailed')}</p>
+                            ) : classes && classes.length > 0 ? (
+                                <ul className="divide-y divide-border">
+                                    {classes.map((ct: any) => {
+                                        const cls = ct.classes ?? ct;
+                                        const grade = cls.grade ?? '—';
+                                        const section = cls.section ?? '—';
+                                        const year = cls.year ?? '';
+                                        const isHomeroom = !!ct.is_homeroom;
+                                        return (
+                                            <li key={ct.id ?? ct.class_id} className="flex items-center gap-3 py-2.5">
+                                                <span className="grid size-8 shrink-0 place-items-center rounded-full bg-primary-subtle text-primary-subtle-foreground">
+                                                    <BookOpen className="size-4" aria-hidden />
+                                                </span>
+                                                <span className="min-w-0 flex-1">
+                                                    <span className="block truncate text-sm font-semibold text-foreground">
+                                                        Grade {grade} — {section}
+                                                    </span>
+                                                    {year && (
+                                                        <span className="text-xs text-muted-foreground">{year}</span>
+                                                    )}
+                                                </span>
+                                                {isHomeroom && (
+                                                    <Badge tone="primary" size="sm" variant="solid">
+                                                        {t('homeroomBadge')}
+                                                    </Badge>
+                                                )}
+                                            </li>
+                                        );
+                                    })}
+                                </ul>
+                            ) : (
+                                <p className="text-sm text-muted-foreground">{t('noAssignedClasses')}</p>
+                            )}
+                        </CardContent>
+                    </Card>
+                </div>
+
+                <AccountStatusDialog
+                    open={showStatusModal}
+                    onClose={() => setShowStatusModal(false)}
+                    isActive={isActive}
+                    name={fullName}
+                    loading={actionLoading}
+                    onConfirm={confirmToggleStatus}
+                />
+
+                <SubjectAreaDialog
+                    open={subjectsOpen}
+                    onClose={() => setSubjectsOpen(false)}
+                    value={subjectDraft}
+                    onChange={setSubjectDraft}
+                    onConfirm={handleSaveSubjects}
+                    saving={savingSubjects}
+                />
+                <HelpButton />
             </div>
-
-            <AccountStatusDialog
-                open={showStatusModal}
-                onClose={() => setShowStatusModal(false)}
-                isActive={isActive}
-                name={fullName}
-                loading={actionLoading}
-                onConfirm={confirmToggleStatus}
-            />
-
-            <SubjectAreaDialog
-                open={subjectsOpen}
-                onClose={() => setSubjectsOpen(false)}
-                value={subjectDraft}
-                onChange={setSubjectDraft}
-                onConfirm={handleSaveSubjects}
-                saving={savingSubjects}
-            />
-        </div>
+        </TutorialProvider>
     );
 }

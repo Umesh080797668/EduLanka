@@ -22,6 +22,7 @@ import { toast } from 'sonner';
 
 import { apiClient } from '@/lib/api-client';
 import { TutorialProvider } from '@/components/TutorialProvider';
+import { HelpButton } from '@/components/HelpButton';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/Card';
@@ -887,6 +888,7 @@ export default function EmergencyReadinessPage() {
                     tone="danger"
                     loading={isDeleting}
                 />
+                <HelpButton />
             </div>
         </TutorialProvider>
     );

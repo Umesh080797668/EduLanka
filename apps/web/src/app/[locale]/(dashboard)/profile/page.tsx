@@ -12,6 +12,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { Field, Input, Select } from '@/components/ui/Form';
 import { PageHeader } from '@/components/ui/Layout';
+import { TutorialProvider } from '@/components/TutorialProvider';
+import { HelpButton } from '@/components/HelpButton';
 
 interface UserProfile {
     id: string;
@@ -130,155 +132,158 @@ export default function ProfilePage() {
     }
 
     return (
-        <div className="mx-auto max-w-4xl space-y-6">
-            <PageHeader
-                icon={<User />}
-                title={t('title')}
-                description={t('subtitle')}
-            />
+        <TutorialProvider role={profile?.role || 'TEACHER'} screenId="profile">
+            <div className="mx-auto max-w-4xl space-y-6">
+                <PageHeader
+                    icon={<User />}
+                    title={t('title')}
+                    description={t('subtitle')}
+                    action={<HelpButton />}
+                />
 
-            <div className="grid gap-6 md:grid-cols-2">
-                {/* Personal Information */}
-                <motion.div
-                    initial={{ opacity: 0, y: 12 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.3 }}
-                >
-                    <Card>
-                        <CardHeader>
-                            <div className="flex items-center justify-between">
+                <div className="grid gap-6 md:grid-cols-2">
+                    {/* Personal Information */}
+                    <motion.div
+                        initial={{ opacity: 0, y: 12 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.3 }}
+                    >
+                        <Card>
+                            <CardHeader>
+                                <div className="flex items-center justify-between">
+                                    <CardTitle as="h2" className="flex items-center gap-2">
+                                        <User className="size-4 text-brand-600 dark:text-brand-400" />
+                                        {t('personalInfo')}
+                                    </CardTitle>
+                                    <Badge size="sm" variant="soft" tone="primary">
+                                        {profile?.role || 'USER'}
+                                    </Badge>
+                                </div>
+                            </CardHeader>
+                            <CardContent>
+                                <form onSubmit={handleProfileSubmit} className="space-y-4">
+                                    <Field label={t('email')} htmlFor="profile-email" hint={t('emailHint')}>
+                                        <Input
+                                            id="profile-email"
+                                            disabled
+                                            value={profile?.email || ''}
+                                            className="bg-muted cursor-not-allowed opacity-75"
+                                        />
+                                    </Field>
+
+                                    <Field label={t('fullName')} htmlFor="profile-name" required>
+                                        <Input
+                                            id="profile-name"
+                                            required
+                                            value={fullName}
+                                            onChange={(e) => setFullName(e.target.value)}
+                                        />
+                                    </Field>
+
+                                    <Field label={t('phoneNumber')} htmlFor="profile-phone">
+                                        <Input
+                                            id="profile-phone"
+                                            value={phoneNumber}
+                                            onChange={(e) => setPhoneNumber(e.target.value)}
+                                            placeholder="+94 7X XXX XXXX"
+                                        />
+                                    </Field>
+
+                                    <Field label={t('language')} htmlFor="profile-language">
+                                        <Select
+                                            id="profile-language"
+                                            value={preferredLanguage}
+                                            onChange={(e) => setPreferredLanguage(e.target.value)}
+                                        >
+                                            <option value="en">English</option>
+                                            <option value="si">සිංහල (Sinhala)</option>
+                                            <option value="ta">தமிழ் (Tamil)</option>
+                                        </Select>
+                                    </Field>
+
+                                    <div className="pt-2">
+                                        <Button
+                                            type="submit"
+                                            variant="primary"
+                                            loading={savingProfile}
+                                            leadingIcon={<Save />}
+                                            block
+                                        >
+                                            {t('saveChanges')}
+                                        </Button>
+                                    </div>
+                                </form>
+                            </CardContent>
+                        </Card>
+                    </motion.div>
+
+                    {/* Account Security & Password Change */}
+                    <motion.div
+                        initial={{ opacity: 0, y: 12 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.3, delay: 0.1 }}
+                    >
+                        <Card>
+                            <CardHeader>
                                 <CardTitle as="h2" className="flex items-center gap-2">
-                                    <User className="size-4 text-brand-600 dark:text-brand-400" />
-                                    {t('personalInfo')}
+                                    <Lock className="size-4 text-accent-600 dark:text-accent-400" />
+                                    {t('security')}
                                 </CardTitle>
-                                <Badge size="sm" variant="soft" tone="primary">
-                                    {profile?.role || 'USER'}
-                                </Badge>
-                            </div>
-                        </CardHeader>
-                        <CardContent>
-                            <form onSubmit={handleProfileSubmit} className="space-y-4">
-                                <Field label={t('email')} htmlFor="profile-email" hint={t('emailHint')}>
-                                    <Input
-                                        id="profile-email"
-                                        disabled
-                                        value={profile?.email || ''}
-                                        className="bg-muted cursor-not-allowed opacity-75"
-                                    />
-                                </Field>
+                                <p className="text-xs text-muted-foreground mt-1">
+                                    {t('changePasswordDesc')}
+                                </p>
+                            </CardHeader>
+                            <CardContent>
+                                <form onSubmit={handlePasswordSubmit} className="space-y-4">
+                                    <Field label={t('currentPassword')} htmlFor="pwd-current" required>
+                                        <Input
+                                            id="pwd-current"
+                                            type="password"
+                                            required
+                                            value={oldPassword}
+                                            onChange={(e) => setOldPassword(e.target.value)}
+                                        />
+                                    </Field>
 
-                                <Field label={t('fullName')} htmlFor="profile-name" required>
-                                    <Input
-                                        id="profile-name"
-                                        required
-                                        value={fullName}
-                                        onChange={(e) => setFullName(e.target.value)}
-                                    />
-                                </Field>
+                                    <Field label={t('newPassword')} htmlFor="pwd-new" required>
+                                        <Input
+                                            id="pwd-new"
+                                            type="password"
+                                            required
+                                            value={newPassword}
+                                            onChange={(e) => setNewPassword(e.target.value)}
+                                            minLength={8}
+                                        />
+                                    </Field>
 
-                                <Field label={t('phoneNumber')} htmlFor="profile-phone">
-                                    <Input
-                                        id="profile-phone"
-                                        value={phoneNumber}
-                                        onChange={(e) => setPhoneNumber(e.target.value)}
-                                        placeholder="+94 7X XXX XXXX"
-                                    />
-                                </Field>
+                                    <Field label={t('confirmPassword')} htmlFor="pwd-confirm" required>
+                                        <Input
+                                            id="pwd-confirm"
+                                            type="password"
+                                            required
+                                            value={confirmPassword}
+                                            onChange={(e) => setConfirmPassword(e.target.value)}
+                                            minLength={8}
+                                        />
+                                    </Field>
 
-                                <Field label={t('language')} htmlFor="profile-language">
-                                    <Select
-                                        id="profile-language"
-                                        value={preferredLanguage}
-                                        onChange={(e) => setPreferredLanguage(e.target.value)}
-                                    >
-                                        <option value="en">English</option>
-                                        <option value="si">සිංහල (Sinhala)</option>
-                                        <option value="ta">தமிழ் (Tamil)</option>
-                                    </Select>
-                                </Field>
-
-                                <div className="pt-2">
-                                    <Button
-                                        type="submit"
-                                        variant="primary"
-                                        loading={savingProfile}
-                                        leadingIcon={<Save />}
-                                        block
-                                    >
-                                        {t('saveChanges')}
-                                    </Button>
-                                </div>
-                            </form>
-                        </CardContent>
-                    </Card>
-                </motion.div>
-
-                {/* Account Security & Password Change */}
-                <motion.div
-                    initial={{ opacity: 0, y: 12 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.3, delay: 0.1 }}
-                >
-                    <Card>
-                        <CardHeader>
-                            <CardTitle as="h2" className="flex items-center gap-2">
-                                <Lock className="size-4 text-accent-600 dark:text-accent-400" />
-                                {t('security')}
-                            </CardTitle>
-                            <p className="text-xs text-muted-foreground mt-1">
-                                {t('changePasswordDesc')}
-                            </p>
-                        </CardHeader>
-                        <CardContent>
-                            <form onSubmit={handlePasswordSubmit} className="space-y-4">
-                                <Field label={t('currentPassword')} htmlFor="pwd-current" required>
-                                    <Input
-                                        id="pwd-current"
-                                        type="password"
-                                        required
-                                        value={oldPassword}
-                                        onChange={(e) => setOldPassword(e.target.value)}
-                                    />
-                                </Field>
-
-                                <Field label={t('newPassword')} htmlFor="pwd-new" required>
-                                    <Input
-                                        id="pwd-new"
-                                        type="password"
-                                        required
-                                        value={newPassword}
-                                        onChange={(e) => setNewPassword(e.target.value)}
-                                        minLength={8}
-                                    />
-                                </Field>
-
-                                <Field label={t('confirmPassword')} htmlFor="pwd-confirm" required>
-                                    <Input
-                                        id="pwd-confirm"
-                                        type="password"
-                                        required
-                                        value={confirmPassword}
-                                        onChange={(e) => setConfirmPassword(e.target.value)}
-                                        minLength={8}
-                                    />
-                                </Field>
-
-                                <div className="pt-2">
-                                    <Button
-                                        type="submit"
-                                        variant="secondary"
-                                        loading={changingPassword}
-                                        leadingIcon={<Lock />}
-                                        block
-                                    >
-                                        {t('updatePassword')}
-                                    </Button>
-                                </div>
-                            </form>
-                        </CardContent>
-                    </Card>
-                </motion.div>
+                                    <div className="pt-2">
+                                        <Button
+                                            type="submit"
+                                            variant="secondary"
+                                            loading={changingPassword}
+                                            leadingIcon={<Lock />}
+                                            block
+                                        >
+                                            {t('updatePassword')}
+                                        </Button>
+                                    </div>
+                                </form>
+                            </CardContent>
+                        </Card>
+                    </motion.div>
+                </div>
             </div>
-        </div>
+        </TutorialProvider>
     );
 }

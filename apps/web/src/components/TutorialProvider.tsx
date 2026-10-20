@@ -56,16 +56,39 @@ export const TutorialProvider: React.FC<TutorialProviderProps> = ({
                 const tutData: any = await apiClient.get(`/tutorials/${role}/${screenId}`, { token });
                 if (!tutData || !tutData.id || tutData.steps.length === 0) return;
 
-                // Format steps for driver.js with localization
-                const formattedSteps: DriveStep[] = tutData.steps.map((s: any) => ({
-                    element: s.target_element || undefined,
-                    popover: {
-                        title: s[`title_${locale}`] || s.title_en,
-                        description: s[`content_${locale}`] || s.content_en,
-                        side: "left",
-                        align: 'start'
+                // Read current tenant plan for plan-aware content
+                const currentPlan = authManager.getPlan() || 'COMMUNITY';
+                const planWeights: Record<string, number> = {
+                    COMMUNITY: 1,
+                    STARTER: 2,
+                    GROWTH: 3,
+                    INSTITUTIONAL: 4,
+                };
+                const userWeight = planWeights[currentPlan.toUpperCase()] || 1;
+
+                // Format steps for driver.js with localization & plan awareness
+                const formattedSteps: DriveStep[] = tutData.steps.map((s: any) => {
+                    let title = s[`title_${locale}`] || s.title_en || '';
+                    let description = s[`content_${locale}`] || s.content_en || '';
+
+                    if (s.min_plan && s.min_plan !== 'COMMUNITY') {
+                        const requiredWeight = planWeights[s.min_plan.toUpperCase()] || 2;
+                        if (userWeight < requiredWeight) {
+                            title = `${title} [${s.min_plan}+]`;
+                            description = `${description}\n\n⭐ (Requires ${s.min_plan} plan subscription)`;
+                        }
                     }
-                }));
+
+                    return {
+                        element: s.target_element || undefined,
+                        popover: {
+                            title,
+                            description,
+                            side: "left",
+                            align: 'start'
+                        }
+                    };
+                });
 
                 setSteps(formattedSteps);
 
@@ -74,6 +97,20 @@ export const TutorialProvider: React.FC<TutorialProviderProps> = ({
                 // tour would either never start (nothing to check against) or replay
                 // on every visit, so remember it in this browser instead.
                 const localKey = `edulanka:tour:${tutData.id}`;
+                const dismissKey = `edulanka:tour:dismiss:${tutData.id}`;
+                const screenDismissKey = `edulanka:tour:dismiss:${screenId}`;
+
+                const isDismissed = () => {
+                    try {
+                        return (
+                            window.localStorage.getItem(dismissKey) === 'true' ||
+                            window.localStorage.getItem(screenDismissKey) === 'true'
+                        );
+                    } catch {
+                        return false;
+                    }
+                };
+
                 const readLocal = () => {
                     try {
                         return window.localStorage.getItem(localKey);
@@ -103,6 +140,20 @@ export const TutorialProvider: React.FC<TutorialProviderProps> = ({
                     // Opts the popover into the themed overrides in styles/tokens.css.
                     popoverClass: 'edulanka-tour',
                     onPopoverRender: (popover) => {
+                        const dontShowBtn = document.createElement("button");
+                        dontShowBtn.type = 'button';
+                        dontShowBtn.innerText = t('dontShowAgain');
+                        dontShowBtn.className = "driver-dont-show-btn";
+                        dontShowBtn.onclick = () => {
+                            isSkippedFlag.current = true;
+                            try {
+                                window.localStorage.setItem(dismissKey, 'true');
+                                window.localStorage.setItem(screenDismissKey, 'true');
+                            } catch { }
+                            finish('SKIPPED');
+                            driverObj.current?.destroy();
+                        };
+
                         const skipBtn = document.createElement("button");
                         skipBtn.type = 'button';
                         skipBtn.innerText = t('skip');
@@ -113,6 +164,7 @@ export const TutorialProvider: React.FC<TutorialProviderProps> = ({
                             driverObj.current?.destroy();
                         };
                         if (popover.footerButtons) {
+                            popover.footerButtons.prepend(dontShowBtn);
                             popover.footerButtons.appendChild(skipBtn);
                         }
                     },
@@ -125,11 +177,11 @@ export const TutorialProvider: React.FC<TutorialProviderProps> = ({
                     }
                 });
 
-                // 2. Suppress the tour for anyone who has already been through it.
+                // 2. Suppress the tour for anyone who has already been through it or dismissed it.
                 // The local flag is the fallback; a tenanted session always defers
                 // to the server so progress follows the user across devices.
-                let alreadySeen = readLocal() !== null;
-                if (tenantId) {
+                let alreadySeen = readLocal() !== null || isDismissed();
+                if (tenantId && !alreadySeen) {
                     const completions: any = await apiClient.get('/me/tutorials', { token, tenantId });
                     alreadySeen = completions.some(
                         (c: any) =>

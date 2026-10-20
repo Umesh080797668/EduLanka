@@ -29,9 +29,24 @@ export class StudentMarksController {
     async getMarksByClass(
         @Param('classId', ParseUUIDPipe) classId: string,
         @Query('term', ParseIntPipe) term: number,
+        @Query('year') year: string,
         @CurrentUser() caller: JwtPayload
     ) {
-        return this.studentMarksService.getMarksByClass(classId, term, caller);
+        const yr = year ? parseInt(year, 10) : new Date().getFullYear();
+        return this.studentMarksService.getMarksByClass(classId, term, yr, caller);
+    }
+
+    @Get('class/:classId/status')
+    @ApiOperation({ summary: 'Get term finalization status for a class' })
+    @ApiResponse({ status: 200, description: 'Success' })
+    async getFinalizationStatus(
+        @Param('classId', ParseUUIDPipe) classId: string,
+        @Query('term', ParseIntPipe) term: number,
+        @Query('year') year: string,
+        @CurrentUser() caller: JwtPayload
+    ) {
+        const yr = year ? parseInt(year, 10) : new Date().getFullYear();
+        return this.studentMarksService.getFinalizationStatus(classId, term, yr, caller);
     }
 
     @Get('student/:studentId')
@@ -55,5 +70,18 @@ export class StudentMarksController {
     ) {
         const yr = year ? parseInt(year, 10) : new Date().getFullYear();
         return this.studentMarksService.finalizeTerm(classId, term, yr, caller);
+    }
+
+    @Post('class/:classId/reopen')
+    @ApiOperation({ summary: 'Reopens finalized term marks for a class (School Admin only)' })
+    @ApiResponse({ status: 200, description: 'Term reopened successfully' })
+    async reopenTerm(
+        @Param('classId', ParseUUIDPipe) classId: string,
+        @Query('term', ParseIntPipe) term: number,
+        @Query('year') year: string,
+        @CurrentUser() caller: JwtPayload
+    ) {
+        const yr = year ? parseInt(year, 10) : new Date().getFullYear();
+        return this.studentMarksService.reopenTerm(classId, term, yr, caller);
     }
 }

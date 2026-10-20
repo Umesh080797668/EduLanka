@@ -8,6 +8,7 @@ import {
     NotFoundException,
     ConflictException,
     ForbiddenException,
+    BadRequestException,
     InternalServerErrorException,
     Logger,
 } from '@nestjs/common';
@@ -32,6 +33,31 @@ export class StudentsService {
         }
     }
 
+    private async assertClassCapacity(tenantId: string, classId: string): Promise<void> {
+        const { data: policy } = await this.supabase.adminClient
+            .from('school_policy')
+            .select('max_students_per_class')
+            .eq('tenant_id', tenantId)
+            .maybeSingle();
+
+        const limit = policy?.max_students_per_class ?? 40;
+        const db = this.supabase.getTenantClient(tenantId);
+        const { count, error } = await db
+            .from('students')
+            .select('id', { count: 'exact', head: true })
+            .eq('class_id', classId);
+
+        if (error) {
+            this.logger.error(`Failed to verify class capacity: ${error.message}`);
+            return;
+        }
+
+        if ((count ?? 0) >= limit) {
+            throw new BadRequestException(
+                `Class has reached its maximum student capacity of ${limit} (school policy: maxStudentsPerClass).`,
+            );
+        }
+    }
 
     private generateAdmissionNo(year: number, seq: number): string {
         return `${year}/${String(seq).padStart(4, '0')}`;
@@ -40,6 +66,12 @@ export class StudentsService {
     async enroll(dto: CreateStudentDto, caller: JwtPayload) {
         this.guardAdmin(caller);
         const slug = caller.tenantId;
+
+        // Policy check: Enforce maxStudentsPerClass before creating accounts
+        if (dto.classId && dto.classId.trim() !== '') {
+            await this.assertClassCapacity(slug, dto.classId);
+        }
+
         const db = this.supabase.getTenantClient(slug);
 
         // Step 1: Generate admission number if not provided (sequential & collision-safe)
@@ -278,6 +310,18 @@ export class StudentsService {
         this.guardAdmin(caller);
         const slug = caller.tenantId;
         const db = this.supabase.getTenantClient(slug);
+
+        const { data: currentStudent } = await db
+            .from('students')
+            .select('class_id')
+            .eq('id', id)
+            .maybeSingle();
+
+        if (!currentStudent) throw new NotFoundException(`Student ${id} not found`);
+
+        if (dto.classId && currentStudent.class_id !== dto.classId) {
+            await this.assertClassCapacity(slug, dto.classId);
+        }
 
         const { data, error } = await db
             .from('students')

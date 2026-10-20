@@ -1,6 +1,7 @@
 {
     "TutorialTour": {
         "skip": "தவிர்",
+        "dontShowAgain": "மீண்டும் காட்டாதே",
         "next": "அடுத்து",
         "previous": "முந்தைய",
         "done": "முடிந்தது",

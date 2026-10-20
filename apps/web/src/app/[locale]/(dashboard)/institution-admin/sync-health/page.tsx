@@ -17,6 +17,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { TutorialProvider } from '@/components/TutorialProvider';
+import { HelpButton } from '@/components/HelpButton';
 
 interface SyncHealthData {
     tenantId: string;
@@ -275,6 +276,7 @@ export default function SyncHealthPage() {
                         )}
                     </CardContent>
                 </Card>
+                <HelpButton />
             </div>
         </TutorialProvider>
     );

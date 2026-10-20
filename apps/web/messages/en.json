@@ -1,6 +1,7 @@
 {
     "TutorialTour": {
         "skip": "Skip Tour",
+        "dontShowAgain": "Don't show again",
         "next": "Next",
         "previous": "Previous",
         "done": "Done",

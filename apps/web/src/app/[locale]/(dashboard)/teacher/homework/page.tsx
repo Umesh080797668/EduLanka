@@ -24,6 +24,7 @@ import { Dialog } from '@/components/ui/Dialog';
 import { EmptyState, PageHeader } from '@/components/ui/Layout';
 import { PageSkeleton } from '@/components/ui/Skeleton';
 import { TutorialProvider } from '@/components/TutorialProvider';
+import { HelpButton } from '@/components/HelpButton';
 
 interface HomeworkTask {
     id: string;
@@ -614,6 +615,7 @@ export default function TeacherHomeworkPage() {
                         )}
                     </div>
                 </Dialog>
+                <HelpButton />
             </div>
         </TutorialProvider>
     );

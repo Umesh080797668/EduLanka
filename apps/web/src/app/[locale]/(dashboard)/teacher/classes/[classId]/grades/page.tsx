@@ -7,7 +7,9 @@ import {
     CheckCircle2,
     ChevronLeft,
     FileEdit,
+    Lock,
     Save,
+    Unlock,
     Users,
 } from 'lucide-react';
 import { useTranslations } from 'next-intl';
@@ -15,6 +17,7 @@ import { toast } from 'sonner';
 
 import { Link } from '@/i18n/routing';
 import { apiClient } from '@/lib/api-client';
+import { authManager } from '@/lib/auth-store';
 import { cn } from '@/lib/cn';
 import { HelpButton } from '@/components/HelpButton';
 import { TutorialProvider } from '@/components/TutorialProvider';
@@ -56,6 +59,9 @@ export default function TeacherGradesPage() {
     const [finalizing, setFinalizing] = useState(false);
     const [isFinalized, setIsFinalized] = useState(false);
 
+    const role = authManager.getRole();
+    const isAdmin = role === 'SCHOOL_ADMIN' || role === 'SUPER_ADMIN';
+
     const handleFinalizeTerm = async () => {
         if (!confirm(t('finalizeConfirm'))) return;
         setFinalizing(true);
@@ -69,6 +75,24 @@ export default function TeacherGradesPage() {
             toast.success(t('finalizeTermSuccess'));
         } catch (e: any) {
             toast.error(e?.message || 'Failed to finalize term');
+        } finally {
+            setFinalizing(false);
+        }
+    };
+
+    const handleReopenTerm = async () => {
+        if (!confirm('Are you sure you want to reopen this finalized term? Teachers will be able to edit marks again.')) return;
+        setFinalizing(true);
+        try {
+            await apiClient.post(
+                `/student-marks/class/${classId}/reopen?term=${term}&year=${year}`,
+                {},
+                { skipGlobalToast: true },
+            );
+            setIsFinalized(false);
+            toast.success('Term marks reopened successfully.');
+        } catch (e: any) {
+            toast.error(e?.message || 'Failed to reopen term');
         } finally {
             setFinalizing(false);
         }
@@ -97,6 +121,17 @@ export default function TeacherGradesPage() {
             }
         };
 
+        const fetchStatus = async () => {
+            try {
+                const statusRes = await apiClient.get<any>(
+                    `/student-marks/class/${classId}/status?term=${term}&year=${year}`,
+                );
+                setIsFinalized(Boolean(statusRes?.isFinalized));
+            } catch {
+                setIsFinalized(false);
+            }
+        };
+
         const fetchMarks = async () => {
             try {
                 const marksData = await apiClient.get<any>(
@@ -104,6 +139,7 @@ export default function TeacherGradesPage() {
                 );
                 const newMarks: Record<string, MarkState> = {};
                 marksData?.forEach((m: any) => {
+                    if (m.subject && m.subject !== subject) return;
                     const val =
                         m.total_score !== null && m.total_score !== undefined
                             ? m.total_score
@@ -120,8 +156,7 @@ export default function TeacherGradesPage() {
 
         const loadAll = async () => {
             setPageLoading(true);
-            await loadClassDetails();
-            await fetchMarks();
+            await Promise.all([loadClassDetails(), fetchStatus(), fetchMarks()]);
             setPageLoading(false);
         };
 
@@ -214,20 +249,49 @@ export default function TeacherGradesPage() {
                         ) : undefined
                     }
                     actions={
-                        <Button
-                            id="finalize-term-btn"
-                            variant={isFinalized ? 'outline' : 'secondary'}
-                            onClick={handleFinalizeTerm}
-                            loading={finalizing}
-                            disabled={pageLoading || students.length === 0}
-                            leadingIcon={<CheckCircle2 className="size-4" />}
-                        >
-                            {isFinalized ? t('saved') : t('finalizeTerm')}
-                        </Button>
+                        isFinalized ? (
+                            isAdmin ? (
+                                <Button
+                                    id="reopen-term-btn"
+                                    variant="outline"
+                                    onClick={handleReopenTerm}
+                                    loading={finalizing}
+                                    disabled={pageLoading || students.length === 0}
+                                    leadingIcon={<Unlock className="size-4" />}
+                                >
+                                    Reopen Term
+                                </Button>
+                            ) : (
+                                <Badge tone="warning" size="md" className="gap-1.5 py-1.5 px-3">
+                                    <Lock className="size-3.5" />
+                                    Term Finalized
+                                </Badge>
+                            )
+                        ) : (
+                            <Button
+                                id="finalize-term-btn"
+                                variant="secondary"
+                                onClick={handleFinalizeTerm}
+                                loading={finalizing}
+                                disabled={pageLoading || students.length === 0}
+                                leadingIcon={<CheckCircle2 className="size-4" />}
+                            >
+                                {t('finalizeTerm')}
+                            </Button>
+                        )
                     }
                 />
 
                 <div className="space-y-6">
+                    {isFinalized && (
+                        <div className="flex items-center gap-2.5 rounded-card border border-warning/30 bg-warning/10 p-3.5 text-sm text-warning-foreground">
+                            <Lock className="size-4 shrink-0 text-warning" />
+                            <span>
+                                Term {term} ({year}) marks are finalized and locked against edits. {isAdmin ? 'As an administrator, you may reopen this term to allow modifications.' : 'Contact an administrator to reopen if revisions are required.'}
+                            </span>
+                        </div>
+                    )}
+
                     {/* ── Entry context ─────────────────────────────────────── */}
                     <Card>
                         <CardContent className="grid gap-4 pt-5 sm:grid-cols-3">
@@ -344,6 +408,7 @@ export default function TeacherGradesPage() {
                                                                 min={0}
                                                                 max={100}
                                                                 value={state.value}
+                                                                disabled={pageLoading || isFinalized}
                                                                 placeholder="–"
                                                                 aria-label={`${t('marksOutof100')} — ${s.name}`}
                                                                 onChange={(e) =>
@@ -383,7 +448,7 @@ export default function TeacherGradesPage() {
                                                                 }
                                                                 className="min-w-[86px]"
                                                                 loading={state.saving}
-                                                                disabled={state.value === ''}
+                                                                disabled={state.value === '' || isFinalized}
                                                                 leadingIcon={<Save />}
                                                                 onClick={() => handleSave(s.id)}
                                                             >

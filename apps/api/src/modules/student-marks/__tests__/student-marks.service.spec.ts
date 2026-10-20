@@ -7,7 +7,6 @@ import { SupabaseService } from '../../supabase/supabase.service';
 import { TenantService } from '../../tenant/tenant.service';
 import { StudentMarksService } from '../student-marks.service';
 
-
 describe('StudentMarksService', () => {
     let service: StudentMarksService;
     let mockSupabaseService: any;
@@ -16,11 +15,13 @@ describe('StudentMarksService', () => {
 
     beforeEach(async () => {
         jest.spyOn(Logger.prototype, 'error').mockImplementation(() => { });
+        jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => { });
         jest.spyOn(Logger.prototype, 'debug').mockImplementation(() => { });
         mockDb = {
             from: jest.fn().mockReturnThis(),
             select: jest.fn().mockReturnThis(),
             upsert: jest.fn().mockReturnThis(),
+            update: jest.fn().mockReturnThis(),
             eq: jest.fn().mockReturnThis(),
             order: jest.fn().mockReturnThis(),
             single: jest.fn().mockReturnThis(),
@@ -30,6 +31,7 @@ describe('StudentMarksService', () => {
 
         mockSupabaseService = {
             getTenantClient: jest.fn().mockReturnValue(mockDb),
+            adminClient: mockDb,
         };
 
         mockTenantService = {
@@ -54,7 +56,7 @@ describe('StudentMarksService', () => {
 
     describe('upsertMark', () => {
         const studentCaller = { sub: 'student-id', role: UserRole.STUDENT, tenantId: 'tenant-1' } as any;
-        const teacherCaller = { sub: 'teacher-id', role: UserRole.TEACHER, tenantId: 'tenant-1' } as any;
+        const teacherCaller = { sub: 'teacher-user-id', role: UserRole.TEACHER, tenantId: 'tenant-1' } as any;
         const adminCaller = { sub: 'admin-id', role: UserRole.SCHOOL_ADMIN, tenantId: 'tenant-1' } as any;
         const markDto = { studentId: 'student-1', classId: 'class-1', subject: 'Math', term: 1, academicYear: 2026, marks: 95 };
 
@@ -63,22 +65,55 @@ describe('StudentMarksService', () => {
                 .rejects.toThrow(ForbiddenException);
         });
 
-        it('should successfully upsert mark for teacher caller', async () => {
-            // mock user fetch for teacher -> mock teacher fetch -> mock upsert
-            mockDb.maybeSingle.mockResolvedValueOnce({ data: { id: 'db-user-id' }, error: null }); // from users
-            mockDb.maybeSingle.mockResolvedValueOnce({ data: { id: 'db-teacher-id' }, error: null }); // from teachers
-            mockDb.single.mockResolvedValueOnce({ data: { id: 'mark-1' }, error: null }); // from student_marks
+        it('should successfully upsert mark for assigned teacher caller', async () => {
+            // 1. teacher query
+            mockDb.maybeSingle.mockResolvedValueOnce({ data: { id: 'teacher-id' }, error: null });
+            // 2. class_teacher assignment query
+            mockDb.maybeSingle.mockResolvedValueOnce({ data: { id: 'assignment-id' }, error: null });
+            // 3. student query
+            mockDb.maybeSingle.mockResolvedValueOnce({ data: { id: 'student-1', class_id: 'class-1' }, error: null });
+            // 4. term_finalizations query
+            mockDb.maybeSingle.mockResolvedValueOnce({ data: null, error: null });
+            // 5. student_marks upsert
+            mockDb.single.mockResolvedValueOnce({ data: { id: 'mark-1' }, error: null });
 
             const result = await service.upsertMark(markDto, teacherCaller);
             expect(result).toBeDefined();
             expect(mockDb.upsert).toHaveBeenCalledWith(
-                expect.objectContaining({ tenant_id: 'tenant-1' }),
+                expect.objectContaining({ tenant_id: 'tenant-1', academic_year: 2026, grade: 'A' }),
                 expect.any(Object)
             );
         });
 
-        it('should successfully upsert mark for admin caller without fetching teacher logic', async () => {
-            mockDb.single.mockResolvedValueOnce({ data: { id: 'mark-1' }, error: null }); // from student_marks
+        it('should throw ForbiddenException if teacher is not assigned to the class', async () => {
+            mockDb.maybeSingle.mockResolvedValueOnce({ data: { id: 'teacher-id' }, error: null });
+            mockDb.maybeSingle.mockResolvedValueOnce({ data: null, error: null }); // no assignment
+
+            await expect(service.upsertMark(markDto, teacherCaller))
+                .rejects.toThrow(ForbiddenException);
+        });
+
+        it('should throw ForbiddenException if student does not belong to the class', async () => {
+            mockDb.maybeSingle.mockResolvedValueOnce({ data: { id: 'student-1', class_id: 'other-class' }, error: null });
+
+            await expect(service.upsertMark(markDto, adminCaller))
+                .rejects.toThrow(ForbiddenException);
+        });
+
+        it('should throw ForbiddenException if term marks have been finalized', async () => {
+            // student query
+            mockDb.maybeSingle.mockResolvedValueOnce({ data: { id: 'student-1', class_id: 'class-1' }, error: null });
+            // term_finalizations query (locked)
+            mockDb.maybeSingle.mockResolvedValueOnce({ data: { id: 'fin-1', is_finalized: true }, error: null });
+
+            await expect(service.upsertMark(markDto, adminCaller))
+                .rejects.toThrow(ForbiddenException);
+        });
+
+        it('should successfully upsert mark for admin caller without teacher assignment check', async () => {
+            mockDb.maybeSingle.mockResolvedValueOnce({ data: { id: 'student-1', class_id: 'class-1' }, error: null });
+            mockDb.maybeSingle.mockResolvedValueOnce({ data: null, error: null }); // not finalized
+            mockDb.single.mockResolvedValueOnce({ data: { id: 'mark-1' }, error: null });
 
             const result = await service.upsertMark(markDto, adminCaller);
             expect(result).toBeDefined();
@@ -89,24 +124,67 @@ describe('StudentMarksService', () => {
         });
 
         it('should throw InternalServerErrorException on db error', async () => {
+            mockDb.maybeSingle.mockResolvedValueOnce({ data: { id: 'student-1', class_id: 'class-1' }, error: null });
+            mockDb.maybeSingle.mockResolvedValueOnce({ data: null, error: null });
             mockDb.single.mockResolvedValueOnce({ data: null, error: { message: 'db error' } });
+
             await expect(service.upsertMark(markDto, adminCaller)).rejects.toThrow(InternalServerErrorException);
         });
     });
 
     describe('getMarksByClass', () => {
         const studentCaller = { sub: 'student-id', role: UserRole.STUDENT, tenantId: 'tenant-1' } as any;
+        const teacherCaller = { sub: 'teacher-user-id', role: UserRole.TEACHER, tenantId: 'tenant-1' } as any;
         const adminCaller = { sub: 'admin-id', role: UserRole.SCHOOL_ADMIN, tenantId: 'tenant-1' } as any;
 
         it('should throw ForbiddenException for students or parents', async () => {
-            await expect(service.getMarksByClass('class-1', 1, studentCaller))
+            await expect(service.getMarksByClass('class-1', 1, 2026, studentCaller))
                 .rejects.toThrow(ForbiddenException);
         });
 
-        it('should fetch marks for authorized caller', async () => {
+        it('should fetch marks for authorized admin caller filtering by year and term', async () => {
             mockDb.then.mockImplementationOnce((resolve: any) => resolve({ data: [{ id: 'mark-1' }], error: null }));
-            const result = await service.getMarksByClass('class-1', 1, adminCaller);
+            const result = await service.getMarksByClass('class-1', 1, 2026, adminCaller);
             expect(result).toHaveLength(1);
+            expect(mockDb.eq).toHaveBeenCalledWith('academic_year', 2026);
+            expect(mockDb.eq).toHaveBeenCalledWith('term', '1');
+        });
+
+        it('should verify teacher assignment when caller is teacher', async () => {
+            mockDb.maybeSingle.mockResolvedValueOnce({ data: { id: 'teacher-id' }, error: null });
+            mockDb.maybeSingle.mockResolvedValueOnce({ data: { id: 'assignment-id' }, error: null });
+            mockDb.then.mockImplementationOnce((resolve: any) => resolve({ data: [{ id: 'mark-1' }], error: null }));
+
+            const result = await service.getMarksByClass('class-1', 1, 2026, teacherCaller);
+            expect(result).toHaveLength(1);
+        });
+    });
+
+    describe('finalizeTerm and reopenTerm', () => {
+        const teacherCaller = { sub: 'teacher-user-id', role: UserRole.TEACHER, tenantId: 'tenant-1' } as any;
+        const adminCaller = { sub: 'admin-id', role: UserRole.SCHOOL_ADMIN, tenantId: 'tenant-1' } as any;
+
+        it('should allow teacher to finalize term for assigned class', async () => {
+            mockDb.maybeSingle.mockResolvedValueOnce({ data: { id: 'teacher-id' }, error: null });
+            mockDb.maybeSingle.mockResolvedValueOnce({ data: { id: 'assignment-id' }, error: null });
+            mockDb.single.mockResolvedValueOnce({ data: { id: 'fin-1', is_finalized: true }, error: null });
+
+            const result = await service.finalizeTerm('class-1', 1, 2026, teacherCaller);
+            expect(result).toBeDefined();
+            expect(result.success).toBe(true);
+        });
+
+        it('should allow school admin to reopen term', async () => {
+            mockDb.single.mockResolvedValueOnce({ data: { id: 'fin-1', is_finalized: false }, error: null });
+
+            const result = await service.reopenTerm('class-1', 1, 2026, adminCaller);
+            expect(result).toBeDefined();
+            expect(result.success).toBe(true);
+        });
+
+        it('should reject reopening term if caller is teacher', async () => {
+            await expect(service.reopenTerm('class-1', 1, 2026, teacherCaller))
+                .rejects.toThrow(ForbiddenException);
         });
     });
 

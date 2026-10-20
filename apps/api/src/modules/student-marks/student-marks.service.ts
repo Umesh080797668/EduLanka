@@ -28,10 +28,51 @@ export class StudentMarksService {
 
         const slug = caller.tenantId;
         const db = this.supabase.getTenantClient(slug);
+        const academicYear = dto.academicYear || new Date().getFullYear();
 
+        // 1. Authorization: Verify teacher is assigned to the class
         if (caller.role === UserRole.TEACHER) {
             const { data: teacher } = await db.from('teachers').select('id').eq('user_id', caller.sub).maybeSingle();
             if (!teacher) throw new NotFoundException('Teacher profile not found');
+
+            const { data: assignment } = await db
+                .from('class_teachers')
+                .select('id')
+                .eq('teacher_id', teacher.id)
+                .eq('class_id', dto.classId)
+                .maybeSingle();
+
+            if (!assignment) {
+                throw new ForbiddenException('You are not assigned to teach this class');
+            }
+        }
+
+        // 2. Validation: Verify student belongs to the target class
+        const { data: student } = await db
+            .from('students')
+            .select('id, class_id')
+            .eq('id', dto.studentId)
+            .maybeSingle();
+
+        if (!student) {
+            throw new NotFoundException('Student not found');
+        }
+        if (student.class_id !== dto.classId) {
+            throw new ForbiddenException('Student does not belong to the specified class');
+        }
+
+        // 3. Finalization Guard: Reject mark edits once term is finalized
+        const { data: finalization } = await db
+            .from('term_finalizations')
+            .select('id, is_finalized')
+            .eq('tenant_id', slug)
+            .eq('class_id', dto.classId)
+            .eq('academic_year', academicYear)
+            .eq('term', dto.term)
+            .maybeSingle();
+
+        if (finalization?.is_finalized) {
+            throw new ForbiddenException('Term marks have been finalized and locked. Contact an administrator to reopen.');
         }
 
         let letterGrade = 'W';
@@ -48,10 +89,11 @@ export class StudentMarksService {
                 class_id: dto.classId,
                 subject: dto.subject,
                 term: String(dto.term),
+                academic_year: academicYear,
                 marks: dto.marks,
                 total_score: dto.marks,
                 grade: letterGrade
-            }, { onConflict: 'tenant_id, student_id, term, subject' })
+            }, { onConflict: 'tenant_id, student_id, academic_year, term, subject' })
             .select()
             .single();
 
@@ -62,19 +104,37 @@ export class StudentMarksService {
         return data;
     }
 
-    async getMarksByClass(classId: string, term: number, caller: JwtPayload) {
+    async getMarksByClass(classId: string, term: number, year: number, caller: JwtPayload) {
         if (caller.role === UserRole.STUDENT || caller.role === UserRole.PARENT) {
             throw new ForbiddenException('Not allowed to view full class marks');
         }
 
         const slug = caller.tenantId;
         const db = this.supabase.getTenantClient(slug);
+        const academicYear = year || new Date().getFullYear();
+
+        if (caller.role === UserRole.TEACHER) {
+            const { data: teacher } = await db.from('teachers').select('id').eq('user_id', caller.sub).maybeSingle();
+            if (!teacher) throw new NotFoundException('Teacher profile not found');
+
+            const { data: assignment } = await db
+                .from('class_teachers')
+                .select('id')
+                .eq('teacher_id', teacher.id)
+                .eq('class_id', classId)
+                .maybeSingle();
+
+            if (!assignment) {
+                throw new ForbiddenException('You are not assigned to view marks for this class');
+            }
+        }
 
         const { data, error } = await db
             .from('student_marks')
             .select('*, students(admission_no)')
             .eq('class_id', classId)
-            .eq('term', String(term));
+            .eq('term', String(term))
+            .eq('academic_year', academicYear);
 
         if (error) {
             this.logger.error(`Failed to fetch marks: ${error.message}`);
@@ -112,6 +172,31 @@ export class StudentMarksService {
         return data ?? [];
     }
 
+    async getFinalizationStatus(classId: string, term: number, year: number, caller: JwtPayload) {
+        const slug = caller.tenantId;
+        const db = this.supabase.getTenantClient(slug);
+        const academicYear = year || new Date().getFullYear();
+
+        const { data, error } = await db
+            .from('term_finalizations')
+            .select('*')
+            .eq('tenant_id', slug)
+            .eq('class_id', classId)
+            .eq('academic_year', academicYear)
+            .eq('term', term)
+            .maybeSingle();
+
+        if (error) {
+            this.logger.error(`Failed to fetch finalization status: ${error.message}`);
+            throw new InternalServerErrorException('Failed to fetch term finalization status');
+        }
+
+        return {
+            isFinalized: Boolean(data?.is_finalized),
+            finalization: data || null,
+        };
+    }
+
     async finalizeTerm(classId: string, term: number, year: number, caller: JwtPayload) {
         if (caller.role !== UserRole.SCHOOL_ADMIN && caller.role !== UserRole.TEACHER && caller.role !== UserRole.SUPER_ADMIN) {
             throw new ForbiddenException('Only teachers and school admins can finalize terms');
@@ -119,10 +204,43 @@ export class StudentMarksService {
 
         const slug = caller.tenantId;
         const db = this.supabase.getTenantClient(slug);
+        const academicYear = year || new Date().getFullYear();
 
         if (caller.role === UserRole.TEACHER) {
             const { data: teacher } = await db.from('teachers').select('id').eq('user_id', caller.sub).maybeSingle();
             if (!teacher) throw new NotFoundException('Teacher profile not found');
+
+            const { data: assignment } = await db
+                .from('class_teachers')
+                .select('id')
+                .eq('teacher_id', teacher.id)
+                .eq('class_id', classId)
+                .maybeSingle();
+
+            if (!assignment) {
+                throw new ForbiddenException('You are not assigned to finalize terms for this class');
+            }
+        }
+
+        const now = new Date().toISOString();
+        const { data, error } = await db
+            .from('term_finalizations')
+            .upsert({
+                tenant_id: slug,
+                class_id: classId,
+                academic_year: academicYear,
+                term,
+                is_finalized: true,
+                finalized_at: now,
+                finalized_by: caller.sub,
+                updated_at: now,
+            }, { onConflict: 'tenant_id, class_id, academic_year, term' })
+            .select()
+            .single();
+
+        if (error) {
+            this.logger.error(`Failed to persist term finalization: ${error.message}`);
+            throw new InternalServerErrorException('Failed to finalize term marks');
         }
 
         return {
@@ -130,9 +248,50 @@ export class StudentMarksService {
             message: `Term ${term} marks finalized successfully for class ${classId}`,
             classId,
             term,
-            academicYear: year,
-            finalizedAt: new Date().toISOString(),
+            academicYear,
+            finalizedAt: data.finalized_at,
             finalizedBy: caller.sub,
+        };
+    }
+
+    async reopenTerm(classId: string, term: number, year: number, caller: JwtPayload) {
+        if (caller.role !== UserRole.SCHOOL_ADMIN && caller.role !== UserRole.SUPER_ADMIN) {
+            throw new ForbiddenException('Only school administrators can reopen finalized terms');
+        }
+
+        const slug = caller.tenantId;
+        const db = this.supabase.getTenantClient(slug);
+        const academicYear = year || new Date().getFullYear();
+        const now = new Date().toISOString();
+
+        const { error } = await db
+            .from('term_finalizations')
+            .update({
+                is_finalized: false,
+                reopened_at: now,
+                reopened_by: caller.sub,
+                updated_at: now,
+            })
+            .eq('tenant_id', slug)
+            .eq('class_id', classId)
+            .eq('academic_year', academicYear)
+            .eq('term', term)
+            .select()
+            .maybeSingle();
+
+        if (error) {
+            this.logger.error(`Failed to reopen term: ${error.message}`);
+            throw new InternalServerErrorException('Failed to reopen term marks');
+        }
+
+        return {
+            success: true,
+            message: `Term ${term} marks reopened successfully for class ${classId}`,
+            classId,
+            term,
+            academicYear,
+            reopenedAt: now,
+            reopenedBy: caller.sub,
         };
     }
 }

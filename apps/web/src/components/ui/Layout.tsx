@@ -10,6 +10,8 @@ export interface PageHeaderProps {
     breadcrumb?: React.ReactNode;
     /** Buttons, filters — right-aligned on wide viewports. */
     actions?: React.ReactNode;
+    /** Alias for actions */
+    action?: React.ReactNode;
     /** Badge or chip rendered inline after the title. */
     badge?: React.ReactNode;
     icon?: React.ReactNode;
@@ -21,10 +23,12 @@ export function PageHeader({
     description,
     breadcrumb,
     actions,
+    action,
     badge,
     icon,
     className,
 }: PageHeaderProps) {
+    const renderedActions = actions ?? action;
     return (
         <div className={cn('mb-6', className)}>
             {breadcrumb && <div className="mb-3">{breadcrumb}</div>}
@@ -47,9 +51,9 @@ export function PageHeader({
                         )}
                     </div>
                 </div>
-                {actions && (
+                {renderedActions && (
                     <div className="flex shrink-0 flex-wrap items-center gap-2.5">
-                        {actions}
+                        {renderedActions}
                     </div>
                 )}
             </div>

@@ -20,6 +20,8 @@ import type { ClassProfile } from '@edu-lanka/shared-types';
 import { Alert } from '@/components/ui/Alert';
 import { Badge } from '@/components/ui/Badge';
 import { Button, buttonClass } from '@/components/ui/Button';
+import { TutorialProvider } from '@/components/TutorialProvider';
+import { HelpButton } from '@/components/HelpButton';
 import { Dialog } from '@/components/ui/Dialog';
 import { Field, Input } from '@/components/ui/Form';
 import { EmptyState, PageHeader } from '@/components/ui/Layout';
@@ -100,40 +102,20 @@ export default function ClassesPage() {
     }, []);
 
     return (
-        <div className="mx-auto max-w-6xl">
-            <PageHeader
-                icon={<BookOpen />}
-                title={t('title')}
-                description={t('description')}
-                badge={
-                    !loading && classes.length > 0 ? (
-                        <Badge tone="primary" dot>
-                            {classes.length}
-                        </Badge>
-                    ) : undefined
-                }
-                actions={
-                    <Link
-                        href="/institution-admin/classes/new"
-                        className={buttonClass({ variant: 'primary' })}
-                    >
-                        <Plus className="size-4" />
-                        {t('createClass')}
-                    </Link>
-                }
-            />
-
-            {error && (
-                <Alert tone="danger" className="mb-6" onDismiss={() => setError(null)}>
-                    {error}
-                </Alert>
-            )}
-
-            {!loading && classes.length === 0 ? (
-                <EmptyState
+        <TutorialProvider role="SCHOOL_ADMIN" screenId="admin_classes">
+            <div className="mx-auto max-w-6xl">
+                <PageHeader
                     icon={<BookOpen />}
-                    title={t('noClasses')}
-                    action={
+                    title={t('title')}
+                    description={t('description')}
+                    badge={
+                        !loading && classes.length > 0 ? (
+                            <Badge tone="primary" dot>
+                                {classes.length}
+                            </Badge>
+                        ) : undefined
+                    }
+                    actions={
                         <Link
                             href="/institution-admin/classes/new"
                             className={buttonClass({ variant: 'primary' })}
@@ -143,245 +125,268 @@ export default function ClassesPage() {
                         </Link>
                     }
                 />
-            ) : (
-                <div className="relative min-h-[300px]">
-                    <AnimatePresence>
-                        {loading && (
-                            <motion.div
-                                initial={{ opacity: 0 }}
-                                animate={{ opacity: 1 }}
-                                exit={{ opacity: 0 }}
-                                className="pointer-events-none absolute inset-0 z-10 grid place-items-center rounded-card bg-background/70 backdrop-blur-sm"
+
+                {error && (
+                    <Alert tone="danger" className="mb-6" onDismiss={() => setError(null)}>
+                        {error}
+                    </Alert>
+                )}
+
+                {!loading && classes.length === 0 ? (
+                    <EmptyState
+                        icon={<BookOpen />}
+                        title={t('noClasses')}
+                        action={
+                            <Link
+                                href="/institution-admin/classes/new"
+                                className={buttonClass({ variant: 'primary' })}
                             >
-                                <Spinner />
-                            </motion.div>
-                        )}
-                    </AnimatePresence>
+                                <Plus className="size-4" />
+                                {t('createClass')}
+                            </Link>
+                        }
+                    />
+                ) : (
+                    <div className="relative min-h-[300px]">
+                        <AnimatePresence>
+                            {loading && (
+                                <motion.div
+                                    initial={{ opacity: 0 }}
+                                    animate={{ opacity: 1 }}
+                                    exit={{ opacity: 0 }}
+                                    className="pointer-events-none absolute inset-0 z-10 grid place-items-center rounded-card bg-background/70 backdrop-blur-sm"
+                                >
+                                    <Spinner />
+                                </motion.div>
+                            )}
+                        </AnimatePresence>
 
-                    <TableWrap>
-                        <Table>
-                            <THead>
-                                <TR>
-                                    <TH>{t('classLabel')}</TH>
-                                    <TH className="w-28">{t('section')}</TH>
-                                    <TH className="w-24">{t('year')}</TH>
-                                    <TH className="w-32">{t('medium')}</TH>
-                                    <TH className="w-28">{t('students')}</TH>
-                                    <TH>{t('homeroomTeacher')}</TH>
-                                    <TH align="right" className="w-48">
-                                        {t('actions')}
-                                    </TH>
-                                </TR>
-                            </THead>
-                            <TBody>
-                                {classes.map((cls, idx) => {
-                                    const homeroomTeacher = (
-                                        cls as any
-                                    ).class_teachers?.find((ct: any) => ct.is_homeroom);
-                                    const homeroomName =
-                                        homeroomTeacher?.teachers?.users?.full_name ||
-                                        null;
-                                    const gradeName =
-                                        (cls as any).grades?.name ||
-                                        (cls as any).grade?.name ||
-                                        `${t('gradeShort')} ${(cls as any).grade ?? '?'}`;
+                        <TableWrap>
+                            <Table>
+                                <THead>
+                                    <TR>
+                                        <TH>{t('classLabel')}</TH>
+                                        <TH className="w-28">{t('section')}</TH>
+                                        <TH className="w-24">{t('year')}</TH>
+                                        <TH className="w-32">{t('medium')}</TH>
+                                        <TH className="w-28">{t('students')}</TH>
+                                        <TH>{t('homeroomTeacher')}</TH>
+                                        <TH align="right" className="w-48">
+                                            {t('actions')}
+                                        </TH>
+                                    </TR>
+                                </THead>
+                                <TBody>
+                                    {classes.map((cls, idx) => {
+                                        const homeroomTeacher = (
+                                            cls as any
+                                        ).class_teachers?.find((ct: any) => ct.is_homeroom);
+                                        const homeroomName =
+                                            homeroomTeacher?.teachers?.users?.full_name ||
+                                            null;
+                                        const gradeName =
+                                            (cls as any).grades?.name ||
+                                            (cls as any).grade?.name ||
+                                            `${t('gradeShort')} ${(cls as any).grade ?? '?'}`;
 
-                                    return (
-                                        <motion.tr
-                                            key={cls.id}
-                                            initial={{ opacity: 0, y: 8 }}
-                                            animate={{
-                                                opacity: 1,
-                                                y: 0,
-                                                transition: {
-                                                    delay: Math.min(idx * 0.03, 0.3),
-                                                },
-                                            }}
-                                            className="group transition-colors hover:bg-accent/60"
-                                        >
-                                            <TD>
-                                                <div className="flex items-center gap-3">
-                                                    <span className="grid size-10 shrink-0 place-items-center rounded-input bg-primary-subtle text-sm font-bold text-primary">
-                                                        {gradeName
-                                                            .toString()
-                                                            .replace(
-                                                                `${t('gradeShort')} `,
-                                                                'G',
-                                                            )}
-                                                    </span>
-                                                    <span className="font-semibold text-foreground transition-colors group-hover:text-primary">
-                                                        {gradeName}
-                                                    </span>
-                                                </div>
-                                            </TD>
-                                            <TD>
-                                                <Badge tone="neutral" variant="outline">
-                                                    {cls.section}
-                                                </Badge>
-                                            </TD>
-                                            <TD numeric className="text-muted-foreground">
-                                                {cls.year}
-                                            </TD>
-                                            <TD>
-                                                {cls.medium ? (
-                                                    <Badge tone="info">
-                                                        {cls.medium}
+                                        return (
+                                            <motion.tr
+                                                key={cls.id}
+                                                initial={{ opacity: 0, y: 8 }}
+                                                animate={{
+                                                    opacity: 1,
+                                                    y: 0,
+                                                    transition: {
+                                                        delay: Math.min(idx * 0.03, 0.3),
+                                                    },
+                                                }}
+                                                className="group transition-colors hover:bg-accent/60"
+                                            >
+                                                <TD>
+                                                    <div className="flex items-center gap-3">
+                                                        <span className="grid size-10 shrink-0 place-items-center rounded-input bg-primary-subtle text-sm font-bold text-primary">
+                                                            {gradeName
+                                                                .toString()
+                                                                .replace(
+                                                                    `${t('gradeShort')} `,
+                                                                    'G',
+                                                                )}
+                                                        </span>
+                                                        <span className="font-semibold text-foreground transition-colors group-hover:text-primary">
+                                                            {gradeName}
+                                                        </span>
+                                                    </div>
+                                                </TD>
+                                                <TD>
+                                                    <Badge tone="neutral" variant="outline">
+                                                        {cls.section}
                                                     </Badge>
-                                                ) : (
-                                                    <span className="text-sm italic text-muted-foreground">
-                                                        —
-                                                    </span>
-                                                )}
-                                            </TD>
-                                            <TD>
-                                                <span className="inline-flex items-center gap-1.5 text-sm font-medium text-foreground">
-                                                    <Users className="size-3.5 text-muted-foreground" />
-                                                    {(cls as any).students?.length ?? 0}
-                                                </span>
-                                            </TD>
-                                            <TD>
-                                                {homeroomName ? (
+                                                </TD>
+                                                <TD numeric className="text-muted-foreground">
+                                                    {cls.year}
+                                                </TD>
+                                                <TD>
+                                                    {cls.medium ? (
+                                                        <Badge tone="info">
+                                                            {cls.medium}
+                                                        </Badge>
+                                                    ) : (
+                                                        <span className="text-sm italic text-muted-foreground">
+                                                            —
+                                                        </span>
+                                                    )}
+                                                </TD>
+                                                <TD>
                                                     <span className="inline-flex items-center gap-1.5 text-sm font-medium text-foreground">
-                                                        <Star className="size-3.5 text-warning" />
-                                                        {homeroomName}
+                                                        <Users className="size-3.5 text-muted-foreground" />
+                                                        {(cls as any).students?.length ?? 0}
                                                     </span>
-                                                ) : (
-                                                    <span className="text-sm italic text-muted-foreground">
-                                                        {t('unassigned')}
-                                                    </span>
-                                                )}
-                                            </TD>
-                                            <TD align="right">
-                                                <div className="flex items-center justify-end gap-1">
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="icon-sm"
-                                                        aria-label={t('edit')}
-                                                        title={t('edit')}
-                                                        onClick={() =>
-                                                            openEditModal(cls)
-                                                        }
-                                                    >
-                                                        <Pencil className="size-4" />
-                                                    </Button>
-                                                    <Link
-                                                        href={`/institution-admin/classes/${cls.id}`}
-                                                        className={buttonClass({
-                                                            variant: 'outline',
-                                                            size: 'sm',
-                                                        })}
-                                                    >
-                                                        {t('manage')}
-                                                        <ChevronRight className="size-3.5" />
-                                                    </Link>
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="icon-sm"
-                                                        aria-label={t('deleteClass')}
-                                                        title={t('deleteClass')}
-                                                        onClick={() =>
-                                                            setClassToDelete(cls)
-                                                        }
-                                                        className="text-destructive"
-                                                    >
-                                                        <Trash2 className="size-4" />
-                                                    </Button>
-                                                </div>
-                                            </TD>
-                                        </motion.tr>
-                                    );
-                                })}
-                            </TBody>
-                        </Table>
-                    </TableWrap>
-                </div>
-            )}
-
-            <MultiStepModal
-                isOpen={!!classToDelete}
-                onClose={() => setClassToDelete(null)}
-                title={t('deleteClass')}
-                steps={[
-                    {
-                        title: tf('sureTitle'),
-                        description: t('deleteNamed', {
-                            section: classToDelete?.section ?? '',
-                        }),
-                        confirmText: tf('proceed'),
-                        isDestructive: true,
-                    },
-                    {
-                        title: tf('deleteTitle'),
-                        description: tf('deleteDesc'),
-                        confirmText: t('deleteClass'),
-                        isDestructive: true,
-                    },
-                ]}
-                onComplete={handleDeleteConfirm}
-            />
-
-            {/* ── Inline edit ───────────────────────────────────────────────── */}
-            <Dialog
-                open={!!classToEdit}
-                onClose={() => setClassToEdit(null)}
-                title={t('editClass')}
-                icon={<Pencil />}
-                size="sm"
-                dismissible={!savingEdit}
-            >
-                <form onSubmit={handleEditSubmit} className="space-y-5">
-                    <Field label={t('academicYear')} htmlFor="edit-year" required>
-                        <Input
-                            id="edit-year"
-                            type="number"
-                            required
-                            min={2000}
-                            max={2100}
-                            value={editForm.year}
-                            onChange={(e) =>
-                                setEditForm((prev) => ({
-                                    ...prev,
-                                    year: parseInt(e.target.value, 10),
-                                }))
-                            }
-                        />
-                    </Field>
-
-                    <Field
-                        label={t('sectionLabel')}
-                        hint={t('sectionHint')}
-                        htmlFor="edit-section"
-                        required
-                    >
-                        <Input
-                            id="edit-section"
-                            type="text"
-                            required
-                            value={editForm.section}
-                            onChange={(e) =>
-                                setEditForm((prev) => ({
-                                    ...prev,
-                                    section: e.target.value,
-                                }))
-                            }
-                        />
-                    </Field>
-
-                    <div className="flex justify-end gap-3 pt-1">
-                        <Button
-                            type="button"
-                            variant="outline"
-                            onClick={() => setClassToEdit(null)}
-                            disabled={savingEdit}
-                        >
-                            {tc('cancel')}
-                        </Button>
-                        <Button type="submit" loading={savingEdit}>
-                            {t('saveChanges')}
-                        </Button>
+                                                </TD>
+                                                <TD>
+                                                    {homeroomName ? (
+                                                        <span className="inline-flex items-center gap-1.5 text-sm font-medium text-foreground">
+                                                            <Star className="size-3.5 text-warning" />
+                                                            {homeroomName}
+                                                        </span>
+                                                    ) : (
+                                                        <span className="text-sm italic text-muted-foreground">
+                                                            {t('unassigned')}
+                                                        </span>
+                                                    )}
+                                                </TD>
+                                                <TD align="right">
+                                                    <div className="flex items-center justify-end gap-1">
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon-sm"
+                                                            aria-label={t('edit')}
+                                                            title={t('edit')}
+                                                            onClick={() =>
+                                                                openEditModal(cls)
+                                                            }
+                                                        >
+                                                            <Pencil className="size-4" />
+                                                        </Button>
+                                                        <Link
+                                                            href={`/institution-admin/classes/${cls.id}`}
+                                                            className={buttonClass({
+                                                                variant: 'outline',
+                                                                size: 'sm',
+                                                            })}
+                                                        >
+                                                            {t('manage')}
+                                                            <ChevronRight className="size-3.5" />
+                                                        </Link>
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon-sm"
+                                                            aria-label={t('deleteClass')}
+                                                            title={t('deleteClass')}
+                                                            onClick={() =>
+                                                                setClassToDelete(cls)
+                                                            }
+                                                            className="text-destructive"
+                                                        >
+                                                            <Trash2 className="size-4" />
+                                                        </Button>
+                                                    </div>
+                                                </TD>
+                                            </motion.tr>
+                                        );
+                                    })}
+                                </TBody>
+                            </Table>
+                        </TableWrap>
                     </div>
-                </form>
-            </Dialog>
-        </div>
+                )}
+
+                <MultiStepModal
+                    isOpen={!!classToDelete}
+                    onClose={() => setClassToDelete(null)}
+                    title={t('deleteClass')}
+                    steps={[
+                        {
+                            title: tf('sureTitle'),
+                            description: t('deleteNamed', {
+                                section: classToDelete?.section ?? '',
+                            }),
+                            confirmText: tf('proceed'),
+                            isDestructive: true,
+                        },
+                        {
+                            title: tf('deleteTitle'),
+                            description: tf('deleteDesc'),
+                            confirmText: t('deleteClass'),
+                            isDestructive: true,
+                        },
+                    ]}
+                    onComplete={handleDeleteConfirm}
+                />
+
+                {/* ── Inline edit ───────────────────────────────────────────────── */}
+                <Dialog
+                    open={!!classToEdit}
+                    onClose={() => setClassToEdit(null)}
+                    title={t('editClass')}
+                    icon={<Pencil />}
+                    size="sm"
+                    dismissible={!savingEdit}
+                >
+                    <form onSubmit={handleEditSubmit} className="space-y-5">
+                        <Field label={t('academicYear')} htmlFor="edit-year" required>
+                            <Input
+                                id="edit-year"
+                                type="number"
+                                required
+                                min={2000}
+                                max={2100}
+                                value={editForm.year}
+                                onChange={(e) =>
+                                    setEditForm((prev) => ({
+                                        ...prev,
+                                        year: parseInt(e.target.value, 10),
+                                    }))
+                                }
+                            />
+                        </Field>
+
+                        <Field
+                            label={t('sectionLabel')}
+                            hint={t('sectionHint')}
+                            htmlFor="edit-section"
+                            required
+                        >
+                            <Input
+                                id="edit-section"
+                                type="text"
+                                required
+                                value={editForm.section}
+                                onChange={(e) =>
+                                    setEditForm((prev) => ({
+                                        ...prev,
+                                        section: e.target.value,
+                                    }))
+                                }
+                            />
+                        </Field>
+
+                        <div className="flex justify-end gap-3 pt-1">
+                            <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() => setClassToEdit(null)}
+                                disabled={savingEdit}
+                            >
+                                {tc('cancel')}
+                            </Button>
+                            <Button type="submit" loading={savingEdit}>
+                                {t('saveChanges')}
+                            </Button>
+                        </div>
+                    </form>
+                </Dialog>
+                <HelpButton />
+            </div>
+        </TutorialProvider>
     );
 }
