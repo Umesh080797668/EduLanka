@@ -47,8 +47,8 @@ export class ClassesService {
 
     async create(dto: CreateClassDto, caller: JwtPayload) {
         this.guardAdmin(caller);
-        const slug = caller.tenantId;
-        const db = this.supabase.getTenantClient(slug);
+        const tenantId = caller.tenantId;
+        const db = this.supabase.getTenantClient(tenantId);
 
         const { data: gradeConfig } = await db
             .from('grades_config')
@@ -60,7 +60,7 @@ export class ClassesService {
         const { data, error } = await db
             .from('classes')
             .insert({
-                tenant_id: slug,
+                tenant_id: tenantId,
                 grade: gradeConfig.level,
                 section: dto.section,
                 year: dto.year,
@@ -81,7 +81,7 @@ export class ClassesService {
 
         // Auto-provision class chat conversation (Phase 2, Sprint 1)
         const { error: chatError } = await db.from('chat_conversations').insert({
-            tenant_id: slug,
+            tenant_id: tenantId,
             type: 'CLASS',
             class_id: data.id,
             name: `Grade ${gradeConfig.level}-${dto.section}`
@@ -92,15 +92,15 @@ export class ClassesService {
             // Non-blocking error, class created successfully
         } else {
             // A brand-new class has no roll yet, but it may already have staff.
-            await this.syncClassGroup(slug, data.id);
+            await this.syncClassGroup(tenantId, data.id);
         }
 
         return data;
     }
 
     async findAll(caller: JwtPayload, teacherId?: string) {
-        const slug = caller.tenantId;
-        const db = this.supabase.getTenantClient(slug);
+        const tenantId = caller.tenantId;
+        const db = this.supabase.getTenantClient(tenantId);
 
         const { data: classesData, error: classesError } = await db
             .from('classes')
@@ -134,8 +134,8 @@ export class ClassesService {
     }
 
     async findOne(id: string, caller: JwtPayload) {
-        const slug = caller.tenantId;
-        const db = this.supabase.getTenantClient(slug);
+        const tenantId = caller.tenantId;
+        const db = this.supabase.getTenantClient(tenantId);
 
         const { data, error } = await db
             .from('classes')
@@ -159,8 +159,8 @@ export class ClassesService {
 
     async update(id: string, dto: UpdateClassDto, caller: JwtPayload) {
         this.guardAdmin(caller);
-        const slug = caller.tenantId;
-        const db = this.supabase.getTenantClient(slug);
+        const tenantId = caller.tenantId;
+        const db = this.supabase.getTenantClient(tenantId);
 
         const { data, error } = await db
             .from('classes')
@@ -179,8 +179,8 @@ export class ClassesService {
 
     async remove(id: string, caller: JwtPayload) {
         this.guardAdmin(caller);
-        const slug = caller.tenantId;
-        const db = this.supabase.getTenantClient(slug);
+        const tenantId = caller.tenantId;
+        const db = this.supabase.getTenantClient(tenantId);
 
         const { error } = await db.from('classes').delete().eq('id', id);
         if (error) throw new InternalServerErrorException('Failed to delete class');
@@ -189,15 +189,15 @@ export class ClassesService {
 
     async assignTeacher(classId: string, dto: AssignTeacherDto, caller: JwtPayload) {
         this.guardAdmin(caller);
-        const slug = caller.tenantId;
-        const db = this.supabase.getTenantClient(slug);
+        const tenantId = caller.tenantId;
+        const db = this.supabase.getTenantClient(tenantId);
 
         // Verify class belongs to caller's tenant
-        const { data: cls } = await db.from('classes').select('id').eq('id', classId).eq('tenant_id', slug).maybeSingle();
+        const { data: cls } = await db.from('classes').select('id').eq('id', classId).eq('tenant_id', tenantId).maybeSingle();
         if (!cls) throw new NotFoundException('Class not found in this school');
 
         // Verify teacher belongs to caller's tenant
-        const { data: tch } = await db.from('teachers').select('id').eq('id', dto.teacherId).eq('tenant_id', slug).maybeSingle();
+        const { data: tch } = await db.from('teachers').select('id').eq('id', dto.teacherId).eq('tenant_id', tenantId).maybeSingle();
         if (!tch) throw new NotFoundException('Teacher not found in this school');
 
         const { data, error } = await db
@@ -217,21 +217,21 @@ export class ClassesService {
             this.logger.error(`Failed to assign teacher: ${error.message}`);
             throw new InternalServerErrorException('Failed to assign teacher');
         }
-        await this.syncClassGroup(slug, classId);
+        await this.syncClassGroup(tenantId, classId);
         return data;
     }
 
     async removeTeacher(classId: string, teacherId: string, caller: JwtPayload) {
         this.guardAdmin(caller);
-        const slug = caller.tenantId;
-        const db = this.supabase.getTenantClient(slug);
+        const tenantId = caller.tenantId;
+        const db = this.supabase.getTenantClient(tenantId);
 
         // Verify class belongs to caller's tenant
-        const { data: cls } = await db.from('classes').select('id').eq('id', classId).eq('tenant_id', slug).maybeSingle();
+        const { data: cls } = await db.from('classes').select('id').eq('id', classId).eq('tenant_id', tenantId).maybeSingle();
         if (!cls) throw new NotFoundException('Class not found in this school');
 
         // Verify teacher belongs to caller's tenant
-        const { data: tch } = await db.from('teachers').select('id').eq('id', teacherId).eq('tenant_id', slug).maybeSingle();
+        const { data: tch } = await db.from('teachers').select('id').eq('id', teacherId).eq('tenant_id', tenantId).maybeSingle();
         if (!tch) throw new NotFoundException('Teacher not found in this school');
 
         const { error } = await db
@@ -244,7 +244,7 @@ export class ClassesService {
             this.logger.error(`Failed to remove teacher from class: ${error.message}`, error);
             throw new InternalServerErrorException('Failed to remove teacher from class');
         }
-        await this.syncClassGroup(slug, classId);
+        await this.syncClassGroup(tenantId, classId);
         return { message: 'Teacher removed from class' };
     }
 }

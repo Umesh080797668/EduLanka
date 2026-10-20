@@ -72,14 +72,14 @@ export class StudentsService {
 
     async enroll(dto: CreateStudentDto, caller: JwtPayload) {
         this.guardAdmin(caller);
-        const slug = caller.tenantId;
+        const tenantId = caller.tenantId;
 
         // Policy check: Enforce maxStudentsPerClass before creating accounts
         if (dto.classId && dto.classId.trim() !== '') {
-            await this.assertClassCapacity(slug, dto.classId);
+            await this.assertClassCapacity(tenantId, dto.classId);
         }
 
-        const db = this.supabase.getTenantClient(slug);
+        const db = this.supabase.getTenantClient(tenantId);
 
         // Step 1: Generate admission number if not provided (sequential & collision-safe)
         let admissionNo = dto.admissionNo?.trim();
@@ -120,7 +120,7 @@ export class StudentsService {
             authPayload.phone_confirm = true;
         } else {
             const normalizedAdmission = admissionNo.replace(/[^a-zA-Z0-9]/g, '_').toLowerCase();
-            identityEmail = `stu_${normalizedAdmission}@${slug}.internal.edulanka.lk`;
+            identityEmail = `stu_${normalizedAdmission}@${tenantId}.internal.edulanka.lk`;
             authPayload.email = identityEmail;
             authPayload.email_confirm = true;
         }
@@ -146,7 +146,7 @@ export class StudentsService {
                     user_id: authUid,
                     email: identityEmail ?? null,
                     full_name: dto.fullName,
-                    role: UserRole.STUDENT, tenant_id: slug,
+                    role: UserRole.STUDENT, tenant_id: tenantId,
                     phone_number: dto.phoneNumber ?? null,
                     avatar_url: dto.avatarUrl ?? null,
                 })
@@ -168,7 +168,7 @@ export class StudentsService {
                     date_of_birth: dto.dateOfBirth ?? null,
                     gender: dto.gender ?? null,
                     al_stream: dto.alStream ?? null,
-                    tenant_id: slug,
+                    tenant_id: tenantId,
                 })
                 .select('*')
                 .single();
@@ -187,8 +187,8 @@ export class StudentsService {
                 throw new InternalServerErrorException('Failed to enroll student: ' + studentErr.message);
             }
 
-            this.logger.log(`Enrolled student ${admissionNo} for tenant ${slug}`);
-            if (studentRow.class_id) await this.syncClassGroup(slug, studentRow.class_id);
+            this.logger.log(`Enrolled student ${admissionNo} for tenant ${tenantId}`);
+            if (studentRow.class_id) await this.syncClassGroup(tenantId, studentRow.class_id);
             studentRow.users = { full_name: userRow.full_name, email: userRow.email, phone_number: userRow.phone_number };
             return studentRow;
         } catch (err) {
@@ -201,8 +201,8 @@ export class StudentsService {
     }
 
     async findMe(caller: JwtPayload) {
-        const slug = caller.tenantId;
-        const db = this.supabase.getTenantClient(slug);
+        const tenantId = caller.tenantId;
+        const db = this.supabase.getTenantClient(tenantId);
 
         const { data: student, error } = await db.from('students').select('*').eq('user_id', caller.sub).maybeSingle();
         if (error || !student) throw new NotFoundException('Student profile not found');
@@ -219,8 +219,8 @@ export class StudentsService {
     }
 
     async findAll(caller: JwtPayload) {
-        const slug = caller.tenantId;
-        const db = this.supabase.getTenantClient(slug);
+        const tenantId = caller.tenantId;
+        const db = this.supabase.getTenantClient(tenantId);
 
         const { data, error } = await db
             .from('students')
@@ -247,8 +247,8 @@ export class StudentsService {
     }
 
     async findOne(id: string, caller: JwtPayload) {
-        const slug = caller.tenantId;
-        const db = this.supabase.getTenantClient(slug);
+        const tenantId = caller.tenantId;
+        const db = this.supabase.getTenantClient(tenantId);
 
         const { data, error } = await db
             .from('students')
@@ -274,8 +274,8 @@ export class StudentsService {
 
     async updateProfile(id: string, dto: UpdateStudentDto, caller: JwtPayload) {
         this.guardAdmin(caller);
-        const slug = caller.tenantId;
-        const db = this.supabase.getTenantClient(slug);
+        const tenantId = caller.tenantId;
+        const db = this.supabase.getTenantClient(tenantId);
 
         // Fetch student to get user_id
         const { data: studentRow } = await db
@@ -315,8 +315,8 @@ export class StudentsService {
 
     async assignToClass(id: string, dto: AssignClassDto, caller: JwtPayload) {
         this.guardAdmin(caller);
-        const slug = caller.tenantId;
-        const db = this.supabase.getTenantClient(slug);
+        const tenantId = caller.tenantId;
+        const db = this.supabase.getTenantClient(tenantId);
 
         const { data: currentStudent } = await db
             .from('students')
@@ -327,7 +327,7 @@ export class StudentsService {
         if (!currentStudent) throw new NotFoundException(`Student ${id} not found`);
 
         if (dto.classId && currentStudent.class_id !== dto.classId) {
-            await this.assertClassCapacity(slug, dto.classId);
+            await this.assertClassCapacity(tenantId, dto.classId);
         }
 
         const { data, error } = await db
@@ -343,7 +343,7 @@ export class StudentsService {
             throw new InternalServerErrorException('Failed to assign class');
         }
         if (!data) throw new NotFoundException(`Student ${id} not found`);
-        await this.syncClassGroup(slug, dto.classId);
+        await this.syncClassGroup(tenantId, dto.classId);
         return data;
     }
 
@@ -362,8 +362,8 @@ export class StudentsService {
 
     async deactivate(id: string, caller: JwtPayload) {
         this.guardAdmin(caller);
-        const slug = caller.tenantId;
-        const db = this.supabase.getTenantClient(slug);
+        const tenantId = caller.tenantId;
+        const db = this.supabase.getTenantClient(tenantId);
 
         const { data: studentRow } = await db.from('students').select('user_id').eq('id', id).maybeSingle();
         if (!studentRow) throw new NotFoundException(`Student ${id} not found`);

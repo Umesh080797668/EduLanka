@@ -11,14 +11,15 @@ export enum UserRole {
     ZONAL_OFFICER = 'ZONAL_OFFICER',
     MOE_OFFICER = 'MOE_OFFICER',
     SUPER_ADMIN = 'SUPER_ADMIN',
+    INDEPENDENT_LEARNER = 'INDEPENDENT_LEARNER',
 }
 
 /** JWT payload shape embedded in every access token. */
 export interface JwtPayload {
     sub: string; // user UUID
-    tenantId: string; // school tenant UUID
+    tenantId: string; // school tenant UUID (empty string or platform ID for independent learners)
     tenantSlug?: string;
-    tenantPlan?: 'COMMUNITY' | 'STARTER' | 'GROWTH' | 'INSTITUTIONAL'; // Tier-gated feature claims per P3-S1
+    tenantPlan?: 'COMMUNITY' | 'STARTER' | 'GROWTH' | 'INSTITUTIONAL' | 'FREE_INDIVIDUAL' | 'INDIVIDUAL_PRO' | 'INDIVIDUAL_PREMIUM'; // Tier-gated feature claims per P3-S1
     role: UserRole;
     email: string;
     type?: 'access' | 'refresh'; // token category

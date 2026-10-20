@@ -32,8 +32,8 @@ export class ParentsService {
 
     async create(dto: CreateParentDto, caller: JwtPayload) {
         this.guardAdmin(caller);
-        const slug = caller.tenantId;
-        const db = this.supabase.getTenantClient(slug);
+        const tenantId = caller.tenantId;
+        const db = this.supabase.getTenantClient(tenantId);
 
         const authPayload: any = {
             password: dto.temporaryPassword,
@@ -63,7 +63,7 @@ export class ParentsService {
                 .from('users')
                 .insert({
                     user_id: authUid,
-                    tenant_id: slug,
+                    tenant_id: tenantId,
                     email: dto.email || null,
                     full_name: dto.fullName,
                     phone_number: dto.phoneNumber || null,
@@ -86,8 +86,8 @@ export class ParentsService {
 
     async update(id: string, dto: UpdateParentDto, caller: JwtPayload) {
         this.guardAdmin(caller);
-        const slug = caller.tenantId;
-        const db = this.supabase.getTenantClient(slug);
+        const tenantId = caller.tenantId;
+        const db = this.supabase.getTenantClient(tenantId);
 
         const updates: any = {};
         if (dto.fullName) updates.full_name = dto.fullName;
@@ -115,8 +115,8 @@ export class ParentsService {
 
     async deactivate(parentUserId: string, caller: JwtPayload) {
         this.guardAdmin(caller);
-        const slug = caller.tenantId;
-        const db = this.supabase.getTenantClient(slug);
+        const tenantId = caller.tenantId;
+        const db = this.supabase.getTenantClient(tenantId);
 
         const { error } = await db
             .from('users')
@@ -132,8 +132,8 @@ export class ParentsService {
     }
 
     async getMe(caller: JwtPayload) {
-        const slug = caller.tenantId;
-        const db = this.supabase.getTenantClient(slug);
+        const tenantId = caller.tenantId;
+        const db = this.supabase.getTenantClient(tenantId);
 
         const { data: userData, error: userError } = await db
             .from('users')
@@ -143,36 +143,68 @@ export class ParentsService {
             .maybeSingle();
 
         if (userError) {
-            console.error("PARENTS_ERROR:", userError);
+            this.logger.error(`Failed to fetch parent profile: ${userError.message}`, userError);
             throw new InternalServerErrorException('Failed to fetch parent profile: ' + userError.message);
         }
         if (!userData) throw new NotFoundException('Parent profile not found');
 
         const { data: childrenData, error: childrenError } = await db
             .from('parents')
-            .select('student_id, students(id, admission_no, classes(grade, section, year), users(full_name, email))')
+            .select('student_id, user_id, students(id, admission_no, class_id, classes(grade, section, year), users(full_name, email))')
             .eq('user_id', caller.sub);
 
         if (childrenError) {
-            console.error("PARENTS_CHILDREN_ERROR:", childrenError);
-            // Non-fatal, just log it and fallback to empty array
+            this.logger.error(`Failed to fetch children for parent ${caller.sub}: ${childrenError.message}`, childrenError);
+            // Non-fatal: log and fall back to empty array
         }
+
+        // Enrich each child with a lightweight attendance summary.
+        // We query attendance per student and compute the attendance % inline.
+        // This is intentionally a best-effort enrichment: if the attendance query
+        // fails for a child, we fall back gracefully to null rather than failing
+        // the entire /parents/me response.
+        const enrichedChildren = await Promise.all(
+            (childrenData || []).map(async (pc: any) => {
+                const student = pc.students;
+                const grade = student?.classes
+                    ? `${student.classes.grade} ${student.classes.section}`
+                    : 'N/A';
+
+                let attendancePercentage: number | null = null;
+                try {
+                    const { data: attRecords } = await db
+                        .from('attendance')
+                        .select('status')
+                        .eq('student_id', pc.student_id)
+                        .in('status', ['PRESENT', 'ABSENT', 'LATE', 'EXCUSED']);
+
+                    if (attRecords && attRecords.length > 0) {
+                        const present = attRecords.filter((r: any) => r.status === 'PRESENT' || r.status === 'LATE').length;
+                        attendancePercentage = Math.round((present / attRecords.length) * 100);
+                    }
+                } catch {
+                    // Non-fatal: leave as null
+                }
+
+                return {
+                    id: pc.student_id,
+                    name: student?.users?.full_name ?? null,
+                    grade,
+                    gpa: null,           // Computed by Phase 5 analytics; not available in Phase 1–3
+                    attendance: attendancePercentage,
+                };
+            })
+        );
 
         return {
             users: { full_name: userData.full_name, email: userData.email },
-            children: (childrenData || []).map((pc: any) => ({
-                id: pc.student_id,
-                name: pc.students?.users?.full_name,
-                grade: pc.students?.classes ? `${pc.students.classes.grade} ${pc.students.classes.section}` : 'N/A',
-                gpa: null,
-                attendance: null
-            }))
+            children: enrichedChildren,
         };
     }
 
     async findAll(caller: JwtPayload) {
-        const slug = caller.tenantId;
-        const db = this.supabase.getTenantClient(slug);
+        const tenantId = caller.tenantId;
+        const db = this.supabase.getTenantClient(tenantId);
 
         const { data, error } = await db
             .from('users')
@@ -186,8 +218,8 @@ export class ParentsService {
 
     async findOne(parentUserId: string, caller: JwtPayload) {
         if (parentUserId === 'undefined') throw new NotFoundException('Invalid parent UUID format');
-        const slug = caller.tenantId;
-        const db = this.supabase.getTenantClient(slug);
+        const tenantId = caller.tenantId;
+        const db = this.supabase.getTenantClient(tenantId);
 
         const { data, error } = await db
             .from('users')
@@ -206,8 +238,8 @@ export class ParentsService {
 
     async getChildren(parentUserId: string, caller: JwtPayload) {
         if (parentUserId === 'undefined') throw new NotFoundException('Invalid parent UUID format');
-        const slug = caller.tenantId;
-        const db = this.supabase.getTenantClient(slug);
+        const tenantId = caller.tenantId;
+        const db = this.supabase.getTenantClient(tenantId);
 
         const { data, error } = await db
             .from('parents')
@@ -223,8 +255,8 @@ export class ParentsService {
 
     async linkToStudent(parentUserId: string, dto: LinkStudentDto, caller: JwtPayload) {
         this.guardAdmin(caller);
-        const slug = caller.tenantId;
-        const db = this.supabase.getTenantClient(slug);
+        const tenantId = caller.tenantId;
+        const db = this.supabase.getTenantClient(tenantId);
 
         // Verify parent user exists and has PARENT role
         const { data: parentUser } = await db
@@ -239,7 +271,7 @@ export class ParentsService {
         const { data, error } = await db
             .from('parents')
             .insert({
-                tenant_id: slug,
+                tenant_id: tenantId,
                 user_id: parentUserId,
                 student_id: dto.studentId,
                 relationship: dto.relationship ?? ParentRelationship.GUARDIAN,
@@ -260,8 +292,8 @@ export class ParentsService {
 
     async unlinkFromStudent(parentUserId: string, studentId: string, caller: JwtPayload) {
         this.guardAdmin(caller);
-        const slug = caller.tenantId;
-        const db = this.supabase.getTenantClient(slug);
+        const tenantId = caller.tenantId;
+        const db = this.supabase.getTenantClient(tenantId);
 
         const { error } = await db
             .from('parents')

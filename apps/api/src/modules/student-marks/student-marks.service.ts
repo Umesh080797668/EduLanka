@@ -26,8 +26,8 @@ export class StudentMarksService {
             throw new ForbiddenException('Only teachers and admins can enter marks');
         }
 
-        const slug = caller.tenantId;
-        const db = this.supabase.getTenantClient(slug);
+        const tenantId = caller.tenantId;
+        const db = this.supabase.getTenantClient(tenantId);
         const academicYear = dto.academicYear || new Date().getFullYear();
 
         // 1. Authorization: Verify teacher is assigned to the class
@@ -65,7 +65,7 @@ export class StudentMarksService {
         const { data: finalization } = await db
             .from('term_finalizations')
             .select('id, is_finalized')
-            .eq('tenant_id', slug)
+            .eq('tenant_id', tenantId)
             .eq('class_id', dto.classId)
             .eq('academic_year', academicYear)
             .eq('term', dto.term)
@@ -84,7 +84,7 @@ export class StudentMarksService {
         const { data, error } = await db
             .from('student_marks')
             .upsert({
-                tenant_id: slug,
+                tenant_id: tenantId,
                 student_id: dto.studentId,
                 class_id: dto.classId,
                 subject: dto.subject,
@@ -109,8 +109,8 @@ export class StudentMarksService {
             throw new ForbiddenException('Not allowed to view full class marks');
         }
 
-        const slug = caller.tenantId;
-        const db = this.supabase.getTenantClient(slug);
+        const tenantId = caller.tenantId;
+        const db = this.supabase.getTenantClient(tenantId);
         const academicYear = year || new Date().getFullYear();
 
         if (caller.role === UserRole.TEACHER) {
@@ -144,8 +144,8 @@ export class StudentMarksService {
     }
 
     async getMarksByStudent(studentId: string, caller: JwtPayload) {
-        const slug = caller.tenantId;
-        const db = this.supabase.getTenantClient(slug);
+        const tenantId = caller.tenantId;
+        const db = this.supabase.getTenantClient(tenantId);
 
         if (caller.role === UserRole.STUDENT) {
             const { data: stu } = await db.from('students').select('user_id').eq('id', studentId).maybeSingle();
@@ -173,14 +173,14 @@ export class StudentMarksService {
     }
 
     async getFinalizationStatus(classId: string, term: number, year: number, caller: JwtPayload) {
-        const slug = caller.tenantId;
-        const db = this.supabase.getTenantClient(slug);
+        const tenantId = caller.tenantId;
+        const db = this.supabase.getTenantClient(tenantId);
         const academicYear = year || new Date().getFullYear();
 
         const { data, error } = await db
             .from('term_finalizations')
             .select('*')
-            .eq('tenant_id', slug)
+            .eq('tenant_id', tenantId)
             .eq('class_id', classId)
             .eq('academic_year', academicYear)
             .eq('term', term)
@@ -202,8 +202,8 @@ export class StudentMarksService {
             throw new ForbiddenException('Only teachers and school admins can finalize terms');
         }
 
-        const slug = caller.tenantId;
-        const db = this.supabase.getTenantClient(slug);
+        const tenantId = caller.tenantId;
+        const db = this.supabase.getTenantClient(tenantId);
         const academicYear = year || new Date().getFullYear();
 
         if (caller.role === UserRole.TEACHER) {
@@ -226,7 +226,7 @@ export class StudentMarksService {
         const { data, error } = await db
             .from('term_finalizations')
             .upsert({
-                tenant_id: slug,
+                tenant_id: tenantId,
                 class_id: classId,
                 academic_year: academicYear,
                 term,
@@ -259,8 +259,8 @@ export class StudentMarksService {
             throw new ForbiddenException('Only school administrators can reopen finalized terms');
         }
 
-        const slug = caller.tenantId;
-        const db = this.supabase.getTenantClient(slug);
+        const tenantId = caller.tenantId;
+        const db = this.supabase.getTenantClient(tenantId);
         const academicYear = year || new Date().getFullYear();
         const now = new Date().toISOString();
 
@@ -272,7 +272,7 @@ export class StudentMarksService {
                 reopened_by: caller.sub,
                 updated_at: now,
             })
-            .eq('tenant_id', slug)
+            .eq('tenant_id', tenantId)
             .eq('class_id', classId)
             .eq('academic_year', academicYear)
             .eq('term', term)

@@ -64,8 +64,8 @@ export class UsersService {
 
     async create(dto: CreateUserDto, caller: JwtPayload) {
         this.guardAdmin(caller);
-        const slug = caller.tenantId;
-        const db = this.supabase.getTenantClient(slug);
+        const tenantId = caller.tenantId;
+        const db = this.supabase.getTenantClient(tenantId);
 
         // Disallow creating SUPER_ADMINs through this tenant endpoint
         if (dto.role === UserRole.SUPER_ADMIN) {
@@ -106,7 +106,7 @@ export class UsersService {
                 .from('users')
                 .insert({
                     user_id: authUid,
-                    tenant_id: slug,
+                    tenant_id: tenantId,
                     email: dto.email ?? null,
                     phone_number: dto.phoneNumber ?? null,
                     full_name: dto.fullName,
@@ -132,8 +132,8 @@ export class UsersService {
 
     async findAll(caller: JwtPayload, role?: string) {
         this.guardAdmin(caller);
-        const slug = caller.tenantId;
-        const db = this.supabase.getTenantClient(slug);
+        const tenantId = caller.tenantId;
+        const db = this.supabase.getTenantClient(tenantId);
 
         let query = db.from('users').select('*').order('created_at', { ascending: false });
         if (role) {
@@ -194,8 +194,8 @@ export class UsersService {
 
     async findOne(id: string, caller: JwtPayload) {
         this.guardAdmin(caller);
-        const slug = caller.tenantId;
-        const db = this.supabase.getTenantClient(slug);
+        const tenantId = caller.tenantId;
+        const db = this.supabase.getTenantClient(tenantId);
 
         const { data, error } = await db.from('users').select('*').eq('id', id).maybeSingle();
         if (error) throw new InternalServerErrorException('Failed to fetch user');
@@ -224,8 +224,8 @@ export class UsersService {
             return data;
         }
 
-        const slug = caller.tenantId;
-        const db = this.supabase.getTenantClient(slug);
+        const tenantId = caller.tenantId;
+        const db = this.supabase.getTenantClient(tenantId);
 
         const { data, error } = await db
             .from('users')

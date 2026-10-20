@@ -236,20 +236,25 @@ export class TenantService {
         const tenant = await this.findOneById(caller.tenantId, caller);
         const db = this.supabase.getTenantClient(tenant.id);
 
-        const [usersReq, classesReq] = await Promise.all([
+        const [usersReq, classesReq, policyReq] = await Promise.all([
             db.from('users').select('*', { count: 'exact', head: true }),
-            db.from('classes').select('*', { count: 'exact', head: true })
+            db.from('classes').select('*', { count: 'exact', head: true }),
+            this.supabase.adminClient
+                .from('school_policy')
+                .select('id', { count: 'exact', head: true })
+                .eq('tenant_id', tenant.id),
         ]);
 
         if (usersReq.error) this.logger.error('usersReq map err: ' + usersReq.error.message);
         if (classesReq.error) this.logger.error('classesReq map err: ' + classesReq.error.message);
+        if (policyReq.error) this.logger.warn('policyReq err: ' + policyReq.error.message);
 
         return {
             name: tenant.name,
             schoolName: tenant.name,
             users: usersReq.count || 0,
             classes: classesReq.count || 0,
-            policies: 0, // No specific policy table exists right now
+            policies: policyReq.count || 0,
             status: tenant.status === TenantStatus.ACTIVE ? 'Healthy' : tenant.status,
             disasterMode: Boolean(tenant.disasterMode),
             disasterReason: (tenant as any).disasterReason || null,

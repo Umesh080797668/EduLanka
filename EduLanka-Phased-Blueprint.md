@@ -1,6 +1,6 @@
 # EduLanka SaaS Platform — Phased Architecture & Roadmap Blueprint
 
-> **Revision note:** This blueprint has been updated to reflect changes made against the original design: (1) the database moved from schema-per-tenant to a single shared Supabase schema with `tenant_id` + Row-Level Security (see §4a); (2) pricing moved from a flat Free/Pro monthly fee to a per-active-student billing model, then revised again to a hybrid model combining a fixed Base Platform Fee with a Per-Active-Student Fee and explicit hard resource quotas (see §7); (3) the portal/role list was corrected to include all 8 portal types — Student, Parent, Teacher, School Admin, Zonal Office, **Provincial Office**, MoE, and System Admin — the Provincial Office Portal was previously missing from §2 and §5 despite the Provincial Education Dept already appearing in the org hierarchy (§1); and (4) **Disaster Mode was clarified and disambiguated from System Admin's platform-maintenance notices** — Disaster Mode is specifically the natural-disaster / sudden-school-closure emergency feature (floods, cyclones, landslides, MoE-declared closures), never platform downtime — and a natural-disaster feature thread was added phase-by-phase from Phase 2 through Phase 6 (closure taxonomy → offline readiness pack → grounded disaster FAQ → predictive closure alerts → national coordination dashboard). Sections below are marked "Revised" where they diverge from the original spec.
+> **Revision note:** This blueprint has been updated to reflect changes made against the original design: (1) the database moved from schema-per-tenant to a single shared Supabase schema with `tenant_id` + Row-Level Security (see §4a); (2) pricing moved from a flat Free/Pro monthly fee to a per-active-student billing model, then revised again to a hybrid model combining a fixed Base Platform Fee with a Per-Active-Student Fee and explicit hard resource quotas (see §7); (3) the portal/role list was corrected to include all 8 portal types — Student, Parent, Teacher, School Admin, Zonal Office, **Provincial Office**, MoE, and System Admin — the Provincial Office Portal was previously missing from §2 and §5 despite the Provincial Education Dept already appearing in the org hierarchy (§1); (4) **Disaster Mode was clarified and disambiguated from System Admin's platform-maintenance notices** — Disaster Mode is specifically the natural-disaster / sudden-school-closure emergency feature (floods, cyclones, landslides, MoE-declared closures), never platform downtime — and a natural-disaster feature thread was added phase-by-phase from Phase 2 through Phase 6 (closure taxonomy → offline readiness pack → grounded disaster FAQ → predictive closure alerts → national coordination dashboard); (5) **Independent Learner / Private Candidate access was introduced** — students who do not attend a school (e.g., home-educated, dropped-out, or adults re-sitting exams) and private G.C.E. O/L & A/L candidates can register as standalone users without any school affiliation, with their own free and paid individual pricing tiers (see §7d) and a dedicated Independent Learner Portal (see §5 and Phase 3); and (6) **EduLanka Sponsored Growth was introduced** — a profit-funded programme where EduLanka donates complimentary Growth or Institutional plan upgrades (for a month or a year) to deserving schools, and complimentary Individual Pro or Individual Premium upgrades to deserving independent learners, funded from platform profits rather than cross-subsidised by paying customers (see §9). Sections below are marked "Revised" where they diverge from the original spec.
 
 ## 1. System Vision & Sri Lankan Educational Taxonomy
 
@@ -47,14 +47,14 @@ The full vision spans roughly six independently hard products: a multi-tenant sc
 
 ## 4. Phase Roadmap Overview
 
-| Phase | Focus | Core Question It Answers |
-|---|---|---|
-| **Phase 1 — Foundation** | Core school management, auth, tenant model, static report cards | Can a single school run its daily admin on this? |
-| **Phase 2 — Communication** | Real-time chat, notices, Twilio SMS, Disaster Mode | Can the school communicate with parents reliably, even offline? |
-| **Phase 3 — Content & Mobile** | Flutter app, offline sync, video/resource hub, Paper Hub, Educational Blog & Discourse (Class/School/Platform), Prisma ORM | Can students/teachers use this without constant connectivity? |
-| **Phase 4 — Intelligence Foundations** | Meilisearch, Vector DB, Qwen Academic Assistant (RAG) | Can students get grounded, non-hallucinated AI tutoring? |
-| **Phase 5 — Predictive Layer** | Early Warning System, Exam Prediction, Smart Recommendations | Now that we have a year of real data, can we predict outcomes? |
-| **Phase 6 — Scale & Optimization** | Smart Timetabling, National Resource Marketplace, Ministry analytics | Can this run nationally across zones/provinces with MoE-level reporting? |
+| Phase | Status | Focus | Core Question It Answers |
+|---|---|---|---|
+| **Phase 1 — Foundation** | ✅ **Completed** | Core school management, auth, tenant model, static report cards | Can a single school run its daily admin on this? |
+| **Phase 2 — Communication** | ✅ **Completed** | Real-time chat, notices, Twilio SMS, Disaster Mode | Can the school communicate with parents reliably, even offline? |
+| **Phase 3 — Content & Mobile** | ✅ **Completed** | Flutter app, offline sync, video/resource hub, Paper Hub, Educational Blog & Discourse, Independent Learner Portal (basic), Prisma ORM | Can students/teachers — and learners outside school — use this without constant connectivity? |
+| **Phase 4 — Intelligence Foundations** | 🔲 *Upcoming* | Meilisearch, Vector DB, Qwen Academic Assistant (RAG), AI access for Independent Learners | Can students and private candidates get grounded, non-hallucinated AI tutoring? |
+| **Phase 5 — Predictive Layer** | 🔲 *Upcoming* | Early Warning System, Exam Prediction, Smart Recommendations, Sponsored Growth automation | Now that we have a year of real data, can we predict outcomes and give back to deserving learners? |
+| **Phase 6 — Scale & Optimization** | 🔲 *Upcoming* | Smart Timetabling, National Resource Marketplace, Ministry analytics, Independent Learner national leaderboard | Can this run nationally across zones/provinces with MoE-level reporting? |
 
 ---
 
@@ -118,9 +118,9 @@ The full vision spans roughly six independently hard products: a multi-tenant sc
 
 ---
 
-## Phase 3 — Content & Mobile (Flutter App, Web Parity & Online/Offline Sync)
+## Phase 3 — Content & Mobile (Flutter App, Web Parity, Online/Offline Sync & Independent Learner Portal) ✅ Completed
 
-**Goal:** Students and teachers can use EduLanka meaningfully both online and without constant connectivity — critical outside Colombo and during Disaster Mode.
+**Goal:** Students and teachers can use EduLanka meaningfully both online and without constant connectivity — critical outside Colombo and during Disaster Mode. This phase also opens the platform to **learners who have no school affiliation**, giving private candidates and out-of-school students their own independent access path.
 
 **Core Architecture & Cross-Platform Parity Principles:**
 - **Bidirectional Feature Parity (Web ↔ Mobile):** Every mobile feature exists in the web portal, and every web feature exists in the mobile application according to role. Teachers can mark attendance, review homework, author educational blogs, and chat on both web and mobile; students can access the Resource Hub, Paper Hub, Disaster Pack, and participate in blog discussions (comments, reactions, threaded replies) on both web and mobile.
@@ -156,25 +156,33 @@ The full vision spans roughly six independently hard products: a multi-tenant sc
 - **Disaster-Readiness Pack**: When a school's Phase 2 Disaster Mode is active, both web and mobile surface the emergency pack (contacts, shelter/relocation circulars, closure reason/duration, last 7 days of homework/resources). Mobile auto-caches it via background sync, app-open sync, and Phase 2 SMS backup.
 - Prisma ORM Pipeline: Background microservice for Super Admin aggregation queries, maintaining strict isolation from core RLS paths.
 - **Mobile-native tutorial system**: Bundled, offline-capable walkthroughs for the Flutter app matching web coach marks.
+- **Independent Learner Portal (Phase 3 baseline):** A dedicated registration and access path for learners with no school affiliation. Covers:
+  - **Who it serves:** Students who do not attend any school (home-educated, school dropouts returning to study, working adults re-sitting exams), and registered **private G.C.E. O/L and A/L candidates** who sit national exams independently.
+  - **Registration:** Independent sign-up flow (email/phone) with no `tenant_id` school binding. A dedicated `public.independent_learners` table (or `user_type = 'INDEPENDENT'` on `public.users`) with grade-stream self-declaration (O/L stream, A/L stream + subject combination, or general), and optional exam registration number for private O/L & A/L candidates.
+  - **Phase 3 access (Free Individual tier):** Read-only access to platform-wide Resource Hub content (blogs, videos, links published by Growth/Institutional schools), full Paper Hub access (past exam papers + marking schemes split-screen), and offline Flutter sync for downloaded papers and resources. No school-internal content (class chats, attendance, grades) is accessible — those remain school-tenant-scoped.
+  - **Phase 3 access (Individual Pro / Individual Premium tiers — see §7d):** Expanded storage quota, ad-free experience, priority content indexing, and early access to Phase 4 AI features once live.
+  - **Sponsored Growth eligibility:** Independent learners on the Free Individual tier are eligible for a complimentary upgrade to Individual Pro or Individual Premium via the EduLanka Sponsored Growth programme (see §9).
+  - **Tutorial system:** A dedicated first-run onboarding for independent learners explaining what content is available, how to filter by grade/subject/stream, and how to use the Paper Hub for self-study.
 
-**Explicitly deferred:** National Resource Marketplace (school-internal resource sharing only in this phase), AI assistant, gamification badges.
+**Explicitly deferred:** National Resource Marketplace (school-internal resource sharing only in this phase), AI assistant for independent learners (Phase 4), gamification badges.
 
-**Tech introduced:** Flutter/Dart (`apps/mobile`), Riverpod, Drift + SQLCipher (`sqlite3mc via build hooks`), `flutter_secure_storage`, Cloudinary chunked MP4 pipeline, FCM HTTP v1 push registry.
+**Tech introduced:** Flutter/Dart (`apps/mobile`), Riverpod, Drift + SQLCipher (`sqlite3mc via build hooks`), `flutter_secure_storage`, Cloudinary chunked MP4 pipeline, FCM HTTP v1 push registry, `public.independent_learners` table + `INDEPENDENT` user-type routing.
 
 ---
 
 ## Phase 4 — Intelligence Foundations (Qwen RAG Academic Assistant)
 
-**Goal:** Ship a grounded, non-hallucinating AI tutor scoped strictly to each school's approved curriculum — the first AI feature, and the one with the clearest immediate value per user.
+**Goal:** Ship a grounded, non-hallucinating AI tutor scoped strictly to approved Sri Lankan curriculum content — the first AI feature, and the one with the clearest immediate value per user. AI access extends to **Independent Learners** on paid individual tiers, giving private candidates exam-focused tutoring without needing school enrolment.
 
 **Scope:**
 - Meilisearch integration for fast lexical filtering (e.g., isolating notes for "Grade 11 Physics").
 - Dedicated Vector Database (Pinecone/Qdrant/Milvus) for semantic similarity search over chunked curriculum documents.
 - Retriever layer: combines, ranks, and injects retrieved context.
 - Qwen LLM integration via Python/FastAPI: answers generated strictly from retrieved context, not open-ended generation.
+- **AI for Independent Learners (Individual Pro & Individual Premium tiers):** Private O/L and A/L candidates get the same grounded Qwen RAG Academic Assistant scoped to their declared subject combination and grade stream — no school affiliation required. AI token quota is drawn from the individual tier's monthly allowance (see §7d). Free Individual tier users receive a limited preview quota (e.g., 5 AI queries/day) to experience the assistant before upgrading.
 - **Disaster FAQ Assistant** (grounded RAG use case): while a school's Disaster Mode is active, the Academic Assistant is additionally scoped to answer parent/student questions strictly from official MoE/Zonal closure circulars indexed for that event — a factual, rumor-resistant information channel during an actual emergency, still refusing to answer anything outside that grounded circular context.
-- **System Admin:** Indexing national curriculum documents into the Vector DB, monitoring RAG pipeline health, and auditing LLM API token costs.
-- **Assistant onboarding tutorial**: a short first-run walkthrough teaching students what the Academic Assistant can and can't do (curriculum-grounded only, not general-purpose chat), plus example prompts.
+- **System Admin:** Indexing national curriculum documents into the Vector DB, monitoring RAG pipeline health, and auditing LLM API token costs across both school-tenant and independent-learner usage pools.
+- **Assistant onboarding tutorial**: a short first-run walkthrough teaching students and independent learners what the Academic Assistant can and can't do (curriculum-grounded only, not general-purpose chat), plus example prompts tailored to self-study exam preparation.
 
 **Query flow:**
 
@@ -188,19 +196,21 @@ The full vision spans roughly six independently hard products: a multi-tenant sc
 
 ---
 
-## Phase 5 — Predictive Layer (Early Warning System & Exam Prediction)
+## Phase 5 — Predictive Layer (Early Warning System, Exam Prediction & Sponsored Growth Automation)
 
-**Goal:** Use the now-available historical data (a full term or year of attendance, homework completion, and assessment marks from Phases 1–4) to predict at-risk students and exam outcomes.
+**Goal:** Use the now-available historical data (a full term or year of attendance, homework completion, and assessment marks from Phases 1–4) to predict at-risk students and exam outcomes. Phase 5 also formalises the **EduLanka Sponsored Growth** allocation pipeline — automating the identification of deserving schools and independent learners eligible for complimentary plan upgrades, funded from platform profit snapshots (see §9).
 
 **Scope:**
 - Risk scoring pipeline (Scikit-learn/XGBoost): `Attendance ↓ + Homework Completion ↓ + Assessment Marks ↓ = High Risk Score`.
 - Teacher-facing intervention alerts (e.g., probability-of-failing notifications).
 - Exam Prediction: G.C.E. O/L, A/L, and Grade 5 Scholarship projections from historical term-test trajectories.
+- **Independent Learner Exam Prediction:** For private O/L & A/L candidates using the platform, a personalised prediction model based on their Paper Hub practice sessions, AI assistant query patterns, and self-reported mock-test results — no attendance data available, so the model uses alternative engagement signals.
 - Smart Recommendation Engine: on poor module performance, auto-curates resources from the internal Resource Hub (marketplace-wide recommendations wait for Phase 6).
 - **Disaster Impact Prediction**: correlates external weather/flood data (Department of Meteorology / Disaster Management Centre feeds) with the Phase 2 closure-reason history and attendance drop patterns to proactively flag schools likely to need a closure — an early alert to School Admins and Zonal Offices *before* conditions force a reactive Disaster Mode trigger, not just after.
 - Teacher Performance Analytics & Behaviour Analytics, and Parent Engagement Score.
-- **System Admin:** Auditing predictive model accuracy, tuning baseline risk-score thresholds, and monitoring ML compute infrastructure.
-- **Tutorials for interpreting predictive data**: teachers get a walkthrough on reading risk scores and intervention alerts responsibly (what the score means, what it doesn't mean); admins get one for Teacher Performance Analytics.
+- **Sponsored Growth Eligibility Pipeline (automated):** A monthly BullMQ job that (a) reads the platform's net-profit snapshot for the billing period, (b) if profit exceeds the configured `sponsorship_pool_threshold`, allocates a fraction of profit into the sponsorship pool, (c) scores schools and independent learners against eligibility criteria (engagement score, plan tier, geographic remoteness, exam vulnerability flag), and (d) surfaces a ranked nomination list in the System Admin portal for manual approval before grants are issued. Sponsorships are time-bounded (1 month or 1 year), tracked in `public.sponsored_grants`, and automatically expire — no perpetual entitlements. See §9 for the full programme rules.
+- **System Admin:** Auditing predictive model accuracy, tuning baseline risk-score thresholds, reviewing and approving Sponsored Growth nominations, and monitoring ML compute infrastructure.
+- **Tutorials for interpreting predictive data**: teachers get a walkthrough on reading risk scores and intervention alerts responsibly (what the score means, what it doesn't mean); admins get one for Teacher Performance Analytics; the System Admin gets one for the Sponsored Growth nomination dashboard.
 
 **Why this phase, not earlier:** This is the phase most dependent on prior phases actually being used — models trained on thin or synthetic data produce unreliable, potentially harmful predictions (e.g., wrongly flagging a student as high-risk). Sequencing it after a real data collection period is a deliberate risk-reduction choice, not a nice-to-have.
 
@@ -237,12 +247,13 @@ The full vision spans roughly six independently hard products: a multi-tenant sc
 | **Student Portal** | Access modules, class chats, offline video downloads, check grades, download papers, engage with class/school/platform blogs (comment, react, reply). | AI Academic Assistant (Qwen RAG, Ph.4). Achievement Badges & Interactive Digital Report Cards (Ph.6). |
 | **Parent Portal** | Track attendance, view report cards, receive SMS notices, chat with teachers. | Parent Engagement Score (Ph.5). |
 | **Teacher Portal** | Issue announcements, moderate chats, upload videos, track attendance, mark papers, author class/school/platform blogs, moderate discussions, reply to student queries. | Early Warning System, Teacher Performance Analytics, Behaviour Analytics (Ph.5). |
-| **School Admin** | Manage accounts, broadcast notices, audit chats, run SMS campaigns. | Smart Timetable Generator, School AI Insights (Ph.6). |
+| **School Admin** | Manage accounts, broadcast notices, audit chats, run SMS campaigns. | Smart Timetable Generator, School AI Insights (Ph.6). Sponsored Growth nomination visibility (Ph.5). |
+| **Independent Learner Portal** | *(Phase 3 — no school affiliation required)* Self-registration, grade/stream declaration, O/L & A/L private candidate flag. Free Individual: Platform-wide Resource Hub (read), Paper Hub (split-screen practice), offline paper sync. Individual Pro/Premium: expanded storage, priority indexing, offline video downloads. Eligible for Sponsored Growth upgrades. | AI Academic Assistant scoped to declared subject stream (Ph.4, paid tiers; limited daily preview on Free). Personalised Exam Prediction from practice-session signals (Ph.5). National resource discovery leaderboard (Ph.6). |
 | **Zonal Office Portal** | *(not active until Ph.6)* | Zone-level dashboards, local school audits, zone-level analytics (Ph.6). |
 | **Provincial Office Portal** | *(not active until Ph.6)* | Province-level roll-up of zonal dashboards (District ➔ Zone aggregation), provincial policy monitoring, cross-zone comparative analytics (Ph.6). |
 | **MoE Portal** | *(not active until Ph.6)* | National aggregate dashboards, universal emergency notices, MoE oversight (Ph.6). |
-| **System Admin Portal** | Provision schools, monitor CDN/SMS quotas, upload global tutorials/papers (Ph.1-3). | Manage Vector DB, audit AI models, monitor LLM costs and national scale (Ph.4-6). |
-| **Resource Hub & Educational Blog** | School-internal and platform-wide repository for teacher-authored blogs, videos, links, exam papers with marking schemes. Student/teacher comments, reactions, and threaded replies. | National Resource Marketplace (Ph.6). |
+| **System Admin Portal** | Provision schools, monitor CDN/SMS quotas, upload global tutorials/papers (Ph.1-3). | Manage Vector DB, audit AI models, monitor LLM costs; review & approve Sponsored Growth nominations for schools and independent learners (Ph.5-6). |
+| **Resource Hub & Educational Blog** | School-internal and platform-wide repository for teacher-authored blogs, videos, links, exam papers with marking schemes. Student/teacher comments, reactions, and threaded replies. Independent learners access platform-wide content. | National Resource Marketplace (Ph.6). |
 
 ## 6. Platform Architecture (Target State — Phase 6)
 
@@ -288,7 +299,7 @@ The diagram below represents the fully realized architecture; earlier phases imp
 └─────────────────────────────────────────────────────────────────────────────────┘
 ```
 
-## 7. Pricing Architecture — Revised: Hybrid Base Fee + Per-Active-Student (Replaces Flat Per-Student Model)
+## 7. Pricing Architecture — Revised: Hybrid Base Fee + Per-Active-Student + Individual Learner Tiers
 
 **This replaces the previous flat per-student-only model** (a straight LKR/student rate with an awkward "minimum monthly spend" bolted on to protect revenue on small schools). That model had two problems in practice: (1) the minimum-spend floor created an ugly overlap where a small Starter-tier school effectively paid the minimum regardless of actual student count, making the jump from Community's cap feel like an arbitrary penalty rather than a proportional step; and (2) a pure per-student rate doesn't separately account for the fixed infrastructure cost of onboarding a school at all (shared schema overhead, baseline CDN, teacher/admin usage of ML analytics) versus the marginal cost of each additional student row.
 
@@ -324,6 +335,22 @@ The diagram below represents the fully realized architecture; earlier phases imp
 
 **Why hybrid instead of pure per-student:** it ties EduLanka's revenue to *both* of the platform's real cost drivers — a fixed per-tenant infrastructure/support cost (Base Fee) and the marginal cost of active student rows and their associated data (marks, attendance, chat history, offline sync payloads, AI tokens — Active Student Fee). A small rural Type 3 school and a large Colombo 1AB national school both pay proportionally to their actual footprint and value received, and the awkward Community→Starter minimum-spend cliff is gone.
 
+### 7d. Individual / Independent Learner Pricing
+
+Independent learners (out-of-school students, private O/L & A/L candidates, home-educated learners, or adults re-sitting national exams) are billed as **individual users**, not as part of any school tenant. They have no `tenant_id` binding and are never counted in a school's active-student billing.
+
+| Tier | Monthly Fee | AI Tokens | Storage | What It Unlocks |
+|---|---|---|---|---|
+| **Free Individual** | LKR 0 | 5 AI queries / day (preview only, Ph.4+) | 200 MB | Platform-wide Resource Hub (read), full Paper Hub access (past papers + marking schemes, split-screen), offline paper/resource sync on mobile, platform blog reading & engagement (comments, reactions) |
+| **Individual Pro** | LKR 299 / month | 20,000 tokens / month | 2 GB | Everything in Free, plus: full unlimited AI Academic Assistant (Qwen RAG, subject-stream scoped), offline video downloads (encrypted MP4), priority content indexing, ad-free experience, personalised Exam Prediction signals (Ph.5+) |
+| **Individual Premium** | LKR 599 / month | 60,000 tokens / month | 8 GB | Everything in Individual Pro, plus: higher AI token allowance, unlimited offline video storage within quota, early access to new features, and inclusion in the national independent-learner leaderboard (Ph.6) |
+
+**Key rules for individual pricing:**
+- Teachers, parents, and school-enrolled students are **never** billed under the individual tiers — those roles remain school-tenant-billed.
+- A private O/L or A/L candidate who is also enrolled in a school (rare edge case) uses their school-tenant student account for school features and may separately hold an Individual account for self-study resources outside school hours — the two are tracked separately and never merged.
+- **EduLanka Sponsored Growth** can upgrade individual learners from Free Individual → Individual Pro or Individual Premium for a month or a year, funded from the platform's profit pool (see §9). Sponsored grants are tracked in `public.sponsored_grants` with `beneficiary_type = 'INDEPENDENT_LEARNER'`.
+- SMS notifications are not applicable to individual learners (no school-level Disaster Mode or parent-broadcast context). Push notifications via FCM are included for free.
+
 ### 7c. Billing Mechanics (Implementation Note)
 
 - **Active student count is cheap to compute.** Under the shared-schema model (§4a), it's a single query: `SELECT tenant_id, count(*) FROM public.students WHERE is_active = true GROUP BY tenant_id` — one pass across all tenants instead of N per-schema round-trips.
@@ -344,13 +371,146 @@ The diagram below represents the fully realized architecture; earlier phases imp
 - **Cross-cutting (all phases):** tour/coach-mark libraries (e.g., driver.js / Shepherd.js / react-joyride for web, tutorial_coach_mark or a custom overlay for Flutter), a central structured tutorial-content store (screen → steps → copy → media, translatable into Sinhala/Tamil/English), and bundled offline tutorial assets for mobile.
 
 
-### Later Enhancements 
+## 9. EduLanka Sponsored Growth Programme
+
+### Philosophy
+EduLanka Sponsored Growth is a deliberate, profit-funded social responsibility programme — not a discount, not a promotional gimmick, and not a loss leader cross-subsidised by paying customers. When EduLanka's monthly net profit exceeds a configured threshold, a fraction of that profit is voluntarily allocated into a **Sponsorship Pool**. From that pool, the platform donates time-bounded complimentary plan upgrades to:
+
+- **Schools** — a Growth or Institutional plan upgrade, free for **1 month or 1 year**, granted to a school that the platform (or the founder) identifies as deserving but unable to sustain the paid tier costs.
+- **Independent Learners** — an Individual Pro or Individual Premium upgrade, free for **1 month or 1 year**, granted to a learner (private O/L / A/L candidate, out-of-school student, or financially constrained self-learner) who has demonstrated genuine engagement but cannot afford a paid subscription.
+
+> **Key principle:** Sponsored Growth grants are never perpetual. Every grant has a defined end date. When it expires, the beneficiary gracefully reverts to their previous free tier — no surprise charges, no data loss, no service disruption.
+
+---
+
+### 9a. Who Is Eligible?
+
+#### Schools (Tenant-level grants)
+| Criteria | Notes |
+|---|---|
+| Currently on Community (Free) or Starter tier | Growth and Institutional schools already have premium access |
+| Demonstrated active usage | ≥ 70% of enrolled students/teachers active in the last 30 days |
+| Geographic remoteness or resource-constrained classification | Rural/estate sector schools, Type 3 schools, or schools flagged by the Zonal Office as underserved |
+| No outstanding unpaid invoices | Sponsored grants cannot clear existing debt — only forward-looking |
+| Not previously granted in the last 6 months | Prevents repeated reliance; encourages eventual self-sufficiency |
+
+The platform's automated eligibility pipeline (Phase 5 Sponsored Growth Pipeline) scores each qualifying school monthly and surfaces a ranked shortlist for System Admin review and manual approval. The founder retains the right to override the algorithm and grant sponsorships manually at any time.
+
+#### Independent Learners (Individual-level grants)
+| Criteria | Notes |
+|---|---|
+| Currently on Free Individual tier | Individual Pro or Premium learners already have paid access |
+| Demonstrated genuine engagement | ≥ 10 sessions in the last 30 days, or active Paper Hub use, or AI assistant interactions |
+| Private O/L or A/L candidate flag | Prioritised — exam-year learners face the tightest time constraint |
+| Geographic remoteness | Accounts registered from rural districts or estate-sector postal codes |
+| No prior sponsored grant in the last 6 months | Same anti-dependency rule as schools |
+
+The same eligibility pipeline scores independent learners using engagement signals (Paper Hub sessions, AI query volume on the 5-query daily free preview, content download counts) and surfaces a ranked shortlist alongside school nominations.
+
+---
+
+### 9b. Grant Types
+
+| Grant | Beneficiary | Plan Upgrade | Duration Options |
+|---|---|---|---|
+| **Sponsored Growth (School)** | School tenant | Community → Growth, or Starter → Growth, or any tier → Institutional | 1 month or 1 year |
+| **Sponsored Institutional (School)** | School tenant | Any tier → Institutional | 1 month or 1 year |
+| **Sponsored Pro (Individual)** | Independent Learner | Free Individual → Individual Pro | 1 month or 1 year |
+| **Sponsored Premium (Individual)** | Independent Learner | Free Individual or Pro → Individual Premium | 1 month or 1 year |
+
+---
+
+### 9c. Process Flow
+
+```text
+1. [Nightly billing job] → computes net profit for the period
+         ↓
+2. [Sponsorship threshold check] → if profit ≥ sponsorship_pool_threshold,
+   allocate sponsorship_pool_fraction% of profit into the Sponsorship Pool
+         ↓
+3. [Eligibility pipeline (monthly)] → scores schools & independent learners
+   against eligibility criteria → produces ranked shortlist
+         ↓
+4. [System Admin portal] → founder / System Admin reviews the shortlist,
+   may manually add or remove nominations, selects grant type + duration
+         ↓
+5. [Grant issuance] → INSERT INTO public.sponsored_grants
+   (beneficiary_type, beneficiary_id, from_plan, to_plan, granted_at,
+    expires_at, granted_by, sponsorship_pool_id)
+         ↓
+6. [Real-time plan override] → the billing engine reads sponsored_grants
+   at subscription-check time; if an active non-expired grant exists,
+   the tenant/learner receives the granted plan's features immediately
+         ↓
+7. [Expiry] → on expires_at, the grant record is soft-closed (is_active = false),
+   the beneficiary gracefully reverts to their prior free tier.
+   A 7-day warning notification is sent before expiry.
+         ↓
+8. [Audit trail] → all grants, approvals, overrides, and expirations are
+   logged in public.sponsored_grant_events for financial audit compliance.
+```
+
+---
+
+### 9d. Data Model
+
+```sql
+-- Sponsorship pool ledger (tracks where money comes from)
+CREATE TABLE public.sponsorship_pools (
+  id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  period_month    DATE NOT NULL,           -- first day of the billing month
+  net_profit_lkr  NUMERIC(12,2) NOT NULL,
+  pool_fraction   NUMERIC(5,4) NOT NULL,   -- e.g. 0.10 for 10%
+  pool_amount_lkr NUMERIC(12,2) NOT NULL,  -- = net_profit * pool_fraction
+  remaining_lkr   NUMERIC(12,2) NOT NULL,  -- decremented as grants are issued
+  created_at      TIMESTAMPTZ DEFAULT now()
+);
+
+-- Individual grant records
+CREATE TABLE public.sponsored_grants (
+  id               UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  pool_id          UUID REFERENCES public.sponsorship_pools(id),
+  beneficiary_type TEXT NOT NULL CHECK (beneficiary_type IN ('SCHOOL', 'INDEPENDENT_LEARNER')),
+  beneficiary_id   UUID NOT NULL,           -- tenant_id or independent_learner_id
+  from_plan        TEXT NOT NULL,           -- plan before grant
+  to_plan          TEXT NOT NULL,           -- plan during grant
+  granted_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
+  expires_at       TIMESTAMPTZ NOT NULL,
+  granted_by       UUID REFERENCES public.users(id),  -- System Admin user
+  estimated_cost_lkr NUMERIC(12,2),         -- value of features donated
+  is_active        BOOLEAN NOT NULL DEFAULT true,
+  notes            TEXT
+);
+
+-- Immutable audit event log
+CREATE TABLE public.sponsored_grant_events (
+  id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  grant_id   UUID REFERENCES public.sponsored_grants(id),
+  event_type TEXT NOT NULL,   -- GRANTED, EXPIRY_WARNING, EXPIRED, MANUAL_REVOKED
+  actor_id   UUID,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  metadata   JSONB
+);
+```
+
+---
+
+### 9e. Ethical Guardrails
+- **Funded from profit, not from paying customers.** The sponsorship pool is only drawn from net profit surplus — it is never funded by inflating prices to paying schools or learners.
+- **No perpetual dependency.** Maximum single grant duration is 1 year. After expiry, the beneficiary must re-qualify through the normal pipeline if they need continued support.
+- **No opaque favouritism.** Every grant is logged with `granted_by`, `notes`, and a clear `pool_id` reference. The founder can grant manually but the record is immutable and auditable.
+- **Graceful reversion.** On expiry, no data is deleted and no features are locked retroactively — the beneficiary loses access to paid-tier-only features going forward, but all their content (papers saved, blogs read, resources cached) remains intact on the free tier.
+- **Notification transparency.** Beneficiaries receive a clear notification when a grant is applied ("EduLanka has gifted you Individual Pro until [date]"), a 7-day expiry warning, and a kind expiry message explaining the programme and how to subscribe independently.
+
+---
+
+### Later Enhancements
 **1. National School Leaderboard & Analytics (Gamification)**
    - **Metrics Engine:** A nightly background worker (`Cron/BullMQ`) that synthesizes daily attendance arrays, assignment completion velocities, and standardized term test curves into a normalized "School Engagement Score" (SES).
-   - **Architecture:** Utilizing the ClickHouse OLAP cluster, cross-tenant telemetry is pulled seamlessly without degrading operational database performance. 
+   - **Architecture:** Utilizing the ClickHouse OLAP cluster, cross-tenant telemetry is pulled seamlessly without degrading operational database performance.
    - **UX:** A public or Ministry-level dashboard plotting the Top 50 schools nationally or provincially, granting awards (badges) that render on the School's profile across the mobile and web portals to encourage institutional competitiveness and transparency.
 
 **2. Inter-School Event Grids (Multi-Tenant Hubs)**
    - **Cross-Tenant Collaboration:** Breaking the rigid RLS isolation temporarily via `Event Hubs` where multiple `tenant_id` pools can register participants (now a straightforward RLS policy exception in the shared schema, rather than a cross-schema join).
-   - **Use Cases:** Regional sports meets, national debates, and inter-district hackathons. 
+   - **Use Cases:** Regional sports meets, national debates, and inter-district hackathons.
    - **Data Flow:** A specialized `public.events` global table that utilizes Foreign Keys tracking the `tenant_id` of the hosting school and JSONB arrays storing the `user_id` mapped identities of participating guest schools, generating universal QR tickets and global push notifications.

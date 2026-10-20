@@ -47,11 +47,15 @@ export class BillingService {
 
         const planMap = new Map((plans ?? []).map((p: any) => [p.code, p]));
 
-        // 2. Count active students per tenant in a single aggregation pass (§7c)
+        // 2. Count active students per tenant in a single aggregation pass (§7c).
+        // NOTE: `is_active` lives on `public.users`, NOT on `public.students`.
+        // We join through `users!inner` to filter only students whose linked user
+        // account is active — matching the same pattern used in the BEFORE INSERT
+        // cap trigger and the class-capacity assertion in StudentsService.
         const { data: studentCounts, error: studentErr } = await admin
             .from('students')
-            .select('tenant_id')
-            .eq('is_active', true);
+            .select('tenant_id, users!inner(is_active)')
+            .eq('users.is_active', true);
 
         if (studentErr) {
             this.logger.error(`Failed to aggregate active students: ${studentErr.message}`);
