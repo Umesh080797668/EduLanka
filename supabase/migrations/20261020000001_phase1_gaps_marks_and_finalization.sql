@@ -89,7 +89,8 @@ VALUES
     ('c0000000-0000-0000-0000-000000000022', 'SUPER_ADMIN', 'sys_storage'),
     ('c0000000-0000-0000-0000-000000000023', 'SUPER_ADMIN', 'sys_tenants'),
     ('c0000000-0000-0000-0000-000000000024', 'SUPER_ADMIN', 'sys_tutorials'),
-    ('c0000000-0000-0000-0000-000000000025', 'SUPER_ADMIN', 'sys_users')
+    ('c0000000-0000-0000-0000-000000000025', 'SUPER_ADMIN', 'sys_users'),
+    ('c0000000-0000-0000-0000-000000000026', 'STUDENT', 'student_homework')
 ON CONFLICT (role, screen_id) DO NOTHING;
 
 -- Seed steps for a selection of core screens
@@ -118,5 +119,21 @@ VALUES
      'Platform Analytics [Growth+]', 'පද්ධති විශ්ලේෂණ [Growth+]', 'தள பகுப்பாய்வு [Growth+]',
      'Monitor nationwide system utilization, active DAU/MAU metrics, and plan distribution.',
      'දීපව්‍යාප්ත පද්ධති භාවිතය, සක්‍රීය පරිශීලක දත්ත සහ සැලසුම් ව්‍යාප්තිය නිරීක්ෂණය කරන්න.',
-     'நாடு தழுவிய கணினி பயன்பாடு மற்றும் செயலில் உள்ள பயனர் அளவீடுகளை கண்காணிக்கவும்.')
+     'நாடு தழுவிய கணினி பயன்பாடு மற்றும் செயலில் உள்ள பயனர் அளவீடுகளை கண்காணிக்கவும்.'),
+    -- Student Homework Screen
+    ('c0000000-0000-0000-0000-000000000026', 1, '#student_homework_tabs', 'COMMUNITY',
+     'Assignment Tracker', 'පැවරුම් නිරීක්ෂකය', 'பணி கண்காணிப்பாளர்',
+     'Switch between pending assignments, submitted work, and all class tasks.',
+     'ඉතිරි පැවරුම්, ඉදිරිපත් කළ වැඩ සහ සියලුම පන්ති කාර්යයන් අතර මාරු වන්න.',
+     'நிலுவையில் உள்ள பணிகள், சமர்ப்பிக்கப்பட்ட பணிகள் மற்றும் அனைத்து வகுப்பு பணிகளுக்கும் இடையில் மாறவும்.'),
+    ('c0000000-0000-0000-0000-000000000026', 2, '#student_homework_search', 'COMMUNITY',
+     'Search & Filter', 'සෙවීම සහ පෙරීම', 'தேடல் மற்றும் வடிகட்டுதல்',
+     'Quickly locate specific assignments by keyword or filter by academic subject.',
+     'මූල පද හෝ විෂයයන් අනුව පහසුවෙන් පැවරුම් සොයා ගන්න.',
+     'முக்கிய சொல் அல்லது பாடத்தின் அடிப்படையில் பணிகளை எளிதாகக் கண்டறியவும்.'),
+    ('c0000000-0000-0000-0000-000000000026', 3, NULL, 'COMMUNITY',
+     'Submissions & Grades', 'ඉදිරිපත් කිරීම් සහ ලකුණු', 'சமர்ப்பிப்புகள் மற்றும் மதிப்பெண்கள்',
+     'Attach completed homework files or solution links, submit your work, and review teacher marks and feedback.',
+     'සම්පූර්ණ කරන ලද ගොනු හෝ සබැඳි අමුණා, ඔබගේ වැඩ ඉදිරිපත් කර ගුරු ප්‍රතිපෝෂණ සහ ලකුණු බලන්න.',
+     'முடிந்த பணிக் கோப்புகள் அல்லது இணைப்புகளை இணைத்து, சமர்ப்பித்து, ஆசிரியரின் மதிப்பெண்கள் மற்றும் கருத்துக்களைப் பார்க்கவும்.')
 ON CONFLICT (tutorial_id, step_order) DO NOTHING;

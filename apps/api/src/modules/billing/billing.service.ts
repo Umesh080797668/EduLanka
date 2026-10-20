@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException, BadRequestException, InternalServerErrorException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { SupabaseService } from '../supabase/supabase.service';
 import { calculateActiveStudentFee, BillingSnapshotRecord, UnpaidInvoicePolicyStatus } from './billing.types';
@@ -96,6 +96,13 @@ export class BillingService {
             .select('tenant_id, monthly_quota');
         const quotaMap = new Map((quotas ?? []).map((q: any) => [q.tenant_id, q.monthly_quota]));
 
+        // 5. Load existing snapshots for this billing month to prevent overwriting non-DRAFT (ISSUED, PAID, OVERDUE) rows
+        const { data: existingSnapshots } = await admin
+            .from('billing_snapshots')
+            .select('id, tenant_id, status')
+            .eq('billing_month', month);
+        const existingMap = new Map((existingSnapshots ?? []).map((s: any) => [s.tenant_id, s]));
+
         const overagePricePerSms = this.configService.get<number>('SMS_OVERAGE_PRICE_LKR') ?? 2;
         const results: BillingSnapshotRecord[] = [];
 
@@ -139,27 +146,62 @@ export class BillingService {
                 status: 'DRAFT',
             };
 
-            // Safe upsert: Update DRAFT snapshots only; never overwrite ISSUED or PAID invoices
-            const { error: upsertErr } = await admin
-                .from('billing_snapshots')
-                .upsert({
-                    tenant_id: tenant.id,
-                    billing_month: month,
-                    plan: planCode,
-                    active_student_count: activeStudents,
-                    base_fee_lkr: baseFeeLkr,
-                    per_student_fee_lkr: pricePerStudentLkr,
-                    sms_count: smsTotal,
-                    sms_overage_charge_lkr: smsOverageCharge,
-                    total_amount_lkr: totalAmountLkr,
-                    status: 'DRAFT',
-                    updated_at: new Date().toISOString(),
-                }, { onConflict: 'tenant_id,billing_month' });
+            const existing = existingMap.get(tenant.id);
+            if (existing) {
+                // NEVER overwrite finalized or invoiced rows (ISSUED, PAID, OVERDUE)
+                if (existing.status !== 'DRAFT') {
+                    this.logger.log(
+                        `Skipping snapshot update for tenant ${tenant.id} (${month}): invoice is locked with status ${existing.status}.`,
+                    );
+                    continue;
+                }
 
-            if (upsertErr) {
-                this.logger.warn(`Failed to upsert snapshot for tenant ${tenant.id}: ${upsertErr.message}`);
+                // Update only DRAFT snapshot
+                const { error: updateErr } = await admin
+                    .from('billing_snapshots')
+                    .update({
+                        plan: planCode,
+                        active_student_count: activeStudents,
+                        base_fee_lkr: baseFeeLkr,
+                        per_student_fee_lkr: pricePerStudentLkr,
+                        sms_count: smsTotal,
+                        sms_overage_charge_lkr: smsOverageCharge,
+                        total_amount_lkr: totalAmountLkr,
+                        updated_at: new Date().toISOString(),
+                    })
+                    .eq('id', existing.id)
+                    .eq('status', 'DRAFT');
+
+                if (updateErr) {
+                    this.logger.warn(`Failed to update DRAFT snapshot for tenant ${tenant.id}: ${updateErr.message}`);
+                } else {
+                    results.push({ ...snapshot, id: existing.id });
+                }
             } else {
-                results.push(snapshot);
+                // Insert new DRAFT snapshot
+                const { data: inserted, error: insertErr } = await admin
+                    .from('billing_snapshots')
+                    .insert({
+                        tenant_id: tenant.id,
+                        billing_month: month,
+                        plan: planCode,
+                        active_student_count: activeStudents,
+                        base_fee_lkr: baseFeeLkr,
+                        per_student_fee_lkr: pricePerStudentLkr,
+                        sms_count: smsTotal,
+                        sms_overage_charge_lkr: smsOverageCharge,
+                        total_amount_lkr: totalAmountLkr,
+                        status: 'DRAFT',
+                        updated_at: new Date().toISOString(),
+                    })
+                    .select('id')
+                    .maybeSingle();
+
+                if (insertErr) {
+                    this.logger.warn(`Failed to insert snapshot for tenant ${tenant.id}: ${insertErr.message}`);
+                } else {
+                    results.push({ ...snapshot, id: inserted?.id });
+                }
             }
         }
 
@@ -239,5 +281,113 @@ export class BillingService {
                 ? `Account has pending invoices in 14-day grace period (${graceDaysRemaining} days remaining). Please settle balance of LKR ${totalOverdue.toLocaleString()}.`
                 : `Account is locked due to overdue invoice past the 14-day grace period. Please contact administration.`,
         };
+    }
+
+    /**
+     * Issues a DRAFT invoice, making it finalized and official (DRAFT -> ISSUED).
+     */
+    async issueInvoice(id: string) {
+        const admin = this.supabase.adminClient;
+        const { data: existing, error: fetchErr } = await admin
+            .from('billing_snapshots')
+            .select('*')
+            .eq('id', id)
+            .maybeSingle();
+
+        if (fetchErr || !existing) {
+            throw new NotFoundException(`Invoice ${id} not found`);
+        }
+
+        if (existing.status !== 'DRAFT') {
+            throw new BadRequestException(`Only DRAFT invoices can be issued. Current status: ${existing.status}`);
+        }
+
+        const { data, error } = await admin
+            .from('billing_snapshots')
+            .update({
+                status: 'ISSUED',
+                updated_at: new Date().toISOString(),
+            })
+            .eq('id', id)
+            .eq('status', 'DRAFT')
+            .select()
+            .single();
+
+        if (error) {
+            throw new InternalServerErrorException(`Failed to issue invoice: ${error.message}`);
+        }
+        this.logger.log(`Invoice ${id} issued for tenant ${existing.tenant_id} (Month: ${existing.billing_month})`);
+        return data;
+    }
+
+    /**
+     * Marks an invoice as PAID upon settlement confirmation.
+     */
+    async markInvoicePaid(id: string) {
+        const admin = this.supabase.adminClient;
+        const { data: existing, error: fetchErr } = await admin
+            .from('billing_snapshots')
+            .select('*')
+            .eq('id', id)
+            .maybeSingle();
+
+        if (fetchErr || !existing) {
+            throw new NotFoundException(`Invoice ${id} not found`);
+        }
+
+        if (existing.status === 'PAID') {
+            return existing;
+        }
+
+        const { data, error } = await admin
+            .from('billing_snapshots')
+            .update({
+                status: 'PAID',
+                updated_at: new Date().toISOString(),
+            })
+            .eq('id', id)
+            .select()
+            .single();
+
+        if (error) {
+            throw new InternalServerErrorException(`Failed to mark invoice as paid: ${error.message}`);
+        }
+        this.logger.log(`Invoice ${id} marked as PAID for tenant ${existing.tenant_id}`);
+        return data;
+    }
+
+    /**
+     * Nightly job step: transitions ISSUED invoices that have exceeded 14 days without payment to OVERDUE.
+     */
+    async processOverdueInvoices(): Promise<number> {
+        const admin = this.supabase.adminClient;
+        const fourteenDaysAgo = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString();
+
+        const { data: overdueRows, error: fetchErr } = await admin
+            .from('billing_snapshots')
+            .select('id, tenant_id, total_amount_lkr')
+            .eq('status', 'ISSUED')
+            .lt('updated_at', fourteenDaysAgo);
+
+        if (fetchErr || !overdueRows || overdueRows.length === 0) {
+            return 0;
+        }
+
+        const ids = overdueRows.map((r: any) => r.id);
+        const { error: updateErr } = await admin
+            .from('billing_snapshots')
+            .update({
+                status: 'OVERDUE',
+                updated_at: new Date().toISOString(),
+            })
+            .in('id', ids);
+
+        if (updateErr) {
+            this.logger.error(`Failed to transition overdue invoices: ${updateErr.message}`);
+            return 0;
+        }
+
+        this.logger.warn(`Transitioned ${ids.length} issued invoices to OVERDUE status.`);
+        return ids.length;
     }
 }

@@ -1000,17 +1000,77 @@ abstract class AppLocalizations {
   /// **'Unpin Answer'**
   String get unpinAnswer;
 
+  /// No description provided for @academicDiscussions.
+  ///
+  /// In en, this message translates to:
+  /// **'Academic Discussions'**
+  String get academicDiscussions;
+
+  /// No description provided for @allNotices.
+  ///
+  /// In en, this message translates to:
+  /// **'All Notices'**
+  String get allNotices;
+
+  /// No description provided for @urgentAndEmergency.
+  ///
+  /// In en, this message translates to:
+  /// **'Urgent & Emergency'**
+  String get urgentAndEmergency;
+
+  /// No description provided for @regularNotices.
+  ///
+  /// In en, this message translates to:
+  /// **'Regular Notices'**
+  String get regularNotices;
+
+  /// No description provided for @reportCardDownloaded.
+  ///
+  /// In en, this message translates to:
+  /// **'Report Card (Term {term}) downloaded.'**
+  String reportCardDownloaded(int term);
+
+  /// No description provided for @failedToDownloadReportCard.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to download report card'**
+  String get failedToDownloadReportCard;
+
+  /// No description provided for @termNumber.
+  ///
+  /// In en, this message translates to:
+  /// **'Term {term}'**
+  String termNumber(int term);
+
   /// No description provided for @hideComment.
   ///
   /// In en, this message translates to:
   /// **'Hide Comment'**
   String get hideComment;
 
-  /// No description provided for @academicDiscussions.
+  /// No description provided for @unsyncedChanges.
   ///
   /// In en, this message translates to:
-  /// **'Academic Discussions'**
-  String get academicDiscussions;
+  /// **'Unsynced Changes'**
+  String get unsyncedChanges;
+
+  /// No description provided for @logOutAnyway.
+  ///
+  /// In en, this message translates to:
+  /// **'Log Out Anyway'**
+  String get logOutAnyway;
+
+  /// No description provided for @unsyncedChangesWarning.
+  ///
+  /// In en, this message translates to:
+  /// **'You have {count} unsynced offline change(s) in your outbox. Logging out will wipe the local database and these changes will be lost permanently.\n\nAre you sure you want to log out?'**
+  String unsyncedChangesWarning(int count);
+
+  /// No description provided for @viewPdf.
+  ///
+  /// In en, this message translates to:
+  /// **'VIEW PDF'**
+  String get viewPdf;
 }
 
 class _AppLocalizationsDelegate

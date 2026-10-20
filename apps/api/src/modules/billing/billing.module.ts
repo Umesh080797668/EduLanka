@@ -5,6 +5,8 @@ import { BillingController } from './billing.controller';
 import { BillingProcessor, BILLING_QUEUE_NAME } from './billing.processor';
 import { BillingService } from './billing.service';
 
+import { AccountLockGuard } from '../../common/guards/account-lock.guard';
+
 @Module({
     imports: [
         BullModule.registerQueue({
@@ -13,7 +15,7 @@ import { BillingService } from './billing.service';
         SupabaseModule,
     ],
     controllers: [BillingController],
-    providers: [BillingService, BillingProcessor],
-    exports: [BillingService],
+    providers: [BillingService, BillingProcessor, AccountLockGuard],
+    exports: [BillingService, AccountLockGuard],
 })
 export class BillingModule { }

@@ -49,10 +49,12 @@ export class BillingProcessor extends WorkerHost implements OnApplicationBootstr
         this.logger.log(`Processing billing job: ${job.name} (ID: ${job.id})`);
 
         if (job.name === 'nightly-billing-snapshot' || job.name === 'generate-snapshot') {
+            const overdueCount = await this.billingService.processOverdueInvoices();
             const result = await this.billingService.generateBillingSnapshots(job.data?.billingMonth);
             return {
                 success: true,
                 count: result.length,
+                overdueProcessed: overdueCount,
                 billingMonth: job.data?.billingMonth || new Date().toISOString().slice(0, 7),
             };
         }

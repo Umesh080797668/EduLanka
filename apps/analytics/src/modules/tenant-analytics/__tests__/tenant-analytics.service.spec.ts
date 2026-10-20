@@ -114,35 +114,23 @@ describe('TenantAnalyticsService', () => {
         expect(result[0].downloadableCount).toBe(15);
     });
 
-    it('should generate and write billing snapshots calculating overages', async () => {
-        mockPrisma.query
-            .mockResolvedValueOnce([
-                {
-                    tenantId: 't-1',
-                    plan: 'GROWTH',
-                    baseFeeLkr: 15000,
-                    pricePerStudentLkr: 50,
-                    activeStudentCount: 200,
-                    smsCount: 150, // 50 over quota (50 * 2 = 100)
-                },
-            ])
-            .mockResolvedValueOnce([]) // upsert query
-            .mockResolvedValueOnce([
-                {
-                    id: 'snap-1',
-                    tenantId: 't-1',
-                    tenantName: 'Royal College',
-                    billingMonth: '2026-10',
-                    plan: 'GROWTH',
-                    activeStudentCount: 200,
-                    baseFeeLkr: 15000,
-                    perStudentFeeLkr: 50,
-                    smsCount: 150,
-                    smsOverageChargeLkr: 100,
-                    totalAmountLkr: 25100, // 15000 + (200 * 50) + 100 = 25100
-                    status: 'DRAFT',
-                },
-            ]);
+    it('should retrieve billing snapshots centrally without duplicate writes (§7c)', async () => {
+        mockPrisma.query.mockResolvedValueOnce([
+            {
+                id: 'snap-1',
+                tenantId: 't-1',
+                tenantName: 'Royal College',
+                billingMonth: '2026-10',
+                plan: 'GROWTH',
+                activeStudentCount: 200,
+                baseFeeLkr: 15000,
+                perStudentFeeLkr: 50,
+                smsCount: 150,
+                smsOverageChargeLkr: 100,
+                totalAmountLkr: 25100, // 15000 + (200 * 50) + 100 = 25100
+                status: 'DRAFT',
+            },
+        ]);
 
         const result = await service.generateBillingSnapshots('2026-10');
         expect(result.length).toBe(1);

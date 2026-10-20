@@ -14,3 +14,15 @@ Object.defineProperty(window, 'matchMedia', {
         dispatchEvent: jest.fn(),
     })),
 });
+// Mock fetch for jsdom environment if not provided by Node
+if (typeof global.fetch === 'undefined') {
+    global.fetch = jest.fn(() =>
+        Promise.resolve({
+            ok: true,
+            status: 200,
+            json: async () => ({}),
+            text: async () => '',
+            headers: { get: () => null },
+        } as any),
+    );
+}

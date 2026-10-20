@@ -481,8 +481,45 @@ class AppLocalizationsSi extends AppLocalizations {
   String get unpinAnswer => 'පිළිතුර අන්පින් කරන්න';
 
   @override
+  String get academicDiscussions => 'ශාස්ත්‍රීය සංවාද';
+
+  @override
+  String get allNotices => 'සියලු නිවේදන';
+
+  @override
+  String get urgentAndEmergency => 'හදිසි සහ අත්‍යවශ්‍ය';
+
+  @override
+  String get regularNotices => 'සාමාන්‍ය නිවේදන';
+
+  @override
+  String reportCardDownloaded(int term) {
+    return 'වාර වාර්තාව ($term වාරය) බාගත කරන ලදී.';
+  }
+
+  @override
+  String get failedToDownloadReportCard =>
+      'වාර්තා පත්‍රිකාව බාගත කිරීම අසාර්ථක විය';
+
+  @override
+  String termNumber(int term) {
+    return '$term වාරය';
+  }
+
+  @override
   String get hideComment => 'අදහස සඟවන්න';
 
   @override
-  String get academicDiscussions => 'ශාස්ත්‍රීය සංවාද';
+  String get unsyncedChanges => 'සමමුහුර්ත නොකළ වෙනස්කම්';
+
+  @override
+  String get logOutAnyway => 'කෙසේ හෝ ඉවත් වන්න';
+
+  @override
+  String unsyncedChangesWarning(int count) {
+    return 'ඔබගේ පිටත ලිපිගොනුවෙහි සමමුහුර්ත නොකළ නොබැඳි වෙනස්කම් $count ක් ඇත. ඉවත් වීමෙන් දේශීය දත්ත සමුදාය මකා දැමෙන අතර මෙම වෙනස්කම් සදහටම අහිමි වනු ඇත.\n\nඔබට ඉවත් වීමට අවශ්‍ය බව සහතිකද?';
+  }
+
+  @override
+  String get viewPdf => 'PDF බලන්න';
 }

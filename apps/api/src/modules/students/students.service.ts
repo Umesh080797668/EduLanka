@@ -40,12 +40,19 @@ export class StudentsService {
             .eq('tenant_id', tenantId)
             .maybeSingle();
 
-        const limit = policy?.max_students_per_class ?? 40;
+        if (!policy || policy.max_students_per_class === null || policy.max_students_per_class === undefined) {
+            // If unset or unconfigured by school policy, do not enforce an arbitrary limit
+            return;
+        }
+
+        const limit = policy.max_students_per_class;
         const db = this.supabase.getTenantClient(tenantId);
+        // Only count active enrolled students against class capacity
         const { count, error } = await db
             .from('students')
-            .select('id', { count: 'exact', head: true })
-            .eq('class_id', classId);
+            .select('id, users!inner(is_active)', { count: 'exact', head: true })
+            .eq('class_id', classId)
+            .eq('users.is_active', true);
 
         if (error) {
             this.logger.error(`Failed to verify class capacity: ${error.message}`);

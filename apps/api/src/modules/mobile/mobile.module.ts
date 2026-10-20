@@ -4,6 +4,7 @@ import { Module } from '@nestjs/common';
 import { AppVersionGuard } from '../../common/guards/app-version.guard';
 import { SmsModule } from '../sms/sms.module';
 import { SupabaseModule } from '../supabase/supabase.module';
+import { TenantModule } from '../tenant/tenant.module';
 
 import { FcmProcessor } from './fcm.processor';
 import { MobileDisasterService } from './mobile-disaster.service';
@@ -18,6 +19,7 @@ import { SyncMaintenanceService } from './sync-maintenance.service';
     imports: [
         SupabaseModule,
         SmsModule,
+        TenantModule,
         BullModule.registerQueue({
             name: 'fcm-push',
         }),
@@ -43,4 +45,4 @@ import { SyncMaintenanceService } from './sync-maintenance.service';
         SyncMaintenanceService,
     ],
 })
-export class MobileModule {}
+export class MobileModule { }

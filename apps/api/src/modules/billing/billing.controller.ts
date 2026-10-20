@@ -46,4 +46,28 @@ export class BillingController {
     checkInvoiceStatus(@Param('tenantId', ParseUUIDPipe) tenantId: string) {
         return this.billingService.checkTenantInvoiceStatus(tenantId);
     }
+
+    @Post('snapshots/:id/issue')
+    @Roles(UserRole.SUPER_ADMIN)
+    @HttpCode(HttpStatus.OK)
+    @ApiOperation({ summary: 'Issue a DRAFT invoice to finalized ISSUED status (Super Admin only)' })
+    issueInvoice(@Param('id', ParseUUIDPipe) id: string) {
+        return this.billingService.issueInvoice(id);
+    }
+
+    @Post('snapshots/:id/pay')
+    @Roles(UserRole.SUPER_ADMIN)
+    @HttpCode(HttpStatus.OK)
+    @ApiOperation({ summary: 'Mark an ISSUED/OVERDUE invoice as PAID (Super Admin only)' })
+    markPaid(@Param('id', ParseUUIDPipe) id: string) {
+        return this.billingService.markInvoicePaid(id);
+    }
+
+    @Post('process-overdue')
+    @Roles(UserRole.SUPER_ADMIN)
+    @HttpCode(HttpStatus.OK)
+    @ApiOperation({ summary: 'Transition ISSUED invoices exceeding 14-day payment grace to OVERDUE' })
+    processOverdue() {
+        return this.billingService.processOverdueInvoices();
+    }
 }

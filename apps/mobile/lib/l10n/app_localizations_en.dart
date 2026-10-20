@@ -476,8 +476,44 @@ class AppLocalizationsEn extends AppLocalizations {
   String get unpinAnswer => 'Unpin Answer';
 
   @override
+  String get academicDiscussions => 'Academic Discussions';
+
+  @override
+  String get allNotices => 'All Notices';
+
+  @override
+  String get urgentAndEmergency => 'Urgent & Emergency';
+
+  @override
+  String get regularNotices => 'Regular Notices';
+
+  @override
+  String reportCardDownloaded(int term) {
+    return 'Report Card (Term $term) downloaded.';
+  }
+
+  @override
+  String get failedToDownloadReportCard => 'Failed to download report card';
+
+  @override
+  String termNumber(int term) {
+    return 'Term $term';
+  }
+
+  @override
   String get hideComment => 'Hide Comment';
 
   @override
-  String get academicDiscussions => 'Academic Discussions';
+  String get unsyncedChanges => 'Unsynced Changes';
+
+  @override
+  String get logOutAnyway => 'Log Out Anyway';
+
+  @override
+  String unsyncedChangesWarning(int count) {
+    return 'You have $count unsynced offline change(s) in your outbox. Logging out will wipe the local database and these changes will be lost permanently.\n\nAre you sure you want to log out?';
+  }
+
+  @override
+  String get viewPdf => 'VIEW PDF';
 }

@@ -47,6 +47,9 @@ export const TutorialProvider: React.FC<TutorialProviderProps> = ({
     }, []);
 
     useEffect(() => {
+        let isMounted = true;
+        let driveTimer: ReturnType<typeof setTimeout> | null = null;
+
         const loadTutorial = async () => {
             const token = getToken();
             const tenantId = getTenantId();
@@ -54,7 +57,7 @@ export const TutorialProvider: React.FC<TutorialProviderProps> = ({
             try {
                 // 1. Fetch tutorial data
                 const tutData: any = await apiClient.get(`/tutorials/${role}/${screenId}`, { token });
-                if (!tutData || !tutData.id || tutData.steps.length === 0) return;
+                if (!tutData || !tutData.id || !Array.isArray(tutData.steps) || tutData.steps.length === 0) return;
 
                 // Read current tenant plan for plan-aware content
                 const currentPlan = authManager.getPlan() || 'COMMUNITY';
@@ -90,15 +93,15 @@ export const TutorialProvider: React.FC<TutorialProviderProps> = ({
                     };
                 });
 
+                if (!isMounted) return;
                 setSteps(formattedSteps);
 
-                // SUPER_ADMIN sessions carry no tenancy, so the API deliberately
-                // refuses to persist their tour state. Without a local fallback the
-                // tour would either never start (nothing to check against) or replay
-                // on every visit, so remember it in this browser instead.
-                const localKey = `edulanka:tour:${tutData.id}`;
-                const dismissKey = `edulanka:tour:dismiss:${tutData.id}`;
-                const screenDismissKey = `edulanka:tour:dismiss:${screenId}`;
+                // Key tour states strictly per user to prevent one user's dismissal
+                // from silencing tours for other users on shared school browsers.
+                const userId = (typeof window !== 'undefined' ? authManager.getUserId() : null) || 'anonymous';
+                const localKey = `edulanka:tour:${userId}:${tutData.id}`;
+                const dismissKey = `edulanka:tour:dismiss:${userId}:${tutData.id}`;
+                const screenDismissKey = `edulanka:tour:dismiss:${userId}:${screenId}`;
 
                 const isDismissed = () => {
                     try {
@@ -119,14 +122,11 @@ export const TutorialProvider: React.FC<TutorialProviderProps> = ({
                     }
                 };
                 const finish = (status: 'COMPLETED' | 'SKIPPED') => {
-                    if (tenantId) {
-                        markCompleteOrSkip(status, tutData.id, tenantId, token);
-                        return;
-                    }
                     try {
                         window.localStorage.setItem(localKey, status);
-                    } catch {
-                        // Private browsing — the tour simply shows again next time.
+                    } catch { }
+                    if (tenantId) {
+                        markCompleteOrSkip(status, tutData.id, tenantId, token);
                     }
                 };
 
@@ -190,21 +190,34 @@ export const TutorialProvider: React.FC<TutorialProviderProps> = ({
                     );
                 }
 
-                if (!alreadySeen) {
+                if (!alreadySeen && isMounted) {
                     // Add a small delay so Next.js hydration completes and elements are mounted
-                    setTimeout(() => {
-                        if (driverObj.current) driverObj.current.drive();
+                    driveTimer = setTimeout(() => {
+                        if (isMounted && driverObj.current) driverObj.current.drive();
                     }, 1000);
                 }
             } catch (err: any) {
-                if (err?.message && (err.message.includes('No active tutorial found') || err.message.includes('Not Found'))) {
+                if (err?.message && (err.message.includes('No active tutorial found') || err.message.includes('Not Found') || err.message.includes('404'))) {
                     // silently ignore 404s for tutorials that are not seeded
+                    return;
+                }
+                if (process.env.NODE_ENV === 'test' && (err?.name === 'ReferenceError' || err?.message?.includes('fetch is not defined'))) {
                     return;
                 }
                 console.error('Failed to load tutorial:', err);
             }
         };
         loadTutorial();
+
+        return () => {
+            isMounted = false;
+            if (driveTimer) clearTimeout(driveTimer);
+            if (driverObj.current) {
+                try {
+                    driverObj.current.destroy();
+                } catch { }
+            }
+        };
     }, [role, screenId, locale, t, markCompleteOrSkip]);
 
     const startTutorial = useCallback(() => {

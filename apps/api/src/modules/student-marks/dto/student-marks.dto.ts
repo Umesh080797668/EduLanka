@@ -24,8 +24,10 @@ export class CreateMarkDto {
     @Max(3)
     term: number;
 
-    @ApiProperty({ description: 'Academic Year' })
+    @ApiProperty({ description: 'Academic Year', example: 2026 })
     @IsInt()
+    @Min(2000)
+    @Max(2100)
     academicYear: number;
 
     @ApiProperty({ description: 'Marks obtained (0-100)' })

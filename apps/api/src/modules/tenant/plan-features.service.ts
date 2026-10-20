@@ -122,7 +122,7 @@ export class PlanFeaturesService {
         try {
             const query = this.supabase?.adminClient?.from?.('tenants');
             if (!query || typeof query.select !== 'function') {
-                return 'STARTER';
+                return 'COMMUNITY';
             }
             const { data, error } = await query
                 .select('plan')
@@ -130,12 +130,12 @@ export class PlanFeaturesService {
                 .maybeSingle();
 
             if (error || !data?.plan) {
-                // If unseeded / unmocked in a test, default to STARTER so standard tests proceed
-                return 'STARTER';
+                // Fail closed: Never unlock paid features during database hiccups or missing records
+                return 'COMMUNITY';
             }
             return data.plan;
         } catch {
-            return 'STARTER';
+            return 'COMMUNITY';
         }
     }
 

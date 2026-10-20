@@ -17,6 +17,7 @@ jest.mock('@/lib/auth-store', () => ({
 }));
 
 jest.mock('next-intl', () => ({
+    useLocale: jest.fn(() => 'en'),
     useTranslations: jest.fn(() => (key: string) => {
         const dictionary: Record<string, string> = {
             title: 'Deactivation Inquiries',

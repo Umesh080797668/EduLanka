@@ -186,13 +186,17 @@ class _GradesScreenState extends ConsumerState<GradesScreen> {
       await file.writeAsBytes(pdfBytes);
 
       if (!mounted) return;
+      final l10n = AppLocalizations.of(context);
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Report Card (Term $_selectedTerm) downloaded.'),
+          content: Text(
+            l10n?.reportCardDownloaded(_selectedTerm) ??
+                'Report Card (Term $_selectedTerm) downloaded.',
+          ),
           backgroundColor: const Color(0xFF10B981),
           action: SnackBarAction(
-            label: 'VIEW PDF',
+            label: l10n?.viewPdf ?? 'VIEW PDF',
             textColor: Colors.white,
             onPressed: () {
               context.push(
@@ -208,9 +212,12 @@ class _GradesScreenState extends ConsumerState<GradesScreen> {
       );
     } catch (e) {
       if (mounted) {
+        final l10n = AppLocalizations.of(context);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Failed to download report card: ${e.toString()}'),
+            content: Text(
+              '${l10n?.failedToDownloadReportCard ?? "Failed to download report card"}: ${e.toString()}',
+            ),
             backgroundColor: const Color(0xFFEF4444),
           ),
         );
@@ -337,10 +344,19 @@ class _GradesScreenState extends ConsumerState<GradesScreen> {
                     Expanded(
                       flex: 2,
                       child: SegmentedButton<int>(
-                        segments: const [
-                          ButtonSegment<int>(value: 1, label: Text('Term 1')),
-                          ButtonSegment<int>(value: 2, label: Text('Term 2')),
-                          ButtonSegment<int>(value: 3, label: Text('Term 3')),
+                        segments: [
+                          ButtonSegment<int>(
+                            value: 1,
+                            label: Text(l10n?.termNumber(1) ?? 'Term 1'),
+                          ),
+                          ButtonSegment<int>(
+                            value: 2,
+                            label: Text(l10n?.termNumber(2) ?? 'Term 2'),
+                          ),
+                          ButtonSegment<int>(
+                            value: 3,
+                            label: Text(l10n?.termNumber(3) ?? 'Term 3'),
+                          ),
                         ],
                         selected: {_selectedTerm},
                         onSelectionChanged: (set) {

@@ -123,16 +123,16 @@ export class NoticesService {
 
         // Policy check: Enforce school policy sms_enabled
         if (send_sms) {
-            const query = adminClient
+            const { data: policy, error: polErr } = await adminClient
                 .from('school_policy')
                 .select('sms_enabled')
-                .eq('tenant_id', tenantId);
+                .eq('tenant_id', tenantId)
+                .maybeSingle();
 
-            const { data: policy } = typeof (query as any)?.maybeSingle === 'function'
-                ? await (query as any).maybeSingle()
-                : typeof (query as any)?.single === 'function'
-                    ? await (query as any).single()
-                    : { data: null };
+            if (polErr) {
+                this.logger.warn(`Failed to verify school SMS policy: ${polErr.message}`);
+                throw new BadRequestException('Could not verify school SMS policy.');
+            }
 
             if (policy && policy.sms_enabled === false) {
                 throw new BadRequestException('SMS notifications are disabled by school policy.');
@@ -524,15 +524,15 @@ export class NoticesService {
                 let sendSms = false;
                 if (tenant.plan !== 'COMMUNITY' && Boolean(request.send_sms)) {
                     try {
-                        const polQuery = db.from('school_policy').select('sms_enabled').eq('tenant_id', tenant.id);
-                        const polRes = typeof (polQuery as any)?.maybeSingle === 'function'
-                            ? await (polQuery as any).maybeSingle()
-                            : typeof (polQuery as any)?.single === 'function'
-                                ? await (polQuery as any).single()
-                                : { data: null };
-                        sendSms = polRes?.data ? polRes.data.sms_enabled !== false : true;
+                        const { data: policy } = await db
+                            .from('school_policy')
+                            .select('sms_enabled')
+                            .eq('tenant_id', tenant.id)
+                            .maybeSingle();
+                        sendSms = policy ? policy.sms_enabled !== false : true;
                     } catch {
-                        sendSms = true;
+                        // Fail closed: Do NOT send SMS if policy lookup throws
+                        sendSms = false;
                     }
                 }
 

@@ -487,8 +487,45 @@ class AppLocalizationsTa extends AppLocalizations {
   String get unpinAnswer => 'பதிலை அன்பின் செய்யவும்';
 
   @override
+  String get academicDiscussions => 'கல்வி விவாதங்கள்';
+
+  @override
+  String get allNotices => 'அனைத்து அறிவிப்புகள்';
+
+  @override
+  String get urgentAndEmergency => 'அவசரம் மற்றும் முக்கியம்';
+
+  @override
+  String get regularNotices => 'வழக்கமான அறிவிப்புகள்';
+
+  @override
+  String reportCardDownloaded(int term) {
+    return 'மதிப்பெண் அறிக்கை ($term ஆம் தவணை) பதிவிறக்கப்பட்டது.';
+  }
+
+  @override
+  String get failedToDownloadReportCard =>
+      'மதிப்பெண் அறிக்கையை பதிவிறக்க முடியவில்லை';
+
+  @override
+  String termNumber(int term) {
+    return '$term ஆம் தவணை';
+  }
+
+  @override
   String get hideComment => 'கருத்தை மறைக்கவும்';
 
   @override
-  String get academicDiscussions => 'கல்வி விவாதங்கள்';
+  String get unsyncedChanges => 'ஒத்திசைக்கப்படாத மாற்றங்கள்';
+
+  @override
+  String get logOutAnyway => 'இருப்பினும் வெளியேறவும்';
+
+  @override
+  String unsyncedChangesWarning(int count) {
+    return 'உங்கள் வெளிப்பெட்டியில் $count ஒத்திசைக்கப்படாத ஆஃப்லைன் மாற்றங்கள் உள்ளன. வெளியேறுவது உள்ளூர் தரவுத்தளத்தை அழிக்கும், மேலும் இந்த மாற்றங்கள் நிரந்தரமாக இழக்கப்படும்.\n\nநிச்சயமாக வெளியேற விரும்புகிறீர்களா?';
+  }
+
+  @override
+  String get viewPdf => 'PDF பார்க்க';
 }

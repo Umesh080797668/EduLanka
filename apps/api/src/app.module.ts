@@ -6,6 +6,7 @@ import { APP_GUARD } from '@nestjs/core';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import * as Joi from 'joi';
 
+import { AccountLockGuard } from './common/guards/account-lock.guard';
 import { AppVersionGuard } from './common/guards/app-version.guard';
 import { HttpLoggerMiddleware } from './common/middleware/http-logger.middleware';
 import { TenantContextMiddleware } from './common/middleware/tenant-context.middleware';
@@ -165,6 +166,10 @@ import { UsersModule } from './modules/users/users.module';
         {
             provide: APP_GUARD,
             useClass: AppVersionGuard,
+        },
+        {
+            provide: APP_GUARD,
+            useClass: AccountLockGuard,
         },
     ],
 })

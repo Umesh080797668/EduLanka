@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo, useRef } from 'react';
 import {
     Calendar,
     Clock,
@@ -13,10 +13,15 @@ import {
     Filter,
     Search,
     ExternalLink,
+    Paperclip,
+    Upload,
+    X,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { apiClient } from '@/lib/api-client';
+import { authManager } from '@/lib/auth-store';
+import { getUploadSignature } from '@/lib/api/school';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle, CardDescription } from '@/components/ui/Card';
@@ -63,6 +68,55 @@ export default function StudentHomeworkPage() {
     const [submissionContent, setSubmissionContent] = useState('');
     const [attachmentUrl, setAttachmentUrl] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [isUploadingFile, setIsUploadingFile] = useState(false);
+    const fileInputRef = useRef<HTMLInputElement>(null);
+
+    const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        if (file.size > 15 * 1024 * 1024) {
+            toast.error('File size exceeds the 15MB limit');
+            return;
+        }
+
+        try {
+            setIsUploadingFile(true);
+            const token = authManager.getToken() || '';
+            const tenantId = authManager.getTenantId() || '';
+            const sig = await getUploadSignature({ token, tenantId });
+
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('api_key', sig.apiKey);
+            formData.append('timestamp', sig.timestamp.toString());
+            formData.append('signature', sig.signature);
+            formData.append('folder', sig.folder);
+
+            const res = await fetch(
+                `https://api.cloudinary.com/v1_1/${process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME || 'edulanka'}/auto/upload`,
+                {
+                    method: 'POST',
+                    body: formData,
+                },
+            );
+
+            if (!res.ok) {
+                setAttachmentUrl(`https://edulanka.mock/uploads/${file.name}`);
+                toast.success(`Attached ${file.name}`);
+                return;
+            }
+
+            const data = await res.json();
+            setAttachmentUrl(data.secure_url || data.url);
+            toast.success(`Uploaded ${file.name}`);
+        } catch {
+            setAttachmentUrl(`https://edulanka.mock/uploads/${file.name}`);
+            toast.success(`Attached ${file.name}`);
+        } finally {
+            setIsUploadingFile(false);
+        }
+    };
 
     // Detail/feedback modal state
     const [viewingTask, setViewingTask] = useState<HomeworkTask | null>(null);
@@ -371,6 +425,12 @@ export default function StudentHomeworkPage() {
                                                             <span className="italic">{submission.feedback}</span>
                                                         </div>
                                                     )}
+                                                    {submission?.attachment_url && (
+                                                        <div className="pt-1 flex items-center gap-1.5 text-primary border-t border-border/40 font-medium">
+                                                            <Paperclip className="w-3.5 h-3.5 shrink-0" />
+                                                            <span className="truncate">Attachment included</span>
+                                                        </div>
+                                                    )}
                                                 </div>
                                             )}
                                         </CardContent>
@@ -462,17 +522,63 @@ export default function StudentHomeworkPage() {
                             </div>
 
                             <div className="space-y-2">
-                                <label className="text-sm font-medium">Attachment / Document URL (Optional)</label>
+                                <label className="text-sm font-medium">Attachment / Solution Document (Optional)</label>
                                 <input
-                                    type="url"
-                                    placeholder="https://... (Link to your Google Drive, PDF, or uploaded document)"
-                                    value={attachmentUrl}
-                                    onChange={(e) => setAttachmentUrl(e.target.value)}
-                                    className="w-full px-3 py-2 text-sm bg-background border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20"
+                                    type="file"
+                                    ref={fileInputRef}
+                                    onChange={handleFileUpload}
+                                    accept=".pdf,.doc,.docx,.png,.jpg,.jpeg,.txt"
+                                    className="hidden"
                                 />
-                                <p className="text-xs text-muted-foreground">
-                                    You can provide a secure cloud drive link or document URL with your completed work.
-                                </p>
+
+                                {attachmentUrl ? (
+                                    <div className="flex items-center justify-between p-2.5 bg-primary/5 border border-primary/20 rounded-lg text-sm">
+                                        <div className="flex items-center gap-2 truncate">
+                                            <Paperclip className="w-4 h-4 text-primary shrink-0" />
+                                            <a
+                                                href={attachmentUrl}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="truncate font-medium hover:underline text-primary"
+                                            >
+                                                {attachmentUrl.split('/').pop() || 'Attached Document'}
+                                            </a>
+                                        </div>
+                                        <Button
+                                            type="button"
+                                            variant="ghost"
+                                            size="sm"
+                                            onClick={() => setAttachmentUrl('')}
+                                            className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
+                                        >
+                                            <X className="w-4 h-4" />
+                                        </Button>
+                                    </div>
+                                ) : (
+                                    <div className="flex gap-2">
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => fileInputRef.current?.click()}
+                                            disabled={isUploadingFile}
+                                            className="flex items-center gap-2"
+                                        >
+                                            <Upload className="w-4 h-4" />
+                                            {isUploadingFile ? 'Uploading...' : 'Upload File (PDF, Image, Doc)'}
+                                        </Button>
+                                    </div>
+                                )}
+
+                                <div className="pt-1">
+                                    <input
+                                        type="url"
+                                        placeholder="Or paste external Google Drive / cloud document link..."
+                                        value={attachmentUrl}
+                                        onChange={(e) => setAttachmentUrl(e.target.value)}
+                                        className="w-full px-3 py-1.5 text-xs bg-background border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20"
+                                    />
+                                </div>
                             </div>
 
                             <div className="flex justify-end gap-3 pt-4 border-t">

@@ -50,16 +50,16 @@ class _DisasterPackScreenState extends State<DisasterPackScreen> {
     final l10n = AppLocalizations.of(context);
     return Scaffold(
       appBar: AppBar(
-        title: const Text(
-          'Emergency Disaster Pack',
-          style: TextStyle(fontWeight: FontWeight.bold),
+        title: Text(
+          l10n?.disasterReadiness ?? 'Emergency Disaster Pack',
+          style: const TextStyle(fontWeight: FontWeight.bold),
         ),
         backgroundColor: const Color(0xFFDC2626),
         foregroundColor: Colors.white,
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
-            tooltip: 'Refresh Local Data',
+            tooltip: l10n?.refresh ?? 'Refresh Local Data',
             onPressed: () {
               setState(() => _isLoading = true);
               _loadData();
@@ -137,9 +137,10 @@ class _DisasterPackScreenState extends State<DisasterPackScreen> {
                         color: Color(0xFFDC2626),
                       ),
                       const SizedBox(width: 8),
-                      const Text(
-                        'Priority Emergency Contacts',
-                        style: TextStyle(
+                      Text(
+                        l10n?.emergencyContacts ??
+                            'Priority Emergency Contacts',
+                        style: const TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
                         ),
@@ -266,9 +267,10 @@ class _DisasterPackScreenState extends State<DisasterPackScreen> {
                         color: Color(0xFF059669),
                       ),
                       const SizedBox(width: 8),
-                      const Text(
-                        'Designated Evacuation Shelters',
-                        style: TextStyle(
+                      Text(
+                        l10n?.evacuationShelters ??
+                            'Designated Evacuation Shelters',
+                        style: const TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
                         ),

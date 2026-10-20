@@ -205,7 +205,7 @@ class _NoticesScreenState extends ConsumerState<NoticesScreen> {
             child: Row(
               children: [
                 ChoiceChip(
-                  label: const Text('All Notices'),
+                  label: Text(l10n?.allNotices ?? 'All Notices'),
                   selected: _selectedPriority == 'ALL',
                   onSelected: (selected) {
                     if (selected) setState(() => _selectedPriority = 'ALL');
@@ -213,7 +213,7 @@ class _NoticesScreenState extends ConsumerState<NoticesScreen> {
                 ),
                 const SizedBox(width: 8),
                 ChoiceChip(
-                  label: const Text('Urgent & Emergency'),
+                  label: Text(l10n?.urgentAndEmergency ?? 'Urgent & Emergency'),
                   selected: _selectedPriority == 'EMERGENCY',
                   selectedColor: const Color(0xFFFEE2E2),
                   onSelected: (selected) {
@@ -224,7 +224,7 @@ class _NoticesScreenState extends ConsumerState<NoticesScreen> {
                 ),
                 const SizedBox(width: 8),
                 ChoiceChip(
-                  label: const Text('Regular Notices'),
+                  label: Text(l10n?.regularNotices ?? 'Regular Notices'),
                   selected: _selectedPriority == 'NORMAL',
                   onSelected: (selected) {
                     if (selected) setState(() => _selectedPriority = 'NORMAL');

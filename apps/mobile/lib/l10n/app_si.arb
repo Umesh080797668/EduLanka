@@ -156,5 +156,15 @@
   "pinAnswer": "වැදගත් පිළිතුර පින් කරන්න",
   "unpinAnswer": "පිළිතුර අන්පින් කරන්න",
   "hideComment": "අදහස සඟවන්න",
-  "academicDiscussions": "ශාස්ත්‍රීය සංවාද"
+  "academicDiscussions": "ශාස්ත්‍රීය සංවාද",
+  "allNotices": "සියලු නිවේදන",
+  "urgentAndEmergency": "හදිසි සහ අත්‍යවශ්‍ය",
+  "regularNotices": "සාමාන්‍ය නිවේදන",
+  "reportCardDownloaded": "වාර වාර්තාව ({term} වාරය) බාගත කරන ලදී.",
+  "failedToDownloadReportCard": "වාර්තා පත්‍රිකාව බාගත කිරීම අසාර්ථක විය",
+  "termNumber": "{term} වාරය",
+  "unsyncedChanges": "සමමුහුර්ත නොකළ වෙනස්කම්",
+  "logOutAnyway": "කෙසේ හෝ ඉවත් වන්න",
+  "unsyncedChangesWarning": "ඔබගේ පිටත ලිපිගොනුවෙහි සමමුහුර්ත නොකළ නොබැඳි වෙනස්කම් {count} ක් ඇත. ඉවත් වීමෙන් දේශීය දත්ත සමුදාය මකා දැමෙන අතර මෙම වෙනස්කම් සදහටම අහිමි වනු ඇත.\n\nඔබට ඉවත් වීමට අවශ්‍ය බව සහතිකද?",
+  "viewPdf": "PDF බලන්න"
 }

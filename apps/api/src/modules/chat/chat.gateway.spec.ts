@@ -6,6 +6,7 @@ import { Test } from '@nestjs/testing';
 import { AuthService } from '../auth/auth.service';
 import { RedisService } from '../redis/redis.service';
 
+import { PlanFeaturesService } from '../tenant/plan-features.service';
 import { ChatGateway } from './chat.gateway';
 import { ChatService } from './chat.service';
 
@@ -15,6 +16,7 @@ describe('ChatGateway', () => {
   let jwtService: jest.Mocked<Partial<JwtService>>;
   let redisService: jest.Mocked<Partial<RedisService>>;
   let authService: jest.Mocked<Partial<AuthService>>;
+  let planFeaturesService: jest.Mocked<Partial<PlanFeaturesService>>;
 
   beforeEach(async () => {
     chatService = {
@@ -34,6 +36,10 @@ describe('ChatGateway', () => {
     authService = {
       isUserActive: jest.fn().mockResolvedValue(true),
     };
+    planFeaturesService = {
+      getTenantPlan: jest.fn().mockResolvedValue('GROWTH' as any),
+      isFeatureEnabled: jest.fn().mockReturnValue(true),
+    };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -42,6 +48,7 @@ describe('ChatGateway', () => {
         { provide: JwtService, useValue: jwtService },
         { provide: RedisService, useValue: redisService },
         { provide: AuthService, useValue: authService },
+        { provide: PlanFeaturesService, useValue: planFeaturesService },
       ],
     }).compile();
 

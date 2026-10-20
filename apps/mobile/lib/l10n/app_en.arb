@@ -155,6 +155,31 @@
   "pinned": "Pinned",
   "pinAnswer": "Pin Insightful Answer",
   "unpinAnswer": "Unpin Answer",
+  "academicDiscussions": "Academic Discussions",
+  "allNotices": "All Notices",
+  "urgentAndEmergency": "Urgent & Emergency",
+  "regularNotices": "Regular Notices",
+  "reportCardDownloaded": "Report Card (Term {term}) downloaded.",
+  "@reportCardDownloaded": {
+    "placeholders": {
+      "term": { "type": "int" }
+    }
+  },
+  "failedToDownloadReportCard": "Failed to download report card",
+  "termNumber": "Term {term}",
+  "@termNumber": {
+    "placeholders": {
+      "term": { "type": "int" }
+    }
+  },
   "hideComment": "Hide Comment",
-  "academicDiscussions": "Academic Discussions"
+  "unsyncedChanges": "Unsynced Changes",
+  "logOutAnyway": "Log Out Anyway",
+  "unsyncedChangesWarning": "You have {count} unsynced offline change(s) in your outbox. Logging out will wipe the local database and these changes will be lost permanently.\n\nAre you sure you want to log out?",
+  "@unsyncedChangesWarning": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "viewPdf": "VIEW PDF"
 }

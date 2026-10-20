@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../l10n/app_localizations.dart';
 import '../api/api_client.dart';
 import '../database/local_database.dart';
 import 'token_storage.dart';
@@ -159,25 +160,27 @@ Future<void> showLogoutConfirmation(BuildContext context, WidgetRef ref) async {
   final pending = await LocalDatabase.instance.getPendingOutboxCount();
   if (pending > 0) {
     if (!context.mounted) return;
+    final l10n = AppLocalizations.of(context);
     final proceed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Row(
+        title: Row(
           children: [
-            Icon(Icons.warning_amber_rounded, color: Color(0xFFDC2626)),
-            SizedBox(width: 8),
-            Text('Unsynced Changes'),
+            const Icon(Icons.warning_amber_rounded, color: Color(0xFFDC2626)),
+            const SizedBox(width: 8),
+            Text(l10n?.unsyncedChanges ?? 'Unsynced Changes'),
           ],
         ),
         content: Text(
-          'You have $pending unsynced offline change(s) in your outbox. '
-          'Logging out will wipe the local database and these changes will be lost permanently.\n\n'
-          'Are you sure you want to log out?',
+          l10n?.unsyncedChangesWarning(pending) ??
+              'You have $pending unsynced offline change(s) in your outbox. '
+                  'Logging out will wipe the local database and these changes will be lost permanently.\n\n'
+                  'Are you sure you want to log out?',
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('Cancel'),
+            child: Text(l10n?.cancel ?? 'Cancel'),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
@@ -185,7 +188,7 @@ Future<void> showLogoutConfirmation(BuildContext context, WidgetRef ref) async {
               foregroundColor: Colors.white,
             ),
             onPressed: () => Navigator.of(ctx).pop(true),
-            child: const Text('Log Out Anyway'),
+            child: Text(l10n?.logOutAnyway ?? 'Log Out Anyway'),
           ),
         ],
       ),

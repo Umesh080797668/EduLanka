@@ -73,7 +73,11 @@ describe('NoticesService', () => {
           select: jest.fn().mockReturnValue({
             eq: jest.fn().mockReturnValue({
               single: jest.fn().mockResolvedValue({
-                data: { id: 'tenant_1', plan: 'STARTER' },
+                data: { id: 'tenant_1', plan: 'STARTER', sms_enabled: true },
+                error: null,
+              }),
+              maybeSingle: jest.fn().mockResolvedValue({
+                data: { id: 'tenant_1', plan: 'STARTER', sms_enabled: true },
                 error: null,
               }),
             }),

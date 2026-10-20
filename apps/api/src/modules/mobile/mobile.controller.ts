@@ -13,6 +13,7 @@ import {
     UseGuards,
     HttpCode,
     HttpStatus,
+    Optional,
 } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation, ApiQuery } from '@nestjs/swagger';
 
@@ -22,6 +23,7 @@ import { Roles } from '../../common/decorators/roles.decorator';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { TenantGuard } from '../../common/guards/tenant.guard';
+import { PlanFeaturesService, PlanFeature } from '../tenant/plan-features.service';
 
 import {
     RegisterDeviceTokenDto,
@@ -38,7 +40,10 @@ import { MobileService } from './mobile.service';
 @UseGuards(JwtAuthGuard, TenantGuard, RolesGuard, AppVersionGuard)
 @Controller('mobile')
 export class MobileController {
-    constructor(private readonly mobileService: MobileService) { }
+    constructor(
+        private readonly mobileService: MobileService,
+        @Optional() private readonly planFeatures?: PlanFeaturesService,
+    ) { }
 
     @Post('device-token')
     @HttpCode(HttpStatus.OK)
@@ -50,12 +55,19 @@ export class MobileController {
     @Post('sync-events')
     @HttpCode(HttpStatus.CREATED)
     @ApiOperation({ summary: 'Ingest an offline sync event into monotonic event stream' })
-    appendSyncEvent(
+    async appendSyncEvent(
         @Body() dto: AppendSyncEventDto,
         @CurrentUser() user: JwtPayload,
         @Headers('x-device-id') headerDeviceId?: string,
         @Headers('x-device-token') headerDeviceToken?: string,
     ) {
+        if (this.planFeatures && user?.tenantId) {
+            await this.planFeatures.assertTenantFeature(
+                user.tenantId,
+                PlanFeature.OFFLINE_SYNC,
+                'Offline synchronization is available on Starter and higher plans. Community tier does not support offline sync.',
+            );
+        }
         return this.mobileService.appendSyncEvent(dto, user, headerDeviceId || headerDeviceToken);
     }
 
@@ -64,7 +76,7 @@ export class MobileController {
     @ApiQuery({ name: 'since', required: false, type: Number, description: 'Last acknowledged sequence number' })
     @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Maximum number of events to return (1-200)' })
     @ApiQuery({ name: 'deviceId', required: false, type: String, description: 'Device identifier for targeting sync activity' })
-    getSyncEvents(
+    async getSyncEvents(
         @Query('since') since: string | undefined,
         @Query('limit') limit: string | undefined,
         @Query('deviceId') queryDeviceId: string | undefined,
@@ -72,6 +84,13 @@ export class MobileController {
         @Headers('x-device-id') headerDeviceId?: string,
         @Headers('x-device-token') headerDeviceToken?: string,
     ) {
+        if (this.planFeatures && user?.tenantId) {
+            await this.planFeatures.assertTenantFeature(
+                user.tenantId,
+                PlanFeature.OFFLINE_SYNC,
+                'Offline synchronization is available on Starter and higher plans. Community tier does not support offline sync.',
+            );
+        }
         const sinceSeq = since ? parseInt(since, 10) : 0;
         const pageLimit = limit ? parseInt(limit, 10) : 50;
         return this.mobileService.getSyncEvents(
@@ -111,12 +130,19 @@ export class MobileController {
 
     @Get('snapshot')
     @ApiOperation({ summary: 'Re-hydrate state via full snapshot when client is beyond retention window' })
-    getSnapshot(
+    async getSnapshot(
         @CurrentUser() user: JwtPayload,
         @Headers('x-device-id') headerDeviceId?: string,
         @Headers('x-device-token') headerDeviceToken?: string,
         @Query('deviceId') queryDeviceId?: string,
     ) {
+        if (this.planFeatures && user?.tenantId) {
+            await this.planFeatures.assertTenantFeature(
+                user.tenantId,
+                PlanFeature.OFFLINE_SYNC,
+                'Offline synchronization is available on Starter and higher plans. Community tier does not support offline sync.',
+            );
+        }
         return this.mobileService.getSnapshot(user, headerDeviceId || headerDeviceToken || queryDeviceId);
     }
 
