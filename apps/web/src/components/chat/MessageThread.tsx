@@ -379,6 +379,7 @@ export default function MessageThread({
                     className="flex items-center gap-2"
                 >
                     <Input
+                        id="chat-message-input"
                         value={inputText}
                         onChange={handleInputChange}
                         placeholder={t('typeAMessage')}

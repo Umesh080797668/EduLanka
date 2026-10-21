@@ -8,6 +8,7 @@ import { TenantGuard } from '../../common/guards/tenant.guard';
 
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
+import { BulkImportUsersDto } from './dto/bulk-import-users.dto';
 import { UsersService } from './users.service';
 
 @ApiTags('users')
@@ -36,6 +37,12 @@ export class UsersController {
     @ApiOperation({ summary: 'Create a new user within the current tenant (admin only)' })
     create(@Body() dto: CreateUserDto, @CurrentUser() user: JwtPayload) {
         return this.usersService.create(dto, user);
+    }
+
+    @Post('bulk-import')
+    @ApiOperation({ summary: 'Bulk import users from CSV rows with custom role mapping (admin only)' })
+    bulkImport(@Body() dto: BulkImportUsersDto, @CurrentUser() user: JwtPayload) {
+        return this.usersService.bulkImportUsers(dto, user);
     }
 
     @Get()

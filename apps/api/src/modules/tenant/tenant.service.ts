@@ -206,6 +206,40 @@ export class TenantService {
     }
 
     /**
+     * Helper to verify if a tenant is active. Useful for background jobs and scheduled tasks.
+     * Throws ForbiddenException if tenant is suspended or inactive.
+     */
+    async assertTenantActive(tenantId: string): Promise<Tenant> {
+        const tenant = await this.findOneById(tenantId, { role: UserRole.SUPER_ADMIN, sub: 'system', tenantId } as any);
+        if (tenant.status !== TenantStatus.ACTIVE) {
+            throw new ForbiddenException(`Tenant ${tenantId} is suspended or inactive (status: ${tenant.status})`);
+        }
+        return tenant;
+    }
+
+    /**
+     * Checks if a tenant is ACTIVE without throwing.
+     */
+    async isTenantActive(tenantId: string): Promise<boolean> {
+        try {
+            const cached = this.tenantCache.get(tenantId);
+            if (cached && cached.expiresAt > Date.now()) {
+                return cached.tenant.status === TenantStatus.ACTIVE;
+            }
+
+            const { data } = await this.supabase.adminClient
+                .from('tenants')
+                .select('status')
+                .eq('id', tenantId)
+                .maybeSingle();
+
+            return data?.status === TenantStatus.ACTIVE;
+        } catch {
+            return false;
+        }
+    }
+
+    /**
      * GET /api/v1/tenants
      * List all tenants — SUPER_ADMIN only.
      */

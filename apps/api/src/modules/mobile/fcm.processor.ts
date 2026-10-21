@@ -89,6 +89,20 @@ export class FcmProcessor extends WorkerHost {
             `Processing FCM Push Job ${job.id} for tenant ${tenantId}: ${tokens.length} target tokens (isDisasterMode: ${!!isDisasterMode})`,
         );
 
+        // Guard: Skip push execution for suspended tenants (unless disaster emergency)
+        if (tenantId && !isDisasterMode) {
+            const { data: tenant } = await this.supabaseService.adminClient
+                .from('tenants')
+                .select('status')
+                .eq('id', tenantId)
+                .maybeSingle();
+
+            if (tenant && tenant.status !== 'ACTIVE') {
+                this.logger.warn(`Skipping FCM Push Job ${job.id}: Tenant ${tenantId} is suspended (status: ${tenant.status}).`);
+                return { skipped: true, reason: `Tenant is ${tenant.status}` };
+            }
+        }
+
         if (tokens.length === 0 && !isDisasterMode) {
             return { dispatchedCount: 0, deadTokensCount: 0 };
         }

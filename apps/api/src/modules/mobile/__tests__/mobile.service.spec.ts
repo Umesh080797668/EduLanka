@@ -40,6 +40,17 @@ describe('MobileService', () => {
                         if (table === 'teachers') {
                             return Promise.resolve({ data: { id: 'teacher-1' }, error: null });
                         }
+                        if (table === 'students') {
+                            return Promise.resolve({
+                                data: {
+                                    id: '45f9722b-eda0-453f-88d2-2c9ad06ec169',
+                                    user_id: '45f9722b-eda0-453f-88d2-2c9ad06ec169',
+                                    class_id: '45f9722b-eda0-453f-88d2-2c9ad06ec169',
+                                    users: { is_active: true },
+                                },
+                                error: null,
+                            });
+                        }
                         return Promise.resolve({
                             data: {
                                 id: caller.tenantId,
@@ -53,6 +64,7 @@ describe('MobileService', () => {
                         });
                     }),
                     eq: jest.fn().mockReturnThis(),
+                    or: jest.fn().mockReturnThis(),
                     is: jest.fn().mockReturnThis(),
                     gt: jest.fn().mockReturnThis(),
                     gte: jest.fn().mockReturnThis(),
@@ -188,7 +200,7 @@ describe('MobileService', () => {
             },
             caller,
         );
-        expect(result.success).toBe(true);
+        expect(result?.success).toBe(true);
         expect(mockAdminClient.rpc).toHaveBeenCalledWith(
             'append_sync_event',
             expect.objectContaining({ p_tenant_id: caller.tenantId }),

@@ -17,7 +17,7 @@ import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 
-import { CreateHomeworkDto, SubmitHomeworkDto, GradeHomeworkDto } from './dto/homework.dto';
+import { CreateHomeworkDto, SubmitHomeworkDto, GradeHomeworkDto, UploadHomeworkAttachmentDto } from './dto/homework.dto';
 import { HomeworkService } from './homework.service';
 
 @ApiTags('Homework')
@@ -72,5 +72,25 @@ export class HomeworkController {
         @Body() dto: GradeHomeworkDto,
     ) {
         return this.homeworkService.gradeSubmission(id, dto, user);
+    }
+
+    @Post('attachments')
+    @HttpCode(HttpStatus.OK)
+    @ApiOperation({ summary: 'Upload an attachment for a homework task or submission' })
+    uploadAttachment(
+        @CurrentUser() user: JwtPayload,
+        @Body() dto: UploadHomeworkAttachmentDto,
+    ) {
+        return this.homeworkService.uploadHomeworkAttachment(dto, user);
+    }
+
+    @Post('upload')
+    @HttpCode(HttpStatus.OK)
+    @ApiOperation({ summary: 'Alias endpoint for homework attachment upload' })
+    uploadAttachmentAlias(
+        @CurrentUser() user: JwtPayload,
+        @Body() dto: UploadHomeworkAttachmentDto,
+    ) {
+        return this.homeworkService.uploadHomeworkAttachment(dto, user);
     }
 }

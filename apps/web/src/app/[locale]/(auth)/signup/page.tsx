@@ -33,6 +33,7 @@ export default function SignupPage() {
 
     const [tenants, setTenants] = useState<any[]>([]);
     const [loadingTenants, setLoadingTenants] = useState(true);
+    const [schoolSearch, setSchoolSearch] = useState('');
 
     const [tenantId, setTenantId] = useState('');
     const [role, setRole] = useState<'STUDENT' | 'PARENT'>('STUDENT');
@@ -49,7 +50,11 @@ export default function SignupPage() {
                 const data = await apiClient.get<any[]>('/auth/tenants', {
                     skipGlobalToast: true,
                 });
-                setTenants(data || []);
+                const tenantList = Array.isArray(data) ? data : [];
+                setTenants(tenantList);
+                if (tenantList.length === 1 && tenantList[0]?.id) {
+                    setTenantId(tenantList[0].id);
+                }
             } catch (err) {
                 console.error('Failed to load public tenants', err);
             } finally {
@@ -58,6 +63,10 @@ export default function SignupPage() {
         };
         fetchTenants();
     }, []);
+
+    const filteredTenants = tenants.filter((tenant) =>
+        tenant.name.toLowerCase().includes(schoolSearch.toLowerCase()),
+    );
 
     const handleSignup = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -140,6 +149,19 @@ export default function SignupPage() {
                         )}
 
                         <form onSubmit={handleSignup} className="space-y-4">
+                            {tenants.length > 5 && (
+                                <Field label={t('searchSchools') || 'Search Institutions'} htmlFor="schoolSearch">
+                                    <Input
+                                        id="schoolSearch"
+                                        type="search"
+                                        placeholder={t('searchPlaceholder') || 'Filter by school name...'}
+                                        value={schoolSearch}
+                                        onChange={(e) => setSchoolSearch(e.target.value)}
+                                        leadingIcon={<Building2 />}
+                                    />
+                                </Field>
+                            )}
+
                             <Field label={t('selectSchool')} htmlFor="tenant" required>
                                 <Select
                                     id="tenant"
@@ -150,7 +172,7 @@ export default function SignupPage() {
                                     <option value="" disabled>
                                         {t('choosePlaceholder')}
                                     </option>
-                                    {tenants.map((tenant) => (
+                                    {filteredTenants.map((tenant) => (
                                         <option key={tenant.id} value={tenant.id}>
                                             {tenant.name}
                                         </option>

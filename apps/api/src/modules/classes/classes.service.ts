@@ -10,10 +10,12 @@ import {
     ForbiddenException,
     InternalServerErrorException,
     Logger,
+    Optional,
 } from '@nestjs/common';
 
 import { ChatService } from '../chat/chat.service';
 import { SupabaseService } from '../supabase/supabase.service';
+import { RedisService } from '../redis/redis.service';
 
 import { CreateClassDto, UpdateClassDto, AssignTeacherDto } from './dto/class.dto';
 
@@ -24,6 +26,7 @@ export class ClassesService {
     constructor(
         private readonly supabase: SupabaseService,
         private readonly chat: ChatService,
+        @Optional() private readonly redisService?: RedisService,
     ) { }
 
     /**
@@ -187,38 +190,79 @@ export class ClassesService {
         return { message: 'Class deleted successfully' };
     }
 
+    async assignTeacherToClass(classId: string, dto: AssignTeacherDto, caller: JwtPayload) {
+        return this.assignTeacher(classId, dto, caller);
+    }
+
     async assignTeacher(classId: string, dto: AssignTeacherDto, caller: JwtPayload) {
         this.guardAdmin(caller);
         const tenantId = caller.tenantId;
         const db = this.supabase.getTenantClient(tenantId);
 
-        // Verify class belongs to caller's tenant
-        const { data: cls } = await db.from('classes').select('id').eq('id', classId).eq('tenant_id', tenantId).maybeSingle();
-        if (!cls) throw new NotFoundException('Class not found in this school');
+        // Explicit distributed concurrency lock to prevent race conditions during concurrent admin edits
+        const lockKey = `edulanka:lock:class_teacher:${tenantId}:${classId}`;
+        const redis = this.redisService?.getClient();
+        let lockAcquired = false;
 
-        // Verify teacher belongs to caller's tenant
-        const { data: tch } = await db.from('teachers').select('id').eq('id', dto.teacherId).eq('tenant_id', tenantId).maybeSingle();
-        if (!tch) throw new NotFoundException('Teacher not found in this school');
-
-        const { data, error } = await db
-            .from('class_teachers')
-            .insert({
-                class_id: classId,
-                teacher_id: dto.teacherId,
-                is_homeroom: dto.isHomeroom ?? false,
-                subject: dto.subject ?? null,
-            })
-            .select()
-            .single();
-
-        if (error) {
-            if (error.code === '23505') throw new ConflictException('Teacher is already assigned to this class');
-            if (error.code === '23503') throw new NotFoundException('Class or teacher not found');
-            this.logger.error(`Failed to assign teacher: ${error.message}`);
-            throw new InternalServerErrorException('Failed to assign teacher');
+        if (redis) {
+            try {
+                const res = await redis.set(lockKey, 'locked', 'PX', 5000, 'NX');
+                lockAcquired = res === 'OK';
+                if (!lockAcquired) {
+                    // Retry once after 150ms backoff
+                    await new Promise((r) => setTimeout(r, 150));
+                    const retry = await redis.set(lockKey, 'locked', 'PX', 5000, 'NX');
+                    lockAcquired = retry === 'OK';
+                }
+            } catch {
+                // Non-fatal if Redis is unreachable
+            }
         }
-        await this.syncClassGroup(tenantId, classId);
-        return data;
+
+        try {
+            // Verify class belongs to caller's tenant
+            const { data: cls } = await db.from('classes').select('id').eq('id', classId).eq('tenant_id', tenantId).maybeSingle();
+            if (!cls) throw new NotFoundException('Class not found in this school');
+
+            // Verify teacher belongs to caller's tenant
+            const { data: tch } = await db.from('teachers').select('id').eq('id', dto.teacherId).eq('tenant_id', tenantId).maybeSingle();
+            if (!tch) throw new NotFoundException('Teacher not found in this school');
+
+            // If assigning as homeroom teacher, atomically unset any existing homeroom teacher for this class
+            if (dto.isHomeroom) {
+                await db
+                    .from('class_teachers')
+                    .update({ is_homeroom: false })
+                    .eq('class_id', classId)
+                    .eq('is_homeroom', true);
+            }
+
+            const { data, error } = await db
+                .from('class_teachers')
+                .upsert({
+                    tenant_id: tenantId,
+                    class_id: classId,
+                    teacher_id: dto.teacherId,
+                    is_homeroom: dto.isHomeroom ?? false,
+                    subject: dto.subject ?? null,
+                }, { onConflict: 'class_id, teacher_id' })
+                .select()
+                .single();
+
+            if (error) {
+                if (error.code === '23505') throw new ConflictException('Teacher is already assigned to this class');
+                if (error.code === '23503') throw new NotFoundException('Class or teacher not found');
+                this.logger.error(`Failed to assign teacher: ${error.message}`);
+                throw new InternalServerErrorException('Failed to assign teacher');
+            }
+
+            await this.syncClassGroup(tenantId, classId);
+            return data;
+        } finally {
+            if (redis && lockAcquired) {
+                await redis.del(lockKey).catch(() => null);
+            }
+        }
     }
 
     async removeTeacher(classId: string, teacherId: string, caller: JwtPayload) {

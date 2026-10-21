@@ -79,12 +79,13 @@ export class AttendanceService {
             throw new NotFoundException(`Class ${classId} not found in this school`);
         }
 
-        // Fetch enrolled students
+        // Fetch active enrolled students
         const { data: students, error: studErr } = await client
             .from('students')
-            .select('id, user_id, admission_no, users!inner(id, full_name, email)')
+            .select('id, user_id, admission_no, users!inner(id, full_name, email, is_active)')
             .eq('tenant_id', caller.tenantId)
             .eq('class_id', classId)
+            .eq('users.is_active', true)
             .order('admission_no', { ascending: true });
 
         if (studErr) {
@@ -164,7 +165,15 @@ export class AttendanceService {
     }
 
     /**
+     * Backward-compatible alias for recordAttendance().
+     */
+    async markAttendance(caller: JwtPayload, dto: RecordAttendanceDto) {
+        return this.recordAttendance(caller, dto);
+    }
+
+    /**
      * Records or updates roll call attendance for an entire class.
+     * Strictly verifies that all students hold an active enrollment in the target class.
      */
     async recordAttendance(caller: JwtPayload, dto: RecordAttendanceDto) {
         await this.assertClassAccess(caller, dto.classId);
@@ -176,19 +185,20 @@ export class AttendanceService {
         const client = this.supabase.adminClient;
         const period = dto.period ?? 1;
 
-        // Verify that all students in dto.records are enrolled in dto.classId
+        // Verify that all students in dto.records are actively enrolled in dto.classId
         const { data: enrolledStudents, error: studErr } = await client
             .from('students')
-            .select('id, user_id')
+            .select('id, user_id, users!inner(id, is_active)')
             .eq('tenant_id', caller.tenantId)
-            .eq('class_id', dto.classId);
+            .eq('class_id', dto.classId)
+            .eq('users.is_active', true);
 
         if (studErr) {
             this.logger.error(`Failed to verify enrolled students for class ${dto.classId}: ${studErr.message}`);
             throw new InternalServerErrorException('Failed to verify class enrollment');
         }
 
-        // Map both user_id and student record id to user_id
+        // Map both user_id and student record id to user_id for active enrolled students
         const userMap = new Map<string, string>();
         for (const s of enrolledStudents ?? []) {
             if (s.user_id) userMap.set(s.user_id, s.user_id);
@@ -199,7 +209,7 @@ export class AttendanceService {
         if (unassignedStudents.length > 0) {
             const invalidIds = unassignedStudents.map((r) => r.studentId).join(', ');
             throw new BadRequestException(
-                `One or more students are not enrolled in class ${dto.classId}: ${invalidIds}`,
+                `One or more students do not hold an active enrollment in class ${dto.classId} (deactivated or transferred): ${invalidIds}`,
             );
         }
 

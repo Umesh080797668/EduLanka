@@ -49,6 +49,20 @@ export class SmsProcessor extends WorkerHost {
         const { to, message, tenantId, noticeId, disasterEventId, segmentCount, reserved } = job.data;
         const db = this.supabaseService.adminClient;
 
+        // Verify tenant is ACTIVE before executing background SMS job
+        if (tenantId) {
+            const { data: tenant } = await db
+                .from('tenants')
+                .select('status')
+                .eq('id', tenantId)
+                .maybeSingle();
+
+            if (tenant && tenant.status !== 'ACTIVE' && !disasterEventId) {
+                this.logger.warn(`Skipping SMS Job ${job.id}: Tenant ${tenantId} is suspended (status: ${tenant.status}).`);
+                return { skipped: true, reason: `Tenant is ${tenant.status}` };
+            }
+        }
+
         if (!this.client) {
             throw new Error('Twilio Credentials Missing. Local emulation disabled per Sprint 4 specifications. Please configure env vars!');
         }

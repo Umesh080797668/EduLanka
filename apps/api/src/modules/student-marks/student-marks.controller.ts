@@ -59,6 +59,19 @@ export class StudentMarksController {
         return this.studentMarksService.getMarksByStudent(studentId, caller);
     }
 
+    @Get('student/:studentId/term/:term')
+    @ApiOperation({ summary: 'Get marks for a student filtered strictly by term and year' })
+    @ApiResponse({ status: 200, description: 'Success' })
+    async getStudentMarksByTerm(
+        @Param('studentId', ParseUUIDPipe) studentId: string,
+        @Param('term', ParseIntPipe) term: number,
+        @Query('year') year: string,
+        @CurrentUser() caller: JwtPayload,
+    ) {
+        const yr = year ? parseInt(year, 10) : new Date().getFullYear();
+        return this.studentMarksService.getStudentMarksByTerm(studentId, term, yr, caller);
+    }
+
     @Post('class/:classId/finalize')
     @ApiOperation({ summary: 'Finalizes term marks for a class' })
     @ApiResponse({ status: 200, description: 'Term finalized successfully' })

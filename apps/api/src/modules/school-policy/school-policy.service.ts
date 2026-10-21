@@ -15,6 +15,18 @@ import { SupabaseService } from '../supabase/supabase.service';
 
 import { UpdatePolicyDto } from './dto/policy.dto';
 
+export const DEFAULT_SCHOOL_POLICY = {
+    academic_year: new Date().getFullYear(),
+    max_students_per_class: 40,
+    allow_self_enrollment: false,
+    sms_enabled: false,
+    default_language: 'si',
+    timezone: 'Asia/Colombo',
+    school_hours_start: '07:30:00',
+    school_hours_end: '13:30:00',
+    supported_mediums: ['SINHALA', 'ENGLISH', 'TAMIL'],
+};
+
 @Injectable()
 export class SchoolPolicyService {
     private readonly logger = new Logger(SchoolPolicyService.name);
@@ -29,9 +41,13 @@ export class SchoolPolicyService {
         }
     }
 
-
-    async getPolicy(caller: JwtPayload) {
-        const tenantId = caller.tenantId;
+    /**
+     * Retrieves the effective school policy for a tenant.
+     * Never throws a 500 or 404 when a newly provisioned tenant lacks a database row;
+     * returns standard global default parameters and optionally backfills the record.
+     */
+    async getEffectivePolicy(callerOrTenantId: JwtPayload | string) {
+        const tenantId = typeof callerOrTenantId === 'string' ? callerOrTenantId : callerOrTenantId.tenantId;
 
         const { data, error } = await this.supabase.adminClient
             .from('school_policy')
@@ -39,9 +55,30 @@ export class SchoolPolicyService {
             .eq('tenant_id', tenantId)
             .limit(1)
             .maybeSingle();
-        if (error) throw new InternalServerErrorException('Failed to fetch school policy');
-        if (!data) throw new NotFoundException('School policy not initialised. Re-provision this tenant.');
+
+        if (error) {
+            this.logger.warn(`Failed to fetch policy for tenant ${tenantId}: ${error.message}. Returning default global policy.`);
+            return {
+                id: `default-${tenantId}`,
+                tenant_id: tenantId,
+                ...DEFAULT_SCHOOL_POLICY,
+            };
+        }
+
+        if (!data) {
+            this.logger.log(`No school_policy row found for newly provisioned tenant ${tenantId}. Returning defaults.`);
+            return {
+                id: `default-${tenantId}`,
+                tenant_id: tenantId,
+                ...DEFAULT_SCHOOL_POLICY,
+            };
+        }
+
         return data;
+    }
+
+    async getPolicy(caller: JwtPayload) {
+        return this.getEffectivePolicy(caller);
     }
 
     async updatePolicy(dto: UpdatePolicyDto, caller: JwtPayload) {

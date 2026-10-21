@@ -25,6 +25,105 @@ interface TutorialProviderProps {
     screenId: string;
 }
 
+const BUILTIN_TOURS: Record<string, { id: string; steps: any[] }> = {
+    'PARENT:grades': {
+        id: 'builtin_parent_grades',
+        steps: [
+            {
+                target_element: '#term-selector',
+                title_en: 'Academic Term Selection',
+                title_si: 'වාර තේරීම',
+                title_ta: 'பருவத் தேர்வு',
+                content_en: "Select Term 1, 2, or 3 to inspect your child's continuous evaluation marks and terminal performance.",
+                content_si: 'ඔබගේ දරුවාගේ වාර ලකුණු පරීක්ෂා කිරීමට වාරය 1, 2, හෝ 3 තෝරන්න.',
+                content_ta: 'உங்கள் பிள்ளையின் பருவ மதிப்பெண்களைப் பார்க்க பருவத்தைத் தேர்ந்தெடுக்கவும்.',
+            },
+            {
+                target_element: 'table',
+                title_en: 'Subject Marks & Evaluation',
+                title_si: 'විෂය ලකුණු සහ ශ්‍රේණිගත කිරීම්',
+                title_ta: 'பாட மதிப்பெண்கள் மற்றும் தரங்கள்',
+                content_en: 'View detailed scores and Ministry-standard grade badges across all terminal subjects.',
+                content_si: 'සියලුම විෂයයන් සඳහා සවිස්තරාත්මක ලකුණු සහ නිල ශ්‍රේණිගත කිරීම් පරීක්ෂා කරන්න.',
+                content_ta: 'அனைத்துப் பாடங்களுக்குமான விரிவான மதிப்பெண்கள் மற்றும் தரங்களை இங்கே காணலாம்.',
+            },
+            {
+                target_element: '#download-report-btn',
+                title_en: 'Official PDF Report Card',
+                title_si: 'නිල ප්‍රගති වාර්තාව බාගත කරන්න',
+                title_ta: 'அதிகாரப்பூர்வ அறிக்கை அட்டை பதிவிறக்கம்',
+                content_en: 'Download the certified student terminal report card complete with institutional seal and marks status.',
+                content_si: 'පාසලේ නිල මුද්‍රාව සහිත සහතික කළ වාර ප්‍රගති වාර්තා පත්‍රිකාව PDF ආකාරයෙන් බාගත කරගන්න.',
+                content_ta: 'பள்ளியின் அதிகாரப்பூர்வ முத்திரையுடன் கூடிய சான்றளிக்கப்பட்ட அறிக்கைப் புத்தகத்தை PDF ஆகப் பதிவிறக்கவும்.',
+            },
+        ],
+    },
+    'PARENT:chat_main': {
+        id: 'builtin_parent_chat',
+        steps: [
+            {
+                target_element: '#chat-conversation-list',
+                title_en: 'Parent-Teacher Discussions',
+                title_si: 'දෙමාපිය-ගුරු සාකච්ඡා',
+                title_ta: 'பெற்றோர்-ஆசிரியர் உரையாடல்கள்',
+                content_en: 'Access ongoing communication threads with your child’s homeroom and subject teachers.',
+                content_si: 'ඔබගේ දරුවාගේ පන්තිභාර සහ විෂය භාර ගුරුවරුන් සමග පවතින සාකච්ඡා මෙතැනින් බලන්න.',
+                content_ta: 'ஆசிரியர்களுடனான உங்கள் உரையாடல்களை இங்கே பார்வையிடலாம்.',
+            },
+            {
+                target_element: '#chat-new-conversation',
+                title_en: 'Initiate Teacher Discussion',
+                title_si: 'නව සාකච්ඡාවක් ආරම්භ කරන්න',
+                title_ta: 'புதிய உரையாடலைத் தொடங்கவும்',
+                content_en: 'Click here to start a direct message thread with a teacher to discuss academic progress or inquiries.',
+                content_si: 'දරුවාගේ අධ්‍යාපනික ප්‍රගතිය පිළිබඳව විමසීමට ගුරුවරයෙකු සමග නව පණිවිඩයක් ආරම්භ කරන්න.',
+                content_ta: 'ஆசிரியருடன் புதிய நேரடி உரையாடலைத் தொடங்க இங்கே கிளிக் செய்யவும்.',
+            },
+            {
+                target_element: '#chat-message-input',
+                title_en: 'Send Direct Message',
+                title_si: 'පණිවිඩයක් යවන්න',
+                title_ta: 'செய்தி அனுப்பவும்',
+                content_en: 'Type questions, attendance notifications, or feedback directly into the secure chat thread.',
+                content_si: 'ඔබගේ ගැටළු, පැමිණීමේ දැනුම්දීම් හෝ විමසීම් ආරක්ෂිතව ගුරුවරයා වෙත යවන්න.',
+                content_ta: 'உங்கள் கேள்விகள் அல்லது தகவல்களை நேரடியாக தட்டச்சு செய்து அனுப்பவும்.',
+            },
+        ],
+    },
+    'GENERAL:chat_main': {
+        id: 'builtin_general_chat',
+        steps: [
+            {
+                target_element: '#chat-conversation-list',
+                title_en: 'Conversations Directory',
+                title_si: 'පණිවිඩ නාමාවලිය',
+                title_ta: 'உரையாடல் பட்டியல்',
+                content_en: 'Browse your active school communications and group announcement channels.',
+                content_si: 'ඔබගේ පණිවිඩ සහ නිවේදන නාලිකා මෙතැනින් බලන්න.',
+                content_ta: 'உங்கள் உரையாடல்கள் மற்றும் அறிவிப்புகளை இங்கே காணலாம்.',
+            },
+            {
+                target_element: '#chat-new-conversation',
+                title_en: 'New Message',
+                title_si: 'නව පණිවිඩයක්',
+                title_ta: 'புதிய செய்தி',
+                content_en: 'Start a direct or group conversation with teachers, staff, or guardians.',
+                content_si: 'නව පණිවිඩයක් ආරම්භ කිරීමට මෙතැන ක්ලික් කරන්න.',
+                content_ta: 'புதிய செய்தியைத் தொடங்க இங்கே கிளிக் செய்யவும்.',
+            },
+            {
+                target_element: '#chat-message-input',
+                title_en: 'Type Message',
+                title_si: 'පණිවිඩය සටහන් කරන්න',
+                title_ta: 'செய்தியை உள்ளிடவும்',
+                content_en: 'Send real-time updates and questions securely.',
+                content_si: 'පණිවිඩය සටහන් කර යවන්න.',
+                content_ta: 'செய்தியைத் தட்டச்சு செய்து அனுப்பவும்.',
+            },
+        ],
+    },
+};
+
 export const TutorialProvider: React.FC<TutorialProviderProps> = ({
     children, role, screenId
 }) => {
@@ -55,8 +154,18 @@ export const TutorialProvider: React.FC<TutorialProviderProps> = ({
             const tenantId = getTenantId();
             if (!token) return;
             try {
-                // 1. Fetch tutorial data
-                const tutData: any = await apiClient.get(`/tutorials/${role}/${screenId}`, { token });
+                // 1. Fetch tutorial data from server, falling back to built-in guided tours
+                let tutData: any = null;
+                try {
+                    tutData = await apiClient.get(`/tutorials/${role}/${screenId}`, { token });
+                } catch {
+                    // Fall back to client-side built-in definitions
+                }
+
+                if (!tutData || !tutData.id || !Array.isArray(tutData.steps) || tutData.steps.length === 0) {
+                    tutData = BUILTIN_TOURS[`${role}:${screenId}`] || BUILTIN_TOURS[`GENERAL:${screenId}`] || null;
+                }
+
                 if (!tutData || !tutData.id || !Array.isArray(tutData.steps) || tutData.steps.length === 0) return;
 
                 // Read current tenant plan for plan-aware content

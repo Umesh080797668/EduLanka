@@ -116,13 +116,12 @@ export class BillingService {
             }
         }
 
-        // 3. Count non-emergency SMS logs for the billing month, handling >1,000 rows
-        const startOfMonth = `${month}-01T00:00:00.000Z`;
-        const endOfMonth = new Date(
-            parseInt(month.slice(0, 4), 10),
-            parseInt(month.slice(5, 7), 10),
-            1
-        ).toISOString();
+        // 3. Count non-emergency SMS logs for the billing month, handling >1,000 rows in UTC
+        const [yearStr, monthStr] = month.split('-');
+        const billingYear = parseInt(yearStr, 10);
+        const billingMonthNum = parseInt(monthStr, 10); // 1-12
+        const startOfMonth = new Date(Date.UTC(billingYear, billingMonthNum - 1, 1, 0, 0, 0, 0)).toISOString();
+        const endOfMonth = new Date(Date.UTC(billingYear, billingMonthNum, 1, 0, 0, 0, 0)).toISOString();
 
         const smsLogs = await this.fetchAllRows(async (from, to) => {
             const q = admin

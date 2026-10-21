@@ -272,6 +272,97 @@ export class StudentsService {
         return data;
     }
 
+    /**
+     * Aggregates academic summary strictly scoped by academic_year and term
+     * to eliminate cross-term mark bleed and reflect accurate letter grade distributions.
+     */
+    async getStudentSummary(
+        id: string,
+        caller: JwtPayload,
+        academicYear?: number,
+        term?: number,
+    ) {
+        const tenantId = caller.tenantId;
+        const db = this.supabase.getTenantClient(tenantId);
+        const year = academicYear || new Date().getFullYear();
+        const currentTerm = term ?? 1;
+
+        const { data: student, error: studentErr } = await db
+            .from('students')
+            .select('*, users!inner(full_name, email, is_active), classes(id, name, grade, section)')
+            .eq('id', id)
+            .maybeSingle();
+
+        if (studentErr || !student) {
+            throw new NotFoundException(`Student ${id} not found`);
+        }
+
+        if (caller.role === UserRole.STUDENT && student.user_id !== caller.sub) {
+            throw new ForbiddenException('You can only view your own student summary');
+        }
+
+        // Query marks strictly scoped by academic_year and term (prevents cross-term bleed)
+        const { data: marks, error: marksErr } = await db
+            .from('student_marks')
+            .select('*')
+            .eq('tenant_id', tenantId)
+            .eq('student_id', id)
+            .eq('academic_year', year)
+            .eq('term', String(currentTerm));
+
+        if (marksErr) {
+            this.logger.error(`Failed to fetch student marks for summary: ${marksErr.message}`);
+            throw new InternalServerErrorException('Failed to calculate student summary');
+        }
+
+        const marksList = marks ?? [];
+        const totalSubjects = marksList.length;
+        let totalScore = 0;
+        const gradeDistribution: Record<string, number> = { A: 0, B: 0, C: 0, S: 0, W: 0 };
+
+        for (const m of marksList) {
+            const val = typeof m.marks === 'number' ? m.marks : (m.total_score || 0);
+            totalScore += val;
+            if (m.grade && gradeDistribution[m.grade] !== undefined) {
+                gradeDistribution[m.grade]++;
+            }
+        }
+
+        const averageMark = totalSubjects > 0 ? Math.round((totalScore / totalSubjects) * 10) / 10 : 0;
+
+        // Check if marks are finalized for this class/term/year
+        let isFinalized = false;
+        if (student.class_id) {
+            const { data: finalization } = await db
+                .from('term_finalizations')
+                .select('is_finalized')
+                .eq('tenant_id', tenantId)
+                .eq('class_id', student.class_id)
+                .eq('academic_year', year)
+                .eq('term', currentTerm)
+                .maybeSingle();
+
+            isFinalized = Boolean(finalization?.is_finalized);
+        }
+
+        return {
+            studentId: id,
+            fullName: student.users?.full_name,
+            admissionNo: student.admission_no,
+            class: student.classes,
+            academicYear: year,
+            term: currentTerm,
+            isFinalized,
+            metrics: {
+                totalSubjects,
+                totalScore,
+                averageMark,
+                gradeDistribution,
+            },
+            marks: marksList,
+        };
+    }
+
     async updateProfile(id: string, dto: UpdateStudentDto, caller: JwtPayload) {
         this.guardAdmin(caller);
         const tenantId = caller.tenantId;

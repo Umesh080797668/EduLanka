@@ -631,18 +631,41 @@ export class AuthService {
         if (tenantError || !tenantData) throw new NotFoundException('Tenant not found');
         if (tenantData.status !== 'ACTIVE') throw new UnauthorizedException('Tenant is not active');
 
-        // 2. Resolve school_policy
-        const { data: spData, error: spError } = await this.supabaseService.adminClient
-            .from('school_policy')
+        // 2. Resolve school_policies
+        const { data: spData } = await this.supabaseService.adminClient
+            .from('school_policies')
             .select('allow_self_enrollment')
             .eq('tenant_id', dto.tenantId)
             .maybeSingle();
 
-        if (spError || !spData?.allow_self_enrollment) {
-            throw new ForbiddenException('Self-enrollment is not enabled for this school/tenant.');
+        if (spData && spData.allow_self_enrollment === false) {
+            throw new ForbiddenException('Self-enrollment is disabled for this school/tenant.');
         }
 
-        // 3. Create Supabase Auth user
+        // 3. Enforce Community free-tier student cap if registering student
+        if (dto.role === UserRole.STUDENT) {
+            const { data: tenantPlanRow } = await this.supabaseService.adminClient
+                .from('tenants')
+                .select('plan')
+                .eq('id', dto.tenantId)
+                .maybeSingle();
+
+            if (tenantPlanRow?.plan === 'COMMUNITY') {
+                const { count } = await this.supabaseService.adminClient
+                    .from('students')
+                    .select('id, users!inner(is_active)', { count: 'exact', head: true })
+                    .eq('tenant_id', dto.tenantId)
+                    .eq('users.is_active', true);
+
+                if ((count ?? 0) >= 75) {
+                    throw new ForbiddenException(
+                        'This institution has reached the maximum 75 active student limit for the Community tier. Please contact the school administration.',
+                    );
+                }
+            }
+        }
+
+        // 4. Create Supabase Auth user
         const { data: created, error: createError } = await this.supabaseService.adminClient.auth.admin.createUser({
             email: dto.email,
             password: dto.password,
@@ -660,7 +683,7 @@ export class AuthService {
 
         const authUid = created.user.id;
 
-        // 4. Insert into tenant schema users table
+        // 5. Insert into tenant schema users table
         const tenantClient = this.supabaseService.getTenantClient(tenantData.id);
         const { data: newUser, error: insertError } = await tenantClient
             .from('users')
@@ -680,6 +703,29 @@ export class AuthService {
             await this.supabaseService.adminClient.auth.admin.deleteUser(authUid);
             this.logger.error(`Tenant user insert failed: ${insertError?.message}`);
             throw new InternalServerErrorException('Failed to register user in tenant: ' + insertError?.message);
+        }
+
+        // 6. Automatically insert into role profile table
+        if (dto.role === UserRole.STUDENT) {
+            try {
+                await tenantClient.from('students').insert({
+                    tenant_id: dto.tenantId,
+                    user_id: authUid,
+                    admission_no: `ADM-${Date.now().toString().slice(-6)}`,
+                    is_active: true,
+                });
+            } catch (err: any) {
+                this.logger.warn(`Could not create student profile row: ${err.message}`);
+            }
+        } else if (dto.role === UserRole.PARENT) {
+            try {
+                await tenantClient.from('parents').insert({
+                    tenant_id: dto.tenantId,
+                    user_id: authUid,
+                });
+            } catch (err: any) {
+                this.logger.warn(`Could not create parent profile row: ${err.message}`);
+            }
         }
 
         const { data: tenantInfo } = await this.supabaseService.adminClient
@@ -761,6 +807,23 @@ export class AuthService {
             }
         }
 
+        // Invalidate previously issued unexpired password reset nonces/tokens for this user
+        try {
+            const { data: userRecords } = await this.supabaseService.adminClient
+                .from('users')
+                .select('id, user_id')
+                .eq('email', normalizedEmail);
+
+            for (const u of userRecords ?? []) {
+                const uid = u.user_id || u.id;
+                if (uid) {
+                    await this.redisService.issuePasswordResetNonce(uid);
+                }
+            }
+        } catch (err: any) {
+            this.logger.warn(`Failed to invalidate previous reset tokens for ${normalizedEmail}: ${err?.message}`);
+        }
+
         const publicUrl = this.configService.get('app.publicUrl', { infer: true }) ?? 'http://localhost:3000';
         const redirectTo = validTenantId
             ? `${publicUrl}/reset-password?tenantId=${validTenantId}`
@@ -787,8 +850,15 @@ export class AuthService {
     /**
      * POST /auth/reset-password
      * Complete password reset using the access token from the email link.
+     * Enforces single-use token invalidation and revokes all active user sessions.
      */
     async resetPassword(accessToken: string, newPassword: string): Promise<{ message: string }> {
+        // Prevent replay attacks by checking if the reset token was already consumed
+        const isRevoked = await this.redisService.isTokenStringRevoked(accessToken);
+        if (isRevoked) {
+            throw new UnauthorizedException('Reset token has already been used or invalidated');
+        }
+
         // Validate reset token by retrieving user via adminClient
         const { data: { user }, error: userErr } = await this.supabaseService.adminClient.auth.getUser(accessToken);
         if (userErr || !user) {
@@ -803,8 +873,15 @@ export class AuthService {
             throw new BadRequestException(`Password update failed: ${updateError.message}`);
         }
 
-        // Revoke all refresh tokens for this user upon password reset
+        // Mark the reset token as revoked immediately so it can never be reused
+        await this.redisService.markTokenRevoked(accessToken);
+
+        // Revoke all pending reset nonces for this user
+        await this.redisService.revokePasswordResetTokens(user.id);
+
+        // Revoke all refresh tokens and sessions for this user upon password reset
         await this.redisService.revokeAllUserRefreshTokens(user.id);
+        await this.supabaseService.adminClient.auth.admin.signOut(accessToken, 'global').catch(() => null);
 
         return { message: 'Password has been reset successfully.' };
     }
@@ -934,15 +1011,10 @@ export class AuthService {
      * Public endpoint to fetch active tenants that allow self-enrollment.
      */
     async getPublicTenants(): Promise<any[]> {
-        const { data, error } = await this.supabaseService.adminClient
+        const { data: tenants, error } = await this.supabaseService.adminClient
             .from('tenants')
-            .select(`
-                id,
-                name,
-                school_policy!inner(allow_self_enrollment)
-            `)
+            .select('id, name, slug')
             .eq('status', 'ACTIVE')
-            .eq('school_policy.allow_self_enrollment', true)
             .order('name');
 
         if (error) {
@@ -950,10 +1022,24 @@ export class AuthService {
             throw new InternalServerErrorException('Failed to fetch public schools');
         }
 
-        return data.map(t => ({
-            id: t.id,
-            name: t.name
-        }));
+        // Check explicit policy opt-outs in school_policies (default is enabled/true)
+        const { data: policies } = await this.supabaseService.adminClient
+            .from('school_policies')
+            .select('tenant_id, allow_self_enrollment');
+
+        const disallowedTenantIds = new Set(
+            (policies || [])
+                .filter((p: any) => p.allow_self_enrollment === false)
+                .map((p: any) => p.tenant_id),
+        );
+
+        return (tenants || [])
+            .filter((t: any) => !disallowedTenantIds.has(t.id))
+            .map((t: any) => ({
+                id: t.id,
+                name: t.name,
+                slug: t.slug,
+            }));
     }
 
     /**

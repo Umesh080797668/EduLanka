@@ -11,6 +11,8 @@ interface RequestOptions extends RequestInit {
     token?: string;
     tenantId?: string;
     skipGlobalToast?: boolean;
+    maxRetries?: number;
+    _retryCount?: number;
 }
 
 let refreshPromise: Promise<string | null> | null = null;
@@ -106,6 +108,31 @@ async function apiFetch<T>(
         throw new Error('Session expired. Please sign in again.');
     }
 
+    if (response.status === 429) {
+        const retryCount = options._retryCount ?? 0;
+        const maxRetries = options.maxRetries ?? 3;
+        if (retryCount < maxRetries) {
+            const retryAfterHeader = response.headers?.get?.('Retry-After');
+            let delayMs = 500 * Math.pow(2, retryCount) + Math.random() * 200;
+            if (retryAfterHeader) {
+                const parsedSeconds = parseInt(retryAfterHeader, 10);
+                if (!isNaN(parsedSeconds)) {
+                    delayMs = parsedSeconds * 1000;
+                } else {
+                    const parsedDate = new Date(retryAfterHeader).getTime();
+                    if (!isNaN(parsedDate)) {
+                        delayMs = Math.max(0, parsedDate - Date.now());
+                    }
+                }
+            }
+            await new Promise((resolve) => setTimeout(resolve, delayMs));
+            return apiFetch<T>(path, {
+                ...options,
+                _retryCount: retryCount + 1,
+            });
+        }
+    }
+
     let json: ApiResponse<T>;
     try {
         const text = await response.text();
@@ -128,6 +155,9 @@ async function apiFetch<T>(
         } else if (response.status === 404) {
             title = 'Not Found';
             description = 'The requested resource could not be found.';
+        } else if (response.status === 429) {
+            title = 'Too Many Requests';
+            description = json.error?.message || 'Rate limit exceeded. Please wait a moment and try again.';
         } else if (json.error?.message) {
             description = json.error.message;
         }

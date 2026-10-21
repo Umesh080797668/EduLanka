@@ -9,6 +9,7 @@ import {
 } from '@nestjs/common';
 
 import { SupabaseService, assertUuid } from '../supabase/supabase.service';
+import { v2 as cloudinary } from 'cloudinary';
 
 import type { CreateHomeworkDto, SubmitHomeworkDto, GradeHomeworkDto } from './dto/homework.dto';
 
@@ -480,5 +481,104 @@ export class HomeworkService {
         }
 
         return data;
+    }
+
+    async uploadHomeworkAttachment(file: any, caller: JwtPayload) {
+        if (!file) {
+            throw new BadRequestException('No file provided for upload');
+        }
+
+        const filename = file.originalname || file.filename || 'attachment';
+        const mimetype = String(file.mimetype || file.mimeType || '').toLowerCase();
+        let size = typeof file.size === 'number' ? file.size : 0;
+
+        if (!size && file.buffer) {
+            size = file.buffer.length;
+        } else if (!size && file.base64) {
+            size = Buffer.from(file.base64, 'base64').length;
+        }
+
+        // 1. File size validation: maximum 10MB limit
+        const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+        if (size <= 0) {
+            throw new BadRequestException('Attachment file cannot be empty');
+        }
+        if (size > MAX_FILE_SIZE) {
+            throw new BadRequestException('Attachment file size exceeds maximum 10MB limit');
+        }
+
+        // 2. MIME-type validation
+        const ALLOWED_MIME_TYPES = [
+            'application/pdf',
+            'image/png',
+            'image/jpeg',
+            'image/webp',
+            'application/msword',
+            'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            'application/vnd.ms-powerpoint',
+            'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+            'text/plain',
+        ];
+
+        if (!ALLOWED_MIME_TYPES.includes(mimetype)) {
+            throw new BadRequestException(
+                `Invalid attachment MIME type: "${mimetype}". Allowed types: PDF, PNG, JPEG, WEBP, DOC, DOCX, PPT, PPTX, TXT`,
+            );
+        }
+
+        // 3. Attempt Cloudinary upload if storage credentials configured
+        const secret = process.env.CLOUDINARY_API_SECRET;
+        const apiKey = process.env.CLOUDINARY_API_KEY;
+        const cloudName = process.env.CLOUDINARY_CLOUD_NAME;
+
+        if (secret && apiKey && cloudName) {
+            try {
+                const folder = caller?.tenantId ? `edulanka/${caller.tenantId}/homework` : 'edulanka/homework';
+                let uploadResult: any;
+
+                if (file.buffer) {
+                    uploadResult = await new Promise((resolve, reject) => {
+                        const stream = cloudinary.uploader.upload_stream(
+                            { folder, resource_type: 'auto' },
+                            (err, res) => (err ? reject(err) : resolve(res)),
+                        );
+                        stream.end(file.buffer);
+                    });
+                } else if (file.base64) {
+                    const dataUri = file.base64.startsWith('data:')
+                        ? file.base64
+                        : `data:${mimetype};base64,${file.base64}`;
+                    uploadResult = await cloudinary.uploader.upload(dataUri, { folder, resource_type: 'auto' });
+                } else if (file.path) {
+                    uploadResult = await cloudinary.uploader.upload(file.path, { folder, resource_type: 'auto' });
+                }
+
+                if (uploadResult) {
+                    return {
+                        url: uploadResult.secure_url || uploadResult.url,
+                        publicId: uploadResult.public_id,
+                        filename,
+                        mimetype,
+                        size,
+                        storage: 'cloudinary',
+                    };
+                }
+            } catch (cldErr: any) {
+                this.logger.warn(`Cloudinary upload failed: ${cldErr.message}. Falling back to local storage path.`);
+            }
+        }
+
+        // 4. Fallback to local path when storage credentials unset or upload failed
+        const safeName = `${Date.now()}_${filename.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
+        const localUrl = `/uploads/homework/${caller?.tenantId || 'global'}/${safeName}`;
+
+        return {
+            url: localUrl,
+            publicId: `local_${safeName}`,
+            filename,
+            mimetype,
+            size,
+            storage: 'local_fallback',
+        };
     }
 }

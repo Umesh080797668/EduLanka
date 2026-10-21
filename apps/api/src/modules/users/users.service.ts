@@ -7,6 +7,7 @@ import {
     NotFoundException,
     ConflictException,
     ForbiddenException,
+    BadRequestException,
     InternalServerErrorException,
     Logger,
 } from '@nestjs/common';
@@ -16,6 +17,7 @@ import { SupabaseService } from '../supabase/supabase.service';
 
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
+import { BulkImportUsersDto, BulkImportUserRowDto } from './dto/bulk-import-users.dto';
 
 @Injectable()
 export class UsersService {
@@ -399,5 +401,180 @@ export class UsersService {
         }
 
         return { success: true };
+    }
+
+    resolveRole(rawRole: string | undefined, customRoleMapping?: Record<string, string>): UserRole {
+        if (!rawRole || !rawRole.trim()) {
+            throw new BadRequestException('Role field is required and cannot be empty');
+        }
+
+        const trimmed = rawRole.trim();
+        const normalized = trimmed.toLowerCase();
+
+        // 1. Check custom tenant role mapping first
+        if (customRoleMapping) {
+            const mapped = customRoleMapping[trimmed] || customRoleMapping[normalized];
+            if (mapped) {
+                const upperMapped = mapped.trim().toUpperCase();
+                if (Object.values(UserRole).includes(upperMapped as UserRole)) {
+                    return upperMapped as UserRole;
+                }
+            }
+        }
+
+        // 2. Standard canonical mapping & known aliases
+        switch (normalized) {
+            case 'student':
+            case 'pupil':
+            case 'learner':
+                return UserRole.STUDENT;
+
+            case 'teacher':
+            case 'instructor':
+            case 'faculty':
+            case 'educator':
+            case 'staff':
+                return UserRole.TEACHER;
+
+            case 'parent':
+            case 'guardian':
+            case 'father':
+            case 'mother':
+            case 'caregiver':
+                return UserRole.PARENT;
+
+            case 'school_admin':
+            case 'admin':
+            case 'administrator':
+            case 'principal':
+            case 'vice_principal':
+                return UserRole.SCHOOL_ADMIN;
+
+            default:
+                throw new BadRequestException(
+                    `Invalid or unmapped role: "${rawRole}". Valid roles are STUDENT, TEACHER, PARENT, SCHOOL_ADMIN, or provide a mapping in customRoleMapping.`,
+                );
+        }
+    }
+
+    async bulkImportUsers(dto: BulkImportUsersDto, caller: JwtPayload) {
+        this.guardAdmin(caller);
+        const tenantId = caller.tenantId;
+        const db = this.supabase.getTenantClient(tenantId);
+
+        if (!dto.rows || dto.rows.length === 0) {
+            throw new BadRequestException('No user rows provided for import');
+        }
+
+        // 1. Validate and resolve all roles upfront
+        const validatedRows: Array<{
+            row: BulkImportUserRowDto;
+            resolvedRole: UserRole;
+            index: number;
+        }> = [];
+
+        const validationErrors: Array<{ row: number; error: string }> = [];
+
+        for (let i = 0; i < dto.rows.length; i++) {
+            const r = dto.rows[i];
+            if (!r.fullName || !r.fullName.trim()) {
+                validationErrors.push({ row: i + 1, error: 'Full name is required' });
+                continue;
+            }
+            if (!r.email && !r.phoneNumber) {
+                validationErrors.push({ row: i + 1, error: 'Either email or phoneNumber is required' });
+                continue;
+            }
+
+            const rawRole = r.role || r.customRole;
+            try {
+                const resolvedRole = this.resolveRole(rawRole, dto.customRoleMapping);
+                if (resolvedRole === UserRole.SUPER_ADMIN) {
+                    validationErrors.push({ row: i + 1, error: 'Cannot create SUPER_ADMIN users via tenant import' });
+                    continue;
+                }
+                validatedRows.push({ row: r, resolvedRole, index: i });
+            } catch (err: any) {
+                validationErrors.push({ row: i + 1, error: err.message });
+            }
+        }
+
+        if (validationErrors.length > 0 && validatedRows.length === 0) {
+            throw new BadRequestException({
+                message: 'All rows in bulk import failed validation',
+                errors: validationErrors,
+            });
+        }
+
+        // 2. Check student cap if importing students on COMMUNITY plan
+        const newStudentCount = validatedRows.filter((vr) => vr.resolvedRole === UserRole.STUDENT).length;
+        if (newStudentCount > 0) {
+            const { data: tenant } = await this.supabase.adminClient
+                .from('tenants')
+                .select('plan')
+                .eq('id', tenantId)
+                .maybeSingle();
+
+            if (tenant?.plan === 'COMMUNITY') {
+                const { count } = await this.supabase.adminClient
+                    .from('students')
+                    .select('id, users!inner(is_active)', { count: 'exact', head: true })
+                    .eq('tenant_id', tenantId)
+                    .eq('users.is_active', true);
+
+                if ((count ?? 0) + newStudentCount > 75) {
+                    throw new ForbiddenException(
+                        `COMMUNITY tier limit exceeded: Importing ${newStudentCount} students would exceed the 75 active student cap (current: ${count ?? 0}). Upgrade to Starter.`,
+                    );
+                }
+            }
+        }
+
+        // 3. Process each validated row
+        const importedUsers: any[] = [];
+        const runtimeErrors: Array<{ row: number; error: string }> = [];
+
+        for (const item of validatedRows) {
+            const { row, resolvedRole, index } = item;
+            try {
+                const user = await this.create(
+                    {
+                        fullName: row.fullName,
+                        email: row.email,
+                        phoneNumber: row.phoneNumber,
+                        password: row.password || randomUUID().slice(0, 12) + 'Aa1!',
+                        role: resolvedRole,
+                    },
+                    caller,
+                );
+
+                // Auto-create role-specific profile row if student
+                if (resolvedRole === UserRole.STUDENT && user?.id) {
+                    try {
+                        await db.from('students').insert({
+                            tenant_id: tenantId,
+                            user_id: user.user_id || user.id,
+                            admission_no: row.admissionNo || `ADM-${Date.now().toString().slice(-6)}-${index + 1}`,
+                            class_id: row.classId || null,
+                        });
+                    } catch {
+                        // Ignore duplicate or constraint errors on student sub-record
+                    }
+                }
+
+                importedUsers.push(user);
+            } catch (err: any) {
+                runtimeErrors.push({ row: index + 1, error: err.message });
+            }
+        }
+
+        return {
+            success: importedUsers.length > 0,
+            totalRows: dto.rows.length,
+            importedCount: importedUsers.length,
+            failedCount: validationErrors.length + runtimeErrors.length,
+            importedUsers,
+            errors: [...validationErrors, ...runtimeErrors],
+        };
     }
 }

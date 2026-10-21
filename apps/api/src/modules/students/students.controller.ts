@@ -1,7 +1,7 @@
 import type { JwtPayload } from '@edu-lanka/shared-types';
 import { UserRole } from '@edu-lanka/shared-types';
 import {
-    Controller, Get, Post, Patch, Delete,
+    Controller, Get, Post, Patch, Delete, Query,
     Body, Param, UseGuards, HttpCode, HttpStatus, ParseUUIDPipe,
 } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
@@ -46,6 +46,19 @@ export class StudentsController {
     @ApiOperation({ summary: 'Get a student by ID (includes class and parent info)' })
     findOne(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: JwtPayload) {
         return this.studentsService.findOne(id, user);
+    }
+
+    @Get(':id/summary')
+    @ApiOperation({ summary: 'Get term-scoped academic summary for a student' })
+    getStudentSummary(
+        @Param('id', ParseUUIDPipe) id: string,
+        @CurrentUser() user: JwtPayload,
+        @Query('year') year?: string,
+        @Query('term') term?: string,
+    ) {
+        const yr = year ? parseInt(year, 10) : new Date().getFullYear();
+        const t = term ? parseInt(term, 10) : 1;
+        return this.studentsService.getStudentSummary(id, user, yr, t);
     }
 
     @Patch(':id')

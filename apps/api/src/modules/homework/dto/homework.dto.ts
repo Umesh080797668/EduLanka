@@ -60,3 +60,24 @@ export class GradeHomeworkDto {
     @IsIn(['GRADED', 'RESUBMIT_REQUESTED'])
     status?: 'GRADED' | 'RESUBMIT_REQUESTED';
 }
+
+export class UploadHomeworkAttachmentDto {
+    @ApiProperty({ description: 'File name' })
+    @IsString()
+    @IsNotEmpty()
+    filename: string;
+
+    @ApiProperty({ description: 'MIME type of the file' })
+    @IsString()
+    @IsNotEmpty()
+    mimetype: string;
+
+    @ApiProperty({ description: 'File size in bytes' })
+    size: number;
+
+    @ApiPropertyOptional({ description: 'Base64 encoded file content or data URI' })
+    @IsOptional()
+    @IsString()
+    base64?: string;
+}
+

@@ -1,5 +1,6 @@
 import { Injectable, Inject, Logger } from '@nestjs/common';
 import type Redis from 'ioredis';
+import { randomUUID } from 'crypto';
 
 const KEY_PREFIX = 'edulanka:rt:';
 
@@ -135,6 +136,115 @@ export class RedisService {
             await this.redis.del(`edulanka:user_active:${userId}`);
         } catch {
             // non-fatal
+        }
+    }
+
+    /**
+     * Non-blocking cache invalidation using cursor-based SCAN instead of blocking KEYS *.
+     * Prevents locking the single-threaded Redis event loop under multi-tenant load.
+     */
+    async invalidatePattern(pattern: string): Promise<number> {
+        let cursor = '0';
+        let deletedCount = 0;
+        try {
+            do {
+                const [nextCursor, keys] = await this.redis.scan(cursor, 'MATCH', pattern, 'COUNT', 100);
+                cursor = nextCursor;
+                if (keys && keys.length > 0) {
+                    await this.redis.del(...keys);
+                    deletedCount += keys.length;
+                }
+            } while (cursor !== '0');
+        } catch (err) {
+            this.logger.error(`Failed to invalidate keys for pattern ${pattern}: ${(err as Error).message}`);
+        }
+        return deletedCount;
+    }
+
+    /**
+     * Non-blocking cursor-based SCAN key enumeration.
+     */
+    async scanKeys(pattern: string, count = 100): Promise<string[]> {
+        let cursor = '0';
+        const matchedKeys: string[] = [];
+        try {
+            do {
+                const [nextCursor, keys] = await this.redis.scan(cursor, 'MATCH', pattern, 'COUNT', count);
+                cursor = nextCursor;
+                matchedKeys.push(...keys);
+            } while (cursor !== '0');
+        } catch (err) {
+            this.logger.error(`Failed to scan keys for pattern ${pattern}: ${(err as Error).message}`);
+        }
+        return matchedKeys;
+    }
+
+    /**
+     * Invalidate previously issued unexpired password reset tokens for a user
+     * and register the new token nonce.
+     */
+    async issuePasswordResetNonce(userId: string, ttlSeconds = 3600): Promise<string> {
+        const nonce = randomUUID();
+        try {
+            // Invalidate any existing reset token for this user
+            const oldNonce = await this.redis.get(`edulanka:pwd_reset:user:${userId}`);
+            if (oldNonce) {
+                await this.redis.del(`edulanka:pwd_reset:nonce:${oldNonce}`);
+            }
+
+            // Set active nonce for user and inverse lookup
+            await this.redis.set(`edulanka:pwd_reset:user:${userId}`, nonce, 'EX', ttlSeconds);
+            await this.redis.set(`edulanka:pwd_reset:nonce:${nonce}`, userId, 'EX', ttlSeconds);
+        } catch (err) {
+            this.logger.error(`Failed to issue password reset nonce for userId=${userId}`, err);
+        }
+        return nonce;
+    }
+
+    /**
+     * Verify whether a password reset token/nonce is valid and has not been revoked or superseded.
+     */
+    async isPasswordResetNonceValid(userId: string, nonce: string): Promise<boolean> {
+        try {
+            const activeNonce = await this.redis.get(`edulanka:pwd_reset:user:${userId}`);
+            return activeNonce === nonce;
+        } catch {
+            return false;
+        }
+    }
+
+    /**
+     * Revoke all password reset tokens for a user (e.g. once password reset completes).
+     */
+    async revokePasswordResetTokens(userId: string): Promise<void> {
+        try {
+            const activeNonce = await this.redis.get(`edulanka:pwd_reset:user:${userId}`);
+            if (activeNonce) {
+                await this.redis.del(`edulanka:pwd_reset:nonce:${activeNonce}`);
+            }
+            await this.redis.del(`edulanka:pwd_reset:user:${userId}`);
+        } catch (err) {
+            this.logger.error(`Failed to revoke password reset tokens for userId=${userId}`, err);
+        }
+    }
+
+    /**
+     * Mark an access/reset token string as revoked to prevent replay attacks.
+     */
+    async markTokenRevoked(token: string, ttlSeconds = 86400): Promise<void> {
+        try {
+            await this.redis.set(`edulanka:revoked_token:${token}`, '1', 'EX', ttlSeconds);
+        } catch (err) {
+            this.logger.error(`Failed to mark token revoked`, err);
+        }
+    }
+
+    async isTokenStringRevoked(token: string): Promise<boolean> {
+        try {
+            const res = await this.redis.exists(`edulanka:revoked_token:${token}`);
+            return res === 1;
+        } catch {
+            return false;
         }
     }
 }

@@ -488,6 +488,8 @@ export class MobileSyncService {
             throw new InternalServerErrorException('Sync event ingestion failed');
         }
 
+        const targetSyncEventId = data?.id ?? preExistingEvent?.id;
+
         // 4. Persist Attendance roll call if new OR if previously unapplied (retry recovery)
         const isAttendanceApplied = preExistingEvent ? preExistingEvent.applied === true : false;
         if (!isAttendanceApplied && dto.entityType === 'attendance' && dto.payload) {
@@ -502,10 +504,21 @@ export class MobileSyncService {
                 let resolvedStudentUserId = studentId;
                 const { data: sRow } = await client
                     .from('students')
-                    .select('user_id')
+                    .select('id, user_id, class_id, users!inner(is_active)')
                     .eq('tenant_id', caller.tenantId)
-                    .eq('id', studentId)
+                    .or(`id.eq.${studentId},user_id.eq.${studentId}`)
                     .maybeSingle();
+
+                const usr = Array.isArray(sRow?.users) ? sRow?.users[0] : sRow?.users;
+                // Reject attendance if student is not found, transferred to another class, or deactivated
+                if (!sRow || sRow.class_id !== classId || !usr?.is_active) {
+                    this.logger.warn(`Skipping attendance sync event: student ${studentId} is not actively enrolled in class ${classId}`);
+                    if (targetSyncEventId) {
+                        await client.from('sync_events').update({ applied: true }).eq('id', targetSyncEventId);
+                    }
+                    return;
+                }
+
                 if (sRow?.user_id) {
                     resolvedStudentUserId = sRow.user_id;
                 }

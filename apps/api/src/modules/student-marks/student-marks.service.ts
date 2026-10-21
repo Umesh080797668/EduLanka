@@ -172,6 +172,50 @@ export class StudentMarksService {
         return data ?? [];
     }
 
+    /**
+     * Retrieve marks for a student strictly filtered by term and academic year.
+     * Uses the updated (tenant_id, student_id, academic_year, term, subject) schema
+     * rather than obsolete term_id references.
+     */
+    async getStudentMarksByTerm(
+        studentId: string,
+        term: number,
+        academicYear: number,
+        caller: JwtPayload,
+    ) {
+        const tenantId = caller.tenantId;
+        const db = this.supabase.getTenantClient(tenantId);
+        const year = academicYear || new Date().getFullYear();
+
+        if (caller.role === UserRole.STUDENT) {
+            const { data: stu } = await db.from('students').select('user_id').eq('id', studentId).maybeSingle();
+            if (stu?.user_id !== caller.sub) {
+                throw new ForbiddenException('Not allowed to view other students marks');
+            }
+        } else if (caller.role === UserRole.PARENT) {
+            const { data: pc } = await db.from('parents').select('id').eq('user_id', caller.sub).eq('student_id', studentId).maybeSingle();
+            if (!pc) {
+                throw new ForbiddenException('Parent is not linked to this student');
+            }
+        }
+
+        const { data, error } = await db
+            .from('student_marks')
+            .select('*')
+            .eq('tenant_id', tenantId)
+            .eq('student_id', studentId)
+            .eq('academic_year', year)
+            .eq('term', String(term))
+            .order('subject', { ascending: true });
+
+        if (error) {
+            this.logger.error(`Failed to fetch student marks by term: ${error.message}`);
+            throw new InternalServerErrorException('Failed to fetch student marks for the specified term');
+        }
+
+        return data ?? [];
+    }
+
     async getFinalizationStatus(classId: string, term: number, year: number, caller: JwtPayload) {
         const tenantId = caller.tenantId;
         const db = this.supabase.getTenantClient(tenantId);

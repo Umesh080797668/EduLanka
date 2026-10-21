@@ -1,6 +1,6 @@
 import type { JwtPayload } from '@edu-lanka/shared-types';
 import { UserRole } from '@edu-lanka/shared-types';
-import { ForbiddenException } from '@nestjs/common';
+import { ForbiddenException, BadRequestException } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 
 import { SupabaseService } from '../../supabase/supabase.service';
@@ -356,5 +356,56 @@ describe('HomeworkService', () => {
         await expect(
             service.getSubmissions(homeworkUuid, teacherCaller),
         ).rejects.toThrow(ForbiddenException);
+    });
+
+    describe('uploadHomeworkAttachment', () => {
+        it('should reject file exceeding 10MB limit', async () => {
+            const oversizedFile = {
+                filename: 'large.pdf',
+                mimetype: 'application/pdf',
+                size: 11 * 1024 * 1024,
+            };
+            await expect(
+                service.uploadHomeworkAttachment(oversizedFile, teacherCaller),
+            ).rejects.toThrow(BadRequestException);
+        });
+
+        it('should reject file with empty size', async () => {
+            const emptyFile = {
+                filename: 'empty.pdf',
+                mimetype: 'application/pdf',
+                size: 0,
+            };
+            await expect(
+                service.uploadHomeworkAttachment(emptyFile, teacherCaller),
+            ).rejects.toThrow(BadRequestException);
+        });
+
+        it('should reject disallowed MIME types', async () => {
+            const scriptFile = {
+                filename: 'hack.sh',
+                mimetype: 'application/x-sh',
+                size: 1024,
+            };
+            await expect(
+                service.uploadHomeworkAttachment(scriptFile, teacherCaller),
+            ).rejects.toThrow(BadRequestException);
+        });
+
+        it('should fall back to local storage when Cloudinary credentials unset', async () => {
+            delete process.env.CLOUDINARY_API_SECRET;
+            delete process.env.CLOUDINARY_API_KEY;
+
+            const validFile = {
+                filename: 'homework_worksheet.pdf',
+                mimetype: 'application/pdf',
+                size: 2048,
+            };
+
+            const result = await service.uploadHomeworkAttachment(validFile, teacherCaller);
+            expect(result.storage).toBe('local_fallback');
+            expect(result.filename).toBe('homework_worksheet.pdf');
+            expect(result.url).toContain(`/uploads/homework/${teacherCaller.tenantId}/`);
+        });
     });
 });

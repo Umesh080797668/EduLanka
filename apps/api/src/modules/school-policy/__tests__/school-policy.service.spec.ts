@@ -15,8 +15,8 @@ describe('SchoolPolicyService', () => {
   let mockDb: any;
 
   beforeEach(async () => {
-        jest.spyOn(Logger.prototype, 'error').mockImplementation(() => {});
-        jest.spyOn(Logger.prototype, 'debug').mockImplementation(() => {});
+    jest.spyOn(Logger.prototype, 'error').mockImplementation(() => { });
+    jest.spyOn(Logger.prototype, 'debug').mockImplementation(() => { });
     mockDb = {
       from: jest.fn().mockReturnThis(),
       select: jest.fn().mockReturnThis(),
@@ -47,7 +47,7 @@ describe('SchoolPolicyService', () => {
   });
 
   afterEach(() => {
-        jest.restoreAllMocks();
+    jest.restoreAllMocks();
     jest.clearAllMocks();
   });
 
@@ -91,11 +91,14 @@ describe('SchoolPolicyService', () => {
   describe('getPolicy', () => {
     const adminCaller = { sub: 'admin-id', role: UserRole.SCHOOL_ADMIN, tenantId: 'tenant-1' } as any;
 
-    it('should throw NotFoundException if policy is not initialized', async () => {
+    it('should return default global policy parameters if policy row is not initialized', async () => {
       mockDb.maybeSingle.mockResolvedValueOnce({ data: null, error: null });
 
-      await expect(service.getPolicy(adminCaller))
-        .rejects.toThrow(NotFoundException);
+      const result = await service.getPolicy(adminCaller);
+      expect(result).toBeDefined();
+      expect(result.max_students_per_class).toBe(40);
+      expect(result.academic_year).toBe(new Date().getFullYear());
+      expect(result.tenant_id).toBe('tenant-1');
     });
 
     it('should return the school policy', async () => {

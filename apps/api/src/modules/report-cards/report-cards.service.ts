@@ -1,10 +1,22 @@
 import type { JwtPayload } from '@edu-lanka/shared-types';
 import { UserRole } from '@edu-lanka/shared-types';
-import { Injectable, Logger, InternalServerErrorException, NotFoundException, ForbiddenException } from '@nestjs/common';
+import { InjectQueue } from '@nestjs/bullmq';
+import {
+    Injectable,
+    Logger,
+    InternalServerErrorException,
+    NotFoundException,
+    ForbiddenException,
+    BadRequestException,
+    Optional,
+} from '@nestjs/common';
+import { Queue } from 'bullmq';
 
 import { SupabaseService } from '../supabase/supabase.service';
 import { TenantService } from '../tenant/tenant.service';
+import { BulkReportCardsDto } from './dto/bulk-report-cards.dto';
 
+export const BULK_REPORT_CARDS_QUEUE_NAME = 'bulk-report-cards';
 
 @Injectable()
 export class ReportCardsService {
@@ -13,6 +25,7 @@ export class ReportCardsService {
     constructor(
         private readonly supabase: SupabaseService,
         private readonly tenantService: TenantService,
+        @Optional() @InjectQueue(BULK_REPORT_CARDS_QUEUE_NAME) private readonly bulkQueue?: Queue,
     ) { }
 
     async generateReportCard(studentId: string, term: number, year: number, caller: JwtPayload): Promise<Buffer> {
@@ -77,8 +90,26 @@ export class ReportCardsService {
                 doc.on('data', (buf: Buffer) => buffers.push(buf));
                 doc.on('end', () => resolve(Buffer.concat(buffers)));
 
-                doc.fontSize(20).text(`EduLanka Report Card - ${tenant.name}`, { align: 'center' });
-                doc.moveDown(0.5);
+                // Procedural School Banner & Crest Header Fallback
+                const bannerX = 50;
+                const bannerY = 40;
+                const bannerWidth = 512;
+                const bannerHeight = 65;
+
+                // Navy header background
+                doc.rect(bannerX, bannerY, bannerWidth, bannerHeight).fill('#1e3a8a');
+
+                // Procedural gold/blue heraldic crest seal
+                doc.circle(bannerX + 35, bannerY + 32, 22).lineWidth(1.5).stroke('#fbbf24');
+                doc.circle(bannerX + 35, bannerY + 32, 18).fillAndStroke('#1e40af', '#f59e0b');
+                doc.fontSize(10).fillColor('#fbbf24').text('★', bannerX + 31, bannerY + 26);
+
+                // School Name & Subtitle
+                doc.fontSize(15).fillColor('#ffffff').text(tenant.name || 'EduLanka Academy', bannerX + 70, bannerY + 16, { width: 420, ellipsis: true });
+                doc.fontSize(8.5).fillColor('#93c5fd').text('OFFICIAL STUDENT TERMINAL PROGRESS REPORT', bannerX + 70, bannerY + 38);
+
+                doc.fillColor('#000000');
+                doc.y = bannerY + bannerHeight + 20;
 
                 if (!isFinalized) {
                     doc.fontSize(12).fillColor('#dc2626').text('[ DRAFT REPORT CARD — TERM NOT FINALIZED ]', { align: 'center' });
@@ -126,5 +157,70 @@ export class ReportCardsService {
                 reject(new InternalServerErrorException('Failed to generate PDF document'));
             }
         });
+    }
+
+    async queueBulkReportCardGeneration(dto: BulkReportCardsDto, caller: JwtPayload) {
+        if (!caller.tenantId) {
+            throw new BadRequestException('Tenant ID is required for bulk report card generation');
+        }
+
+        if (caller.role !== UserRole.SCHOOL_ADMIN && caller.role !== UserRole.SUPER_ADMIN && caller.role !== UserRole.TEACHER) {
+            throw new ForbiddenException('Only teachers and administrators can queue bulk report cards');
+        }
+
+        if (!this.bulkQueue) {
+            throw new InternalServerErrorException('Bulk report cards queue is not initialized');
+        }
+
+        const job = await this.bulkQueue.add(
+            'generate-bulk-report-cards',
+            {
+                tenantId: caller.tenantId,
+                term: dto.term,
+                academicYear: dto.academicYear,
+                classId: dto.classId || null,
+                triggeredBy: caller.sub,
+            },
+            {
+                removeOnComplete: 100,
+                removeOnFail: 50,
+            },
+        );
+
+        return {
+            success: true,
+            jobId: job.id,
+            status: 'QUEUED',
+            message: `Bulk report card generation scheduled for Term ${dto.term}, ${dto.academicYear}`,
+        };
+    }
+
+    async getBulkJobStatus(jobId: string, caller: JwtPayload) {
+        if (!this.bulkQueue) {
+            throw new InternalServerErrorException('Bulk report cards queue is not initialized');
+        }
+
+        const job = await this.bulkQueue.getJob(jobId);
+        if (!job) {
+            throw new NotFoundException(`Job ${jobId} not found`);
+        }
+
+        if (job.data?.tenantId !== caller.tenantId && caller.role !== UserRole.SUPER_ADMIN) {
+            throw new ForbiddenException('Cannot inspect bulk jobs of another tenant');
+        }
+
+        const state = await job.getState();
+        return {
+            jobId: job.id,
+            state,
+            progress: job.progress,
+            data: {
+                term: job.data.term,
+                academicYear: job.data.academicYear,
+                classId: job.data.classId,
+            },
+            result: job.returnvalue,
+            failedReason: job.failedReason,
+        };
     }
 }

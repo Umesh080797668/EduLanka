@@ -105,4 +105,61 @@ describe('apiClient', () => {
             }),
         }));
     });
+
+    it('should retry on HTTP 429 and succeed on subsequent attempt', async () => {
+        jest.useFakeTimers();
+
+        // 1st request gets 429
+        (global.fetch as jest.Mock).mockResolvedValueOnce({
+            ok: false,
+            status: 429,
+            headers: {
+                get: (h: string) => (h.toLowerCase() === 'retry-after' ? '1' : null),
+            },
+            text: async () => JSON.stringify({ error: { message: 'Rate limit exceeded' } }),
+        });
+
+        // 2nd request succeeds
+        (global.fetch as jest.Mock).mockResolvedValueOnce({
+            ok: true,
+            status: 200,
+            text: async () => JSON.stringify({ success: true, data: { rateLimited: false } }),
+        });
+
+        const promise = apiClient.get<{ rateLimited: boolean }>('/limited-data');
+
+        // Advance timers for backoff delay
+        await jest.advanceTimersByTimeAsync(1100);
+
+        const result = await promise;
+        expect(result).toEqual({ rateLimited: false });
+        expect(global.fetch).toHaveBeenCalledTimes(2);
+
+        jest.useRealTimers();
+    });
+
+    it('should fail after exceeding maxRetries on HTTP 429', async () => {
+        jest.useFakeTimers();
+
+        (global.fetch as jest.Mock).mockResolvedValue({
+            ok: false,
+            status: 429,
+            headers: {
+                get: () => '0',
+            },
+            text: async () => JSON.stringify({ error: { message: 'Too many requests, slow down' } }),
+        });
+
+        const promise = apiClient.get('/always-limited', { maxRetries: 2 });
+        const assertion = expect(promise).rejects.toThrow('Too many requests, slow down');
+
+        // Advance timers through all retries
+        await jest.advanceTimersByTimeAsync(5000);
+
+        await assertion;
+        // Initial request + 2 retries = 3 calls
+        expect(global.fetch).toHaveBeenCalledTimes(3);
+
+        jest.useRealTimers();
+    });
 });
