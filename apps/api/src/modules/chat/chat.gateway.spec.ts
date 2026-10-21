@@ -167,6 +167,54 @@ describe('ChatGateway', () => {
       await gateway.handleConnection(mockClient);
       expect(mockClient.disconnect).toHaveBeenCalled();
     });
+
+    it('should disconnect client if x-tenant-id does not match JWT tenantId claim', async () => {
+      const mockClient: any = {
+        id: 'client_mismatch',
+        handshake: {
+          auth: { token: 'valid_jwt', tenantId: 'tenant_other' },
+          headers: { 'x-tenant-id': 'tenant_other' },
+        },
+        data: {},
+        disconnect: jest.fn(),
+      };
+
+      (jwtService.verifyAsync as jest.Mock).mockResolvedValue({
+        tenantId: 'tenant_123',
+        sub: 'user_456',
+        role: 'TEACHER',
+        type: 'access',
+        iat: Math.floor(Date.now() / 1000),
+      });
+
+      await gateway.handleConnection(mockClient);
+      expect(mockClient.disconnect).toHaveBeenCalled();
+    });
+
+    it('should allow SUPER_ADMIN to connect with custom requested x-tenant-id', async () => {
+      const mockClient: any = {
+        id: 'client_super_admin',
+        handshake: {
+          auth: { token: 'valid_jwt' },
+          headers: { 'x-tenant-id': 'tenant_target' },
+        },
+        data: {},
+        join: jest.fn().mockResolvedValue(undefined),
+        disconnect: jest.fn(),
+      };
+
+      (jwtService.verifyAsync as jest.Mock).mockResolvedValue({
+        tenantId: 'tenant_admin',
+        sub: 'admin_1',
+        role: 'SUPER_ADMIN',
+        type: 'access',
+        iat: Math.floor(Date.now() / 1000),
+      });
+
+      await gateway.handleConnection(mockClient);
+      expect(mockClient.disconnect).not.toHaveBeenCalled();
+      expect(mockClient.data.tenantId).toBe('tenant_target');
+    });
   });
 
   describe('handleJoinConversation', () => {

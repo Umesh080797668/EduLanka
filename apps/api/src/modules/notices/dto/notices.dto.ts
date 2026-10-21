@@ -1,155 +1,164 @@
 import { Type } from 'class-transformer';
 import {
-    IsString,
-    IsEnum,
-    IsOptional,
-    IsInt,
-    IsBoolean,
-    IsArray,
-    Min,
-    Max,
-    IsNotEmpty,
+  IsString,
+  IsEnum,
+  IsOptional,
+  IsInt,
+  IsBoolean,
+  IsArray,
+  Min,
+  Max,
+  IsNotEmpty,
 } from 'class-validator';
 
+import { InstructionMedium } from '@edu-lanka/shared-types';
 import { IsUuidString } from '../../../common/decorators/is-uuid-string.decorator';
 
 export enum NoticeScope {
-    UNIVERSAL = 'UNIVERSAL',
-    SCHOOL_WIDE = 'SCHOOL_WIDE',
-    GRADE_LEVEL = 'GRADE_LEVEL',
-    CLASS_SPECIFIC = 'CLASS_SPECIFIC',
+  UNIVERSAL = 'UNIVERSAL',
+  SCHOOL_WIDE = 'SCHOOL_WIDE',
+  GRADE_LEVEL = 'GRADE_LEVEL',
+  CLASS_SPECIFIC = 'CLASS_SPECIFIC',
 }
 
 export enum NoticePriority {
-    LOW = 'LOW',
-    NORMAL = 'NORMAL',
-    HIGH = 'HIGH',
-    URGENT = 'URGENT',
+  LOW = 'LOW',
+  NORMAL = 'NORMAL',
+  HIGH = 'HIGH',
+  URGENT = 'URGENT',
 }
 
 export class CreateNoticeDto {
-    @IsString()
-    @IsNotEmpty()
-    title!: string;
+  @IsOptional()
+  @IsEnum(InstructionMedium)
+  medium?: InstructionMedium;
 
-    @IsString()
-    @IsNotEmpty()
-    content_html!: string;
+  @IsString()
+  @IsNotEmpty()
+  title!: string;
 
-    @IsEnum(NoticeScope)
-    scope!: NoticeScope;
+  @IsString()
+  @IsNotEmpty()
+  content_html!: string;
 
-    @IsOptional()
-    @IsInt()
-    @Type(() => Number)
-    @Min(1)
-    @Max(13)
-    target_grade?: number;
+  @IsEnum(NoticeScope)
+  scope!: NoticeScope;
 
-    @IsOptional()
-    @IsUuidString()
-    target_class_id?: string;
+  @IsOptional()
+  @IsInt()
+  @Type(() => Number)
+  @Min(1)
+  @Max(13)
+  target_grade?: number;
 
-    @IsOptional()
-    @IsEnum(NoticePriority)
-    priority?: NoticePriority = NoticePriority.NORMAL;
+  @IsOptional()
+  @IsUuidString()
+  target_class_id?: string;
 
-    @IsOptional()
-    @IsArray()
-    attachments?: any[];
+  @IsOptional()
+  @IsEnum(NoticePriority)
+  priority?: NoticePriority = NoticePriority.NORMAL;
 
-    @IsOptional()
-    @IsString()
-    expires_at?: string;
+  @IsOptional()
+  @IsArray()
+  attachments?: any[];
 
-    @IsOptional()
-    @IsBoolean()
-    send_sms?: boolean;
+  @IsOptional()
+  @IsString()
+  expires_at?: string;
 
-    @IsOptional()
-    @IsBoolean()
-    bypass_quota?: boolean;
+  @IsOptional()
+  @IsBoolean()
+  send_sms?: boolean;
 
-    @IsOptional()
-    @IsBoolean()
-    requires_acknowledgment?: boolean;
+  @IsOptional()
+  @IsBoolean()
+  bypass_quota?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  requires_acknowledgment?: boolean;
 }
 
 export class UpdateNoticeDto {
-    @IsOptional()
-    @IsString()
-    @IsNotEmpty()
-    title?: string;
+  @IsOptional()
+  @IsEnum(InstructionMedium)
+  medium?: InstructionMedium;
 
-    @IsOptional()
-    @IsString()
-    @IsNotEmpty()
-    content_html?: string;
+  @IsOptional()
+  @IsString()
+  @IsNotEmpty()
+  title?: string;
 
-    @IsOptional()
-    @IsEnum(NoticeScope)
-    scope?: NoticeScope;
+  @IsOptional()
+  @IsString()
+  @IsNotEmpty()
+  content_html?: string;
 
-    @IsOptional()
-    @IsInt()
-    @Type(() => Number)
-    @Min(1)
-    @Max(13)
-    target_grade?: number;
+  @IsOptional()
+  @IsEnum(NoticeScope)
+  scope?: NoticeScope;
 
-    @IsOptional()
-    @IsUuidString()
-    target_class_id?: string;
+  @IsOptional()
+  @IsInt()
+  @Type(() => Number)
+  @Min(1)
+  @Max(13)
+  target_grade?: number;
 
-    @IsOptional()
-    @IsEnum(NoticePriority)
-    priority?: NoticePriority;
+  @IsOptional()
+  @IsUuidString()
+  target_class_id?: string;
 
-    @IsOptional()
-    @IsArray()
-    attachments?: any[];
+  @IsOptional()
+  @IsEnum(NoticePriority)
+  priority?: NoticePriority;
 
-    @IsOptional()
-    @IsString()
-    expires_at?: string;
+  @IsOptional()
+  @IsArray()
+  attachments?: any[];
 
-    @IsOptional()
-    @IsBoolean()
-    requires_acknowledgment?: boolean;
+  @IsOptional()
+  @IsString()
+  expires_at?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  requires_acknowledgment?: boolean;
 }
 
 export class CreateMaintenanceNoticeDto {
-    @IsString()
-    @IsNotEmpty()
-    title!: string;
+  @IsString()
+  @IsNotEmpty()
+  title!: string;
 
-    @IsString()
-    @IsNotEmpty()
-    message!: string;
+  @IsString()
+  @IsNotEmpty()
+  message!: string;
 
-    @IsOptional()
-    @IsEnum(['INFO', 'WARNING', 'CRITICAL'])
-    severity?: 'INFO' | 'WARNING' | 'CRITICAL' = 'INFO';
+  @IsOptional()
+  @IsEnum(['INFO', 'WARNING', 'CRITICAL'])
+  severity?: 'INFO' | 'WARNING' | 'CRITICAL' = 'INFO';
 
-    @IsOptional()
-    @IsString()
-    scheduledStart?: string;
+  @IsOptional()
+  @IsString()
+  scheduledStart?: string;
 
-    @IsOptional()
-    @IsString()
-    scheduledEnd?: string;
+  @IsOptional()
+  @IsString()
+  scheduledEnd?: string;
 }
 
 export class BroadcastNoticeDto {
-    @IsString()
-    @IsNotEmpty()
-    title!: string;
+  @IsString()
+  @IsNotEmpty()
+  title!: string;
 
-    @IsString()
-    @IsNotEmpty()
-    content_html!: string;
+  @IsString()
+  @IsNotEmpty()
+  content_html!: string;
 
-    @IsOptional()
-    @IsBoolean()
-    send_sms?: boolean;
+  @IsOptional()
+  @IsBoolean()
+  send_sms?: boolean;
 }

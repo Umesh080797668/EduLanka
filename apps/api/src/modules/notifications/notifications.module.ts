@@ -5,10 +5,11 @@ import { AuthModule } from '../auth/auth.module';
 import { SupabaseModule } from '../supabase/supabase.module';
 
 import { NotificationsGateway } from './notifications.gateway';
+import { NotificationsService } from './notifications.service';
 
 @Module({
   imports: [SupabaseModule, JwtModule.register({}), AuthModule],
-  providers: [NotificationsGateway],
-  exports: [NotificationsGateway],
+  providers: [NotificationsGateway, NotificationsService],
+  exports: [NotificationsGateway, NotificationsService],
 })
-export class NotificationsModule { }
+export class NotificationsModule {}

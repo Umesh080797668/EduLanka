@@ -28,12 +28,16 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     private readonly jwtService: JwtService,
     private readonly redisService: RedisService,
     private readonly authService: AuthService,
-    @Optional() private readonly planFeaturesService: PlanFeaturesService = new PlanFeaturesService({ adminClient: {} } as any),
-  ) { }
+    @Optional()
+    private readonly planFeaturesService: PlanFeaturesService = new PlanFeaturesService({
+      adminClient: {},
+    } as any)
+  ) {}
 
   async handleConnection(client: Socket) {
     try {
-      const token = client.handshake.auth?.token || client.handshake.headers?.authorization?.split(' ')[1];
+      const token =
+        client.handshake.auth?.token || client.handshake.headers?.authorization?.split(' ')[1];
       if (!token) throw new Error('No token provided');
 
       const payload = await this.jwtService.verifyAsync(token, { secret: process.env.JWT_SECRET });
@@ -53,14 +57,39 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
         throw new Error('User account is deactivated');
       }
 
-      if (payload.tenantId) {
-        const plan = payload.tenantPlan || await this.planFeaturesService.getTenantPlan(payload.tenantId);
+      // Strictly validate x-tenant-id against authenticated user JWT tenant claim
+      const requestedTenantId = (client.handshake.headers?.['x-tenant-id'] ||
+        client.handshake.auth?.tenantId ||
+        client.handshake.query?.tenantId) as string | undefined;
+
+      if (requestedTenantId && Array.isArray(requestedTenantId)) {
+        throw new Error('Invalid x-tenant-id header');
+      }
+
+      if (
+        requestedTenantId &&
+        requestedTenantId !== payload.tenantId &&
+        payload.role !== 'SUPER_ADMIN'
+      ) {
+        throw new Error('Forbidden: x-tenant-id does not match authenticated token tenant claim');
+      }
+
+      if (!payload.tenantId && payload.role !== 'SUPER_ADMIN') {
+        throw new Error('Forbidden: User does not belong to any tenant');
+      }
+
+      const effectiveTenantId =
+        payload.role === 'SUPER_ADMIN' && requestedTenantId ? requestedTenantId : payload.tenantId;
+
+      if (effectiveTenantId) {
+        const plan =
+          payload.tenantPlan || (await this.planFeaturesService.getTenantPlan(effectiveTenantId));
         if (!this.planFeaturesService.isFeatureEnabled(plan, PlanFeature.CHAT)) {
           throw new Error('Real-time chat is not available on Community tier. Upgrade to Starter.');
         }
       }
 
-      client.data.tenantId = payload.tenantId;
+      client.data.tenantId = effectiveTenantId;
       client.data.userId = userId;
       client.data.role = payload.role;
       client.data.userName = payload.name || payload.email || undefined;
@@ -73,8 +102,13 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       await this.redisService.getClient().incr('metrics:ws:chat:connections');
       client.data.counted = true;
     } catch (error: any) {
-      this.logger.warn(`Disconnecting unauthenticated/invalid chat client ${client.id}: ${error?.message}`);
-      await this.redisService.getClient().incr('metrics:ws:errors').catch(() => { });
+      this.logger.warn(
+        `Disconnecting unauthenticated/invalid chat client ${client.id}: ${error?.message}`
+      );
+      await this.redisService
+        .getClient()
+        .incr('metrics:ws:errors')
+        .catch(() => {});
       client.disconnect();
     }
   }
@@ -91,7 +125,10 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
           return 0
         end
       `;
-      await this.redisService.getClient().eval(DECR_LUA, 1, 'metrics:ws:chat:connections').catch(() => { });
+      await this.redisService
+        .getClient()
+        .eval(DECR_LUA, 1, 'metrics:ws:chat:connections')
+        .catch(() => {});
       client.data.counted = false;
     }
   }
@@ -146,14 +183,24 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     }
 
     try {
-      await this.chatService.assertParticipantAccess(tenantId, payload.conversationId, userId, role);
+      await this.chatService.assertParticipantAccess(
+        tenantId,
+        payload.conversationId,
+        userId,
+        role
+      );
       const roomName = `conversation_${payload.conversationId}`;
       await client.join(roomName);
       this.logger.log(`Client ${client.id} (user ${userId}) joined room ${roomName}`);
       client.emit('joined_conversation', { conversationId: payload.conversationId });
     } catch (e: any) {
-      this.logger.warn(`User ${userId} denied joining conversation ${payload.conversationId}: ${e.message}`);
-      await this.redisService.getClient().incr('metrics:ws:errors').catch(() => { });
+      this.logger.warn(
+        `User ${userId} denied joining conversation ${payload.conversationId}: ${e.message}`
+      );
+      await this.redisService
+        .getClient()
+        .incr('metrics:ws:errors')
+        .catch(() => {});
       client.emit('chat_error', { conversationId: payload?.conversationId, message: e.message });
     }
   }
@@ -221,9 +268,11 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       this.broadcastMessage(payload.conversationId, savedMessage);
     } catch (e: any) {
       this.logger.error(`Error sending message: ${e.message}`, e);
-      await this.redisService.getClient().incr('metrics:ws:errors').catch(() => { });
+      await this.redisService
+        .getClient()
+        .incr('metrics:ws:errors')
+        .catch(() => {});
       client.emit('send_error', { conversationId: payload.conversationId, message: e.message });
     }
   }
 }
-
