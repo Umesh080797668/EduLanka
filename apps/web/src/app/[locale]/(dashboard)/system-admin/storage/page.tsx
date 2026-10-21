@@ -10,6 +10,7 @@ import {
     TrendingUp,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { useTranslations } from 'next-intl';
 
 import { apiClient } from '@/lib/api-client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/Card';
@@ -29,6 +30,7 @@ interface TenantStorageItem {
 }
 
 export default function StorageMonitoringPage() {
+    const t = useTranslations('StorageMonitoring');
     const [tenants, setTenants] = useState<TenantStorageItem[]>([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
@@ -41,14 +43,14 @@ export default function StorageMonitoringPage() {
             );
             setTenants(res.tenants || []);
         } catch (err: any) {
-            toast.error('Failed to load storage ledger data', {
+            toast.error(t('loadFailed'), {
                 description: err?.message || 'Access denied or server error',
             });
         } finally {
             setLoading(false);
             setRefreshing(false);
         }
-    }, []);
+    }, [t]);
 
     useEffect(() => {
         let isMounted = true;
@@ -59,7 +61,7 @@ export default function StorageMonitoringPage() {
             })
             .catch((err: any) => {
                 if (isMounted) {
-                    toast.error('Failed to load storage ledger data', {
+                    toast.error(t('loadFailed'), {
                         description: err?.message || 'Access denied or server error',
                     });
                 }
@@ -74,7 +76,7 @@ export default function StorageMonitoringPage() {
         return () => {
             isMounted = false;
         };
-    }, []);
+    }, [t]);
 
     const handleRefresh = () => {
         setRefreshing(true);
@@ -100,10 +102,10 @@ export default function StorageMonitoringPage() {
                     <div>
                         <h1 className="text-2xl font-bold tracking-tight text-foreground flex items-center gap-2">
                             <HardDrive className="w-6 h-6 text-primary" />
-                            Platform Storage Quota & Ledger Monitor
+                            {t('title')}
                         </h1>
                         <p className="text-sm text-muted-foreground mt-1">
-                            Cross-tenant video master storage accounting, plan tier quotas, and ledger compliance.
+                            {t('subtitle')}
                         </p>
                     </div>
                     <div className="flex items-center gap-2 self-start md:self-auto">
@@ -114,7 +116,7 @@ export default function StorageMonitoringPage() {
                             className="flex items-center gap-2"
                         >
                             <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
-                            Refresh Metrics
+                            {t('refreshMetrics')}
                         </Button>
                         <HelpButton />
                     </div>
@@ -125,7 +127,7 @@ export default function StorageMonitoringPage() {
                     <Card className="border-border/60 shadow-sm hover:shadow-md transition-shadow">
                         <CardHeader className="flex flex-row items-center justify-between pb-2">
                             <CardTitle className="text-sm font-medium text-muted-foreground">
-                                Total Consumed Storage
+                                {t('totalConsumed')}
                             </CardTitle>
                             <Database className="w-4 h-4 text-primary" />
                         </CardHeader>
@@ -134,7 +136,7 @@ export default function StorageMonitoringPage() {
                                 {loading ? '...' : `${totalGbUsed.toFixed(2)} GB`}
                             </div>
                             <p className="text-xs text-muted-foreground mt-1">
-                                Of {totalAllocatedGb.toFixed(1)} GB total provisioned
+                                Of {totalAllocatedGb.toFixed(1)} GB {t('provisioned')}
                             </p>
                         </CardContent>
                     </Card>
@@ -142,7 +144,7 @@ export default function StorageMonitoringPage() {
                     <Card className="border-border/60 shadow-sm hover:shadow-md transition-shadow">
                         <CardHeader className="flex flex-row items-center justify-between pb-2">
                             <CardTitle className="text-sm font-medium text-muted-foreground">
-                                Quotas Exceeded
+                                {t('quotasExceeded')}
                             </CardTitle>
                             <AlertTriangle className="w-4 h-4 text-rose-500" />
                         </CardHeader>
@@ -151,15 +153,16 @@ export default function StorageMonitoringPage() {
                                 {loading ? '...' : exceededCount}
                             </div>
                             <p className="text-xs text-muted-foreground mt-1">
-                                Tenants blocked from further uploads
+                                {t('quotasExceededDesc')}
                             </p>
                         </CardContent>
                     </Card>
 
+
                     <Card className="border-border/60 shadow-sm hover:shadow-md transition-shadow">
                         <CardHeader className="flex flex-row items-center justify-between pb-2">
                             <CardTitle className="text-sm font-medium text-muted-foreground">
-                                Active Institutions
+                                {t('activeLedgers')}
                             </CardTitle>
                             <TrendingUp className="w-4 h-4 text-emerald-500" />
                         </CardHeader>
@@ -168,7 +171,7 @@ export default function StorageMonitoringPage() {
                                 {loading ? '...' : tenants.length}
                             </div>
                             <p className="text-xs text-muted-foreground mt-1">
-                                Schools tracked in storage ledger
+                                {t('activeLedgersDesc')}
                             </p>
                         </CardContent>
                     </Card>
@@ -180,10 +183,10 @@ export default function StorageMonitoringPage() {
                         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                             <div>
                                 <CardTitle className="text-base font-semibold">
-                                    Tenant Storage Ledger Breakdown
+                                    {t('tenantDirectory')}
                                 </CardTitle>
                                 <CardDescription>
-                                    Track fractional gigabytes, tier limits, and quota enforcement statuses.
+                                    {t('tenantDirectoryDesc')}
                                 </CardDescription>
                             </div>
                             <div className="relative w-full sm:w-64">
@@ -192,7 +195,7 @@ export default function StorageMonitoringPage() {
                                     type="text"
                                     value={searchQuery}
                                     onChange={(e) => setSearchQuery(e.target.value)}
-                                    placeholder="Search tenant or plan..."
+                                    placeholder={t('searchPlaceholder')}
                                     className="w-full pl-9 pr-3 h-9 rounded-md bg-background border border-border text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
                                 />
                             </div>

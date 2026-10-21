@@ -98,7 +98,17 @@ export const TutorialProvider: React.FC<TutorialProviderProps> = ({
 
                 // Key tour states strictly per user to prevent one user's dismissal
                 // from silencing tours for other users on shared school browsers.
-                const userId = (typeof window !== 'undefined' ? authManager.getUserId() : null) || 'anonymous';
+                let userId = typeof window !== 'undefined' ? authManager.getUserId() : null;
+                if (!userId && token) {
+                    try {
+                        const parts = token.split('.');
+                        if (parts.length === 3) {
+                            const payload = JSON.parse(atob(parts[1]));
+                            userId = payload.sub || payload.userId || payload.id || null;
+                        }
+                    } catch { }
+                }
+                userId = userId || 'anonymous';
                 const localKey = `edulanka:tour:${userId}:${tutData.id}`;
                 const dismissKey = `edulanka:tour:dismiss:${userId}:${tutData.id}`;
                 const screenDismissKey = `edulanka:tour:dismiss:${userId}:${screenId}`;
@@ -125,9 +135,7 @@ export const TutorialProvider: React.FC<TutorialProviderProps> = ({
                     try {
                         window.localStorage.setItem(localKey, status);
                     } catch { }
-                    if (tenantId) {
-                        markCompleteOrSkip(status, tutData.id, tenantId, token);
-                    }
+                    markCompleteOrSkip(status, tutData.id, tenantId || '', token);
                 };
 
                 driverObj.current = driver({
@@ -177,17 +185,23 @@ export const TutorialProvider: React.FC<TutorialProviderProps> = ({
                     }
                 });
 
-                // 2. Suppress the tour for anyone who has already been through it or dismissed it.
-                // The local flag is the fallback; a tenanted session always defers
-                // to the server so progress follows the user across devices.
+                // 2. Suppress the tour for anyone who has already completed or dismissed it.
+                // Defers to the server per-user records so dismissal follows the user across devices/browsers.
                 let alreadySeen = readLocal() !== null || isDismissed();
-                if (tenantId && !alreadySeen) {
-                    const completions: any = await apiClient.get('/me/tutorials', { token, tenantId });
-                    alreadySeen = completions.some(
-                        (c: any) =>
-                            c.tutorial_id === tutData.id &&
-                            (c.status === 'COMPLETED' || c.status === 'SKIPPED'),
-                    );
+                if (!alreadySeen && token) {
+                    try {
+                        const completionsRes: any = await apiClient.get('/me/tutorials', { token, tenantId: tenantId || '' });
+                        const compList: any[] = Array.isArray(completionsRes)
+                            ? completionsRes
+                            : (completionsRes?.data && Array.isArray(completionsRes.data) ? completionsRes.data : []);
+                        alreadySeen = compList.some(
+                            (c: any) =>
+                                (c.tutorial_id === tutData.id || c.tutorialId === tutData.id) &&
+                                (c.status === 'COMPLETED' || c.status === 'SKIPPED'),
+                        );
+                    } catch {
+                        // ignore API failure and rely on local storage
+                    }
                 }
 
                 if (!alreadySeen && isMounted) {

@@ -36,6 +36,7 @@ import { Dialog } from '@/components/ui/Dialog';
 import { Spinner } from '@/components/ui/Spinner';
 import { TutorialProvider } from '@/components/TutorialProvider';
 import { HelpButton } from '@/components/HelpButton';
+import { useTranslations } from 'next-intl';
 
 type BlogScope = 'SCHOOL' | 'CLASS' | 'PLATFORM';
 type AcademicReaction = 'LIKE' | 'HELPFUL' | 'INSIGHTFUL' | 'HEART';
@@ -129,6 +130,7 @@ const REACTION_CONFIG: Record<
 };
 
 export default function BlogsPage() {
+    const t = useTranslations('AcademicBlogs');
     const [role] = useState<string>(() => (typeof window !== 'undefined' ? (authManager.getRole() || '') : ''));
     const [scope, setScope] = useState<BlogScope>('SCHOOL');
     const [blogs, setBlogs] = useState<BlogPost[]>([]);
@@ -178,11 +180,11 @@ export default function BlogsPage() {
                 setBlogs((data as any).data);
             }
         } catch {
-            toast.error('Failed to load academic blogs');
+            toast.error(t('loadFailed'));
         } finally {
             setLoading(false);
         }
-    }, []);
+    }, [t]);
 
     useEffect(() => {
         let isMounted = true;
@@ -197,7 +199,7 @@ export default function BlogsPage() {
                 }
             })
             .catch(() => {
-                if (isMounted) toast.error('Failed to load academic blogs');
+                if (isMounted) toast.error(t('loadFailed'));
             })
             .finally(() => {
                 if (isMounted) setLoading(false);
@@ -282,7 +284,7 @@ export default function BlogsPage() {
                 });
             }
         } catch {
-            toast.error('Reaction update failed');
+            toast.error(t('reactionFailed'));
         }
     };
 
@@ -300,7 +302,7 @@ export default function BlogsPage() {
                 },
             );
 
-            toast.success(replyingTo ? 'Reply posted' : 'Comment added to discourse');
+            toast.success(replyingTo ? t('replyPosted') : t('commentAdded'));
             setNewComment('');
             setReplyingTo(null);
 
@@ -310,7 +312,7 @@ export default function BlogsPage() {
                 setSelectedBlog(updated);
             }
         } catch {
-            toast.error('Failed to post comment');
+            toast.error(t('commentFailed'));
         } finally {
             setSubmittingComment(false);
         }
@@ -323,12 +325,12 @@ export default function BlogsPage() {
         if (!selectedBlog) return;
         try {
             await apiClient.patch(`/blogs/comments/${commentId}/moderate`, updates);
-            toast.success('Comment updated');
+            toast.success(t('commentUpdated'));
             // Refresh
             const updated = await apiClient.get<BlogPost>(`/blogs/${selectedBlog.id}`);
             if (updated) setSelectedBlog(updated);
         } catch {
-            toast.error('Moderation action failed');
+            toast.error(t('moderationFailed'));
         }
     };
 
@@ -340,14 +342,14 @@ export default function BlogsPage() {
             await apiClient.post(`/blogs/${selectedBlog.id}/report`, {
                 reason: reportReason.trim(),
             });
-            toast.success('Report submitted for administrator review');
+            toast.success(t('reportSubmitted'));
             setReportModalOpen(false);
             setReportReason('');
         } catch (err: any) {
             if (err?.response?.status === 409 || err?.message?.includes('already reported')) {
-                toast.error('You have already reported this blog post');
+                toast.error(t('alreadyReported'));
             } else {
-                toast.error('Failed to submit report');
+                toast.error(t('reportFailed'));
             }
         } finally {
             setSubmittingReport(false);
@@ -359,7 +361,7 @@ export default function BlogsPage() {
             await apiClient.patch(`/blogs/${blogId}/takedown`, {
                 reason: reason || 'Administrative content takedown',
             });
-            toast.success('Article taken down and unpublished');
+            toast.success(t('takedownSuccess'));
             setTakedownBlogId(null);
             setTakedownReason('');
             fetchBlogs(scope);
@@ -370,14 +372,14 @@ export default function BlogsPage() {
                 fetchReports();
             }
         } catch {
-            toast.error('Failed to take down article');
+            toast.error(t('takedownFailed'));
         }
     };
 
     const handleRestoreArticle = async (blogId: string) => {
         try {
             await apiClient.patch(`/blogs/${blogId}/restore`, {});
-            toast.success('Article restored and published');
+            toast.success(t('restoreSuccess'));
             fetchBlogs(scope);
             if (selectedBlog && selectedBlog.id === blogId) {
                 setSelectedBlog({ ...selectedBlog, is_published: true });
@@ -386,7 +388,7 @@ export default function BlogsPage() {
                 fetchReports();
             }
         } catch {
-            toast.error('Failed to restore article');
+            toast.error(t('restoreFailed'));
         }
     };
 
@@ -398,7 +400,7 @@ export default function BlogsPage() {
                 setReports(data);
             }
         } catch {
-            toast.error('Failed to load blog reports');
+            toast.error(t('reportsLoadFailed'));
         } finally {
             setLoadingReports(false);
         }
@@ -410,22 +412,22 @@ export default function BlogsPage() {
                 isResolved: true,
                 resolutionNotes: 'Reviewed and resolved by administrator',
             });
-            toast.success('Report marked as resolved');
+            toast.success(t('resolveSuccess'));
             fetchReports();
         } catch {
-            toast.error('Failed to resolve report');
+            toast.error(t('resolveFailed'));
         }
     };
 
     const handleCreateArticle = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!composeTitle.trim() || !composeContent.trim()) {
-            toast.error('Title and content are required');
+            toast.error(t('titleContentRequired'));
             return;
         }
 
         if (composeScope === 'CLASS' && !composeClassId) {
-            toast.error('Please select a target class');
+            toast.error(t('selectTargetClass'));
             return;
         }
 
@@ -446,7 +448,7 @@ export default function BlogsPage() {
                 isPublished: true,
             });
 
-            toast.success('Academic article published successfully');
+            toast.success(t('publishSuccess'));
             setComposerOpen(false);
             setComposeTitle('');
             setComposeContent('');
@@ -455,7 +457,7 @@ export default function BlogsPage() {
             setComposeClassId('');
             fetchBlogs(scope);
         } catch {
-            toast.error('Failed to publish article');
+            toast.error(t('publishFailed'));
         } finally {
             setSubmittingArticle(false);
         }
@@ -517,8 +519,8 @@ export default function BlogsPage() {
         <TutorialProvider role={(role as any) || 'TEACHER'} screenId="blogs">
             <div className="space-y-6">
                 <PageHeader
-                    title="Academic Blogs & Discourse"
-                    description="Pedagogical insights, subject-matter discourse, and scholarly inquiry across the EduLanka network."
+                    title={t('title')}
+                    description={t('subtitle')}
                     actions={
                         <div className="flex items-center gap-2">
                             {(role === 'SCHOOL_ADMIN' || role === 'SUPER_ADMIN') && (
@@ -531,7 +533,7 @@ export default function BlogsPage() {
                                     }}
                                     id="btn-moderation-reports"
                                 >
-                                    Moderation Reports
+                                    {t('reviewQueue')}
                                 </Button>
                             )}
                             {isTeacherOrAdmin && (
@@ -541,7 +543,7 @@ export default function BlogsPage() {
                                     onClick={() => setComposerOpen(true)}
                                     id="btn-author-article"
                                 >
-                                    Author Article
+                                    {t('writeArticle')}
                                 </Button>
                             )}
                         </div>
@@ -559,7 +561,7 @@ export default function BlogsPage() {
                         id="tab-scope-school"
                     >
                         <School className="w-4 h-4" />
-                        School-Wide
+                        {t('schoolScope')}
                     </button>
                     <button
                         onClick={() => setScope('CLASS')}
@@ -570,7 +572,7 @@ export default function BlogsPage() {
                         id="tab-scope-class"
                     >
                         <GraduationCap className="w-4 h-4" />
-                        Classroom
+                        {t('classScope')}
                     </button>
                     <button
                         onClick={() => setScope('PLATFORM')}
@@ -581,7 +583,7 @@ export default function BlogsPage() {
                         id="tab-scope-platform"
                     >
                         <Globe className="w-4 h-4" />
-                        National Platform
+                        {t('platformScope')}
                     </button>
                 </div>
 

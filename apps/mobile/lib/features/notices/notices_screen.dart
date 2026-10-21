@@ -259,9 +259,10 @@ class _NoticesScreenState extends ConsumerState<NoticesScreen> {
                           ),
                         ),
                         const SizedBox(height: 4),
-                        const Text(
-                          'When school administration posts circulars, they will appear here.',
-                          style: TextStyle(
+                        Text(
+                          l10n?.circularsAppearHere ??
+                              'When school administration posts circulars, they will appear here.',
+                          style: const TextStyle(
                             fontSize: 13,
                             color: Color(0xFF94A3B8),
                           ),

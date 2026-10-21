@@ -173,9 +173,13 @@ class _HomeworkScreenState extends ConsumerState<HomeworkScreen> {
                     ),
                   ),
                   const SizedBox(height: 12),
-                  const Text(
-                    'Attachments / Learning Materials',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                  Text(
+                    l10n?.attachmentsLearningMaterials ??
+                        'Attachments / Learning Materials',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13,
+                    ),
                   ),
                   const SizedBox(height: 6),
                   Row(
@@ -424,9 +428,12 @@ class _HomeworkScreenState extends ConsumerState<HomeworkScreen> {
                     ),
                   ),
                   const SizedBox(height: 16),
-                  const Text(
-                    'Attach Solution Files / Photos',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                  Text(
+                    l10n?.pickSolutionFiles ?? 'Attach Solution Files / Photos',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13,
+                    ),
                   ),
                   const SizedBox(height: 6),
                   Row(
@@ -973,9 +980,10 @@ class _HomeworkScreenState extends ConsumerState<HomeworkScreen> {
                             color: Colors.grey.shade400,
                           ),
                           const SizedBox(height: 12),
-                          const Text(
-                            'No homework assigned right now.',
-                            style: TextStyle(
+                          Text(
+                            l10n?.noHomeworkAssigned ??
+                                'No homework assigned right now.',
+                            style: const TextStyle(
                               color: Color(0xFF64748B),
                               fontSize: 16,
                             ),

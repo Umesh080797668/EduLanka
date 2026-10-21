@@ -4,3 +4,4 @@ import { InquiriesBoard } from '@/components/inquiries/InquiriesBoard';
 export default function InquiriesPage() {
     return <InquiriesBoard role="SCHOOL_ADMIN" screenId="admin_inquiries" />;
 }
+

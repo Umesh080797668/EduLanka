@@ -27,6 +27,7 @@ import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/Card';
 import { ConfirmDialog } from '@/components/ui/Dialog';
+import { useTranslations } from 'next-intl';
 
 interface EmergencyContact {
     id: string;
@@ -61,6 +62,7 @@ interface DisasterPackPreview {
 }
 
 export default function EmergencyReadinessPage() {
+    const t = useTranslations('DisasterMode');
     const [contacts, setContacts] = useState<EmergencyContact[]>([]);
     const [shelters, setShelters] = useState<Shelter[]>([]);
     const [packPreview, setPackPreview] = useState<DisasterPackPreview | null>(null);
@@ -107,12 +109,12 @@ export default function EmergencyReadinessPage() {
             setShelters(Array.isArray(sheltersRes) ? sheltersRes : []);
             setPackPreview(previewRes);
         } catch {
-            toast.error('Failed to load emergency readiness data');
+            toast.error(t('loadFailed'));
         } finally {
             setIsLoading(false);
             setIsRefreshing(false);
         }
-    }, []);
+    }, [t]);
 
     useEffect(() => {
         let isMounted = true;
@@ -128,7 +130,7 @@ export default function EmergencyReadinessPage() {
                 setPackPreview(previewRes);
             })
             .catch(() => {
-                if (isMounted) toast.error('Failed to load emergency readiness data');
+                if (isMounted) toast.error(t('loadFailed'));
             })
             .finally(() => {
                 if (isMounted) {
@@ -170,7 +172,7 @@ export default function EmergencyReadinessPage() {
     const handleSaveContact = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!contactName.trim() || !contactRole.trim() || !contactPhone.trim()) {
-            toast.error('Please enter name, role, and phone number');
+            toast.error(t('fillContactFields'));
             return;
         }
 
@@ -185,11 +187,11 @@ export default function EmergencyReadinessPage() {
             };
 
             await apiClient.post('/mobile/emergency-contacts', payload);
-            toast.success(editingContact ? 'Emergency contact updated' : 'Emergency contact registered');
+            toast.success(t('contactSaved'));
             setIsContactModalOpen(false);
             fetchData();
         } catch (err: any) {
-            toast.error(err?.message || 'Failed to save emergency contact');
+            toast.error(err?.message || t('contactFailed'));
         }
     };
 
@@ -218,7 +220,7 @@ export default function EmergencyReadinessPage() {
     const handleSaveShelter = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!shelterName.trim() || !shelterAddress.trim()) {
-            toast.error('Please enter shelter name and address');
+            toast.error(t('fillShelterFields'));
             return;
         }
 
@@ -234,11 +236,11 @@ export default function EmergencyReadinessPage() {
             };
 
             await apiClient.post('/mobile/shelters', payload);
-            toast.success(editingShelter ? 'Evacuation shelter updated' : 'Evacuation shelter registered');
+            toast.success(t('shelterSaved'));
             setIsShelterModalOpen(false);
             fetchData();
         } catch (err: any) {
-            toast.error(err?.message || 'Failed to save evacuation shelter');
+            toast.error(err?.message || t('shelterFailed'));
         }
     };
 
@@ -249,15 +251,15 @@ export default function EmergencyReadinessPage() {
         try {
             if (deleteTarget.type === 'contact') {
                 await apiClient.delete(`/mobile/emergency-contacts/${deleteTarget.id}`);
-                toast.success('Emergency contact removed');
+                toast.success(t('contactRemoved'));
             } else {
                 await apiClient.delete(`/mobile/shelters/${deleteTarget.id}`);
-                toast.success('Evacuation shelter removed');
+                toast.success(t('shelterRemoved'));
             }
             setDeleteTarget(null);
             fetchData();
         } catch (err: any) {
-            toast.error(err?.message || 'Failed to remove entry');
+            toast.error(err?.message || t('removeFailed'));
         } finally {
             setIsDeleting(false);
         }
@@ -271,10 +273,10 @@ export default function EmergencyReadinessPage() {
                 reason: broadcastReason,
                 expectedDuration: '3_DAYS',
             });
-            toast.success('Emergency Disaster broadcast dispatched to mobile devices & emergency SMS contacts');
+            toast.success(t('broadcastSuccess'));
             fetchData();
         } catch (err: any) {
-            toast.error(err?.message || 'Failed to dispatch disaster push broadcast');
+            toast.error(err?.message || t('broadcastFailed'));
         } finally {
             setIsBroadcasting(false);
         }
@@ -291,11 +293,11 @@ export default function EmergencyReadinessPage() {
                         <div className="flex items-center gap-2.5">
                             <ShieldAlert className="size-8 text-brand-600 dark:text-brand-400" />
                             <h1 className="text-display-sm text-neutral-900 dark:text-neutral-50">
-                                Emergency & Disaster Readiness
+                                {t('adminTitle')}
                             </h1>
                         </div>
                         <p className="mt-1 text-sm text-neutral-500 dark:text-neutral-400">
-                            Configure school emergency contacts and local evacuation shelters bundled into students&apos; offline disaster packs.
+                            {t('adminSubtitle')}
                         </p>
                     </div>
 

@@ -14,6 +14,7 @@ import {
   Calendar,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { useTranslations } from 'next-intl';
 
 import { analyticsFetch } from '@/lib/analytics-client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/Card';
@@ -80,6 +81,7 @@ interface BillingSnapshotItem {
 }
 
 export default function PlatformAnalyticsPage() {
+  const t = useTranslations('PlatformAnalytics');
   const [selectedMonth, setSelectedMonth] = useState(() => new Date().toISOString().slice(0, 7));
 
   const [activeStudents, setActiveStudents] = useState<ActiveStudentItem[]>([]);
@@ -112,13 +114,13 @@ export default function PlatformAnalyticsPage() {
       if (mediaRes.status === 'fulfilled') setMediaDownloads(mediaRes.value || []);
       if (snapshotsRes.status === 'fulfilled') setSnapshots(snapshotsRes.value || []);
     } catch (err: any) {
-      toast.error('Failed to load platform analytics', {
+      toast.error(t('loadFailed'), {
         description: err?.message || 'Check microservice connection and credentials',
       });
     } finally {
       setLoading(false);
     }
-  }, [selectedMonth]);
+  }, [selectedMonth, t]);
 
   useEffect(() => {
     let isMounted = true;
@@ -139,7 +141,7 @@ export default function PlatformAnalyticsPage() {
       if (snapshotsRes.status === 'fulfilled') setSnapshots(snapshotsRes.value || []);
     }).catch((err: any) => {
       if (isMounted) {
-        toast.error('Failed to load platform analytics', {
+        toast.error(t('loadFailed'), {
           description: err?.message || 'Check microservice connection and credentials',
         });
       }
@@ -150,7 +152,7 @@ export default function PlatformAnalyticsPage() {
     return () => {
       isMounted = false;
     };
-  }, [selectedMonth]);
+  }, [selectedMonth, t]);
 
   const handleGenerateSnapshots = async () => {
     setGeneratingSnapshots(true);
@@ -160,9 +162,9 @@ export default function PlatformAnalyticsPage() {
         body: JSON.stringify({ billingMonth: selectedMonth }),
       });
       setSnapshots(res || []);
-      toast.success(`Billing snapshots generated for ${selectedMonth}`);
+      toast.success(t('snapshotSuccess'));
     } catch (err: any) {
-      toast.error('Snapshot generation failed', {
+      toast.error(t('snapshotFailed'), {
         description: err?.message,
       });
     } finally {
@@ -184,10 +186,10 @@ export default function PlatformAnalyticsPage() {
           <div>
             <h1 className="text-2xl font-bold tracking-tight text-foreground flex items-center gap-2">
               <BarChart3 className="size-6 text-primary" />
-              Platform Analytics & Telemetry
+              {t('title')}
             </h1>
             <p className="text-sm text-muted-foreground mt-1">
-              Aggregated cross-tenant metrics, billing snapshots, and sync health telemetry (Phase 3).
+              {t('subtitle')}
             </p>
           </div>
 
@@ -203,7 +205,7 @@ export default function PlatformAnalyticsPage() {
             </div>
             <Button variant="outline" size="sm" onClick={loadData} disabled={loading} className="gap-2">
               <RefreshCw className={`size-4 ${loading ? 'animate-spin' : ''}`} />
-              Refresh
+              {t('refresh')}
             </Button>
             <HelpButton />
           </div>

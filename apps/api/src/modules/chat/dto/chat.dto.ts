@@ -91,3 +91,15 @@ export class RemoveParticipantDto {
     @IsUUID()
     participantUserId!: string;
 }
+
+export class MuteConversationDto {
+    @ApiPropertyOptional({
+        description: 'Duration in minutes to mute the conversation (0 to 43200, 0 un-mutes)',
+        example: 60,
+    })
+    @IsOptional()
+    @IsInt()
+    @Min(0)
+    @Max(43200)
+    durationMinutes?: number;
+}

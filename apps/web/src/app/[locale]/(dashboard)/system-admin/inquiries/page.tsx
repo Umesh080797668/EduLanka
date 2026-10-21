@@ -4,3 +4,4 @@ import { InquiriesBoard } from '@/components/inquiries/InquiriesBoard';
 export default function SystemAdminInquiriesPage() {
     return <InquiriesBoard role="SUPER_ADMIN" screenId="sys_inquiries" />;
 }
+

@@ -13,6 +13,7 @@ import {
     PinMessageDto,
     MuteParticipantDto,
     RemoveParticipantDto,
+    MuteConversationDto,
 } from './dto/chat.dto';
 
 import { PlanFeaturesService, PlanFeature } from '../tenant/plan-features.service';
@@ -260,7 +261,7 @@ export class ChatController {
     async muteConversation(
         @Req() req: any,
         @Param('id', ParseUUIDPipe) conversationId: string,
-        @Body() body: { durationMinutes?: number },
+        @Body() body: MuteConversationDto,
     ) {
         return this.chatService.muteConversationForUser(
             req.user.tenantId,

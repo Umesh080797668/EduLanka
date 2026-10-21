@@ -181,5 +181,19 @@
       "count": { "type": "int" }
     }
   },
-  "viewPdf": "VIEW PDF"
+  "viewPdf": "VIEW PDF",
+  "attendanceConsistency": "Attendance Consistency",
+  "recordedRollCallSessions": "Recorded Roll-Call Sessions",
+  "average": "Average",
+  "totalScore": "Total Score",
+  "subjects": "Subjects",
+  "subjectBreakdown": "Subject Breakdown",
+  "teachingManagement": "Teaching Management",
+  "allPresent": "All Present",
+  "noHomeworkAssigned": "No homework assigned right now.",
+  "attachmentsLearningMaterials": "Attachments / Learning Materials",
+  "disasterCachedDesc": "Cached locally in SQLite storage for immediate offline access during emergencies.",
+  "noContactsCached": "No contacts cached. Tap the top sync button to download the latest disaster pack.",
+  "noSheltersCached": "No shelters cached. Sync with your school server to download local evacuation shelters.",
+  "circularsAppearHere": "When school administration posts circulars, they will appear here."
 }

@@ -399,9 +399,9 @@ class _GradesScreenState extends ConsumerState<GradesScreen> {
                       children: [
                         Column(
                           children: [
-                            const Text(
-                              'Average',
-                              style: TextStyle(
+                            Text(
+                              l10n?.average ?? 'Average',
+                              style: const TextStyle(
                                 color: Color(0xFF64748B),
                                 fontSize: 12,
                               ),
@@ -424,9 +424,9 @@ class _GradesScreenState extends ConsumerState<GradesScreen> {
                         ),
                         Column(
                           children: [
-                            const Text(
-                              'Total Score',
-                              style: TextStyle(
+                            Text(
+                              l10n?.totalScore ?? 'Total Score',
+                              style: const TextStyle(
                                 color: Color(0xFF64748B),
                                 fontSize: 12,
                               ),
@@ -449,9 +449,9 @@ class _GradesScreenState extends ConsumerState<GradesScreen> {
                         ),
                         Column(
                           children: [
-                            const Text(
-                              'Subjects',
-                              style: TextStyle(
+                            Text(
+                              l10n?.subjects ?? 'Subjects',
+                              style: const TextStyle(
                                 color: Color(0xFF64748B),
                                 fontSize: 12,
                               ),
@@ -508,9 +508,12 @@ class _GradesScreenState extends ConsumerState<GradesScreen> {
                 ),
                 const SizedBox(height: 20),
 
-                const Text(
-                  'Subject Breakdown',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                Text(
+                  l10n?.subjectBreakdown ?? 'Subject Breakdown',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                  ),
                 ),
                 const SizedBox(height: 8),
 

@@ -14,6 +14,7 @@
         "test:watch": "jest --watch",
         "test:cov": "jest --coverage --passWithNoTests --maxWorkers=4",
         "test:e2e": "jest --testRegex='.*\\.e2e-spec\\.ts$' --testEnvironment=node --passWithNoTests",
+        "test:smoke": "jest --testRegex='.*db-smoke\\.e2e-spec\\.ts$' --testEnvironment=node --runInBand",
         "seed:staging": "ts-node -r tsconfig-paths/register scripts/seed-staging.ts",
         "seed:admin": "ts-node -r tsconfig-paths/register scripts/seed-admin.ts",
         "clean": "rm -rf dist *.tsbuildinfo",

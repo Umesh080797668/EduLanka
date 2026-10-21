@@ -11,6 +11,7 @@ import {
     WifiOff,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { useTranslations } from 'next-intl';
 
 import { apiClient } from '@/lib/api-client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/Card';
@@ -36,6 +37,7 @@ interface SyncHealthData {
 }
 
 export default function SyncHealthPage() {
+    const t = useTranslations('SyncHealth');
     const [data, setData] = useState<SyncHealthData | null>(null);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
@@ -45,14 +47,14 @@ export default function SyncHealthPage() {
             const res = await apiClient.get<SyncHealthData>('/mobile/sync-health');
             setData(res);
         } catch (err: any) {
-            toast.error('Failed to load sync health data', {
-                description: err?.message || 'Network error',
+            toast.error(t('loadFailed'), {
+                description: err?.message || t('networkError'),
             });
         } finally {
             setLoading(false);
             setRefreshing(false);
         }
-    }, []);
+    }, [t]);
 
     useEffect(() => {
         let isMounted = true;
@@ -63,8 +65,8 @@ export default function SyncHealthPage() {
             })
             .catch((err: any) => {
                 if (isMounted) {
-                    toast.error('Failed to load sync health data', {
-                        description: err?.message || 'Network error',
+                    toast.error(t('loadFailed'), {
+                        description: err?.message || t('networkError'),
                     });
                 }
             })
@@ -78,7 +80,7 @@ export default function SyncHealthPage() {
         return () => {
             isMounted = false;
         };
-    }, []);
+    }, [t]);
 
     const handleRefresh = () => {
         setRefreshing(true);
@@ -95,7 +97,7 @@ export default function SyncHealthPage() {
                     <div>
                         <div className="flex items-center gap-2">
                             <h1 className="text-2xl font-bold tracking-tight text-foreground">
-                                Mobile Sync Health & Topology
+                                {t('title')}
                             </h1>
                             <Badge
                                 tone={isSystemHealthy ? 'success' : 'warning'}
@@ -103,17 +105,17 @@ export default function SyncHealthPage() {
                             >
                                 {isSystemHealthy ? (
                                     <>
-                                        <CheckCircle2 className="w-3.5 h-3.5" /> Healthy
+                                        <CheckCircle2 className="w-3.5 h-3.5" /> {t('healthy')}
                                     </>
                                 ) : (
                                     <>
-                                        <AlertCircle className="w-3.5 h-3.5" /> {data?.staleDevicesCount} Stale
+                                        <AlertCircle className="w-3.5 h-3.5" /> {data?.staleDevicesCount} {t('stale')}
                                     </>
                                 )}
                             </Badge>
                         </div>
                         <p className="text-sm text-muted-foreground mt-1">
-                            Monitor mobile offline-first sequence propagation, active device tokens, and outbox lag.
+                            {t('subtitle')}
                         </p>
                     </div>
                     <Button
@@ -124,7 +126,7 @@ export default function SyncHealthPage() {
                         className="flex items-center gap-2 self-start md:self-auto"
                     >
                         <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
-                        Refresh Metrics
+                        {t('refreshMetrics')}
                     </Button>
                 </div>
 
@@ -133,7 +135,7 @@ export default function SyncHealthPage() {
                     <Card id="sync-health-devices-card" className="border-border/60 shadow-sm hover:shadow-md transition-shadow">
                         <CardHeader className="flex flex-row items-center justify-between pb-2">
                             <CardTitle className="text-sm font-medium text-muted-foreground">
-                                Active Devices
+                                {t('activeDevices')}
                             </CardTitle>
                             <Smartphone className="w-4 h-4 text-primary" />
                         </CardHeader>
@@ -142,7 +144,7 @@ export default function SyncHealthPage() {
                                 {loading ? '...' : (data?.totalActiveDevices ?? 0)}
                             </div>
                             <p className="text-xs text-muted-foreground mt-1">
-                                Registered mobile FCM tokens
+                                {t('activeDevicesDesc')}
                             </p>
                         </CardContent>
                     </Card>
@@ -150,7 +152,7 @@ export default function SyncHealthPage() {
                     <Card className="border-border/60 shadow-sm hover:shadow-md transition-shadow">
                         <CardHeader className="flex flex-row items-center justify-between pb-2">
                             <CardTitle className="text-sm font-medium text-muted-foreground">
-                                Monotonic Sequence
+                                {t('monotonicSequence')}
                             </CardTitle>
                             <Activity className="w-4 h-4 text-emerald-500" />
                         </CardHeader>
@@ -159,7 +161,7 @@ export default function SyncHealthPage() {
                                 {loading ? '...' : `#${data?.latestSyncSequence ?? 0}`}
                             </div>
                             <p className="text-xs text-muted-foreground mt-1">
-                                Tenant-scoped global sync cursor
+                                {t('monotonicSequenceDesc')}
                             </p>
                         </CardContent>
                     </Card>
@@ -167,7 +169,7 @@ export default function SyncHealthPage() {
                     <Card id="sync-health-stale-card" className="border-border/60 shadow-sm hover:shadow-md transition-shadow">
                         <CardHeader className="flex flex-row items-center justify-between pb-2">
                             <CardTitle className="text-sm font-medium text-muted-foreground">
-                                Stale Outbox Lag
+                                {t('staleLag')}
                             </CardTitle>
                             <WifiOff className="w-4 h-4 text-amber-500" />
                         </CardHeader>
@@ -176,7 +178,7 @@ export default function SyncHealthPage() {
                                 {loading ? '...' : (data?.staleDevicesCount ?? 0)}
                             </div>
                             <p className="text-xs text-muted-foreground mt-1">
-                                Inactive for &gt; 3 days
+                                {t('staleLagDesc')}
                             </p>
                         </CardContent>
                     </Card>
@@ -184,7 +186,7 @@ export default function SyncHealthPage() {
                     <Card className="border-border/60 shadow-sm hover:shadow-md transition-shadow">
                         <CardHeader className="flex flex-row items-center justify-between pb-2">
                             <CardTitle className="text-sm font-medium text-muted-foreground">
-                                Last Sequence Event
+                                {t('lastSequenceEvent')}
                             </CardTitle>
                             <Clock className="w-4 h-4 text-blue-500" />
                         </CardHeader>
@@ -197,7 +199,7 @@ export default function SyncHealthPage() {
                                         : 'None'}
                             </div>
                             <p className="text-xs text-muted-foreground mt-1">
-                                Latest state commit timestamp
+                                {t('lastSequenceEventDesc')}
                             </p>
                         </CardContent>
                     </Card>
@@ -208,11 +210,10 @@ export default function SyncHealthPage() {
                     <CardHeader>
                         <CardTitle className="text-base font-semibold flex items-center gap-2">
                             <AlertCircle className="w-5 h-5 text-amber-500" />
-                            Stale Mobile Clients (Lagging Sequence)
+                            {t('staleClientsTitle')}
                         </CardTitle>
                         <CardDescription>
-                            Devices that have not performed a sync pull or handshake in the last 72 hours.
-                            Prolonged staleness (&gt; 90 days) will require full snapshot re-hydration (HTTP 410 Gone).
+                            {t('staleClientsDesc')}
                         </CardDescription>
                     </CardHeader>
                     <CardContent>
@@ -223,9 +224,9 @@ export default function SyncHealthPage() {
                         ) : !data?.staleDevices || data.staleDevices.length === 0 ? (
                             <div className="py-10 text-center flex flex-col items-center justify-center space-y-2">
                                 <CheckCircle2 className="w-10 h-10 text-emerald-500 opacity-80" />
-                                <h4 className="text-base font-semibold text-foreground">All Devices Up-to-Date</h4>
+                                <h4 className="text-base font-semibold text-foreground">{t('allDevicesUpToDate')}</h4>
                                 <p className="text-sm text-muted-foreground max-w-md">
-                                    Every registered mobile device has connected within the standard SLA window. No partition divergence detected.
+                                    {t('allDevicesUpToDateDesc')}
                                 </p>
                             </div>
                         ) : (

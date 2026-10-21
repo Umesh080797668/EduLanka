@@ -316,9 +316,10 @@ class _AttendanceScreenState extends ConsumerState<AttendanceScreen> {
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              const Text(
-                                'Attendance Consistency',
-                                style: TextStyle(
+                              Text(
+                                l10n?.attendanceConsistency ??
+                                    'Attendance Consistency',
+                                style: const TextStyle(
                                   fontSize: 14,
                                   fontWeight: FontWeight.bold,
                                   color: Colors.black54,
@@ -378,9 +379,13 @@ class _AttendanceScreenState extends ConsumerState<AttendanceScreen> {
                   ),
 
                   const SizedBox(height: 20),
-                  const Text(
-                    'Recorded Roll-Call Sessions',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  Text(
+                    l10n?.recordedRollCallSessions ??
+                        'Recorded Roll-Call Sessions',
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                   const SizedBox(height: 10),
 

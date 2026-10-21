@@ -1071,6 +1071,90 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'VIEW PDF'**
   String get viewPdf;
+
+  /// No description provided for @attendanceConsistency.
+  ///
+  /// In en, this message translates to:
+  /// **'Attendance Consistency'**
+  String get attendanceConsistency;
+
+  /// No description provided for @recordedRollCallSessions.
+  ///
+  /// In en, this message translates to:
+  /// **'Recorded Roll-Call Sessions'**
+  String get recordedRollCallSessions;
+
+  /// No description provided for @average.
+  ///
+  /// In en, this message translates to:
+  /// **'Average'**
+  String get average;
+
+  /// No description provided for @totalScore.
+  ///
+  /// In en, this message translates to:
+  /// **'Total Score'**
+  String get totalScore;
+
+  /// No description provided for @subjects.
+  ///
+  /// In en, this message translates to:
+  /// **'Subjects'**
+  String get subjects;
+
+  /// No description provided for @subjectBreakdown.
+  ///
+  /// In en, this message translates to:
+  /// **'Subject Breakdown'**
+  String get subjectBreakdown;
+
+  /// No description provided for @teachingManagement.
+  ///
+  /// In en, this message translates to:
+  /// **'Teaching Management'**
+  String get teachingManagement;
+
+  /// No description provided for @allPresent.
+  ///
+  /// In en, this message translates to:
+  /// **'All Present'**
+  String get allPresent;
+
+  /// No description provided for @noHomeworkAssigned.
+  ///
+  /// In en, this message translates to:
+  /// **'No homework assigned right now.'**
+  String get noHomeworkAssigned;
+
+  /// No description provided for @attachmentsLearningMaterials.
+  ///
+  /// In en, this message translates to:
+  /// **'Attachments / Learning Materials'**
+  String get attachmentsLearningMaterials;
+
+  /// No description provided for @disasterCachedDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Cached locally in SQLite storage for immediate offline access during emergencies.'**
+  String get disasterCachedDesc;
+
+  /// No description provided for @noContactsCached.
+  ///
+  /// In en, this message translates to:
+  /// **'No contacts cached. Tap the top sync button to download the latest disaster pack.'**
+  String get noContactsCached;
+
+  /// No description provided for @noSheltersCached.
+  ///
+  /// In en, this message translates to:
+  /// **'No shelters cached. Sync with your school server to download local evacuation shelters.'**
+  String get noSheltersCached;
+
+  /// No description provided for @circularsAppearHere.
+  ///
+  /// In en, this message translates to:
+  /// **'When school administration posts circulars, they will appear here.'**
+  String get circularsAppearHere;
 }
 
 class _AppLocalizationsDelegate

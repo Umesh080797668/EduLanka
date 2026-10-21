@@ -309,9 +309,9 @@ class _TeacherHomeScreenState extends ConsumerState<TeacherHomeScreen> {
                             size: 16,
                             color: Color(0xFF10B981),
                           ),
-                          label: const Text(
-                            'All Present',
-                            style: TextStyle(
+                          label: Text(
+                            l10n?.allPresent ?? 'All Present',
+                            style: const TextStyle(
                               color: Color(0xFF10B981),
                               fontWeight: FontWeight.bold,
                             ),
@@ -628,9 +628,9 @@ class _TeacherHomeScreenState extends ConsumerState<TeacherHomeScreen> {
           ),
           const SizedBox(height: 16),
 
-          const Text(
-            'Teaching Management',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          Text(
+            l10n?.teachingManagement ?? 'Teaching Management',
+            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 12),
 

@@ -173,15 +173,27 @@ class SyncService {
           rethrow;
         }
 
-        // Check if transient network error or 5xx server error
+        // Check if transient network error, 5xx server error, or account lock 403
         bool isTransient = false;
         if (e is DioException) {
           final type = e.type;
           final status = e.response?.statusCode;
+          final resData = e.response?.data;
+          final errorMsgText =
+              (resData is Map ? resData['message']?.toString() : null) ??
+              e.message ??
+              '';
+          final isAccountLock403 =
+              status == 403 &&
+              (errorMsgText.toLowerCase().contains('locked') ||
+                  errorMsgText.toLowerCase().contains('grace period') ||
+                  errorMsgText.toLowerCase().contains('unpaid'));
+
           if (type == DioExceptionType.connectionTimeout ||
               type == DioExceptionType.sendTimeout ||
               type == DioExceptionType.receiveTimeout ||
               type == DioExceptionType.connectionError ||
+              isAccountLock403 ||
               (status != null && (status >= 500 || status == 429))) {
             isTransient = true;
           }

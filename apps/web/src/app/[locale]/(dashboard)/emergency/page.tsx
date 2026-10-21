@@ -21,6 +21,7 @@ import { HelpButton } from '@/components/HelpButton';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/Card';
+import { useTranslations } from 'next-intl';
 
 interface EmergencyContact {
     id?: string;
@@ -61,6 +62,7 @@ const NATIONAL_HOTLINES = [
 ];
 
 export default function StudentParentDisasterPackPage() {
+    const t = useTranslations('DisasterMode');
     const [data, setData] = useState<DisasterPackData | null>(null);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
@@ -145,10 +147,10 @@ export default function StudentParentDisasterPackPage() {
                             </div>
                             <div>
                                 <h1 className="text-display-sm text-neutral-900 dark:text-neutral-50">
-                                    School Disaster & Emergency Pack
+                                    {t('packTitle')}
                                 </h1>
                                 <p className="text-sm text-muted-foreground">
-                                    Essential emergency hotlines, shelter map locations, and contingency plans for students and parents.
+                                    {t('packSubtitle')}
                                 </p>
                             </div>
                         </div>
@@ -163,7 +165,7 @@ export default function StudentParentDisasterPackPage() {
                             className="gap-2"
                         >
                             <RefreshCw className={`size-4 ${refreshing ? 'animate-spin' : ''}`} />
-                            Refresh
+                            {t('refresh')}
                         </Button>
                         <Button
                             variant="secondary"
@@ -172,7 +174,7 @@ export default function StudentParentDisasterPackPage() {
                             className="gap-2"
                         >
                             <Printer className="size-4" />
-                            Print Pack
+                            {t('printPack')}
                         </Button>
                     </div>
                 </div>
@@ -180,7 +182,7 @@ export default function StudentParentDisasterPackPage() {
                 {loading ? (
                     <div className="flex flex-col items-center justify-center py-16 gap-3 text-muted-foreground">
                         <RefreshCw className="size-8 animate-spin text-primary" />
-                        <p className="text-sm font-medium">Loading emergency readiness data...</p>
+                        <p className="text-sm font-medium">{t('loadingReadiness')}</p>
                     </div>
                 ) : (
                     <>
@@ -218,10 +220,10 @@ export default function StudentParentDisasterPackPage() {
                                 <div className="flex items-center gap-3">
                                     <div className="size-2.5 rounded-full bg-success-500" />
                                     <span className="text-sm font-medium text-success-900 dark:text-success-200">
-                                        Normal Campus Status: School is in session. Readiness protocols active.
+                                        {t('operationalStatus')}
                                     </span>
                                 </div>
-                                <Badge tone="success">Operational</Badge>
+                                <Badge tone="success">{t('operationalBadge')}</Badge>
                             </div>
                         )}
 
@@ -230,10 +232,10 @@ export default function StudentParentDisasterPackPage() {
                             <CardHeader className="pb-3">
                                 <CardTitle className="text-base font-semibold flex items-center gap-2">
                                     <Phone className="size-4 text-brand-600 dark:text-brand-400" />
-                                    National Emergency Dispatch Hotlines
+                                    {t('hotlinesTitle')}
                                 </CardTitle>
                                 <CardDescription>
-                                    Toll-free emergency numbers accessible 24 hours a day from any Sri Lankan mobile or fixed network.
+                                    {t('hotlinesDesc')}
                                 </CardDescription>
                             </CardHeader>
                             <CardContent>

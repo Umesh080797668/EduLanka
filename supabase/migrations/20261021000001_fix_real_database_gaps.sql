@@ -17,6 +17,7 @@ ALTER TABLE public.classes
 CREATE INDEX IF NOT EXISTS idx_classes_name ON public.classes(tenant_id, name);
 
 -- 2. Active students per tenant aggregation view & RPC (Nightly Billing)
+DROP VIEW IF EXISTS public.v_active_students_per_tenant CASCADE;
 CREATE OR REPLACE VIEW public.v_active_students_per_tenant AS
 SELECT s.tenant_id, COUNT(*)::BIGINT AS active_student_count
 FROM public.students s
@@ -26,6 +27,7 @@ GROUP BY s.tenant_id;
 
 GRANT SELECT ON public.v_active_students_per_tenant TO service_role, authenticated;
 
+DROP FUNCTION IF EXISTS public.get_active_student_counts_per_tenant();
 CREATE OR REPLACE FUNCTION public.get_active_student_counts_per_tenant()
 RETURNS TABLE (
     tenant_id UUID,
@@ -45,6 +47,7 @@ $$;
 GRANT EXECUTE ON FUNCTION public.get_active_student_counts_per_tenant() TO service_role, authenticated;
 
 -- 3. Parent-students compatibility view
+DROP VIEW IF EXISTS public.parent_students CASCADE;
 CREATE OR REPLACE VIEW public.parent_students AS
 SELECT 
     p.id,
@@ -58,6 +61,7 @@ FROM public.parents p;
 GRANT SELECT ON public.parent_students TO service_role, authenticated;
 
 -- 4. Global tutorial stats RPC for System Admin
+DROP FUNCTION IF EXISTS public.get_global_tutorial_stats();
 CREATE OR REPLACE FUNCTION public.get_global_tutorial_stats()
 RETURNS TABLE (
     tutorial_id UUID,

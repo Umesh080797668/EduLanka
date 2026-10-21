@@ -30,6 +30,7 @@ import { EmptyState, PageHeader } from '@/components/ui/Layout';
 import { PageSkeleton } from '@/components/ui/Skeleton';
 import { TutorialProvider } from '@/components/TutorialProvider';
 import { HelpButton } from '@/components/HelpButton';
+import { useTranslations } from 'next-intl';
 
 interface HomeworkSubmission {
     id: string;
@@ -57,6 +58,7 @@ interface HomeworkTask {
 }
 
 export default function StudentHomeworkPage() {
+    const t = useTranslations('Homework');
     const [tasks, setTasks] = useState<HomeworkTask[]>([]);
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState<'pending' | 'submitted' | 'all'>('pending');
@@ -76,7 +78,7 @@ export default function StudentHomeworkPage() {
         if (!file) return;
 
         if (file.size > 15 * 1024 * 1024) {
-            toast.error('File size exceeds the 15MB limit');
+            toast.error(t('sizeLimit'));
             return;
         }
 
@@ -103,16 +105,16 @@ export default function StudentHomeworkPage() {
 
             if (!res.ok) {
                 setAttachmentUrl(`https://edulanka.mock/uploads/${file.name}`);
-                toast.success(`Attached ${file.name}`);
+                toast.success(t('attachedFile', { filename: file.name }));
                 return;
             }
 
             const data = await res.json();
             setAttachmentUrl(data.secure_url || data.url);
-            toast.success(`Uploaded ${file.name}`);
+            toast.success(t('attachedFile', { filename: file.name }));
         } catch {
             setAttachmentUrl(`https://edulanka.mock/uploads/${file.name}`);
-            toast.success(`Attached ${file.name}`);
+            toast.success(t('attachedFile', { filename: file.name }));
         } finally {
             setIsUploadingFile(false);
         }
@@ -127,7 +129,7 @@ export default function StudentHomeworkPage() {
             const data = await apiClient.get<HomeworkTask[]>('/homework');
             setTasks(data || []);
         } catch (err: any) {
-            toast.error('Failed to load homework assignments', {
+            toast.error(t('loadFailed'), {
                 description: err?.message || 'Please check your connection and try again.',
             });
         } finally {
@@ -173,7 +175,7 @@ export default function StudentHomeworkPage() {
     const handleSubmitSolution = async () => {
         if (!submittingTask) return;
         if (!submissionContent.trim() && !attachmentUrl.trim()) {
-            toast.error('Please enter submission content or provide an attachment URL');
+            toast.error(t('enterContent'));
             return;
         }
 
@@ -184,7 +186,7 @@ export default function StudentHomeworkPage() {
                 attachment_url: attachmentUrl.trim() || undefined,
             });
 
-            toast.success('Homework submitted successfully!', {
+            toast.success(t('submitSuccess'), {
                 description: 'Your teacher has been notified of your submission.',
             });
 
@@ -193,7 +195,7 @@ export default function StudentHomeworkPage() {
             setAttachmentUrl('');
             await fetchTasks();
         } catch (err: any) {
-            toast.error('Failed to submit homework', {
+            toast.error(t('submitFailed'), {
                 description: err?.message || 'An error occurred during submission.',
             });
         } finally {
@@ -206,7 +208,7 @@ export default function StudentHomeworkPage() {
             return (
                 <Badge variant="soft" tone="success">
                     <CheckCircle2 className="w-3 h-3 mr-1" />
-                    Submitted
+                    {t('statusSubmitted')}
                 </Badge>
             );
         }
@@ -219,7 +221,7 @@ export default function StudentHomeworkPage() {
             return (
                 <Badge variant="soft" tone="danger">
                     <AlertCircle className="w-3 h-3 mr-1" />
-                    Overdue
+                    {t('statusOverdue')}
                 </Badge>
             );
         }
@@ -227,7 +229,7 @@ export default function StudentHomeworkPage() {
             return (
                 <Badge variant="soft" tone="warning">
                     <Clock className="w-3 h-3 mr-1" />
-                    Due Today
+                    {t('statusDueToday')}
                 </Badge>
             );
         }
@@ -235,7 +237,7 @@ export default function StudentHomeworkPage() {
             return (
                 <Badge variant="soft" tone="info">
                     <Calendar className="w-3 h-3 mr-1" />
-                    Due Soon
+                    {t('statusDueSoon')}
                 </Badge>
             );
         }
@@ -265,8 +267,8 @@ export default function StudentHomeworkPage() {
                 {/* Header */}
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                     <PageHeader
-                        title="My Homework & Tasks"
-                        description="View assignments from your teachers, submit your work online, and review grades & feedback."
+                        title={t('myHomeworkTitle')}
+                        description={t('myHomeworkDesc')}
                         action={<HelpButton />}
                     />
                 </div>
@@ -283,7 +285,7 @@ export default function StudentHomeworkPage() {
                                 : 'text-muted-foreground hover:text-foreground'
                                 }`}
                         >
-                            Pending ({pendingCount})
+                            {t('tabPending')} ({pendingCount})
                         </button>
                         <button
                             type="button"
@@ -293,7 +295,7 @@ export default function StudentHomeworkPage() {
                                 : 'text-muted-foreground hover:text-foreground'
                                 }`}
                         >
-                            Submitted ({submittedCount})
+                            {t('tabSubmitted')} ({submittedCount})
                         </button>
                         <button
                             type="button"
@@ -303,7 +305,7 @@ export default function StudentHomeworkPage() {
                                 : 'text-muted-foreground hover:text-foreground'
                                 }`}
                         >
-                            All ({tasks.length})
+                            {t('tabAll')} ({tasks.length})
                         </button>
                     </div>
 
@@ -313,7 +315,7 @@ export default function StudentHomeworkPage() {
                             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
                             <input
                                 type="text"
-                                placeholder="Search tasks..."
+                                placeholder={t('searchTasksPlaceholder')}
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
                                 className="w-full pl-9 pr-3 py-2 text-sm bg-background border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20"
@@ -328,7 +330,7 @@ export default function StudentHomeworkPage() {
                                     onChange={(e) => setSelectedSubject(e.target.value)}
                                     className="w-full sm:w-auto px-3 py-2 text-sm bg-background border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20"
                                 >
-                                    <option value="all">All Subjects</option>
+                                    <option value="all">{t('allSubjects')}</option>
                                     {subjects.map((subj) => (
                                         <option key={subj} value={subj}>
                                             {subj}
@@ -347,15 +349,15 @@ export default function StudentHomeworkPage() {
                             icon={<FileEdit className="size-8 text-muted-foreground" />}
                             title={
                                 activeTab === 'pending'
-                                    ? 'No pending homework!'
+                                    ? t('emptyPendingTitle')
                                     : activeTab === 'submitted'
-                                        ? 'No submitted homework yet'
-                                        : 'No homework tasks found'
+                                        ? t('emptySubmittedTitle')
+                                        : t('emptyFoundTitle')
                             }
                             description={
                                 activeTab === 'pending'
-                                    ? 'You have completed all assigned tasks. Great job!'
-                                    : 'When your teachers assign homework, it will appear here.'
+                                    ? t('emptyPendingDesc')
+                                    : t('noHomeworkDescription')
                             }
                         />
                     ) : (

@@ -528,4 +528,51 @@ class AppLocalizationsTa extends AppLocalizations {
 
   @override
   String get viewPdf => 'PDF பார்க்க';
+
+  @override
+  String get attendanceConsistency => 'வருகை நிலைத்தன்மை';
+
+  @override
+  String get recordedRollCallSessions => 'பதிவுசெய்யப்பட்ட வருகை அமர்வுகள்';
+
+  @override
+  String get average => 'சராசரி';
+
+  @override
+  String get totalScore => 'மொத்த மதிப்பெண்';
+
+  @override
+  String get subjects => 'பாடங்கள்';
+
+  @override
+  String get subjectBreakdown => 'பாடம் வாரியான முறிவு';
+
+  @override
+  String get teachingManagement => 'கற்பித்தல் மேலாண்மை';
+
+  @override
+  String get allPresent => 'அனைவரும் சமூகம்';
+
+  @override
+  String get noHomeworkAssigned =>
+      'தற்போது வீட்டுப்பாடம் எதுவும் ஒதுக்கப்படவில்லை.';
+
+  @override
+  String get attachmentsLearningMaterials => 'இணைப்புகள் / கற்றல் பொருட்கள்';
+
+  @override
+  String get disasterCachedDesc =>
+      'அவசரகாலங்களில் ஆஃப்லைனில் அணுக SQLite சேமிப்பகத்தில் சேமிக்கப்பட்டது.';
+
+  @override
+  String get noContactsCached =>
+      'தொடர்புகள் சேமிக்கப்படவில்லை. புதிய பேரிடர் தொகுப்பைப் பதிவிறக்க ஒத்திசைவு பொத்தானைத் தட்டவும்.';
+
+  @override
+  String get noSheltersCached =>
+      'தங்குமிடங்கள் சேமிக்கப்படவில்லை. தங்குமிடங்களைப் பதிவிறக்க பள்ளி சேவையகத்துடன் ஒத்திசைக்கவும்.';
+
+  @override
+  String get circularsAppearHere =>
+      'பள்ளி நிர்வாகம் சுற்றறிக்கைகளை வெளியிடும் போது, அவை இங்கு தோன்றும்.';
 }

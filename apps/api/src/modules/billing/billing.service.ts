@@ -7,10 +7,49 @@ import { calculateActiveStudentFee, BillingSnapshotRecord, UnpaidInvoicePolicySt
 export class BillingService {
     private readonly logger = new Logger(BillingService.name);
 
+    /** In-memory cache for tenant lock status to eliminate 1 DB query per write request (§7c) */
+    private readonly lockStatusCache = new Map<string, { status: UnpaidInvoicePolicyStatus; expiresAt: number }>();
+    private readonly LOCK_CACHE_TTL_MS = 60_000; // 60-second TTL
+
     constructor(
         private readonly supabase: SupabaseService,
         private readonly configService: ConfigService,
     ) { }
+
+    /**
+     * Clears cached invoice status for a single tenant (e.g. after payment) or all tenants.
+     */
+    clearTenantLockCache(tenantId?: string) {
+        if (tenantId) {
+            this.lockStatusCache.delete(tenantId);
+        } else {
+            this.lockStatusCache.clear();
+        }
+    }
+
+    /**
+     * Paginates across PostgREST queries exceeding the default 1,000-row limit.
+     */
+    private async fetchAllRows<T = any>(
+        queryFn: (from: number, to: number) => Promise<{ data: T[] | null; error: any }>
+    ): Promise<T[]> {
+        const PAGE_SIZE = 1000;
+        let from = 0;
+        const all: T[] = [];
+        while (true) {
+            const res = await queryFn(from, from + PAGE_SIZE - 1);
+            const { data, error } = res || {};
+            if (error) {
+                this.logger.error(`Error fetching page ${from}-${from + PAGE_SIZE - 1}: ${error.message}`);
+                throw error;
+            }
+            if (!data || data.length === 0) break;
+            all.push(...data);
+            if (data.length < PAGE_SIZE) break;
+            from += PAGE_SIZE;
+        }
+        return all;
+    }
 
     /**
      * Nightly billing job running per Blueprint Section 7c.
@@ -25,16 +64,14 @@ export class BillingService {
 
         const admin = this.supabase.adminClient;
 
-        // 1. Fetch all active tenants and their plan definitions
-        const { data: tenants, error: tenantErr } = await admin
-            .from('tenants')
-            .select('id, name, plan, status')
-            .eq('status', 'ACTIVE');
-
-        if (tenantErr) {
-            this.logger.error(`Failed to load active tenants: ${tenantErr.message}`);
-            throw new Error(`Billing aggregation failed: ${tenantErr.message}`);
-        }
+        // 1. Fetch all active tenants and their plan definitions, handling >1,000 rows
+        const tenants = await this.fetchAllRows(async (from, to) => {
+            const q = admin
+                .from('tenants')
+                .select('id, name, plan, status')
+                .eq('status', 'ACTIVE');
+            return typeof q.range === 'function' ? q.range(from, to) : q;
+        });
 
         const { data: plans, error: planErr } = await admin
             .from('plans')
@@ -79,7 +116,7 @@ export class BillingService {
             }
         }
 
-        // 3. Count non-emergency SMS logs for the billing month
+        // 3. Count non-emergency SMS logs for the billing month, handling >1,000 rows
         const startOfMonth = `${month}-01T00:00:00.000Z`;
         const endOfMonth = new Date(
             parseInt(month.slice(0, 4), 10),
@@ -87,34 +124,41 @@ export class BillingService {
             1
         ).toISOString();
 
-        const { data: smsLogs, error: smsErr } = await admin
-            .from('sms_logs')
-            .select('tenant_id, segment_count')
-            .gte('created_at', startOfMonth)
-            .lt('created_at', endOfMonth)
-            .is('disaster_event_id', null);
+        const smsLogs = await this.fetchAllRows(async (from, to) => {
+            const q = admin
+                .from('sms_logs')
+                .select('tenant_id, segment_count')
+                .gte('created_at', startOfMonth)
+                .lt('created_at', endOfMonth)
+                .is('disaster_event_id', null);
+            return typeof q.range === 'function' ? q.range(from, to) : q;
+        });
 
         const smsCountByTenant = new Map<string, number>();
-        if (!smsErr && smsLogs) {
-            for (const log of smsLogs) {
-                if (log.tenant_id) {
-                    const segs = log.segment_count || 1;
-                    smsCountByTenant.set(log.tenant_id, (smsCountByTenant.get(log.tenant_id) || 0) + segs);
-                }
+        for (const log of smsLogs ?? []) {
+            if (log.tenant_id) {
+                const segs = log.segment_count || 1;
+                smsCountByTenant.set(log.tenant_id, (smsCountByTenant.get(log.tenant_id) || 0) + segs);
             }
         }
 
         // 4. Load configured SMS quotas
-        const { data: quotas } = await admin
-            .from('tenant_sms_quotas')
-            .select('tenant_id, monthly_quota');
+        const quotas = await this.fetchAllRows(async (from, to) => {
+            const q = admin
+                .from('tenant_sms_quotas')
+                .select('tenant_id, monthly_quota');
+            return typeof q.range === 'function' ? q.range(from, to) : q;
+        });
         const quotaMap = new Map((quotas ?? []).map((q: any) => [q.tenant_id, q.monthly_quota]));
 
-        // 5. Load existing snapshots for this billing month to prevent overwriting non-DRAFT (ISSUED, PAID, OVERDUE) rows
-        const { data: existingSnapshots } = await admin
-            .from('billing_snapshots')
-            .select('id, tenant_id, status')
-            .eq('billing_month', month);
+        // 5. Load existing snapshots for this billing month, handling >1,000 rows
+        const existingSnapshots = await this.fetchAllRows(async (from, to) => {
+            const q = admin
+                .from('billing_snapshots')
+                .select('id, tenant_id, status')
+                .eq('billing_month', month);
+            return typeof q.range === 'function' ? q.range(from, to) : q;
+        });
         const existingMap = new Map((existingSnapshots ?? []).map((s: any) => [s.tenant_id, s]));
 
         const overagePricePerSms = this.configService.get<number>('SMS_OVERAGE_PRICE_LKR') ?? 2;
@@ -140,8 +184,8 @@ export class BillingService {
             );
 
             const smsTotal = smsCountByTenant.get(tenant.id) || 0;
-            const smsOverageCount = Math.max(0, smsTotal - allowance);
-            const smsOverageCharge = smsOverageCount * overagePricePerSms;
+            const smsOverage = Math.max(0, smsTotal - allowance);
+            const smsOverageCharge = smsOverage * overagePricePerSms;
 
             const totalAmountLkr = baseFeeLkr + studentFeeCalc.totalStudentFeeLkr + smsOverageCharge;
 
@@ -154,19 +198,19 @@ export class BillingService {
                 perStudentFeeLkr: pricePerStudentLkr,
                 smsCount: smsTotal,
                 smsAllowance: allowance,
-                smsOverageCount,
+                smsOverageCount: smsOverage,
                 smsOverageChargeLkr: smsOverageCharge,
                 totalAmountLkr,
                 status: 'DRAFT',
             };
 
             const existing = existingMap.get(tenant.id);
+
             if (existing) {
-                // NEVER overwrite finalized or invoiced rows (ISSUED, PAID, OVERDUE)
+                // If invoice is already finalized (ISSUED, PAID, OVERDUE), do not overwrite!
                 if (existing.status !== 'DRAFT') {
-                    this.logger.log(
-                        `Skipping snapshot update for tenant ${tenant.id} (${month}): invoice is locked with status ${existing.status}.`,
-                    );
+                    this.logger.log(`Skipping tenant ${tenant.id}: invoice for ${month} is already ${existing.status}`);
+                    results.push({ ...snapshot, id: existing.id, status: existing.status });
                     continue;
                 }
 
@@ -224,21 +268,23 @@ export class BillingService {
     }
 
     /**
-     * Lists billing snapshots for a given month.
+     * Lists billing snapshots for a given month, handling pagination beyond 1,000 rows.
      */
     async getBillingSnapshots(billingMonth?: string) {
         const month = billingMonth || new Date().toISOString().slice(0, 7);
-        const { data, error } = await this.supabase.adminClient
-            .from('billing_snapshots')
-            .select('*, tenants(name, slug)')
-            .eq('billing_month', month)
-            .order('total_amount_lkr', { ascending: false });
-
-        if (error) {
+        try {
+            return await this.fetchAllRows(async (from, to) => {
+                const q = this.supabase.adminClient
+                    .from('billing_snapshots')
+                    .select('*, tenants(name, slug)')
+                    .eq('billing_month', month)
+                    .order('total_amount_lkr', { ascending: false });
+                return typeof q.range === 'function' ? q.range(from, to) : q;
+            });
+        } catch (error: any) {
             this.logger.error(`Failed to load billing snapshots: ${error.message}`);
             return [];
         }
-        return data ?? [];
     }
 
     /**
@@ -247,8 +293,14 @@ export class BillingService {
      * During the grace period, administrators retain full institutional access to view,
      * download data, and settle payment, while an alert banner is displayed across portals.
      * If invoices remain unpaid past the 14-day window, write operations are locked.
+     * Cached for 60 seconds to eliminate redundant database queries on repeated write operations.
      */
     async checkTenantInvoiceStatus(tenantId: string): Promise<UnpaidInvoicePolicyStatus> {
+        const cached = this.lockStatusCache.get(tenantId);
+        if (cached && cached.expiresAt > Date.now()) {
+            return cached.status;
+        }
+
         const admin = this.supabase.adminClient;
         const { data: overdueInvoices } = await admin
             .from('billing_snapshots')
@@ -258,7 +310,7 @@ export class BillingService {
             .order('billing_month', { ascending: true });
 
         if (!overdueInvoices || overdueInvoices.length === 0) {
-            return {
+            const status: UnpaidInvoicePolicyStatus = {
                 tenantId,
                 hasOverdueInvoices: false,
                 inGracePeriod: false,
@@ -267,6 +319,8 @@ export class BillingService {
                 overdueAmountLkr: 0,
                 message: 'Account is in good standing.',
             };
+            this.lockStatusCache.set(tenantId, { status, expiresAt: Date.now() + this.LOCK_CACHE_TTL_MS });
+            return status;
         }
 
         const now = Date.now();
@@ -284,7 +338,7 @@ export class BillingService {
         const inGracePeriod = elapsed <= GRACE_PERIOD_MS;
         const graceDaysRemaining = Math.max(0, Math.ceil((GRACE_PERIOD_MS - elapsed) / (24 * 60 * 60 * 1000)));
 
-        return {
+        const status: UnpaidInvoicePolicyStatus = {
             tenantId,
             hasOverdueInvoices: true,
             inGracePeriod,
@@ -295,6 +349,9 @@ export class BillingService {
                 ? `Account has pending invoices in 14-day grace period (${graceDaysRemaining} days remaining). Please settle balance of LKR ${totalOverdue.toLocaleString()}.`
                 : `Account is locked due to overdue invoice past the 14-day grace period. Please contact administration.`,
         };
+
+        this.lockStatusCache.set(tenantId, { status, expiresAt: Date.now() + this.LOCK_CACHE_TTL_MS });
+        return status;
     }
 
     /**
@@ -330,12 +387,14 @@ export class BillingService {
         if (error) {
             throw new InternalServerErrorException(`Failed to issue invoice: ${error.message}`);
         }
+        this.clearTenantLockCache(existing.tenant_id);
         this.logger.log(`Invoice ${id} issued for tenant ${existing.tenant_id} (Month: ${existing.billing_month})`);
         return data;
     }
 
     /**
      * Marks an invoice as PAID upon settlement confirmation.
+     * Rejects DRAFT invoices — only ISSUED or OVERDUE invoices can be paid.
      */
     async markInvoicePaid(id: string) {
         const admin = this.supabase.adminClient;
@@ -353,6 +412,12 @@ export class BillingService {
             return existing;
         }
 
+        if (existing.status === 'DRAFT') {
+            throw new BadRequestException(
+                'Cannot mark a DRAFT invoice as paid. Invoices must be ISSUED before being marked as PAID.',
+            );
+        }
+
         const { data, error } = await admin
             .from('billing_snapshots')
             .update({
@@ -366,6 +431,7 @@ export class BillingService {
         if (error) {
             throw new InternalServerErrorException(`Failed to mark invoice as paid: ${error.message}`);
         }
+        this.clearTenantLockCache(existing.tenant_id);
         this.logger.log(`Invoice ${id} marked as PAID for tenant ${existing.tenant_id}`);
         return data;
     }
@@ -377,13 +443,16 @@ export class BillingService {
         const admin = this.supabase.adminClient;
         const fourteenDaysAgo = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString();
 
-        const { data: overdueRows, error: fetchErr } = await admin
-            .from('billing_snapshots')
-            .select('id, tenant_id, total_amount_lkr')
-            .eq('status', 'ISSUED')
-            .lt('updated_at', fourteenDaysAgo);
+        const overdueRows = await this.fetchAllRows(async (from, to) => {
+            const q = admin
+                .from('billing_snapshots')
+                .select('id, tenant_id, total_amount_lkr')
+                .eq('status', 'ISSUED')
+                .lt('updated_at', fourteenDaysAgo);
+            return typeof q.range === 'function' ? q.range(from, to) : q;
+        });
 
-        if (fetchErr || !overdueRows || overdueRows.length === 0) {
+        if (!overdueRows || overdueRows.length === 0) {
             return 0;
         }
 
@@ -398,10 +467,11 @@ export class BillingService {
 
         if (updateErr) {
             this.logger.error(`Failed to transition overdue invoices: ${updateErr.message}`);
-            return 0;
+            throw new InternalServerErrorException('Failed to process overdue invoices');
         }
 
-        this.logger.warn(`Transitioned ${ids.length} issued invoices to OVERDUE status.`);
+        this.clearTenantLockCache();
+        this.logger.log(`Transitioned ${ids.length} invoices to OVERDUE status`);
         return ids.length;
     }
 }

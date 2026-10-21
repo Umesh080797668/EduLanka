@@ -516,4 +516,50 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get viewPdf => 'VIEW PDF';
+
+  @override
+  String get attendanceConsistency => 'Attendance Consistency';
+
+  @override
+  String get recordedRollCallSessions => 'Recorded Roll-Call Sessions';
+
+  @override
+  String get average => 'Average';
+
+  @override
+  String get totalScore => 'Total Score';
+
+  @override
+  String get subjects => 'Subjects';
+
+  @override
+  String get subjectBreakdown => 'Subject Breakdown';
+
+  @override
+  String get teachingManagement => 'Teaching Management';
+
+  @override
+  String get allPresent => 'All Present';
+
+  @override
+  String get noHomeworkAssigned => 'No homework assigned right now.';
+
+  @override
+  String get attachmentsLearningMaterials => 'Attachments / Learning Materials';
+
+  @override
+  String get disasterCachedDesc =>
+      'Cached locally in SQLite storage for immediate offline access during emergencies.';
+
+  @override
+  String get noContactsCached =>
+      'No contacts cached. Tap the top sync button to download the latest disaster pack.';
+
+  @override
+  String get noSheltersCached =>
+      'No shelters cached. Sync with your school server to download local evacuation shelters.';
+
+  @override
+  String get circularsAppearHere =>
+      'When school administration posts circulars, they will appear here.';
 }

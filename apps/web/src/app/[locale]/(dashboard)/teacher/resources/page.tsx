@@ -24,6 +24,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Dialog } from '@/components/ui/Dialog';
+import { useTranslations } from 'next-intl';
 
 interface MediaAsset {
     id: string;
@@ -72,6 +73,7 @@ function generateEmbedPublicId(): string {
 }
 
 export default function TeacherResourcesPage() {
+    const t = useTranslations('MediaResources');
     const [assets, setAssets] = useState<MediaAsset[]>([]);
     const [storageUsage, setStorageUsage] = useState<StorageUsageResponse['usage'] | null>(null);
     const [loading, setLoading] = useState(true);
@@ -107,13 +109,13 @@ export default function TeacherResourcesPage() {
             setAssets(mediaRes.data || []);
             setStorageUsage(storageRes.usage);
         } catch (err: any) {
-            toast.error('Failed to load learning resources', {
+            toast.error(t('loadFailed'), {
                 description: err?.message || 'Network error',
             });
         } finally {
             setLoading(false);
         }
-    }, []);
+    }, [t]);
     const loadData = refreshData;
 
     useEffect(() => {
@@ -129,7 +131,7 @@ export default function TeacherResourcesPage() {
             })
             .catch((err: any) => {
                 if (!isMounted) return;
-                toast.error('Failed to load learning resources', {
+                toast.error(t('loadFailed'), {
                     description: err?.message || 'Network error',
                 });
             })
@@ -171,11 +173,11 @@ export default function TeacherResourcesPage() {
 
         if (uploadMode === 'file') {
             if (!selectedFile) {
-                toast.error('Please select a video file to upload');
+                toast.error(t('selectFile'));
                 return;
             }
             if (!formTitle) {
-                toast.error('Resource title is required');
+                toast.error(t('titleRequired'));
                 return;
             }
 
@@ -255,14 +257,14 @@ export default function TeacherResourcesPage() {
                     isDownloadable: formDownloadable,
                 });
 
-                toast.success('Video uploaded successfully', {
+                toast.success(t('uploadSuccess'), {
                     description: 'Asset is now transcoding into adaptive HLS streams.',
                 });
 
                 resetForm();
                 loadData();
             } catch (err: any) {
-                toast.error('Upload failed', {
+                toast.error(t('uploadFailed'), {
                     description: err?.message || 'Failed to complete video upload',
                 });
             } finally {
@@ -271,7 +273,7 @@ export default function TeacherResourcesPage() {
         } else {
             // External Embed Link (YouTube, Vimeo, Google Drive)
             if (!embedUrl || !formTitle) {
-                toast.error('Please provide both title and embedded video URL');
+                toast.error(t('embedRequired'));
                 return;
             }
 
@@ -287,11 +289,11 @@ export default function TeacherResourcesPage() {
                     isDownloadable: false,
                 });
 
-                toast.success('Embedded resource added successfully');
+                toast.success(t('embedSuccess'));
                 resetForm();
                 loadData();
             } catch (err: any) {
-                toast.error('Failed to add embedded resource', {
+                toast.error(t('uploadFailed'), {
                     description: err?.message,
                 });
             } finally {
@@ -314,11 +316,11 @@ export default function TeacherResourcesPage() {
         if (!confirm('Are you sure you want to remove this resource and reclaim storage quota?')) return;
         try {
             await apiClient.delete(`/media/${assetId}`);
-            toast.success('Resource removed and storage reclaimed');
+            toast.success(t('deleteSuccess'));
             setAssets(assets.filter((a) => a.id !== assetId));
             loadData();
         } catch (err: any) {
-            toast.error('Failed to delete asset', { description: err?.message });
+            toast.error(t('deleteFailed'), { description: err?.message });
         }
     };
 
@@ -349,10 +351,10 @@ export default function TeacherResourcesPage() {
                     <div>
                         <h1 className="text-2xl font-bold tracking-tight text-foreground flex items-center gap-2">
                             <BookOpen className="w-6 h-6 text-primary" />
-                            Teacher Learning Resource Hub
+                            {t('title')}
                         </h1>
                         <p className="text-sm text-muted-foreground mt-1">
-                            Publish video lessons with signed direct uploads, automated HLS transcoding, and encrypted offline caching.
+                            {t('subtitle')}
                         </p>
                     </div>
                     <div className="flex items-center gap-2">
@@ -369,7 +371,7 @@ export default function TeacherResourcesPage() {
                             className="flex items-center gap-2"
                         >
                             <Plus className="w-4 h-4" />
-                            Upload New Resource
+                            {t('uploadVideo')}
                         </Button>
                     </div>
                 </div>

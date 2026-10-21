@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../core/database/local_database.dart';
+import '../../l10n/app_localizations.dart';
 import 'disaster_pack_screen.dart';
 
 class DisasterPackSheet extends StatefulWidget {
@@ -41,6 +42,7 @@ class _DisasterPackSheetState extends State<DisasterPackSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return DraggableScrollableSheet(
       initialChildSize: 0.75,
       minChildSize: 0.5,
@@ -65,17 +67,17 @@ class _DisasterPackSheetState extends State<DisasterPackSheet> {
                       ),
                     ),
                     const SizedBox(height: 16),
-                    const Row(
+                    Row(
                       children: [
-                        Icon(
+                        const Icon(
                           Icons.emergency_share_rounded,
                           color: Color(0xFFEF4444),
                           size: 28,
                         ),
-                        SizedBox(width: 10),
+                        const SizedBox(width: 10),
                         Text(
-                          'Disaster Readiness Pack',
-                          style: TextStyle(
+                          l10n?.disasterReadiness ?? 'Disaster Readiness Pack',
+                          style: const TextStyle(
                             fontSize: 20,
                             fontWeight: FontWeight.bold,
                           ),
@@ -83,16 +85,20 @@ class _DisasterPackSheetState extends State<DisasterPackSheet> {
                       ],
                     ),
                     const SizedBox(height: 6),
-                    const Text(
-                      'Cached locally in SQLite storage for immediate offline access during emergencies.',
-                      style: TextStyle(color: Color(0xFF64748B), fontSize: 13),
+                    Text(
+                      l10n?.disasterCachedDesc ??
+                          'Cached locally in SQLite storage for immediate offline access during emergencies.',
+                      style: const TextStyle(
+                        color: Color(0xFF64748B),
+                        fontSize: 13,
+                      ),
                     ),
                     const SizedBox(height: 20),
 
                     // ── Emergency Contacts Section ───────────────────
-                    const Text(
-                      'Emergency Contacts',
-                      style: TextStyle(
+                    Text(
+                      l10n?.emergencyContacts ?? 'Emergency Contacts',
+                      style: const TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
                       ),
@@ -105,9 +111,10 @@ class _DisasterPackSheetState extends State<DisasterPackSheet> {
                           color: const Color(0xFFF1F5F9),
                           borderRadius: BorderRadius.circular(8),
                         ),
-                        child: const Text(
-                          'No contacts cached. Tap the top sync button to download the latest disaster pack.',
-                          style: TextStyle(
+                        child: Text(
+                          l10n?.noContactsCached ??
+                              'No contacts cached. Tap the top sync button to download the latest disaster pack.',
+                          style: const TextStyle(
                             color: Color(0xFF64748B),
                             fontSize: 13,
                           ),
@@ -148,9 +155,9 @@ class _DisasterPackSheetState extends State<DisasterPackSheet> {
                     const SizedBox(height: 20),
 
                     // ── Emergency Shelters Section ───────────────────
-                    const Text(
-                      'Evacuation Shelters',
-                      style: TextStyle(
+                    Text(
+                      l10n?.evacuationShelters ?? 'Evacuation Shelters',
+                      style: const TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
                       ),
@@ -163,9 +170,10 @@ class _DisasterPackSheetState extends State<DisasterPackSheet> {
                           color: const Color(0xFFF1F5F9),
                           borderRadius: BorderRadius.circular(8),
                         ),
-                        child: const Text(
-                          'No shelters cached. Sync with your school server to download local evacuation shelters.',
-                          style: TextStyle(
+                        child: Text(
+                          l10n?.noSheltersCached ??
+                              'No shelters cached. Sync with your school server to download local evacuation shelters.',
+                          style: const TextStyle(
                             color: Color(0xFF64748B),
                             fontSize: 13,
                           ),

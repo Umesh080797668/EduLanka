@@ -19,6 +19,7 @@ import {
     X,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { useTranslations } from 'next-intl';
 
 import { apiClient } from '@/lib/api-client';
 import { TutorialProvider } from '@/components/TutorialProvider';
@@ -43,6 +44,7 @@ interface PaperItem {
 }
 
 export default function StudentPapersPage() {
+    const t = useTranslations('PastPapers');
     const [papers, setPapers] = useState<PaperItem[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState('');
@@ -66,7 +68,7 @@ export default function StudentPapersPage() {
             })
             .catch((err: any) => {
                 if (isMounted) {
-                    toast.error('Failed to load past papers', {
+                    toast.error(t('loadFailed'), {
                         description: err?.message || 'Network error',
                     });
                 }
@@ -130,10 +132,10 @@ export default function StudentPapersPage() {
                     <div>
                         <h1 className="text-2xl font-bold tracking-tight text-foreground flex items-center gap-2">
                             <FileCheck className="w-6 h-6 text-primary" />
-                            National & School Past Paper Hub
+                            {t('title')}
                         </h1>
                         <p className="text-sm text-muted-foreground mt-1">
-                            Exam preparation portal with synchronized question papers and paired marking schemes.
+                            {t('subtitle')}
                         </p>
                     </div>
                 </div>
@@ -277,7 +279,7 @@ export default function StudentPapersPage() {
                             type="text"
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
-                            placeholder="Search past papers..."
+                            placeholder={t('searchPlaceholder')}
                             className="w-full pl-9 pr-3 h-9 rounded-md bg-background border border-border text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
                         />
                     </div>
@@ -287,7 +289,7 @@ export default function StudentPapersPage() {
                         onChange={(e) => setSelectedGrade(e.target.value)}
                         className="h-9 px-3 rounded-md bg-background border border-border text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
                     >
-                        <option value="all">All Grades</option>
+                        <option value="all">{t('allGrades')}</option>
                         {[6, 7, 8, 9, 10, 11, 12, 13].map((g) => (
                             <option key={g} value={String(g)}>
                                 Grade {g}
@@ -300,7 +302,7 @@ export default function StudentPapersPage() {
                         onChange={(e) => setSelectedSubject(e.target.value)}
                         className="h-9 px-3 rounded-md bg-background border border-border text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
                     >
-                        <option value="all">All Subjects</option>
+                        <option value="all">{t('allSubjects')}</option>
                         <option value="Science">Science</option>
                         <option value="Mathematics">Mathematics</option>
                         <option value="Sinhala">Sinhala</option>
@@ -315,7 +317,7 @@ export default function StudentPapersPage() {
                         onChange={(e) => setSelectedMedium(e.target.value)}
                         className="h-9 px-3 rounded-md bg-background border border-border text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
                     >
-                        <option value="all">All Mediums</option>
+                        <option value="all">{t('allMediums')}</option>
                         <option value="sinhala">Sinhala Medium</option>
                         <option value="tamil">Tamil Medium</option>
                         <option value="english">English Medium</option>

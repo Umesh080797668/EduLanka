@@ -522,4 +522,50 @@ class AppLocalizationsSi extends AppLocalizations {
 
   @override
   String get viewPdf => 'PDF බලන්න';
+
+  @override
+  String get attendanceConsistency => 'පැමිණීමේ ස්ථාවරත්වය';
+
+  @override
+  String get recordedRollCallSessions => 'වාර්තාගත පැමිණීම් සැසි';
+
+  @override
+  String get average => 'සාමාන්‍යය';
+
+  @override
+  String get totalScore => 'මුළු ලකුණු';
+
+  @override
+  String get subjects => 'විෂයයන්';
+
+  @override
+  String get subjectBreakdown => 'විෂය අනුව විග්‍රහය';
+
+  @override
+  String get teachingManagement => 'ඉගැන්වීම් කළමනාකරණය';
+
+  @override
+  String get allPresent => 'සියලු දෙනා පැමිණ ඇත';
+
+  @override
+  String get noHomeworkAssigned => 'දැනට ගෙදර වැඩ පවරා නොමැත.';
+
+  @override
+  String get attachmentsLearningMaterials => 'ඇමුණුම් / ඉගෙනුම් ද්‍රව්‍ය';
+
+  @override
+  String get disasterCachedDesc =>
+      'හදිසි අවස්ථාවලදී නොබැඳිව භාවිතය සඳහා SQLite හි සුරකින ලදි.';
+
+  @override
+  String get noContactsCached =>
+      'සම්බන්ධතා සුරැකී නැත. නවතම ආපදා ඇසුරුම බාගත කිරීමට ඉහළ ඇති සමමුහුර්ත බොත්තම තට්ටු කරන්න.';
+
+  @override
+  String get noSheltersCached =>
+      'ආරක්ෂිත ස්ථාන සුරැකී නැත. ආරක්ෂිත ස්ථාන බාගත කිරීමට පාසල් සේවාදායකය සමඟ සමමුහුර්ත කරන්න.';
+
+  @override
+  String get circularsAppearHere =>
+      'පාසල් පරිපාලනය චක්‍රලේඛ පළ කළ විට, ඒවා මෙහි දිස්වනු ඇත.';
 }

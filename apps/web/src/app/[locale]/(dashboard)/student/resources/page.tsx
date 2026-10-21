@@ -12,6 +12,7 @@ import {
     Lock,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { useTranslations } from 'next-intl';
 
 import { apiClient } from '@/lib/api-client';
 import { TutorialProvider } from '@/components/TutorialProvider';
@@ -39,6 +40,7 @@ interface MediaAsset {
 }
 
 export default function StudentResourcesPage() {
+    const t = useTranslations('MediaResources');
     const [assets, setAssets] = useState<MediaAsset[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState('');
@@ -54,7 +56,7 @@ export default function StudentResourcesPage() {
             })
             .catch((err: any) => {
                 if (isMounted) {
-                    toast.error('Failed to load learning resources', {
+                    toast.error(t('loadFailed'), {
                         description: err?.message || 'Network error',
                     });
                 }
@@ -66,7 +68,7 @@ export default function StudentResourcesPage() {
         return () => {
             isMounted = false;
         };
-    }, []);
+    }, [t]);
 
     const handleDownloadManifest = async (asset: MediaAsset) => {
         try {
@@ -79,11 +81,11 @@ export default function StudentResourcesPage() {
                 cipherAlgorithm: string;
             }>(`/media/${asset.id}/download-manifest`);
 
-            toast.success('Offline License Acquired', {
+            toast.success(t('offlineAcquired'), {
                 description: `Encrypted manifest generated for "${asset.title}". Valid for ${manifest.retentionDays} days offline.`,
             });
         } catch (err: any) {
-            toast.error('Offline download unavailable', {
+            toast.error(t('offlineUnavailable'), {
                 description: err?.message || 'Requires school Growth/Institutional plan subscription.',
             });
         }
@@ -110,10 +112,10 @@ export default function StudentResourcesPage() {
                 <div>
                     <h1 className="text-2xl font-bold tracking-tight text-foreground flex items-center gap-2">
                         <BookOpen className="w-6 h-6 text-primary" />
-                        Student Learning Resource Hub
+                        {t('title')}
                     </h1>
                     <p className="text-sm text-muted-foreground mt-1">
-                        Watch curriculum video lessons and save encrypted media manifests for offline study on mobile.
+                        {t('subtitle')}
                     </p>
                 </div>
 
@@ -125,7 +127,7 @@ export default function StudentResourcesPage() {
                             type="text"
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
-                            placeholder="Search topics or lessons..."
+                            placeholder={t('searchPlaceholder')}
                             className="w-full pl-9 pr-3 h-9 rounded-md bg-background border border-border text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
                         />
                     </div>

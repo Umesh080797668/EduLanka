@@ -8,6 +8,7 @@ import {
     Smartphone,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { useTranslations } from 'next-intl';
 
 import { apiClient } from '@/lib/api-client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/Card';
@@ -24,6 +25,7 @@ interface MobileVersionData {
 }
 
 export default function MobileReleasesPage() {
+    const t = useTranslations('MobileReleases');
     const [minVersion, setMinVersion] = useState('1.0.0');
     const [latestVersion, setLatestVersion] = useState('1.0.0');
     const [releaseNotes, setReleaseNotes] = useState('');
@@ -44,7 +46,7 @@ export default function MobileReleasesPage() {
             })
             .catch((err: any) => {
                 if (isMounted) {
-                    toast.error('Failed to fetch mobile release version', {
+                    toast.error(t('loadFailed'), {
                         description: err?.message || 'Server error',
                     });
                 }
@@ -56,7 +58,7 @@ export default function MobileReleasesPage() {
         return () => {
             isMounted = false;
         };
-    }, []);
+    }, [t]);
 
     const handleSave = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -68,9 +70,9 @@ export default function MobileReleasesPage() {
                 releaseNotes,
                 forceUpdate,
             });
-            toast.success('Mobile app release parameters updated successfully');
+            toast.success(t('updateSuccess'));
         } catch (err: any) {
-            toast.error('Failed to update release settings', {
+            toast.error(t('updateFailed'), {
                 description: err?.message || 'Access denied or validation error',
             });
         } finally {
@@ -86,10 +88,10 @@ export default function MobileReleasesPage() {
                     <div>
                         <h1 className="text-2xl font-bold tracking-tight text-foreground flex items-center gap-2">
                             <Smartphone className="w-6 h-6 text-primary" />
-                            Mobile App Release & Force-Update Gates
+                            {t('title')}
                         </h1>
                         <p className="text-sm text-muted-foreground mt-1">
-                            Manage semantic version requirements, deprecation gates, and OTA upgrade banners for Flutter mobile clients.
+                            {t('subtitle')}
                         </p>
                     </div>
                     <HelpButton />
@@ -101,14 +103,14 @@ export default function MobileReleasesPage() {
                         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                             <div className="space-y-1">
                                 <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                                    Live Release Telemetry
+                                    {t('liveTelemetry')}
                                 </span>
                                 <div className="flex items-center gap-3">
                                     <span className="text-xl font-bold text-foreground">
-                                        Latest: v{latestVersion}
+                                        {t('latest')}: v{latestVersion}
                                     </span>
                                     <span className="text-sm text-muted-foreground">
-                                        (Min Supported: v{minVersion})
+                                        ({t('minSupported')}: v{minVersion})
                                     </span>
                                 </div>
                             </div>
@@ -118,11 +120,11 @@ export default function MobileReleasesPage() {
                             >
                                 {forceUpdate ? (
                                     <>
-                                        <AlertOctagon className="w-3.5 h-3.5" /> Force Update Active
+                                        <AlertOctagon className="w-3.5 h-3.5" /> {t('forceUpdateActive')}
                                     </>
                                 ) : (
                                     <>
-                                        <CheckCircle2 className="w-3.5 h-3.5" /> Soft Upgrade Mode
+                                        <CheckCircle2 className="w-3.5 h-3.5" /> {t('softUpgradeMode')}
                                     </>
                                 )}
                             </Badge>
@@ -134,10 +136,10 @@ export default function MobileReleasesPage() {
                 <Card className="border-border/60 shadow-sm">
                     <CardHeader>
                         <CardTitle className="text-base font-semibold">
-                            Release Parameters
+                            {t('releaseParameters')}
                         </CardTitle>
                         <CardDescription>
-                            Clients below the minimum version are immediately blocked from offline sync and redirected to the app store.
+                            {t('releaseParametersDesc')}
                         </CardDescription>
                     </CardHeader>
                     <CardContent>
@@ -226,7 +228,7 @@ export default function MobileReleasesPage() {
                                         className="flex items-center gap-2"
                                     >
                                         <Save className="w-4 h-4" />
-                                        {saving ? 'Saving...' : 'Deploy Release Gates'}
+                                        {saving ? t('saving') : t('deployButton')}
                                     </Button>
                                 </div>
                             </form>

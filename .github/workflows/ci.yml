@@ -92,6 +92,12 @@ jobs:
           CI: "true"
         run: pnpm turbo run test:e2e
 
+      - name: DB-Backed Smoke Test
+        env:
+          NODE_ENV: test
+          CI: "true"
+        run: pnpm --filter @edu-lanka/api test:smoke
+
       - name: Teardown Throwaway Database
         if: always()
         run: |

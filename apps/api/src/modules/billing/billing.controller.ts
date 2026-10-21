@@ -17,6 +17,8 @@ import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { BillingService } from './billing.service';
 
+import { GenerateBillingSnapshotsDto } from './dto/generate-snapshots.dto';
+
 @ApiTags('Billing')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -28,16 +30,16 @@ export class BillingController {
     @Roles(UserRole.SUPER_ADMIN, UserRole.SCHOOL_ADMIN)
     @ApiOperation({ summary: 'List billing snapshots for a specific month' })
     @ApiQuery({ name: 'billingMonth', required: false, type: String, description: 'Format: YYYY-MM' })
-    getSnapshots(@Query('billingMonth') billingMonth?: string) {
-        return this.billingService.getBillingSnapshots(billingMonth);
+    getSnapshots(@Query() query: GenerateBillingSnapshotsDto) {
+        return this.billingService.getBillingSnapshots(query.billingMonth);
     }
 
     @Post('snapshots/generate')
     @Roles(UserRole.SUPER_ADMIN)
     @HttpCode(HttpStatus.OK)
     @ApiOperation({ summary: 'Trigger manual generation of billing snapshots (Super Admin only)' })
-    generateSnapshots(@Body() body: { billingMonth?: string }) {
-        return this.billingService.generateBillingSnapshots(body?.billingMonth);
+    generateSnapshots(@Body() body: GenerateBillingSnapshotsDto) {
+        return this.billingService.generateBillingSnapshots(body.billingMonth);
     }
 
     @Get('status/:tenantId')

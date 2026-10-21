@@ -231,6 +231,39 @@ describe('BillingService & Volume Discounts', () => {
             expect(paid.status).toBe('PAID');
         });
 
+        it('should reject marking a DRAFT invoice as PAID', async () => {
+            mockSupabase.adminClient.from.mockImplementation(() => ({
+                select: jest.fn().mockReturnValue({
+                    eq: jest.fn().mockReturnValue({
+                        maybeSingle: jest.fn().mockResolvedValue({
+                            data: { id: 'inv-draft', status: 'DRAFT', tenant_id: 't-1' },
+                        }),
+                    }),
+                }),
+            }));
+
+            await expect(service.markInvoicePaid('inv-draft')).rejects.toThrow();
+        });
+
+        it('should use 60-second TTL cache for checkTenantInvoiceStatus', async () => {
+            const selectMock = jest.fn().mockReturnValue({
+                eq: jest.fn().mockReturnValue({
+                    in: jest.fn().mockReturnValue({
+                        order: jest.fn().mockResolvedValue({ data: [] }),
+                    }),
+                }),
+            });
+            mockSupabase.adminClient.from.mockReturnValue({ select: selectMock });
+
+            service.clearTenantLockCache('cache-tenant');
+            const res1 = await service.checkTenantInvoiceStatus('cache-tenant');
+            const res2 = await service.checkTenantInvoiceStatus('cache-tenant');
+
+            expect(res1.isAccountLocked).toBe(false);
+            expect(res2.isAccountLocked).toBe(false);
+            expect(selectMock).toHaveBeenCalledTimes(1);
+        });
+
         it('should transition issued invoices older than 14 days to OVERDUE', async () => {
             mockSupabase.adminClient.from.mockImplementation(() => ({
                 select: jest.fn().mockReturnValue({
