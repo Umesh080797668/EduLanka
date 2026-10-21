@@ -1,6 +1,6 @@
 import { UserRole } from '@edu-lanka/shared-types';
 import type { JwtPayload } from '@edu-lanka/shared-types';
-import { Injectable, NotFoundException, InternalServerErrorException } from '@nestjs/common';
+import { Injectable, NotFoundException, InternalServerErrorException, Logger } from '@nestjs/common';
 
 import { SupabaseService } from '../supabase/supabase.service';
 
@@ -8,6 +8,8 @@ import { CreateTutorialDto } from './dto/tutorial.dto';
 
 @Injectable()
 export class TutorialsService {
+    private readonly logger = new Logger(TutorialsService.name);
+
     constructor(
         private readonly supabase: SupabaseService
     ) { }
@@ -220,15 +222,15 @@ export class TutorialsService {
     }
 
     async getGlobalStats() {
-        // Execute the RPC which natively loops across all active tenant schemas to aggregate real statistics
         const { data: stats, error } = await this.supabase.adminClient
             .rpc('get_global_tutorial_stats');
 
         if (error) {
+            this.logger.error(`Failed to aggregate global tutorial stats: ${error.message}`);
             throw new InternalServerErrorException('Failed to aggregate global tutorial stats: ' + error.message);
         }
 
-        return { success: true, data: stats };
+        return { success: true, data: stats ?? [] };
     }
 
     async getAllTutorials() {

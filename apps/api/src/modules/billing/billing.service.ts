@@ -48,24 +48,34 @@ export class BillingService {
         const planMap = new Map((plans ?? []).map((p: any) => [p.code, p]));
 
         // 2. Count active students per tenant in a single aggregation pass (§7c).
-        // NOTE: `is_active` lives on `public.users`, NOT on `public.students`.
-        // We join through `users!inner` to filter only students whose linked user
-        // account is active — matching the same pattern used in the BEFORE INSERT
-        // cap trigger and the class-capacity assertion in StudentsService.
+        // Uses the database view public.v_active_students_per_tenant (with RPC fallback)
+        // to pre-aggregate counts in Postgres, strictly checking users.is_active = true and
+        // avoiding PostgREST's 1,000-row pagination limit.
+        const countByTenant = new Map<string, number>();
         const { data: studentCounts, error: studentErr } = await admin
-            .from('students')
-            .select('tenant_id, users!inner(is_active)')
-            .eq('users.is_active', true);
+            .from('v_active_students_per_tenant')
+            .select('tenant_id, active_student_count');
 
         if (studentErr) {
-            this.logger.error(`Failed to aggregate active students: ${studentErr.message}`);
-            throw new Error(`Student aggregation failed: ${studentErr.message}`);
-        }
+            this.logger.warn(`v_active_students_per_tenant view query failed, attempting RPC fallback: ${studentErr.message}`);
+            const { data: rpcCounts, error: rpcErr } = await admin
+                .rpc('get_active_student_counts_per_tenant');
 
-        const countByTenant = new Map<string, number>();
-        for (const s of studentCounts ?? []) {
-            if (s.tenant_id) {
-                countByTenant.set(s.tenant_id, (countByTenant.get(s.tenant_id) || 0) + 1);
+            if (rpcErr) {
+                this.logger.error(`Failed to aggregate active students: ${rpcErr.message}`);
+                throw new Error(`Student aggregation failed: ${rpcErr.message}`);
+            }
+
+            for (const s of (rpcCounts ?? []) as any[]) {
+                if (s.tenant_id) {
+                    countByTenant.set(s.tenant_id, Number(s.active_student_count) || 0);
+                }
+            }
+        } else {
+            for (const s of (studentCounts ?? []) as any[]) {
+                if (s.tenant_id) {
+                    countByTenant.set(s.tenant_id, Number(s.active_student_count) || 0);
+                }
             }
         }
 

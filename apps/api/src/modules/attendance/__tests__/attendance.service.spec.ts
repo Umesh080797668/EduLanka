@@ -97,7 +97,7 @@ describe('AttendanceService', () => {
                                 {
                                     id: 'student-rec-1',
                                     user_id: studentUserUuid,
-                                    admission_number: 'ADM-001',
+                                    admission_no: 'ADM-001',
                                     users: {
                                         id: studentUserUuid,
                                         full_name: 'Nimal Perera',
@@ -112,7 +112,7 @@ describe('AttendanceService', () => {
                                 {
                                     id: 'student-rec-1',
                                     user_id: studentUserUuid,
-                                    admission_number: 'ADM-001',
+                                    admission_no: 'ADM-001',
                                 },
                             ],
                             error: null,

@@ -29,6 +29,7 @@ describe('TutorialsService', () => {
             single: jest.fn().mockReturnThis(),
             order: jest.fn().mockReturnThis(),
             insert: jest.fn().mockReturnThis(),
+            rpc: jest.fn().mockResolvedValue({ data: [], error: null }),
             then: jest.fn((resolve) => resolve({ data: [], error: null })),
         };
 
@@ -99,6 +100,25 @@ describe('TutorialsService', () => {
             expect(result.data[0].eligible).toBe(2);
             expect(result.data[0].completed).toBe(1);
             expect(result.data[0].completionPercentage).toBe(50);
+        });
+    });
+
+    describe('getGlobalStats', () => {
+        it('should call get_global_tutorial_stats RPC and return statistics', async () => {
+            const mockStats = [
+                { tutorial_id: 'tut-1', role: 'STUDENT', screen_id: 'dashboard', completed: 5, skipped: 1, eligible: 10, completion_percentage: 50 },
+            ];
+            mockAdminDb.rpc.mockResolvedValueOnce({ data: mockStats, error: null });
+
+            const result = await service.getGlobalStats();
+            expect(result.success).toBe(true);
+            expect(result.data).toEqual(mockStats);
+            expect(mockAdminDb.rpc).toHaveBeenCalledWith('get_global_tutorial_stats');
+        });
+
+        it('should throw InternalServerErrorException if RPC fails', async () => {
+            mockAdminDb.rpc.mockResolvedValueOnce({ data: null, error: { message: 'function not found' } });
+            await expect(service.getGlobalStats()).rejects.toThrow(InternalServerErrorException);
         });
     });
 });

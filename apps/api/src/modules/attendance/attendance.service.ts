@@ -82,11 +82,10 @@ export class AttendanceService {
         // Fetch enrolled students
         const { data: students, error: studErr } = await client
             .from('students')
-            .select('id, user_id, admission_number, users!inner(id, full_name, email)')
+            .select('id, user_id, admission_no, users!inner(id, full_name, email)')
             .eq('tenant_id', caller.tenantId)
             .eq('class_id', classId)
-            .is('deleted_at', null)
-            .order('admission_number', { ascending: true });
+            .order('admission_no', { ascending: true });
 
         if (studErr) {
             this.logger.error(`Failed to fetch students for class ${classId}: ${studErr.message}`);
@@ -132,7 +131,7 @@ export class AttendanceService {
             return {
                 studentId: user.id, // users.id
                 studentRecordId: s.id,
-                admissionNumber: s.admission_number,
+                admissionNumber: s.admission_no,
                 fullName: user.full_name,
                 email: user.email,
                 status,
@@ -182,8 +181,7 @@ export class AttendanceService {
             .from('students')
             .select('id, user_id')
             .eq('tenant_id', caller.tenantId)
-            .eq('class_id', dto.classId)
-            .is('deleted_at', null);
+            .eq('class_id', dto.classId);
 
         if (studErr) {
             this.logger.error(`Failed to verify enrolled students for class ${dto.classId}: ${studErr.message}`);
