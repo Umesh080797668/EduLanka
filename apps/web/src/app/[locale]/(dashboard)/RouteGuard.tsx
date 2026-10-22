@@ -37,11 +37,15 @@ export default function RouteGuard({ children }: { children: React.ReactNode }) 
                     router.replace('/dashboard');
                     return;
                 }
-                if (pathname.startsWith('/student') && role !== 'STUDENT') {
+                if (pathname.startsWith('/student') && role !== 'STUDENT' && role !== 'INDEPENDENT_LEARNER') {
                     router.replace('/dashboard');
                     return;
                 }
                 if (pathname.startsWith('/parent') && role !== 'PARENT') {
+                    router.replace('/dashboard');
+                    return;
+                }
+                if (pathname.startsWith('/independent-learner') && role !== 'INDEPENDENT_LEARNER') {
                     router.replace('/dashboard');
                     return;
                 }

@@ -42,7 +42,7 @@ import { LanguageSwitcher } from '@/components/ui/LanguageSwitcher';
 import { ThemeToggle } from '@/components/ui/ThemeToggle';
 import { useSidebar } from './SidebarContext';
 
-type Role = 'STUDENT' | 'PARENT' | 'TEACHER' | 'SCHOOL_ADMIN' | 'SUPER_ADMIN';
+type Role = 'STUDENT' | 'PARENT' | 'TEACHER' | 'SCHOOL_ADMIN' | 'SUPER_ADMIN' | 'INDEPENDENT_LEARNER';
 
 interface NavItem {
     nameKey: string;
@@ -64,6 +64,17 @@ interface NavSection {
  * item of the first section is that role's landing page.
  */
 const NAV: Record<Role, NavSection[]> = {
+    INDEPENDENT_LEARNER: [
+        {
+            items: [
+                { nameKey: 'dashboard', href: '/independent-learner', icon: LayoutDashboard, exact: true, id: 'nav-dashboard' },
+                { nameKey: 'pastPapers', href: '/student/papers', icon: FileText, id: 'nav-papers' },
+                { nameKey: 'resources', href: '/student/resources', icon: BookOpen, id: 'nav-resources' },
+                { nameKey: 'blogs', href: '/blogs', icon: Newspaper, id: 'nav-blogs' },
+                { nameKey: 'emergencyPack', href: '/emergency', icon: ShieldAlert, id: 'nav-emergency' },
+            ],
+        },
+    ],
     STUDENT: [
         {
             items: [

@@ -18,6 +18,7 @@ const PORTAL_BY_ROLE: Record<string, string> = {
     TEACHER: '/teacher',
     SCHOOL_ADMIN: '/institution-admin',
     SUPER_ADMIN: '/system-admin',
+    INDEPENDENT_LEARNER: '/independent-learner',
 };
 
 export default function DashboardPage() {

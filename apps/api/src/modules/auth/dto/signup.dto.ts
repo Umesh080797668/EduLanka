@@ -1,6 +1,6 @@
 import { UserRole } from '@edu-lanka/shared-types';
 import { ApiProperty } from '@nestjs/swagger';
-import { IsEmail, IsString, MinLength, IsNotEmpty, IsEnum } from 'class-validator';
+import { IsEmail, IsString, MinLength, IsNotEmpty, IsEnum, ValidateIf } from 'class-validator';
 
 import { IsUuidString } from '../../../common/decorators/is-uuid-string.decorator';
 
@@ -19,10 +19,11 @@ export class SignupDto {
     @IsNotEmpty()
     fullName!: string;
 
-    @ApiProperty({ description: 'Tenant UUID the user is registering under' })
+    @ApiProperty({ description: 'Tenant UUID the user is registering under', required: false })
+    @ValidateIf((o: SignupDto) => o.role !== UserRole.INDEPENDENT_LEARNER)
     @IsNotEmpty()
     @IsUuidString()
-    tenantId!: string;
+    tenantId?: string;
 
     @ApiProperty({ enum: UserRole, example: UserRole.TEACHER })
     @IsEnum(UserRole)

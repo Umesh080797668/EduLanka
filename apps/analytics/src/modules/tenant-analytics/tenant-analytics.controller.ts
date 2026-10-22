@@ -16,7 +16,7 @@ import { TenantAnalyticsService } from './tenant-analytics.service';
 @Controller()
 @UseGuards(JwtAuthGuard, SuperAdminGuard)
 export class TenantAnalyticsController {
-  constructor(private readonly analyticsService: TenantAnalyticsService) {}
+  constructor(private readonly analyticsService: TenantAnalyticsService) { }
 
   @Get('tenants/active-students')
   @ApiOperation({ summary: 'Active students per tenant (Phase 3 billing integration)' })
@@ -62,5 +62,11 @@ export class TenantAnalyticsController {
   @ApiOperation({ summary: 'Calculate and generate billing snapshots for a billing month' })
   generateBillingSnapshots(@Body() body: { billingMonth?: string }) {
     return this.analyticsService.generateBillingSnapshots(body?.billingMonth);
+  }
+
+  @Get('tutorials/stats')
+  @ApiOperation({ summary: 'Global onboarding tutorial completion statistics' })
+  getGlobalTutorialStats() {
+    return this.analyticsService.getGlobalTutorialStats();
   }
 }

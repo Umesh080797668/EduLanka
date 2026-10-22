@@ -136,4 +136,24 @@ describe('TenantAnalyticsService', () => {
         expect(result.length).toBe(1);
         expect(result[0].totalAmountLkr).toBe(25100);
     });
+
+    it('should query global tutorial statistics via RPC (§7c)', async () => {
+        mockPrisma.query.mockResolvedValueOnce([
+            {
+                tutorialId: 'tut-1',
+                role: 'TEACHER',
+                screenId: 'ATTENDANCE_SCREEN',
+                completed: 50,
+                skipped: 10,
+                eligible: 100,
+                completionPercentage: 50,
+            },
+        ]);
+
+        const result = await service.getGlobalTutorialStats();
+        expect(mockPrisma.query).toHaveBeenCalledTimes(1);
+        expect(result.length).toBe(1);
+        expect(result[0].screenId).toBe('ATTENDANCE_SCREEN');
+        expect(result[0].completionPercentage).toBe(50);
+    });
 });

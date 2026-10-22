@@ -552,6 +552,14 @@ class DownloadManager extends StateNotifier<Map<String, DownloadTask>> {
 
     if (task == null || task.encryptionKey == null) return null;
 
+    final nowMs = DateTime.now().millisecondsSinceEpoch;
+    if (task.expiresAt > 0 && task.expiresAt < nowMs) {
+      debugPrint('Offline video license expired for task ${task.id}');
+      throw StateError(
+        'EXPIRED_KEY: Offline video playback license has expired',
+      );
+    }
+
     final file = File(task.localPath);
     if (!await file.exists()) return null;
 

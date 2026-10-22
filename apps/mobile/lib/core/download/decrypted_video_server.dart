@@ -148,36 +148,57 @@ class LocalDecryptedVideoServer {
           contentLength.toString(),
         );
 
-        final raf = await _file.open(mode: FileMode.read);
-        await raf.setPosition(start);
+        RandomAccessFile? raf;
+        bool isClientDisconnected = false;
+        // Listen for client disconnect/abort events to stop reading immediately
+        request.response.done
+            .then((_) {
+              isClientDisconnected = true;
+            })
+            .catchError((_) {
+              isClientDisconnected = true;
+            });
 
-        int bytesRemaining = contentLength;
-        int currentOffset = start;
-        const chunkSize = 65536; // 64KB buffer
-
-        while (bytesRemaining > 0) {
-          final toRead = bytesRemaining > chunkSize
-              ? chunkSize
-              : bytesRemaining;
-          final chunk = await raf.read(toRead);
-          if (chunk.isEmpty) break;
-
-          final decryptedChunk = cipher.processBytes(chunk, currentOffset);
-          request.response.add(decryptedChunk);
-          await request.response.flush();
-
-          currentOffset += chunk.length;
-          bytesRemaining -= chunk.length;
-        }
-
-        await raf.close();
-        await request.response.close();
-      } catch (e) {
-        debugPrint('LocalDecryptedVideoServer stream exception: $e');
         try {
-          request.response.statusCode = HttpStatus.internalServerError;
-          await request.response.close();
-        } catch (_) {}
+          raf = await _file.open(mode: FileMode.read);
+          await raf.setPosition(start);
+
+          int bytesRemaining = contentLength;
+          int currentOffset = start;
+          const chunkSize = 65536; // 64KB buffer
+
+          while (bytesRemaining > 0 && !isClientDisconnected) {
+            final toRead = bytesRemaining > chunkSize
+                ? chunkSize
+                : bytesRemaining;
+            final chunk = await raf.read(toRead);
+            if (chunk.isEmpty) break;
+
+            final decryptedChunk = cipher.processBytes(chunk, currentOffset);
+            request.response.add(decryptedChunk);
+            await request.response.flush();
+
+            currentOffset += chunk.length;
+            bytesRemaining -= chunk.length;
+          }
+        } catch (e) {
+          // SocketException or premature connection reset is normal during seeking
+          if (!isClientDisconnected && e is! SocketException) {
+            debugPrint('LocalDecryptedVideoServer stream exception: $e');
+            try {
+              request.response.statusCode = HttpStatus.internalServerError;
+            } catch (_) {}
+          }
+        } finally {
+          try {
+            await raf?.close();
+          } catch (_) {}
+          try {
+            await request.response.close();
+          } catch (_) {}
+        }
+      } catch (e) {
+        debugPrint('LocalDecryptedVideoServer request error: $e');
       }
     });
   }

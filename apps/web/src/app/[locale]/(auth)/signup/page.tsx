@@ -25,6 +25,7 @@ import { Spinner } from '@/components/ui/Spinner';
 const PORTAL_BY_ROLE: Record<string, string> = {
     STUDENT: '/student',
     PARENT: '/parent',
+    INDEPENDENT_LEARNER: '/independent-learner',
 };
 
 export default function SignupPage() {
@@ -36,7 +37,7 @@ export default function SignupPage() {
     const [schoolSearch, setSchoolSearch] = useState('');
 
     const [tenantId, setTenantId] = useState('');
-    const [role, setRole] = useState<'STUDENT' | 'PARENT'>('STUDENT');
+    const [role, setRole] = useState<'STUDENT' | 'PARENT' | 'INDEPENDENT_LEARNER'>('STUDENT');
     const [fullName, setFullName] = useState('');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
@@ -74,9 +75,19 @@ export default function SignupPage() {
         setError(null);
 
         try {
+            const payload: Record<string, any> = {
+                email,
+                password,
+                fullName,
+                role,
+            };
+            if (role !== 'INDEPENDENT_LEARNER') {
+                payload.tenantId = tenantId;
+            }
+
             const data = await apiClient.post<any>(
                 '/auth/self-register',
-                { email, password, fullName, tenantId, role },
+                payload,
                 { skipGlobalToast: true },
             );
 
@@ -104,9 +115,10 @@ export default function SignupPage() {
         }
     };
 
-    const ROLES: { value: 'STUDENT' | 'PARENT'; label: string }[] = [
+    const ROLES: { value: 'STUDENT' | 'PARENT' | 'INDEPENDENT_LEARNER'; label: string }[] = [
         { value: 'STUDENT', label: t('student') },
         { value: 'PARENT', label: t('parent') },
+        { value: 'INDEPENDENT_LEARNER', label: 'Independent Learner' },
     ];
 
     return (
@@ -149,43 +161,12 @@ export default function SignupPage() {
                         )}
 
                         <form onSubmit={handleSignup} className="space-y-4">
-                            {tenants.length > 5 && (
-                                <Field label={t('searchSchools') || 'Search Institutions'} htmlFor="schoolSearch">
-                                    <Input
-                                        id="schoolSearch"
-                                        type="search"
-                                        placeholder={t('searchPlaceholder') || 'Filter by school name...'}
-                                        value={schoolSearch}
-                                        onChange={(e) => setSchoolSearch(e.target.value)}
-                                        leadingIcon={<Building2 />}
-                                    />
-                                </Field>
-                            )}
-
-                            <Field label={t('selectSchool')} htmlFor="tenant" required>
-                                <Select
-                                    id="tenant"
-                                    required
-                                    value={tenantId}
-                                    onChange={(e) => setTenantId(e.target.value)}
-                                >
-                                    <option value="" disabled>
-                                        {t('choosePlaceholder')}
-                                    </option>
-                                    {filteredTenants.map((tenant) => (
-                                        <option key={tenant.id} value={tenant.id}>
-                                            {tenant.name}
-                                        </option>
-                                    ))}
-                                </Select>
-                            </Field>
-
                             <div className="space-y-1.5">
                                 <Label>{t('iAmA')}</Label>
                                 <div
                                     role="radiogroup"
                                     aria-label={t('iAmA')}
-                                    className="grid grid-cols-2 gap-2.5"
+                                    className="grid grid-cols-3 gap-2.5"
                                 >
                                     {ROLES.map((option) => {
                                         const active = role === option.value;
@@ -197,7 +178,7 @@ export default function SignupPage() {
                                                 aria-checked={active}
                                                 onClick={() => setRole(option.value)}
                                                 className={cn(
-                                                    'rounded-input border px-3 py-2.5 text-sm font-semibold transition-colors',
+                                                    'rounded-input border px-3 py-2.5 text-sm font-semibold transition-colors text-center',
                                                     'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring',
                                                     active
                                                         ? 'border-primary bg-primary-subtle text-primary-subtle-foreground'
@@ -210,6 +191,45 @@ export default function SignupPage() {
                                     })}
                                 </div>
                             </div>
+
+                            {role !== 'INDEPENDENT_LEARNER' ? (
+                                <>
+                                    {tenants.length > 5 && (
+                                        <Field label={t('searchSchools') || 'Search Institutions'} htmlFor="schoolSearch">
+                                            <Input
+                                                id="schoolSearch"
+                                                type="search"
+                                                placeholder={t('searchPlaceholder') || 'Filter by school name...'}
+                                                value={schoolSearch}
+                                                onChange={(e) => setSchoolSearch(e.target.value)}
+                                                leadingIcon={<Building2 />}
+                                            />
+                                        </Field>
+                                    )}
+
+                                    <Field label={t('selectSchool')} htmlFor="tenant" required>
+                                        <Select
+                                            id="tenant"
+                                            required
+                                            value={tenantId}
+                                            onChange={(e) => setTenantId(e.target.value)}
+                                        >
+                                            <option value="" disabled>
+                                                {t('choosePlaceholder')}
+                                            </option>
+                                            {filteredTenants.map((tenant) => (
+                                                <option key={tenant.id} value={tenant.id}>
+                                                    {tenant.name}
+                                                </option>
+                                            ))}
+                                        </Select>
+                                    </Field>
+                                </>
+                            ) : (
+                                <div className="rounded-input border border-primary/20 bg-primary/5 p-3 text-xs text-muted-foreground">
+                                    <span className="font-semibold text-primary">Independent Learner Mode:</span> No school affiliation required. Access public past papers, national study materials, and platform sponsored grants directly.
+                                </div>
+                            )}
 
                             <Field label={t('fullName')} htmlFor="fullName" required>
                                 <Input

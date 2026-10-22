@@ -51,6 +51,37 @@ export class UsersService {
             return data;
         }
 
+        if (caller.role === UserRole.INDEPENDENT_LEARNER || !tenantId) {
+            const { data: user, error: userErr } = await this.supabase.adminClient
+                .from('users')
+                .select('*')
+                .eq('id', caller.sub)
+                .maybeSingle();
+
+            if (userErr) throw new InternalServerErrorException('Failed to fetch user: ' + userErr.message);
+            if (!user) throw new NotFoundException('User profile not found for sub ' + caller.sub);
+
+            const { data: learner } = await this.supabase.adminClient
+                .from('independent_learners')
+                .select('*')
+                .eq('user_id', caller.sub)
+                .maybeSingle();
+
+            const { data: grant } = await this.supabase.adminClient
+                .from('sponsored_grants')
+                .select('*')
+                .eq('beneficiary_type', 'INDEPENDENT_LEARNER')
+                .eq('beneficiary_id', learner?.id || caller.sub)
+                .eq('is_active', true)
+                .maybeSingle();
+
+            return {
+                ...user,
+                independent_learner: learner || null,
+                active_grant: grant || null,
+            };
+        }
+
         const db = this.supabase.getTenantClient(tenantId);
 
         const { data, error } = await db

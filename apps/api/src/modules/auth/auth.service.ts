@@ -616,9 +616,85 @@ export class AuthService {
      * Allows public self-registration if the tenant policy allows it.
      */
     async selfRegister(dto: SignupDto): Promise<any> {
-        // Public self-registration is strictly restricted to Students and Parents
-        if (dto.role !== UserRole.STUDENT && dto.role !== UserRole.PARENT) {
-            throw new ForbiddenException('Public self-registration is only permitted for Students and Parents');
+        // Public self-registration is strictly restricted to Students, Parents, and Independent Learners
+        if (
+            dto.role !== UserRole.STUDENT &&
+            dto.role !== UserRole.PARENT &&
+            dto.role !== UserRole.INDEPENDENT_LEARNER
+        ) {
+            throw new ForbiddenException(
+                'Public self-registration is only permitted for Students, Parents, and Independent Learners',
+            );
+        }
+
+        // Handle Independent Learners without tenant affiliation (§3.9, P3)
+        if (dto.role === UserRole.INDEPENDENT_LEARNER) {
+            const { data: created, error: createError } = await this.supabaseService.adminClient.auth.admin.createUser({
+                email: dto.email,
+                password: dto.password,
+                email_confirm: true,
+                user_metadata: { full_name: dto.fullName, role: dto.role },
+            });
+
+            if (createError || !created.user) {
+                this.logger.error(`Supabase createUser failed: ${createError?.message}`);
+                if (createError?.message?.toLowerCase().includes('already')) {
+                    throw new BadRequestException('An account with this email already exists');
+                }
+                throw new InternalServerErrorException('Failed to create user account');
+            }
+
+            const authUid = created.user.id;
+
+            const { data: newUser, error: insertError } = await this.supabaseService.adminClient
+                .from('users')
+                .insert({
+                    user_id: authUid,
+                    email: dto.email,
+                    full_name: dto.fullName,
+                    role: dto.role,
+                    is_active: true,
+                    tenant_id: null,
+                })
+                .select('id')
+                .single();
+
+            if (insertError || !newUser) {
+                await this.supabaseService.adminClient.auth.admin.deleteUser(authUid);
+                this.logger.error(`Independent learner user insert failed: ${insertError?.message}`);
+                throw new InternalServerErrorException('Failed to register independent learner: ' + insertError?.message);
+            }
+
+            try {
+                await this.supabaseService.adminClient.from('independent_learners').insert({
+                    user_id: newUser.id,
+                    learner_type: 'OUT_OF_SCHOOL',
+                    plan: 'FREE_INDIVIDUAL',
+                    is_active: true,
+                });
+            } catch (err: any) {
+                this.logger.warn(`Could not create independent learner profile: ${err.message}`);
+            }
+
+            const tokens = await this.issueTokenPair({
+                sub: newUser.id as string,
+                tenantId: '',
+                tenantPlan: 'FREE_INDIVIDUAL',
+                tenantSlug: 'independent',
+                role: dto.role,
+                email: dto.email,
+            });
+
+            return {
+                ...tokens,
+                user: {
+                    id: newUser.id as string,
+                    role: dto.role,
+                    tenantId: '',
+                    tenantPlan: 'FREE_INDIVIDUAL',
+                    tenantSlug: 'independent',
+                },
+            };
         }
 
         // 1. Resolve tenant
@@ -728,10 +804,11 @@ export class AuthService {
             }
         }
 
+        const resolvedTenantId = dto.tenantId || '';
         const { data: tenantInfo } = await this.supabaseService.adminClient
             .from('tenants')
             .select('plan, slug')
-            .eq('id', dto.tenantId)
+            .eq('id', resolvedTenantId)
             .maybeSingle();
 
         const tenantPlan = (tenantInfo?.plan) || 'COMMUNITY';
@@ -739,7 +816,7 @@ export class AuthService {
 
         const tokens = await this.issueTokenPair({
             sub: newUser.id as string,
-            tenantId: dto.tenantId,
+            tenantId: resolvedTenantId,
             tenantPlan,
             tenantSlug,
             role: dto.role,
@@ -751,7 +828,7 @@ export class AuthService {
             user: {
                 id: newUser.id as string,
                 role: dto.role,
-                tenantId: dto.tenantId,
+                tenantId: resolvedTenantId,
                 tenantPlan,
                 tenantSlug,
             }

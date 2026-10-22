@@ -245,7 +245,18 @@ class SyncService {
         }
 
         final events = res['events'] is List ? res['events'] as List : [];
+        final serverLatestSeq =
+            (res['latestSequence'] ?? res['lastSequence']) as int?;
+        if (serverLatestSeq != null && serverLatestSeq > currentSeq) {
+          currentSeq = serverLatestSeq;
+        }
+
         if (events.isEmpty) {
+          await localDb.setLastSequence(currentSeq);
+          if (res['hasMore'] == true && serverLatestSeq != null) {
+            hasMore = true;
+            continue;
+          }
           break;
         }
 
@@ -304,6 +315,21 @@ class SyncService {
         break;
       case 'chat_message':
         await localDb.saveSyncedChatMessage(payload, entityId: entityId);
+        break;
+      case 'homework':
+      case 'homework_task':
+        await localDb.saveSyncedHomeworkTask(
+          payload,
+          entityId: entityId,
+          eventType: event['event_type']?.toString(),
+        );
+        break;
+      case 'homework_submission':
+        await localDb.saveSyncedHomeworkSubmission(
+          payload,
+          entityId: entityId,
+          eventType: event['event_type']?.toString(),
+        );
         break;
       case 'entitlement_revocation':
         onEntitlementRevoked?.call(payload);

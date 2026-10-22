@@ -7,6 +7,7 @@ export class TenantAnalyticsService {
 
   /**
    * Active students per tenant (Phase 3 billing integration).
+   * Backed by read-only analytics view public.v_active_students_per_tenant (§7c).
    */
   async getActiveStudents(billingMonth?: string) {
     const month = billingMonth || new Date().toISOString().slice(0, 7);
@@ -15,14 +16,32 @@ export class TenantAnalyticsService {
         t.id AS "tenantId",
         t.name AS "tenantName",
         t.plan AS "plan",
-        COUNT(u.id)::int AS "activeStudentCount"
+        COALESCE(v.active_student_count, 0)::int AS "activeStudentCount"
       FROM public.tenants t
-      LEFT JOIN public.users u ON u.tenant_id = t.id AND u.role = 'STUDENT' AND u.is_active = true
-      GROUP BY t.id, t.name, t.plan
+      LEFT JOIN public.v_active_students_per_tenant v ON v.tenant_id = t.id
       ORDER BY "activeStudentCount" DESC;
     `;
     const rows = await this.prisma.query(sql);
     return rows.map((r) => ({ ...r, billingMonth: month }));
+  }
+
+  /**
+   * Global tutorial completion and skip statistics for System Admin (§7c).
+   * Backed by public.get_global_tutorial_stats() RPC.
+   */
+  async getGlobalTutorialStats() {
+    const sql = `
+      SELECT 
+        tutorial_id AS "tutorialId",
+        role,
+        screen_id AS "screenId",
+        completed::int AS "completed",
+        skipped::int AS "skipped",
+        eligible::int AS "eligible",
+        completion_percentage AS "completionPercentage"
+      FROM public.get_global_tutorial_stats();
+    `;
+    return this.prisma.query(sql);
   }
 
   /**

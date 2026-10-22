@@ -47,16 +47,31 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
         final filePath = widget.localFilePath!;
         if (filePath.endsWith('.enc.mp4')) {
           // Encrypted offline video: start loopback on-the-fly decryption streaming server (P3-S6, ADR-001)
-          final server = await DownloadManager.instance
-              .startDecryptedPlaybackServer(filePath);
-          if (server != null) {
-            _decryptionServer = server;
-            _controller = VideoPlayerController.networkUrl(
-              Uri.parse(server.url),
-            );
-          } else {
-            // Fallback for mock or unencrypted files in test harnesses
-            _controller = VideoPlayerController.file(File(filePath));
+          try {
+            final server = await DownloadManager.instance
+                .startDecryptedPlaybackServer(filePath);
+            if (server != null) {
+              _decryptionServer = server;
+              _controller = VideoPlayerController.networkUrl(
+                Uri.parse(server.url),
+              );
+            } else {
+              setState(() {
+                _errorMessage =
+                    'Offline video key unavailable or expired. Please reconnect to renew your license.';
+              });
+              return;
+            }
+          } catch (e) {
+            final isExpired =
+                e.toString().contains('EXPIRED_KEY') ||
+                e.toString().toLowerCase().contains('expired');
+            setState(() {
+              _errorMessage = isExpired
+                  ? 'Video playback license has expired. Please reconnect to renew.'
+                  : 'Failed to initialize encrypted video: ${e.toString()}';
+            });
+            return;
           }
         } else {
           _controller = VideoPlayerController.file(File(filePath));
@@ -106,10 +121,48 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
       ),
       body: Center(
         child: _errorMessage != null
-            ? Text(
-                _errorMessage!,
-                style: const TextStyle(color: Colors.white70),
-                textAlign: TextAlign.center,
+            ? Padding(
+                padding: const EdgeInsets.all(24.0),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(
+                      Icons.lock_clock_outlined,
+                      color: Color(0xFFEF4444),
+                      size: 56,
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      _errorMessage!,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        height: 1.4,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 24),
+                    ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF1E40AF),
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 24,
+                          vertical: 12,
+                        ),
+                      ),
+                      icon: const Icon(Icons.refresh_rounded),
+                      label: const Text('Try Again'),
+                      onPressed: () {
+                        setState(() {
+                          _errorMessage = null;
+                          _isInitialized = false;
+                        });
+                        _initializePlayer();
+                      },
+                    ),
+                  ],
+                ),
               )
             : _isInitialized && _controller != null
             ? Column(

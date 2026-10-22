@@ -17,7 +17,13 @@ class LocalDatabase {
   AppDriftDatabase get driftDb => AppDriftDatabase.instance;
 
   Future<void> _initDb() async {
-    await driftDb.ensureTables();
+    try {
+      await driftDb.ensureTables();
+    } catch (e) {
+      debugPrint('LocalDatabase initialization fallback: $e');
+      AppDriftDatabase.resetForTesting();
+      await driftDb.ensureTables();
+    }
   }
 
   // ── UUID Helpers ────────────────────────────────────────────────────
@@ -245,6 +251,38 @@ class LocalDatabase {
         payload['id']?.toString() ??
         entityId ??
         '${studentId}_${classId}_$date';
+
+    // Two-way Last-Write-Wins (LWW) conflict resolution:
+    // If a pending local modification exists with equal or later timestamp, local wins
+    final existing = await driftDb
+        .customSelect(
+          'SELECT marked_at, sync_status FROM offline_attendance WHERE id = ? OR (student_id = ? AND class_id = ? AND date = ?)',
+          variables: [
+            Variable.withString(id),
+            Variable.withString(studentId),
+            Variable.withString(classId),
+            Variable.withString(date),
+          ],
+        )
+        .getSingleOrNull();
+
+    if (existing != null) {
+      final existingSyncStatus = existing.data['sync_status']?.toString();
+      final existingMarkedAt = existing.data['marked_at']?.toString() ?? '';
+
+      if (existingSyncStatus == 'PENDING') {
+        try {
+          final localTime = DateTime.parse(existingMarkedAt);
+          final remoteTime = DateTime.parse(markedAt);
+          if (!remoteTime.isAfter(localTime)) {
+            // Local offline modification is fresher, retain local record
+            return;
+          }
+        } catch (_) {
+          return;
+        }
+      }
+    }
 
     await driftDb.customInsert(
       'INSERT OR REPLACE INTO offline_attendance (id, student_id, class_id, date, status, marked_at, sync_status) VALUES (?, ?, ?, ?, ?, ?, ?)',
@@ -827,6 +865,120 @@ class LocalDatabase {
         .customSelect('SELECT * FROM offline_homework_submissions')
         .get();
     return rows.map((r) => Map<String, dynamic>.from(r.data)).toList();
+  }
+
+  Future<void> saveSyncedHomeworkTask(
+    Map<String, dynamic> payload, {
+    String? entityId,
+    String? eventType,
+  }) async {
+    await _initDb();
+    final id = entityId ?? payload['id']?.toString() ?? const Uuid().v4();
+    if (eventType == 'DELETED') {
+      await driftDb.customUpdate(
+        'DELETE FROM offline_homework_tasks WHERE id = ?',
+        variables: [Variable.withString(id)],
+      );
+      return;
+    }
+
+    final classId =
+        (payload['class_id'] ?? payload['classId'])?.toString() ?? '';
+    final title = payload['title']?.toString() ?? 'Homework';
+    final description = payload['description']?.toString() ?? '';
+    final dueDate =
+        (payload['due_date'] ?? payload['dueDate'])?.toString() ?? '';
+    final attachments = payload['attachments'] is List
+        ? jsonEncode(payload['attachments'])
+        : (payload['attachments']?.toString() ?? '[]');
+
+    await driftDb.customInsert(
+      'INSERT OR REPLACE INTO offline_homework_tasks (id, class_id, title, description, due_date, attachments) VALUES (?, ?, ?, ?, ?, ?)',
+      variables: [
+        Variable.withString(id),
+        Variable.withString(classId),
+        Variable.withString(title),
+        Variable.withString(description),
+        Variable.withString(dueDate),
+        Variable.withString(attachments),
+      ],
+    );
+  }
+
+  Future<void> saveSyncedHomeworkSubmission(
+    Map<String, dynamic> payload, {
+    String? entityId,
+    String? eventType,
+  }) async {
+    await _initDb();
+    final id = entityId ?? payload['id']?.toString() ?? const Uuid().v4();
+    if (eventType == 'DELETED') {
+      await driftDb.customUpdate(
+        'DELETE FROM offline_homework_submissions WHERE id = ?',
+        variables: [Variable.withString(id)],
+      );
+      return;
+    }
+
+    final homeworkId =
+        (payload['homework_id'] ?? payload['homeworkId'])?.toString() ?? '';
+    final studentId =
+        (payload['student_id'] ?? payload['studentId'])?.toString() ?? '';
+    final content = payload['content']?.toString();
+    final attachments = payload['attachments'] is List
+        ? jsonEncode(payload['attachments'])
+        : (payload['attachments']?.toString() ?? '[]');
+    final submittedAt =
+        (payload['submitted_at'] ?? payload['submittedAt'])?.toString() ??
+        DateTime.now().toUtc().toIso8601String();
+    final status = payload['status']?.toString() ?? 'SUBMITTED';
+    final grade = payload['grade']?.toString();
+    final feedback = payload['feedback']?.toString();
+
+    // Two-way Last-Write-Wins (LWW) conflict resolution:
+    final existing = await driftDb
+        .customSelect(
+          'SELECT status, submitted_at FROM offline_homework_submissions WHERE id = ? OR (homework_id = ? AND student_id = ?)',
+          variables: [
+            Variable.withString(id),
+            Variable.withString(homeworkId),
+            Variable.withString(studentId),
+          ],
+        )
+        .getSingleOrNull();
+
+    if (existing != null) {
+      final existingStatus = existing.data['status']?.toString();
+      final existingSubmittedAt =
+          existing.data['submitted_at']?.toString() ?? '';
+      if (existingStatus == 'PENDING_SYNC') {
+        try {
+          final localTime = DateTime.parse(existingSubmittedAt);
+          final remoteTime = DateTime.parse(submittedAt);
+          if (!remoteTime.isAfter(localTime)) {
+            // Local offline modification is fresher, retain local submission
+            return;
+          }
+        } catch (_) {
+          return;
+        }
+      }
+    }
+
+    await driftDb.customInsert(
+      'INSERT OR REPLACE INTO offline_homework_submissions (id, homework_id, student_id, content, attachments, submitted_at, status, grade, feedback) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      variables: [
+        Variable.withString(id),
+        Variable.withString(homeworkId),
+        Variable.withString(studentId),
+        Variable<String>(content),
+        Variable.withString(attachments),
+        Variable.withString(submittedAt),
+        Variable.withString(status),
+        Variable<String>(grade),
+        Variable<String>(feedback),
+      ],
+    );
   }
 
   // ── Educational Blogs & Discourse (P3-S11) ──────────────────────────

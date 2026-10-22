@@ -10,7 +10,6 @@
   "FIREBASE_PROJECT_ID": "<firebase-project-id>",
   "FIREBASE_MESSAGING_SENDER_ID": "<firebase-messaging-sender-id>",
   "FIREBASE_APP_ID": "<firebase-app-id>",
-  "ENCRYPTION_KEY": "<256-bit-aes-encryption-key-base64>",
   "OFFLINE_LICENSE_KEY_ID": "edulanka-offline-v1",
   "OFFLINE_LICENSE_PUBLIC_KEY": "<ed25519-public-key-base64>",
   "SYNCFUSION_LICENSE_KEY": "<syncfusion-license-key>"
