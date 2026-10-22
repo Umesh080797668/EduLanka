@@ -11,7 +11,7 @@ export enum GrantEventType {
     GRANTED = 'GRANTED',
     EXPIRY_WARNING = 'EXPIRY_WARNING',
     EXPIRED = 'EXPIRED',
-    MANUAL_REVOKED = 'MANUAL_REVOKED',
+    MANUAL_REVOKE = 'MANUAL_REVOKE',
 }
 
 export interface SponsorshipPool {

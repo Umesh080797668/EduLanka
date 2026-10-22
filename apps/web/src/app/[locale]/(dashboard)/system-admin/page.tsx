@@ -7,6 +7,7 @@ import {
   BookOpenCheck,
   Building2,
   Network,
+  PiggyBank,
   RadioTower,
   RefreshCw,
   Send,
@@ -35,6 +36,7 @@ const QUICK_LINKS = [
   { href: '/system-admin/tenants', icon: Building2, key: 'quickTenants', id: 'nav-tenants' },
   { href: '/system-admin/users', icon: Users, key: 'quickUsers', id: 'nav-users' },
   { href: '/system-admin/audit-logs', icon: Shield, key: 'quickAudit', id: 'nav-audit' },
+  { href: '/system-admin/sponsorships', icon: PiggyBank, key: 'quickSponsorships', id: 'nav-sponsorships' },
 ] as const;
 
 interface TutorialStat {
@@ -315,10 +317,10 @@ export default function SystemAdminDashboard() {
                   <span className="text-foreground font-mono font-medium">
                     {observabilityStats.uptime_seconds
                       ? t('uptimeFormat', {
-                          hours: Math.floor(observabilityStats.uptime_seconds / 3600),
-                          minutes: Math.floor((observabilityStats.uptime_seconds % 3600) / 60),
-                          seconds: Math.floor(observabilityStats.uptime_seconds % 60),
-                        })
+                        hours: Math.floor(observabilityStats.uptime_seconds / 3600),
+                        minutes: Math.floor((observabilityStats.uptime_seconds % 3600) / 60),
+                        seconds: Math.floor(observabilityStats.uptime_seconds % 60),
+                      })
                       : '—'}
                   </span>
                 </div>

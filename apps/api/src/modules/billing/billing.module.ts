@@ -4,6 +4,7 @@ import { SupabaseModule } from '../supabase/supabase.module';
 import { BillingController } from './billing.controller';
 import { BillingProcessor, BILLING_QUEUE_NAME } from './billing.processor';
 import { BillingService } from './billing.service';
+import { SponsorshipService } from './sponsorship.service';
 
 import { AccountLockGuard } from '../../common/guards/account-lock.guard';
 
@@ -15,7 +16,7 @@ import { AccountLockGuard } from '../../common/guards/account-lock.guard';
         SupabaseModule,
     ],
     controllers: [BillingController],
-    providers: [BillingService, BillingProcessor, AccountLockGuard],
-    exports: [BillingService, AccountLockGuard],
+    providers: [BillingService, SponsorshipService, BillingProcessor, AccountLockGuard],
+    exports: [BillingService, SponsorshipService, AccountLockGuard],
 })
 export class BillingModule { }

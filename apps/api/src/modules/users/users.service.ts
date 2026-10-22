@@ -67,13 +67,20 @@ export class UsersService {
                 .eq('user_id', caller.sub)
                 .maybeSingle();
 
-            const { data: grant } = await this.supabase.adminClient
-                .from('sponsored_grants')
-                .select('*')
-                .eq('beneficiary_type', 'INDEPENDENT_LEARNER')
-                .eq('beneficiary_id', learner?.id || caller.sub)
-                .eq('is_active', true)
-                .maybeSingle();
+            // Query sponsored grant using learner.id as beneficiary_id.
+            // The RLS policy "beneficiary_read_grants" sub-selects independent_learners by JWT sub,
+            // so beneficiary_id must be independent_learners.id (not users.id).
+            // If no learner profile exists yet, skip the grant query.
+            const grant = learner
+                ? await this.supabase.adminClient
+                    .from('sponsored_grants')
+                    .select('*')
+                    .eq('beneficiary_type', 'INDEPENDENT_LEARNER')
+                    .eq('beneficiary_id', learner.id)
+                    .eq('is_active', true)
+                    .maybeSingle()
+                    .then((r) => r.data)
+                : null;
 
             return {
                 ...user,

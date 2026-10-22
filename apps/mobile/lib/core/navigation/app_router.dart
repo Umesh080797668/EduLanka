@@ -8,6 +8,7 @@ import '../../features/home/admin_home.dart';
 import '../../features/home/student_home.dart';
 import '../../features/home/teacher_home.dart';
 import '../../features/home/parent_home.dart';
+import '../../features/home/independent_learner_home.dart';
 import '../../features/papers/paper_viewer_screen.dart';
 import '../../features/papers/paper_hub_list_screen.dart';
 import '../../features/video/video_player_screen.dart';
@@ -46,6 +47,8 @@ String _homeForRole(String? role) {
       return '/teacher';
     case 'PARENT':
       return '/parent';
+    case 'INDEPENDENT_LEARNER':
+      return '/independent-learner';
     case 'STUDENT':
     default:
       return '/student';
@@ -75,6 +78,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/parent',
         builder: (context, state) => const ParentHomeScreen(),
+      ),
+      GoRoute(
+        path: '/independent-learner',
+        builder: (context, state) => const IndependentLearnerHomeScreen(),
       ),
       GoRoute(
         path: '/paper-viewer',
@@ -211,6 +218,12 @@ final routerProvider = Provider<GoRouter>((ref) {
           role != 'STUDENT' &&
           role != 'SUPER_ADMIN' &&
           role != 'SCHOOL_ADMIN') {
+        return _homeForRole(role);
+      }
+
+      if (path.startsWith('/independent-learner') &&
+          role != 'INDEPENDENT_LEARNER' &&
+          role != 'SUPER_ADMIN') {
         return _homeForRole(role);
       }
 

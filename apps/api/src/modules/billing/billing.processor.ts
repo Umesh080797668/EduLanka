@@ -2,6 +2,7 @@ import { Processor, WorkerHost, InjectQueue } from '@nestjs/bullmq';
 import { Logger, OnApplicationBootstrap } from '@nestjs/common';
 import { Job, Queue } from 'bullmq';
 import { BillingService } from './billing.service';
+import { SponsorshipService } from './sponsorship.service';
 
 export const BILLING_QUEUE_NAME = 'billing-queue';
 
@@ -11,6 +12,7 @@ export class BillingProcessor extends WorkerHost implements OnApplicationBootstr
 
     constructor(
         private readonly billingService: BillingService,
+        private readonly sponsorshipService: SponsorshipService,
         @InjectQueue(BILLING_QUEUE_NAME) private readonly billingQueue: Queue,
     ) {
         super();
@@ -51,10 +53,13 @@ export class BillingProcessor extends WorkerHost implements OnApplicationBootstr
         if (job.name === 'nightly-billing-snapshot' || job.name === 'generate-snapshot') {
             const overdueCount = await this.billingService.processOverdueInvoices();
             const result = await this.billingService.generateBillingSnapshots(job.data?.billingMonth);
+            // Automated expiry downgrade for sponsored grants
+            const expiredGrantCount = await this.sponsorshipService.processExpiredGrants();
             return {
                 success: true,
                 count: result.length,
                 overdueProcessed: overdueCount,
+                expiredGrantsProcessed: expiredGrantCount,
                 billingMonth: job.data?.billingMonth || new Date().toISOString().slice(0, 7),
             };
         }

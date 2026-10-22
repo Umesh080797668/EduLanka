@@ -71,6 +71,51 @@ export const DEFAULT_PLAN_FEATURES: Record<string, string[]> = {
         PlanFeature.TEACHER_ANALYTICS,
         PlanFeature.SMART_TIMETABLE,
     ],
+    // ── Independent Learner tiers (Blueprint §7d) ─────────────────────────────
+    // FREE_INDIVIDUAL: 5 AI queries/day, 200 MB storage
+    FREE_INDIVIDUAL: [
+        PlanFeature.AI_ASSISTANT,
+        PlanFeature.PAPER_HUB,
+    ],
+    // INDIVIDUAL_PRO: LKR 299/mo, 20,000 AI tokens/month, 2 GB storage
+    INDIVIDUAL_PRO: [
+        PlanFeature.AI_ASSISTANT,
+        PlanFeature.PAPER_HUB,
+        PlanFeature.OFFLINE_SYNC,
+        PlanFeature.VIDEO_HOSTING,
+    ],
+    // INDIVIDUAL_PREMIUM: LKR 599/mo, 60,000 AI tokens/month, 8 GB storage
+    INDIVIDUAL_PREMIUM: [
+        PlanFeature.AI_ASSISTANT,
+        PlanFeature.PAPER_HUB,
+        PlanFeature.OFFLINE_SYNC,
+        PlanFeature.VIDEO_HOSTING,
+        PlanFeature.EARLY_WARNING,
+        PlanFeature.EXAM_PREDICTION,
+    ],
+};
+
+/** Quota limits per individual learner plan (Blueprint §7d) */
+export const INDIVIDUAL_PLAN_QUOTAS: Record<string, {
+    aiQueriesPerDay: number;
+    aiTokensPerMonth: number;
+    storageMb: number;
+}> = {
+    FREE_INDIVIDUAL: {
+        aiQueriesPerDay: 5,
+        aiTokensPerMonth: 0,   // daily-query model, not token-based
+        storageMb: 200,
+    },
+    INDIVIDUAL_PRO: {
+        aiQueriesPerDay: Infinity,
+        aiTokensPerMonth: 20_000,
+        storageMb: 2_048,
+    },
+    INDIVIDUAL_PREMIUM: {
+        aiQueriesPerDay: Infinity,
+        aiTokensPerMonth: 60_000,
+        storageMb: 8_192,
+    },
 };
 
 @Injectable()
@@ -145,6 +190,64 @@ export class PlanFeaturesService {
     async assertTenantFeature(tenantId: string, feature: PlanFeature | string, customMessage?: string): Promise<void> {
         const plan = await this.getTenantPlan(tenantId);
         this.assertFeature(plan, feature, customMessage);
+    }
+
+    /**
+     * Enforces Blueprint §7d per-plan quotas for Independent Learner AI queries.
+     * Throws ForbiddenException when the daily (FREE_INDIVIDUAL) or monthly
+     * (INDIVIDUAL_PRO / INDIVIDUAL_PREMIUM) AI quota would be exceeded.
+     *
+     * @param plan          - The learner's IndividualPlan code
+     * @param userId        - The public.users.id (used as Redis quota key)
+     * @param redisClient   - An ioredis-compatible client for atomic quota ops
+     */
+    async assertIndividualAiQuota(
+        plan: string,
+        userId: string,
+        redisClient: { get: (key: string) => Promise<string | null>; incr: (key: string) => Promise<number>; expire: (key: string, seconds: number) => Promise<number> },
+    ): Promise<void> {
+        const quotas = INDIVIDUAL_PLAN_QUOTAS[plan];
+        if (!quotas) {
+            // Unknown individual plan — fail closed
+            throw new ForbiddenException(`Unknown individual plan: ${plan}`);
+        }
+
+        if (!this.isFeatureEnabled(plan, PlanFeature.AI_ASSISTANT)) {
+            throw new ForbiddenException('AI Assistant is not available on your current plan.');
+        }
+
+        const normalizedPlan = plan.toUpperCase();
+
+        if (normalizedPlan === 'FREE_INDIVIDUAL') {
+            // Daily limit: 5 AI queries per UTC day
+            const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+            const key = `edulanka:ai:daily:${userId}:${today}`;
+            const current = await redisClient.get(key);
+            const count = current ? parseInt(current, 10) : 0;
+            if (count >= quotas.aiQueriesPerDay) {
+                throw new ForbiddenException(
+                    `FREE_INDIVIDUAL plan limit reached: ${quotas.aiQueriesPerDay} AI queries per day. Upgrade to Individual Pro for 20,000 tokens/month.`,
+                );
+            }
+            const newCount = await redisClient.incr(key);
+            if (newCount === 1) {
+                // Set TTL to midnight of the next UTC day (86400 s max)
+                await redisClient.expire(key, 86400);
+            }
+        } else {
+            // Monthly token limit for PRO / PREMIUM — enforcement is best-effort at this layer;
+            // the AI gateway must track actual token consumption. This guard is a pre-flight check.
+            const month = new Date().toISOString().slice(0, 7); // YYYY-MM
+            const key = `edulanka:ai:monthly_tokens:${userId}:${month}`;
+            const current = await redisClient.get(key);
+            const used = current ? parseInt(current, 10) : 0;
+            if (used >= quotas.aiTokensPerMonth) {
+                throw new ForbiddenException(
+                    `Monthly AI token quota exhausted for plan ${normalizedPlan} (${quotas.aiTokensPerMonth.toLocaleString()} tokens/month). ` +
+                    `Quota resets on the 1st of next month or upgrade to Individual Premium.`,
+                );
+            }
+        }
     }
 
     /**

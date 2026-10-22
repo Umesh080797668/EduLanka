@@ -2,6 +2,8 @@ import { Injectable, Logger, NotFoundException, BadRequestException, InternalSer
 import { ConfigService } from '@nestjs/config';
 import { SupabaseService } from '../supabase/supabase.service';
 import { calculateActiveStudentFee, BillingSnapshotRecord, UnpaidInvoicePolicyStatus } from './billing.types';
+import type { JwtPayload } from '@edu-lanka/shared-types';
+import { IndividualCheckoutDto } from './dto/individual-checkout.dto';
 
 @Injectable()
 export class BillingService {
@@ -472,5 +474,177 @@ export class BillingService {
         this.clearTenantLockCache();
         this.logger.log(`Transitioned ${ids.length} invoices to OVERDUE status`);
         return ids.length;
+    }
+
+    /**
+     * Self-service checkout for independent learner tier upgrades (Blueprint §7d).
+     *
+     * ARCHITECTURE NOTE:
+     * Currently runs on a secure Sandbox Gateway Stub (CheckoutProvider.STUB_GATEWAY).
+     * In Phase 4 / Sprint 8, this stub will be swapped for a production Sri Lankan
+     * payment gateway (PayHere IPG / Stripe Sri Lanka Checkout) with automated webhook
+     * callbacks (/billing/webhooks/payhere), card tokenization, and recurring billing.
+     */
+    async processIndividualCheckout(
+        dto: IndividualCheckoutDto,
+        caller: JwtPayload,
+    ) {
+        const admin = this.supabase.adminClient;
+
+        // 1. Fetch learner profile
+        const { data: learner, error: learnerErr } = await admin
+            .from('independent_learners')
+            .select('*')
+            .eq('user_id', caller.sub)
+            .maybeSingle();
+
+        if (learnerErr || !learner) {
+            throw new NotFoundException('Independent learner profile not found for this account.');
+        }
+
+        // 2. Prevent redundant upgrade if already on the requested tier
+        if (learner.plan === dto.plan) {
+            throw new BadRequestException(`You are already subscribed to the ${dto.plan} tier.`);
+        }
+
+        // 3. Pricing Matrix (Blueprint §7d)
+        // INDIVIDUAL_PRO: LKR 299/mo (or 2,990/yr)
+        // INDIVIDUAL_PREMIUM: LKR 599/mo (or 5,990/yr)
+        const isAnnual = dto.billingCycle === 'ANNUAL';
+        let amountLkr = 0;
+        if (dto.plan === 'INDIVIDUAL_PRO') {
+            amountLkr = isAnnual ? 2990 : 299;
+        } else if (dto.plan === 'INDIVIDUAL_PREMIUM') {
+            amountLkr = isAnnual ? 5990 : 599;
+        }
+
+        // 4. Sandbox Gateway Stub Execution
+        // Generates simulated transaction reference and checkout metadata
+        const transactionRef = `TXN-STUB-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
+        const checkoutSessionId = `cs_stub_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+
+        // 5. Update learner plan in database
+        const { data: updated, error: updateErr } = await admin
+            .from('independent_learners')
+            .update({
+                plan: dto.plan,
+                updated_at: new Date().toISOString(),
+            })
+            .eq('id', learner.id)
+            .select()
+            .single();
+
+        if (updateErr) {
+            this.logger.error(`Failed to upgrade independent learner plan: ${updateErr.message}`);
+            throw new InternalServerErrorException('Failed to activate plan upgrade');
+        }
+
+        this.logger.log(
+            `Independent learner ${learner.id} (user ${caller.sub}) upgraded from ${learner.plan} to ${dto.plan} (amount: LKR ${amountLkr}, txn: ${transactionRef}) via STUB_GATEWAY`,
+        );
+
+        return {
+            success: true,
+            provider: 'STUB_GATEWAY',
+            notice: 'Payment completed via Sandbox Gateway Stub. Live PayHere / Stripe Sri Lanka IPG will be activated in Phase 4 / Sprint 8.',
+            transactionId: transactionRef,
+            checkoutSessionId,
+            plan: dto.plan,
+            previousPlan: learner.plan,
+            amountLkr,
+            currency: 'LKR',
+            billingCycle: dto.billingCycle || 'MONTHLY',
+            upgradedAt: new Date().toISOString(),
+            learner: updated,
+        };
+    }
+
+    /**
+     * Retrieves current subscription tier, quota allowances, and pricing matrix for an independent learner.
+     */
+    async getIndividualSubscription(caller: JwtPayload) {
+        const admin = this.supabase.adminClient;
+
+        const { data: learner, error: learnerErr } = await admin
+            .from('independent_learners')
+            .select('*')
+            .eq('user_id', caller.sub)
+            .maybeSingle();
+
+        if (learnerErr || !learner) {
+            throw new NotFoundException('Independent learner profile not found.');
+        }
+
+        const { data: grant } = await admin
+            .from('sponsored_grants')
+            .select('*')
+            .eq('beneficiary_type', 'INDEPENDENT_LEARNER')
+            .eq('beneficiary_id', learner.id)
+            .eq('is_active', true)
+            .maybeSingle();
+
+        return {
+            currentPlan: learner.plan,
+            learnerType: learner.learner_type,
+            candidateLevel: learner.candidate_level,
+            stream: learner.stream,
+            activeGrant: grant ? {
+                fromPlan: grant.from_plan,
+                toPlan: grant.to_plan,
+                expiresAt: grant.expires_at,
+                notes: grant.notes,
+            } : null,
+            availablePlans: [
+                {
+                    plan: 'FREE_INDIVIDUAL',
+                    name: 'Free Individual',
+                    priceMonthlyLkr: 0,
+                    priceAnnualLkr: 0,
+                    aiQuota: '5 AI queries / day',
+                    storageQuota: '200 MB',
+                    features: [
+                        'Platform-wide Resource Hub (read)',
+                        'Full Paper Hub access (past papers + marking schemes)',
+                        'Offline paper & resource sync on mobile',
+                        'Platform blog reading & comments/reactions',
+                    ],
+                },
+                {
+                    plan: 'INDIVIDUAL_PRO',
+                    name: 'Individual Pro',
+                    priceMonthlyLkr: 299,
+                    priceAnnualLkr: 2990,
+                    aiQuota: '20,000 AI tokens / month',
+                    storageQuota: '2 GB',
+                    features: [
+                        'Everything in Free Individual',
+                        'Full unlimited AI Academic Assistant (Qwen RAG, subject-stream scoped)',
+                        'Offline video lesson downloads (AES-256 encrypted)',
+                        'Priority content indexing & ad-free experience',
+                        'Personalised Exam Prediction signals',
+                    ],
+                },
+                {
+                    plan: 'INDIVIDUAL_PREMIUM',
+                    name: 'Individual Premium',
+                    priceMonthlyLkr: 599,
+                    priceAnnualLkr: 5990,
+                    aiQuota: '60,000 AI tokens / month',
+                    storageQuota: '8 GB',
+                    features: [
+                        'Everything in Individual Pro',
+                        'Higher AI token allowance (60,000 tokens/month)',
+                        'Extended 8 GB offline video and paper storage',
+                        'Early access to new syllabus revisions and mock exams',
+                        'Inclusion in National Independent-Learner Leaderboard',
+                    ],
+                },
+            ],
+            gatewayStatus: {
+                provider: 'STUB_GATEWAY',
+                isProduction: false,
+                notice: 'Sandbox mode active. Real PayHere / Stripe gateway integration planned for Phase 4 / Sprint 8.',
+            },
+        };
     }
 }

@@ -22,6 +22,7 @@ import {
     MessagesSquare,
     Newspaper,
     PanelLeftOpen,
+    PiggyBank,
     Server,
     Settings,
     Shield,
@@ -194,6 +195,7 @@ const NAV: Record<Role, NavSection[]> = {
         {
             titleKey: 'sectionCommunication',
             items: [
+                { nameKey: 'sponsorships', href: '/system-admin/sponsorships', icon: PiggyBank },
                 { nameKey: 'smsGateway', href: '/system-admin/sms', icon: MessageSquare },
                 { nameKey: 'blogs', href: '/blogs', icon: Newspaper, id: 'nav-blogs' },
                 { nameKey: 'inquiries', href: '/system-admin/inquiries', icon: MessagesSquare },

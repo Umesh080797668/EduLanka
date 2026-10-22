@@ -283,5 +283,148 @@ describe('BillingService & Volume Discounts', () => {
             expect(count).toBe(1);
         });
     });
+
+    describe('Individual Learner Subscription & Checkout (§7d)', () => {
+        let service: BillingService;
+        let mockSupabase: any;
+
+        const caller = {
+            sub: 'user-ind-1',
+            role: 'INDEPENDENT_LEARNER',
+            tenantId: '',
+        } as any;
+
+        beforeEach(async () => {
+            mockSupabase = {
+                adminClient: {
+                    from: jest.fn(),
+                },
+            };
+
+            const module: TestingModule = await Test.createTestingModule({
+                providers: [
+                    BillingService,
+                    { provide: SupabaseService, useValue: mockSupabase },
+                    { provide: ConfigService, useValue: { get: jest.fn() } },
+                ],
+            }).compile();
+
+            service = module.get<BillingService>(BillingService);
+        });
+
+        it('should return subscription details and available plans', async () => {
+            mockSupabase.adminClient.from.mockImplementation((table: string) => {
+                if (table === 'independent_learners') {
+                    return {
+                        select: jest.fn().mockReturnValue({
+                            eq: jest.fn().mockReturnValue({
+                                maybeSingle: jest.fn().mockResolvedValue({
+                                    data: {
+                                        id: 'learner-1',
+                                        user_id: 'user-ind-1',
+                                        plan: 'FREE_INDIVIDUAL',
+                                        learner_type: 'OUT_OF_SCHOOL',
+                                        candidate_level: 'AL',
+                                        stream: 'SCIENCE',
+                                    },
+                                    error: null,
+                                }),
+                            }),
+                        }),
+                    };
+                }
+                if (table === 'sponsored_grants') {
+                    return {
+                        select: jest.fn().mockReturnValue({
+                            eq: jest.fn().mockReturnValue({
+                                eq: jest.fn().mockReturnValue({
+                                    eq: jest.fn().mockReturnValue({
+                                        maybeSingle: jest.fn().mockResolvedValue({ data: null, error: null }),
+                                    }),
+                                }),
+                            }),
+                        }),
+                    };
+                }
+                return {};
+            });
+
+            const res = await service.getIndividualSubscription(caller);
+            expect(res.currentPlan).toBe('FREE_INDIVIDUAL');
+            expect(res.availablePlans).toHaveLength(3);
+            expect(res.gatewayStatus.provider).toBe('STUB_GATEWAY');
+        });
+
+        it('should successfully upgrade individual learner tier via STUB_GATEWAY', async () => {
+            mockSupabase.adminClient.from.mockImplementation((table: string) => {
+                if (table === 'independent_learners') {
+                    return {
+                        select: jest.fn().mockReturnValue({
+                            eq: jest.fn().mockReturnValue({
+                                maybeSingle: jest.fn().mockResolvedValue({
+                                    data: {
+                                        id: 'learner-1',
+                                        user_id: 'user-ind-1',
+                                        plan: 'FREE_INDIVIDUAL',
+                                    },
+                                    error: null,
+                                }),
+                            }),
+                        }),
+                        update: jest.fn().mockReturnValue({
+                            eq: jest.fn().mockReturnValue({
+                                select: jest.fn().mockReturnValue({
+                                    single: jest.fn().mockResolvedValue({
+                                        data: {
+                                            id: 'learner-1',
+                                            user_id: 'user-ind-1',
+                                            plan: 'INDIVIDUAL_PRO',
+                                        },
+                                        error: null,
+                                    }),
+                                }),
+                            }),
+                        }),
+                    };
+                }
+                return {};
+            });
+
+            const res = await service.processIndividualCheckout(
+                { plan: 'INDIVIDUAL_PRO', billingCycle: 'MONTHLY' },
+                caller,
+            );
+
+            expect(res.success).toBe(true);
+            expect(res.provider).toBe('STUB_GATEWAY');
+            expect(res.plan).toBe('INDIVIDUAL_PRO');
+            expect(res.amountLkr).toBe(299);
+            expect(res.transactionId).toContain('TXN-STUB');
+        });
+
+        it('should reject upgrade if learner already holds the target plan', async () => {
+            mockSupabase.adminClient.from.mockImplementation(() => ({
+                select: jest.fn().mockReturnValue({
+                    eq: jest.fn().mockReturnValue({
+                        maybeSingle: jest.fn().mockResolvedValue({
+                            data: {
+                                id: 'learner-1',
+                                user_id: 'user-ind-1',
+                                plan: 'INDIVIDUAL_PRO',
+                            },
+                            error: null,
+                        }),
+                    }),
+                }),
+            }));
+
+            await expect(
+                service.processIndividualCheckout(
+                    { plan: 'INDIVIDUAL_PRO', billingCycle: 'MONTHLY' },
+                    caller,
+                ),
+            ).rejects.toThrow('already subscribed');
+        });
+    });
 });
 

@@ -352,6 +352,16 @@ Independent learners (out-of-school students, private O/L & A/L candidates, home
 - **EduLanka Sponsored Growth** can upgrade individual learners from Free Individual → Individual Pro or Individual Premium for a month or a year, funded from the platform's profit pool (see §9). Sponsored grants are tracked in `public.sponsored_grants` with `beneficiary_type = 'INDEPENDENT_LEARNER'`.
 - SMS notifications are not applicable to individual learners (no school-level Disaster Mode or parent-broadcast context). Push notifications via FCM are included for free.
 
+> [!NOTE]
+> **Payment Gateway Architecture & Sandbox Stub (Self-Service Checkout):**
+> Self-service upgrades for independent learners (Free Individual → Individual Pro @ LKR 299/month, Individual Premium @ LKR 599/month) are currently implemented with a dedicated NestJS API checkout engine using a secure Sandbox Gateway Stub (`CheckoutProvider.STUB_GATEWAY` at `/billing/individual/checkout`).
+>
+> In Phase 4 / Sprint 8, this stub will be seamlessly upgraded to a production Sri Lankan payment gateway integration (such as PayHere IPG or Stripe Sri Lanka Checkout) featuring:
+> - Automated payment intent authorization and server-to-server webhook callbacks (`/billing/webhooks/payhere` or `/billing/webhooks/stripe`).
+> - Recurring monthly tokenized billing mandates (card on file) with automated retry rules.
+> - Automated LKR VAT / tax invoice generation and customer portal management.
+> - Instant plan entitlement activation upon signature-verified webhook acknowledgment.
+
 ### 7c. Billing Mechanics (Implementation Note)
 
 - **Active student count is cheap to compute.** Under the shared-schema model (§4a), it's a single query: `SELECT tenant_id, count(*) FROM public.students WHERE is_active = true GROUP BY tenant_id` — one pass across all tenants instead of N per-schema round-trips.

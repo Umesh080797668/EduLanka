@@ -176,12 +176,16 @@ export class StudentsService {
             if (studentErr) {
                 await this.supabase.adminClient.auth.admin.deleteUser(authUid);
                 if (studentErr.code === '23505') throw new ConflictException('Admission number already exists');
-                // Match both old 'cap exceeded' and new 'tier limit exceeded' trigger message format
+                // P0001: raised by enforce_student_cap() trigger when the 75-student Community cap is hit
                 if (
+                    studentErr.code === 'P0001' ||
+                    studentErr.message?.toLowerCase().includes('community tier limit reached') ||
                     studentErr.message?.toLowerCase().includes('cap exceeded') ||
                     studentErr.message?.toLowerCase().includes('tier limit exceeded')
                 ) {
-                    throw new ForbiddenException(studentErr.message);
+                    throw new ConflictException(
+                        'Community tier limit reached (75 active students max). Please upgrade to the Starter plan.',
+                    );
                 }
                 this.logger.error(`Failed to enroll student: ${studentErr.message}`);
                 throw new InternalServerErrorException('Failed to enroll student: ' + studentErr.message);

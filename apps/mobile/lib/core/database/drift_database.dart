@@ -303,12 +303,27 @@ class AppDriftDatabase extends GeneratedDatabase {
               }
 
               if (!encryptionActive) {
-                // If native cipher extensions are not dynamically linked in the Flutter build,
-                // log a diagnostic warning instead of throwing fatal StateError, allowing
-                // standard SQLite execution without bricking startup.
+                try {
+                  final mcCheck = rawDb.select('PRAGMA mc_version;');
+                  if (mcCheck.isNotEmpty &&
+                      mcCheck.first.values.isNotEmpty &&
+                      mcCheck.first.values.first != null &&
+                      mcCheck.first.values.first.toString().isNotEmpty) {
+                    encryptionActive = true;
+                  }
+                } catch (_) {}
+              }
+
+              if (!encryptionActive) {
+                if (kReleaseMode) {
+                  throw StateError(
+                    'SECURITY VIOLATION: SQLite database encryption (SQLCipher / SQLite3MultipleCiphers) '
+                    'is mandatory in release builds (ADR-005) but native extension was not initialized.',
+                  );
+                }
                 debugPrint(
                   'EduLanka SQLite Notice: SQLCipher / SQLite3MultipleCiphers native extension not detected. '
-                  'Continuing with standard SQLite engine.',
+                  'Continuing with standard SQLite engine (debug only).',
                 );
               }
             },

@@ -665,15 +665,34 @@ export class AuthService {
                 throw new InternalServerErrorException('Failed to register independent learner: ' + insertError?.message);
             }
 
-            try {
-                await this.supabaseService.adminClient.from('independent_learners').insert({
+            const { error: profileInsertError } = await this.supabaseService.adminClient
+                .from('independent_learners')
+                .insert({
                     user_id: newUser.id,
                     learner_type: 'OUT_OF_SCHOOL',
                     plan: 'FREE_INDIVIDUAL',
                     is_active: true,
                 });
-            } catch (err: any) {
-                this.logger.warn(`Could not create independent learner profile: ${err.message}`);
+
+            if (profileInsertError) {
+                // Profile creation failed — roll back the public.users row and the auth user to avoid orphans
+                try {
+                    await this.supabaseService.adminClient
+                        .from('users')
+                        .delete()
+                        .eq('id', newUser.id);
+                } catch (e: any) {
+                    this.logger.error(`Rollback users row failed: ${e?.message}`);
+                }
+                try {
+                    await this.supabaseService.adminClient.auth.admin.deleteUser(authUid);
+                } catch (e: any) {
+                    this.logger.error(`Rollback auth user failed: ${e?.message}`);
+                }
+                this.logger.error(`Independent learner profile insert failed: ${profileInsertError.message}`);
+                throw new InternalServerErrorException(
+                    'Failed to create independent learner profile. Registration rolled back.',
+                );
             }
 
             const tokens = await this.issueTokenPair({
